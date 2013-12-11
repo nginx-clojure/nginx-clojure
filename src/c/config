@@ -1,0 +1,16 @@
+ngx_addon_name=ngx_http_clojure_module
+HTTP_MODULES="$HTTP_MODULES ngx_http_clojure_module"
+NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
+		$ngx_addon_dir/ngx_http_clojure_mem.c \
+    $ngx_addon_dir/ngx_http_clojure_jvm.c \
+    $ngx_addon_dir/ngx_http_clojure_module.c \
+"
+NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
+    $ngx_addon_dir/ngx_http_clojure_jvm.h \
+    $ngx_addon_dir/ngx_http_clojure_mem.h \
+"
+CFLAGS="-std=c99 -g -O0 \
+        -I/usr/lib/jvm/java-7-oracle/include \
+        -I/usr/lib/jvm/java-7-oracle/include/linux \
+        $CFLAGS"
+CORE_LIBS="$CORE_LIBS -ldl"
