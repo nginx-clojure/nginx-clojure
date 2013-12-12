@@ -24,6 +24,8 @@ public class MemoryUtil {
 	public static long NGX_HTTP_CLOJURE_PTR_SIZE;
 	public static int  NGX_HTTP_CLOJURE_SIZET_SIZE_IDX = 2;
 	public static long NGX_HTTP_CLOJURE_SIZET_SIZE;
+	public static int   NGX_HTTP_CLOJURE_OFFT_SIZE_IDX = 3;
+	public static long NGX_HTTP_CLOJURE_OFFT_SIZE;
 	
 	/* index for size of ngx_str_t */
 	public static int NGX_HTTP_CLOJURE_STR_SIZE_IDX = 8;
@@ -183,6 +185,7 @@ public class MemoryUtil {
 		NGX_HTTP_CLOJURE_STR_LEN_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_STR_LEN_IDX];
 		NGX_HTTP_CLOJURE_STR_DATA_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_STR_DATA_IDX];
 		NGX_HTTP_CLOJURE_SIZET_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_SIZET_SIZE_IDX];
+		NGX_HTTP_CLOJURE_OFFT_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_OFFT_SIZE_IDX];
 		
 		NGX_HTTP_CLOJURE_TELT_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_TELT_SIZE_IDX];
 		NGX_HTTP_CLOJURE_TELT_HASH_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_TELT_HASH_IDX];
@@ -258,6 +261,14 @@ public class MemoryUtil {
 		}
 	}
 	
+	public static final void pushNGXOfft(long address, int val){
+		if (NGX_HTTP_CLOJURE_OFFT_SIZE == 4){
+			unsafe.putInt(address, val);
+		}else {
+			unsafe.putLong(address, val);
+		}
+	}
+	
 	
 	//TODO: for better performance to use direct encoder instead of bytes copy
 	public static final String fetchString(long address, int size, Charset encoding) {
@@ -294,7 +305,7 @@ public class MemoryUtil {
 			put(URI, fetchNGXString(r + NGX_HTTP_CLOJURE_REQ_URI_OFFSET, DEFAULT_ENCODING));
 			int methodIdx = 0;
 			int methodCode = fetchNGXInt(r + NGX_HTTP_CLOJURE_REQ_METHOD_OFFSET);
-			while (methodCode > 0) {
+			while (methodCode > 1) {
 				methodCode = methodCode >> 1;
 				methodIdx ++;
 			}
@@ -336,24 +347,33 @@ public class MemoryUtil {
 				contentType = "text/html; charset=UTF-8";
 			}
 			pushNGXString(headers_out + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_OFFSET, contentType, DEFAULT_ENCODING, pool);
-			int rc = (int)ngx_http_send_header(r);
-			if (rc == NGX_ERROR || rc > NGX_OK){
-				return rc;
-			}
+			
 			Object body = resp.get(BODY);
-			long chain = ngx_palloc(pool, NGX_HTTP_CLOJURE_CHAIN_SIZE);
+			
 			long b = 0;
 			if (body instanceof String) {
 				String bodyStr = (String) body;
 				byte[] bytes = bodyStr.getBytes(DEFAULT_ENCODING);
+				pushNGXOfft(headers_out + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_LENGTH_N_OFFSET, bytes.length);
 				b = ngx_create_temp_buf(pool, bytes.length);
 				ngx_http_clojure_mem_init_ngx_buf(b, bytes, BYTE_ARRAY_OFFSET, bytes.length, 1);
 			}else if (body instanceof File) {
+				if (! ((File)body).exists() ) {
+					return 400;
+				}
 				byte[] bytes = ((File)body).getPath().getBytes();
-				long file = ngx_palloc(pool, bytes.length);
+				long file = ngx_pcalloc(pool, bytes.length+1);
 				ngx_http_clojure_mem_copy_to_addr(bytes, BYTE_ARRAY_OFFSET, file, bytes.length);
-				b = ngx_create_file_buf(rc, file, bytes.length);
+				b = ngx_create_file_buf(r, file, bytes.length);
+				if (b == 0){
+					return 500;
+				}
 			}
+			int rc = (int)ngx_http_send_header(r);
+			if (rc == NGX_ERROR || rc > NGX_OK){
+				return rc;
+			}
+			long chain = ngx_palloc(pool, NGX_HTTP_CLOJURE_CHAIN_SIZE);
 			unsafe.putAddress(chain + NGX_HTTP_CLOJURE_CHAIN_BUF_OFFSET, b);
 			unsafe.putAddress(chain + NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET, 0);
 			return (int)ngx_http_output_filter(r, chain);

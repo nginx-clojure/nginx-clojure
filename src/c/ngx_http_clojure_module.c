@@ -14,6 +14,8 @@ static void* ngx_http_clojure_create_loc_conf(ngx_conf_t *cf);
 
 static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child);
 
+#define NGX_HTTP_CLOJURE_VER "0.0.1_b004"
+
 typedef struct {
     ngx_array_t *jvm_options;
     ngx_str_t jvm_path;
@@ -136,6 +138,7 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  
     		return NGX_HTTP_INTERNAL_SERVER_ERROR;
     	}
     }
+    return NGX_HTTP_CLOJURE_JVM_OK;
 }
 
 
@@ -145,12 +148,12 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 	conf->jvm_options = prev->jvm_options;
 	conf->jvm_path = prev->jvm_path;
 
-	if (conf->enable) {
-		ngx_int_t rc = ngx_http_clojure_init_jvm_and_mem(conf, cf->log);
-		if (rc != NGX_HTTP_CLOJURE_JVM_OK){
-		    return NGX_CONF_ERROR;
-		}
-	}
+//	if (conf->enable) {
+//		ngx_int_t rc = ngx_http_clojure_init_jvm_and_mem(conf, cf->log);
+//		if (rc != NGX_HTTP_CLOJURE_JVM_OK){
+//		    return NGX_CONF_ERROR;
+//		}
+//	}
 
 	return NGX_CONF_OK;
 }
@@ -186,7 +189,12 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     	return rc;
     }
 
-    return ngx_http_clojure_eval(lcf->clojure_code_id, r);
+    rc = ngx_http_clojure_eval(lcf->clojure_code_id, r);
+
+    //for debug
+    //ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "finished one request \n==============================================================\n\n");
+
+    return rc;
 }
 
 static char* ngx_http_clojure(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
@@ -196,6 +204,8 @@ static char* ngx_http_clojure(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
 	clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
 	clcf->handler = ngx_http_clojure_handler;
 	lcf->enable = 1;
+
+	ngx_log_error(NGX_LOG_ERR, cf->log, 0, "VER: %s\n", NGX_HTTP_CLOJURE_VER);
 
 	return NGX_CONF_OK;
 }

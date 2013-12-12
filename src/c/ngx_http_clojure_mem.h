@@ -19,6 +19,9 @@
 #define NGX_HTTP_CLOJURE_SIZET_SIZE_IDX 2
 #define NGX_HTTP_CLOJURE_SIZET_SIZE sizeof(size_t)
 
+#define NGX_HTTP_CLOJURE_OFFT_SIZE_IDX 3
+#define NGX_HTTP_CLOJURE_OFFT_SIZE sizeof(off_t)
+
 /*index for size of ngx_str_t */
 #define NGX_HTTP_CLOJURE_STR_SIZE_IDX 8
 #define NGX_HTTP_CLOJURE_STR_SIZE sizeof(ngx_str_t)

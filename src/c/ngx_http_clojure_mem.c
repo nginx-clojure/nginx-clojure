@@ -24,8 +24,8 @@ static jlong JNICALL jni_ngx_create_temp_buf (JNIEnv *env, jclass cls, jlong poo
 
 static jlong JNICALL jni_ngx_create_file_buf (JNIEnv *env, jclass cls, jlong r, jlong file, jlong name_len) {
 	ngx_http_request_t *req = (ngx_http_request_t *) r;
-	ngx_buf_t *b = ngx_palloc(req->pool, sizeof(ngx_buf_t));
-	b->last_buf = 1;
+	ngx_buf_t *b = ngx_pcalloc(req->pool, sizeof(ngx_buf_t));
+//	b->last_buf = 1;
 	b->in_file = 1;
 	b->file = ngx_pcalloc(req->pool, sizeof(ngx_file_t));
 	b->file->fd = ngx_open_file((u_char *)file, NGX_FILE_RDONLY | NGX_FILE_NONBLOCK, NGX_FILE_OPEN, 0);
@@ -132,12 +132,14 @@ int ngx_http_clojure_init_memory_util() {
 	jmethodID mem_util_init_mid = (*env)->GetStaticMethodID(env, mem_util_class,"initMemIndex", "(J)V");
 	exception_handle(mem_util_init_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_OK);
 
+
 	MEM_INDEX[NGX_HTTP_CLOJURE_UINT_SIZE_IDX] = NGX_HTTP_CLOJURE_UINT_SIZE;
+	MEM_INDEX[NGX_HTTP_CLOJURE_PTR_SIZE_IDX] = NGX_HTTP_CLOJURE_PTR_SIZE;
 	MEM_INDEX[NGX_HTTP_CLOJURE_STR_SIZE_IDX] = 	NGX_HTTP_CLOJURE_STR_SIZE;
 	MEM_INDEX[NGX_HTTP_CLOJURE_STR_LEN_IDX] =	NGX_HTTP_CLOJURE_STR_LEN_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_STR_DATA_IDX] = NGX_HTTP_CLOJURE_STR_DATA_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_SIZET_SIZE_IDX] = NGX_HTTP_CLOJURE_SIZET_SIZE;
-
+	MEM_INDEX[NGX_HTTP_CLOJURE_OFFT_SIZE_IDX] = NGX_HTTP_CLOJURE_OFFT_SIZE;
 
 	MEM_INDEX[NGX_HTTP_CLOJURE_TELT_SIZE_IDX] = NGX_HTTP_CLOJURE_TELT_SIZE;
 	MEM_INDEX[NGX_HTTP_CLOJURE_TELT_HASH_IDX] = NGX_HTTP_CLOJURE_TELT_HASH_OFFSET;
@@ -167,7 +169,7 @@ int ngx_http_clojure_init_memory_util() {
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_CONTENT_LENGTH_N_IDX] = NGX_HTTP_CLOJURE_HEADERSO_CONTENT_LENGTH_N_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_IDX] = NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_OFFSET;
 
-	MEM_INDEX[NGX_HTTP_CLOJURE_PTR_SIZE_IDX] = NGX_HTTP_CLOJURE_PTR_SIZE;
+
 
 	(*env)->CallStaticVoidMethod(env, mem_util_class, mem_util_init_mid, MEM_INDEX);
 	return ngx_http_clojure_init_memory_util_flag = NGX_HTTP_CLOJURE_JVM_OK;
