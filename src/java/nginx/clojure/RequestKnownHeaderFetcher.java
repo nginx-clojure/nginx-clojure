@@ -41,7 +41,7 @@ public class RequestKnownHeaderFetcher implements RequestVarFetcher {
 				if (haddr == 0){
 					return null;
 				}
-				return fetchNGXString( + NGX_HTTP_CLOJURE_TELT_VALUE_OFFSET, DEFAULT_ENCODING);
+				return fetchNGXString(haddr + NGX_HTTP_CLOJURE_TELT_VALUE_OFFSET, DEFAULT_ENCODING);
 			}
 		}else {
 			byte[] kbs = name.getBytes();

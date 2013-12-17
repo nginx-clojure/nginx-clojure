@@ -14,7 +14,7 @@ static void* ngx_http_clojure_create_loc_conf(ngx_conf_t *cf);
 
 static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child);
 
-#define NGX_HTTP_CLOJURE_VER "0.0.1_b005"
+#define NGX_HTTP_CLOJURE_VER "0.0.1_b007"
 
 typedef struct {
     ngx_array_t *jvm_options;
@@ -156,6 +156,12 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 
 ngx_conf_t *ngx_http_clojure_global_ngx_conf;
 
+static void ngx_http_clojure_client_body_handler(ngx_http_request_t *r) {
+	ngx_http_clojure_loc_conf_t  *lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
+	int rc = ngx_http_clojure_eval(lcf->clojure_code_id, r);
+	ngx_http_finalize_request (r , rc);
+}
+
 static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     ngx_int_t     rc;
     ngx_buf_t    *b;
@@ -164,15 +170,15 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
 
 
     //only handle GET or HEAD, we have not support POST now.
-    if (!(r->method & (NGX_HTTP_GET|NGX_HTTP_HEAD))) {
-    	return NGX_HTTP_NOT_ALLOWED;
-    }
+//    if (!(r->method & (NGX_HTTP_GET|NGX_HTTP_HEAD))) {
+//    	return NGX_HTTP_NOT_ALLOWED;
+//    }
 
 
-    rc = ngx_http_discard_request_body(r);
-    if (rc != NGX_OK && rc != NGX_AGAIN) {
-        return rc;
-    }
+//    rc = ngx_http_discard_request_body(r);
+//    if (rc != NGX_OK && rc != NGX_AGAIN) {
+//        return rc;
+//    }
 
 
     lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
@@ -184,8 +190,18 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     	return rc;
     }
 
-    rc = ngx_http_clojure_eval(lcf->clojure_code_id, r);
-
+    if (r->method == NGX_HTTP_POST) {
+    	if (ngx_strcmp("application/x-www-form-urlencoded", r->headers_in.content_type->value.data) != 0) {
+    		return NGX_HTTP_NOT_ALLOWED;
+    	}
+    	rc = ngx_http_read_client_request_body(r, ngx_http_clojure_client_body_handler);
+    	if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
+    		return rc;
+    	}
+    	return NGX_DONE;
+    }else {
+    	rc = ngx_http_clojure_eval(lcf->clojure_code_id, r);
+    }
     //for debug
     //ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "finished one request \n==============================================================\n\n");
 

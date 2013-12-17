@@ -233,6 +233,7 @@ public class MemoryUtil {
 		CONTENT_TYPE_FETCHER = new RequestKnownHeaderFetcher("content-type");
 		CHARACTER_ENCODING_FETCHER = new RequestCharacterEncodingFetcher();
 		HEADER_FETCHER = new RequestHeaderFetcher();
+		BODY_FETCHER = new RequestBodyFetcher();
 	}
 	
 	

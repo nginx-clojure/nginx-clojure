@@ -324,4 +324,6 @@ public class Constants {
 	public static RequestVarFetcher CHARACTER_ENCODING_FETCHER;// = new RequestCharacterEncodingFetcher();
 	
 	public static RequestVarFetcher HEADER_FETCHER;// = new RequestHeaderFetcher();
+	
+	public static RequestVarFetcher BODY_FETCHER;// = new RequestBodyFetcher();
 }

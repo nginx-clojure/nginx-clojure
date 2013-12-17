@@ -1,5 +1,7 @@
 package nginx.clojure;
 
+import static nginx.clojure.Constants.BODY;
+import static nginx.clojure.Constants.BODY_FETCHER;
 import static nginx.clojure.Constants.CHARACTER_ENCODING;
 import static nginx.clojure.Constants.CHARACTER_ENCODING_FETCHER;
 import static nginx.clojure.Constants.CONTENT_TYPE;
@@ -45,6 +47,7 @@ public   class LazyRequestMap extends HashMap {
 		put(CONTENT_TYPE, CONTENT_TYPE_FETCHER);
 		put(CHARACTER_ENCODING, CHARACTER_ENCODING_FETCHER);
 		put(HEADERS, HEADER_FETCHER);
+		put(BODY, BODY_FETCHER);
 	}
 	
 	@Override
