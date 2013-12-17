@@ -2,14 +2,16 @@ package nginx.clojure;
 
 import java.util.Iterator;
 
+import clojure.lang.AFn;
 import clojure.lang.IMapEntry;
 import clojure.lang.IPersistentCollection;
 import clojure.lang.IPersistentMap;
 import clojure.lang.ISeq;
 import clojure.lang.MapEntry;
 import static nginx.clojure.MemoryUtil.*;
+import static nginx.clojure.Constants.*;
 
-public class LazyHeaderMap implements IPersistentMap {
+public class LazyHeaderMap extends AFn implements IPersistentMap  {
 
 	private long headersPointer;
 	
@@ -110,6 +112,11 @@ public class LazyHeaderMap implements IPersistentMap {
 	@Override
 	public IPersistentMap without(Object key) {
 		throw new UnsupportedOperationException("without not supported now!");
+	}
+	
+	@Override
+	public  Object invoke(Object key) {
+		return valAt(key);
 	}
 
 }

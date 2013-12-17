@@ -14,7 +14,7 @@ static void* ngx_http_clojure_create_loc_conf(ngx_conf_t *cf);
 
 static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child);
 
-#define NGX_HTTP_CLOJURE_VER "0.0.1_b004"
+#define NGX_HTTP_CLOJURE_VER "0.0.1_b005"
 
 typedef struct {
     ngx_array_t *jvm_options;
@@ -92,11 +92,7 @@ ngx_module_t  ngx_http_clojure_module = {
 
 static void * ngx_http_clojure_create_loc_conf(ngx_conf_t *cf) {
 	ngx_http_clojure_loc_conf_t *conf;
-	ngx_str_t tt = ngx_null_string;
-
-	if (tt.len > 0){
-		printf("%lu", tt.len);
-	}
+	ngx_http_clojure_global_ngx_conf = cf;
 	conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_clojure_loc_conf_t));
 	if (conf == NULL){
 		return NGX_CONF_ERROR;
@@ -158,7 +154,7 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 	return NGX_CONF_OK;
 }
 
-
+ngx_conf_t *ngx_http_clojure_global_ngx_conf;
 
 static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     ngx_int_t     rc;
@@ -173,16 +169,15 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     }
 
 
-    if (!(r->method & (NGX_HTTP_GET|NGX_HTTP_HEAD))) {
-        return NGX_HTTP_NOT_ALLOWED;
-    }
-
     rc = ngx_http_discard_request_body(r);
     if (rc != NGX_OK && rc != NGX_AGAIN) {
         return rc;
     }
 
+
     lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
+//    ngx_http_core_main_conf_t  *cmcf = ngx_http_get_module_main_conf(r, ngx_http_core_module);
+
 
     rc = ngx_http_clojure_init_jvm_and_mem(lcf, r->connection->log);
     if (rc != NGX_HTTP_CLOJURE_JVM_OK){
@@ -205,7 +200,8 @@ static char* ngx_http_clojure(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
 	clcf->handler = ngx_http_clojure_handler;
 	lcf->enable = 1;
 
-	ngx_log_error(NGX_LOG_ERR, cf->log, 0, "VER: %s\n", NGX_HTTP_CLOJURE_VER);
+//	ngx_http_core_main_conf_t  *cmcf  = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
+	ngx_log_error(NGX_LOG_ERR, cf->log, 0, "nginx clojure module ver: %s\n", NGX_HTTP_CLOJURE_VER);
 
 	return NGX_CONF_OK;
 }

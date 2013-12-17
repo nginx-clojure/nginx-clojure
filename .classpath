@@ -13,5 +13,6 @@
 			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="nginx-clojure/target/native/linux/x86_64"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="lib" path="/home/who/.m2/repository/org/clojure/clojure/1.5.1/clojure-1.5.1.jar" sourcepath="/home/who/.m2/repository/org/clojure/clojure/1.5.1/clojure-1.5.1-sources.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

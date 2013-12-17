@@ -52,6 +52,16 @@
 #define NGX_HTTP_CLOJURE_CHAIN_NEXT_IDX  18
 #define NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET  offsetof(ngx_chain_t, next)
 
+
+extern ngx_conf_t *ngx_http_clojure_global_ngx_conf;
+
+#define NGX_HTTP_CLOJURE_VARIABLE_SIZE_IDX 19
+#define NGX_HTTP_CLOJURE_VARIABLE_SIZE sizeof(ngx_http_variable_t)
+#define NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR_IDX 20
+#define NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR (ngx_uint_t)ngx_http_clojure_core_variables_names
+#define NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN_IDX 21
+#define NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN (sizeof(ngx_http_clojure_core_variables_names)/ sizeof (ngx_str_t))
+
 /*index for size of ngx_http_request_t */
 #define NGX_HTTP_CLOJURE_REQ_SIZE_IDX 32
 #define NGX_HTTP_CLOJURE_REQ_SIZE sizeof(ngx_http_request_t)
@@ -221,7 +231,7 @@ int ngx_http_clojure_check_memory_util();
  */
 int ngx_http_clojure_init_memory_util();
 
-int ngx_http_clojure_register_script(char *script, size_t len, ngx_int_t *cid);
+int ngx_http_clojure_register_script(u_char **script, size_t len, ngx_int_t *cid);
 
 int ngx_http_clojure_eval(int handle, void *r);
 

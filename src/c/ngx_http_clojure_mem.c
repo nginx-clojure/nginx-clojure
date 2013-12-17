@@ -9,6 +9,54 @@ static jclass mem_util_class;
 static jmethodID mem_util_eval_mid;
 static jmethodID mem_util_register_code_mid;
 
+static  ngx_str_t  ngx_http_clojure_core_variables_names[] = {
+		ngx_string("http_host"),
+		ngx_string("http_user_agent"),
+		ngx_string("http_referer"),
+		ngx_string("http_via"),
+		ngx_string("http_x_forwarded_for"),
+		ngx_string("http_cookie"),
+		ngx_string("content_length"),
+		ngx_string("content_type"),
+		ngx_string("host"),
+		ngx_string("binary_remote_addr"),
+		ngx_string("remote_addr"),
+		ngx_string("remote_port"),
+		ngx_string("server_addr"),
+		ngx_string("server_port"),
+		ngx_string("server_protocol"),
+		ngx_string("scheme"),
+		ngx_string("request_uri"),
+		ngx_string("uri"),
+		ngx_string("document_uri"),
+		ngx_string("request"),
+		ngx_string("document_root"),
+		ngx_string("realpath_root"),
+		ngx_string("query_string"),
+		ngx_string("args"),
+	    ngx_string("is_args"),
+	    ngx_string("request_filename"),
+	    ngx_string("server_name"),
+	    ngx_string("request_method"),
+	    ngx_string("remote_user"),
+	    ngx_string("body_bytes_sent"),
+	    ngx_string("request_completion"),
+	    ngx_string("request_body"),
+	    ngx_string("request_body_file"),
+	    ngx_string("sent_http_content_type"),
+	    ngx_string("sent_http_content_length"),
+	    ngx_string("sent_http_location"),
+	    ngx_string("sent_http_last_modified"),
+	    ngx_string("sent_http_connection"),
+	    ngx_string("sent_http_keep_alive"),
+	    ngx_string("sent_http_transfer_encoding"),
+	    ngx_string("sent_http_cache_control"),
+	    ngx_string("limit_rate"),
+	    ngx_string("nginx_version"),
+	    ngx_string("hostname"),
+	    ngx_string("pid")
+};
+
 static jlong JNICALL jni_ngx_palloc (JNIEnv *env, jclass cls, jlong pool, jlong size) {
 	return (uintptr_t)ngx_palloc((ngx_pool_t *)pool, (size_t)size);
 }
@@ -112,12 +160,19 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_header(JNIEnv *env, jclass cls
             i = 0;
         }
 
-        if (len != h[i].key.len || ngx_strcasecmp(name, h[i].key.data) != 0) {
+        if ((size_t)len != h[i].key.len || ngx_strcasecmp((u_char *)name, h[i].key.data) != 0) {
             continue;
         }
         return (uintptr_t)&h[i];
     }
     return 0;
+}
+
+static jlong JNICALL jni_ngx_http_clojure_mem_get_variable(JNIEnv *env, jclass cls,  jlong r, jlong nname) {
+	ngx_http_request_t *req = (ngx_http_request_t *) r;
+	ngx_str_t *name = (ngx_str_t *)nname;
+	ngx_http_variable_value_t *vp = ngx_http_get_variable(req, name, ngx_hash_key(name->data, name->len));
+	return (uintptr_t)vp;
 }
 
 static int ngx_http_clojure_init_memory_util_flag = NGX_HTTP_CLOJURE_JVM_ERR;
@@ -127,38 +182,12 @@ int ngx_http_clojure_check_memory_util() {
 }
 
 int ngx_http_clojure_init_memory_util() {
-	ngx_http_clojure_get_jvm((void **)&jvm);
+	ngx_http_clojure_get_jvm(&jvm);
 
 	if (ngx_http_clojure_init_memory_util_flag == NGX_HTTP_CLOJURE_JVM_OK) {
 		return NGX_HTTP_CLOJURE_JVM_OK;
 	}
 	jlong MEM_INDEX[NGX_HTTP_CLOJURE_MEM_IDX_END];
-
-	JNIEnv *env;
-	(*jvm)->AttachCurrentThread(jvm, (void**)&env, NULL);
-	mem_util_class = (*env)->FindClass(env, "nginx/clojure/MemoryUtil");
-	exception_handle(mem_util_class == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
-
-
-	JNINativeMethod nms[] = {
-			{"ngx_palloc", "(JJ)J", jni_ngx_palloc},
-			{"ngx_pcalloc", "(JJ)J", jni_ngx_pcalloc},
-			{"ngx_create_temp_buf", "(JJ)J", jni_ngx_create_temp_buf},
-			{"ngx_create_file_buf", "(JJJ)J", jni_ngx_create_file_buf},
-			{"ngx_http_send_header", "(J)J", jni_ngx_http_send_header},
-			{"ngx_http_output_filter", "(JJ)J", jni_ngx_http_output_filter},
-			{"ngx_http_clojure_mem_init_ngx_buf", "(JLjava/lang/Object;JJI)J", jni_ngx_http_clojure_mem_init_ngx_buf}, //jlong buf, jlong obj, jlong offset, jlong len, jint last_buf
-			{"ngx_http_clojure_mem_get_obj_attr", "(Ljava/lang/Object;)J", jni_ngx_http_clojure_mem_get_obj_attr},
-			{"ngx_http_clojure_mem_copy_to_obj", "(JLjava/lang/Object;JJ)V", jni_ngx_http_clojure_mem_copy_to_obj},
-			{"ngx_http_clojure_mem_copy_to_addr", "(Ljava/lang/Object;JJJ)V", jni_ngx_http_clojure_mem_copy_to_addr},
-			{"ngx_http_clojure_mem_get_header", "(JJJ)J", jni_ngx_http_clojure_mem_get_header},
-	};
-	(*env)->RegisterNatives(env, mem_util_class, nms, sizeof(nms) / sizeof(JNINativeMethod));
-	exception_handle(0 == 0, env, return NGX_HTTP_CLOJURE_JVM_ERR);
-	mem_util_register_code_mid = (*env)->GetStaticMethodID(env, mem_util_class, "registerCode", "(JJ)I");
-	mem_util_eval_mid = (*env)->GetStaticMethodID(env, mem_util_class, "eval", "(IJ)I");
-	jmethodID mem_util_init_mid = (*env)->GetStaticMethodID(env, mem_util_class,"initMemIndex", "(J)V");
-	exception_handle(mem_util_init_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_OK);
 
 	memset(MEM_INDEX, -1, NGX_HTTP_CLOJURE_MEM_IDX_END * sizeof(jlong));
 	MEM_INDEX[NGX_HTTP_CLOJURE_UINT_SIZE_IDX] = NGX_HTTP_CLOJURE_UINT_SIZE;
@@ -178,6 +207,10 @@ int ngx_http_clojure_init_memory_util() {
 	MEM_INDEX[NGX_HTTP_CLOJURE_CHAIN_SIZE_IDX] = NGX_HTTP_CLOJURE_CHAIN_SIZE;
 	MEM_INDEX[NGX_HTTP_CLOJURE_CHAIN_BUF_IDX] = NGX_HTTP_CLOJURE_CHAIN_BUF_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_CHAIN_NEXT_IDX] = NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET;
+
+	MEM_INDEX[NGX_HTTP_CLOJURE_VARIABLE_SIZE_IDX] = NGX_HTTP_CLOJURE_VARIABLE_SIZE;
+	MEM_INDEX[NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR_IDX] = NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR;
+	MEM_INDEX[NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN_IDX] = NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN;
 
 	MEM_INDEX[NGX_HTTP_CLOJURE_REQ_SIZE_IDX] = NGX_HTTP_CLOJURE_REQ_SIZE;
 	MEM_INDEX[NGX_HTTP_CLOJURE_REQ_METHOD_IDX] = NGX_HTTP_CLOJURE_REQ_METHOD_OFFSET;
@@ -268,13 +301,42 @@ int ngx_http_clojure_init_memory_util() {
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_LAST_MODIFIED_TIME_IDX] =  NGX_HTTP_CLOJURE_HEADERSO_LAST_MODIFIED_TIME_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_HEADERS_IDX] =  NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET;
 
+	JNIEnv *env;
+	(*jvm)->AttachCurrentThread(jvm, (void**)&env, NULL);
+	mem_util_class = (*env)->FindClass(env, "nginx/clojure/MemoryUtil");
+	exception_handle(mem_util_class == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+
+
+	JNINativeMethod nms[] = {
+			{"ngx_palloc", "(JJ)J", jni_ngx_palloc},
+			{"ngx_pcalloc", "(JJ)J", jni_ngx_pcalloc},
+			{"ngx_create_temp_buf", "(JJ)J", jni_ngx_create_temp_buf},
+			{"ngx_create_file_buf", "(JJJ)J", jni_ngx_create_file_buf},
+			{"ngx_http_send_header", "(J)J", jni_ngx_http_send_header},
+			{"ngx_http_output_filter", "(JJ)J", jni_ngx_http_output_filter},
+			{"ngx_http_clojure_mem_init_ngx_buf", "(JLjava/lang/Object;JJI)J", jni_ngx_http_clojure_mem_init_ngx_buf}, //jlong buf, jlong obj, jlong offset, jlong len, jint last_buf
+			{"ngx_http_clojure_mem_get_obj_attr", "(Ljava/lang/Object;)J", jni_ngx_http_clojure_mem_get_obj_attr},
+			{"ngx_http_clojure_mem_copy_to_obj", "(JLjava/lang/Object;JJ)V", jni_ngx_http_clojure_mem_copy_to_obj},
+			{"ngx_http_clojure_mem_copy_to_addr", "(Ljava/lang/Object;JJJ)V", jni_ngx_http_clojure_mem_copy_to_addr},
+			{"ngx_http_clojure_mem_get_header", "(JJJ)J", jni_ngx_http_clojure_mem_get_header},
+			{"ngx_http_clojure_mem_get_variable", "(JJ)J", jni_ngx_http_clojure_mem_get_variable}
+	};
+	(*env)->RegisterNatives(env, mem_util_class, nms, sizeof(nms) / sizeof(JNINativeMethod));
+	exception_handle(0 == 0, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+	mem_util_register_code_mid = (*env)->GetStaticMethodID(env, mem_util_class, "registerCode", "(JJ)I");
+	mem_util_eval_mid = (*env)->GetStaticMethodID(env, mem_util_class, "eval", "(IJ)I");
+	jmethodID mem_util_init_mid = (*env)->GetStaticMethodID(env, mem_util_class,"initMemIndex", "(J)V");
+	exception_handle(mem_util_init_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_OK);
+
+
+
 
 
 	(*env)->CallStaticVoidMethod(env, mem_util_class, mem_util_init_mid, MEM_INDEX);
 	return ngx_http_clojure_init_memory_util_flag = NGX_HTTP_CLOJURE_JVM_OK;
 }
 
-int ngx_http_clojure_register_script(char *script, size_t len, ngx_int_t *cid) {
+int ngx_http_clojure_register_script(u_char **script, size_t len, ngx_int_t *cid) {
 	JNIEnv *env;
 	jint rc = (*jvm)->AttachCurrentThread(jvm, (void**)&env, NULL);
 	if (rc < 0){
