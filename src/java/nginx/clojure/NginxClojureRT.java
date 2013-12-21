@@ -1,3 +1,7 @@
+/**
+ *  Copyright (C) Zhang,Yuexiang (xfeep)
+ *
+ */
 package nginx.clojure;
 
 import java.io.File;
@@ -13,11 +17,7 @@ import clojure.lang.IFn;
 import clojure.lang.RT;
 import static nginx.clojure.Constants.*;
 
-public class MemoryUtil {
-
-
-	
-	
+public class NginxClojureRT {
 
 
 	public static long[] MEM_INDEX;
@@ -40,13 +40,19 @@ public class MemoryUtil {
 	
 	public native static long ngx_create_file_buf(long r, long file, long name_len);
 	
+	public native static long ngx_http_set_content_type(long r);
+	
 	public native static long ngx_http_send_header(long r);
 	
 	public native static long ngx_http_output_filter(long r, long chain);
 
 	public native static long ngx_http_clojure_mem_init_ngx_buf(long buf, Object obj, long offset, long len, int last_buf);
 	
-	public native static long ngx_http_clojure_mem_get_obj_attr(Object obj);
+	public native static long ngx_http_clojure_mem_get_obj_addr(Object obj);
+	
+	public native static long ngx_http_clojure_mem_get_list_size(long l);
+	
+	public native static long ngx_http_clojure_mem_get_list_item(long l, long i);
 	
 	public native static void ngx_http_clojure_mem_copy_to_obj(long src, Object obj, long offset, long len);
 	
@@ -54,7 +60,7 @@ public class MemoryUtil {
 	
 	public native static long ngx_http_clojure_mem_get_header(long headers_in, long name, long len);
 	
-	public native static long ngx_http_clojure_mem_get_variable(long r, long name);
+	public native static long ngx_http_clojure_mem_get_variable(long r, long name, long varlenPtr);
 	
 	public static synchronized void initMemIndex(long idxpt) {
 		if (UNSAFE != null) {
@@ -262,10 +268,12 @@ public class MemoryUtil {
 		return fetchString(address + NGX_HTTP_CLOJURE_STR_DATA_OFFSET, len, encoding);
 	}
 	
-	public static final void pushNGXString(long address, String val, Charset encoding, long pool){
+	public static final int pushNGXString(long address, String val, Charset encoding, long pool){
 			long lenAddr = address + NGX_HTTP_CLOJURE_STR_LEN_OFFSET;
 			long dataAddr = address + NGX_HTTP_CLOJURE_STR_DATA_OFFSET;
-			pushNGXInt(lenAddr, pushString(dataAddr, val, encoding, pool));
+			int len = pushString(dataAddr, val, encoding, pool);
+			pushNGXInt(lenAddr, len);
+			return len;
 	}
 	
 	
@@ -283,6 +291,14 @@ public class MemoryUtil {
 	
 	public static final void pushNGXOfft(long address, int val){
 		if (NGX_HTTP_CLOJURE_OFFT_SIZE == 4){
+			UNSAFE.putInt(address, val);
+		}else {
+			UNSAFE.putLong(address, val);
+		}
+	}
+	
+	public static final void pushNGXSizet(long address, int val){
+		if (NGX_HTTP_CLOJURE_SIZET_SIZE == 4){
 			UNSAFE.putInt(address, val);
 		}else {
 			UNSAFE.putLong(address, val);
@@ -329,11 +345,14 @@ public class MemoryUtil {
 			Map headers = (Map) resp.get(HEADERS);
 			String contentType = (String) headers.get("content-type");
 			
-			//TODO: should use ngx_http_set_content_type(r) to get the default content-type by MIME-TYPE
 			if (contentType == null){
-				contentType = "text/html; charset=UTF-8";
+				ngx_http_set_content_type(r);
+			}else {
+				int contentTypeLen = pushNGXString(headers_out + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_OFFSET, contentType, DEFAULT_ENCODING, pool);
+				//be friendly to gzip module 
+				pushNGXSizet(headers_out + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_LEN_OFFSET, contentTypeLen);
 			}
-			pushNGXString(headers_out + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_OFFSET, contentType, DEFAULT_ENCODING, pool);
+			
 			
 			Object body = resp.get(BODY);
 			

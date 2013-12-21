@@ -1,8 +1,12 @@
+/**
+ *  Copyright (C) Zhang,Yuexiang (xfeep)
+ *
+ */
 package nginx.clojure;
 
 import java.nio.charset.Charset;
 
-import static nginx.clojure.MemoryUtil.*;
+import static nginx.clojure.NginxClojureRT.*;
 
 public  class RequestKnownOffsetVarFetcher implements RequestVarFetcher {
 

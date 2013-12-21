@@ -1,8 +1,12 @@
+/**
+ *  Copyright (C) Zhang,Yuexiang (xfeep)
+ *
+ */
 package nginx.clojure;
 
 import static nginx.clojure.Constants.HTTP_METHODS;
 import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_REQ_METHOD_OFFSET;
-import static nginx.clojure.MemoryUtil.fetchNGXInt;
+import static nginx.clojure.NginxClojureRT.fetchNGXInt;
 
 import java.nio.charset.Charset;
 

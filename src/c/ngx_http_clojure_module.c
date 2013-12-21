@@ -200,6 +200,10 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     	}
     	return NGX_DONE;
     }else {
+    	rc = ngx_http_discard_request_body(r);
+    	if (rc != NGX_OK && rc != NGX_AGAIN) {
+    	        return rc;
+    	}
     	rc = ngx_http_clojure_eval(lcf->clojure_code_id, r);
     }
     //for debug

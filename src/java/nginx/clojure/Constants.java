@@ -1,7 +1,11 @@
+/**
+ *  Copyright (C) Zhang,Yuexiang (xfeep)
+ *
+ */
 package nginx.clojure;
 
-import static nginx.clojure.MemoryUtil.fetchNGXInt;
-import static nginx.clojure.MemoryUtil.fetchNGXString;
+import static nginx.clojure.NginxClojureRT.fetchNGXInt;
+import static nginx.clojure.NginxClojureRT.fetchNGXString;
 
 import java.nio.charset.Charset;
 import java.util.HashMap;
