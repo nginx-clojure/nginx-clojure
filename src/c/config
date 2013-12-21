@@ -9,8 +9,11 @@ NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
     $ngx_addon_dir/ngx_http_clojure_jvm.h \
     $ngx_addon_dir/ngx_http_clojure_mem.h \
 "
-CFLAGS="-std=c99 -g -O0 \
-        -I/usr/lib/jvm/java-7-oracle/include \
+
+CFLAGS="-I/usr/lib/jvm/java-7-oracle/include \
         -I/usr/lib/jvm/java-7-oracle/include/linux \
         $CFLAGS"
+        
+#CFLAGS="-g -O0 $CFLAGS"
+
 CORE_LIBS="$CORE_LIBS -ldl"

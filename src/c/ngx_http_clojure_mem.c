@@ -143,7 +143,6 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_list_size(JNIEnv *env, jclass 
 	ngx_list_t *list = (ngx_list_t *)l;
 	ngx_list_part_t *part = &list->part;
 	jlong c = 0;
-	ngx_uint_t i = 0;
 
 	while (part != NULL) {
 		c += part->nelts;
@@ -155,9 +154,8 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_list_size(JNIEnv *env, jclass 
 static jlong JNICALL jni_ngx_http_clojure_mem_get_list_item(JNIEnv *env, jclass cls, jlong l, jlong i) {
 	ngx_list_t *list = (ngx_list_t *)l;
 	ngx_list_part_t *part = &list->part;
-	void * elts;
 
-	while (part != NULL && i > part->nelts) {
+	while (part != NULL && (size_t)i > part->nelts) {
 		i -= part->nelts;
 		part = part->next;
 	}

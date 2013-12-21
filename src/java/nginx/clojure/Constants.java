@@ -55,9 +55,9 @@ public class Constants {
 			POST, PUT, DELETE, MKCOL, COPY, MOVE, OPTIONS, PROPFIND,
 			PROPPATCH, LOCK, UNLOCK, PATCH, TRACE };
 	
-	public static Map<String, Long> KNOWN_REQ_HEADERS = new HashMap<>();
+	public static Map<String, Long> KNOWN_REQ_HEADERS = new HashMap<String, Long>();
 	
-	public static Map<String, Long> CORE_VARS = new HashMap<>();
+	public static Map<String, Long> CORE_VARS = new HashMap<String, Long>();
 	
 	public static final Keyword STATUS = RT.keyword(null, "status");
 //	public static final Keyword BODY = RT.keyword(null, "body");

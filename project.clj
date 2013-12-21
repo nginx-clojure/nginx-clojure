@@ -5,4 +5,18 @@
             :url "http://opensource.org/licenses/BSD-2-Clause"}
   :dependencies [
                  [org.clojure/clojure "1.5.1"]
-                 ])
+                 ]
+  ;; CLJ source code path
+  :source-paths ["src/clojure"]
+  :target-path "target/"
+  :global-vars {*warn-on-reflection* true
+                *assert* false}
+  :java-source-paths ["src/java" "test/java"]
+  :javac-options ["-target" "1.6" "-source" "1.6" "-Xlint:-options"]
+  ;; Directory in which to place AOT-compiled files. Including %s will
+  ;; splice the :target-path into this value.
+  :compile-path "target/classy-files"
+  ;; Leave the contents of :source-paths out of jars (for AOT projects).
+  :omit-source false
+  :jar-exclusions [#"^test" #"\.java$"]
+  :uberjar-exclusions [#"^test" #"\.java$"])

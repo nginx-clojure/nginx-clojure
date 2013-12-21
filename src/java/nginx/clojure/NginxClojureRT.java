@@ -29,7 +29,7 @@ public class NginxClojureRT {
 	private static List<IFn>  HANDLERS = new ArrayList<IFn>();
 	
 	//mapping clojure code pointer address to clojure code id 
-	private static Map<Long, Integer> CODE_MAP = new HashMap<>();
+	private static Map<Long, Integer> CODE_MAP = new HashMap<Long, Integer>();
 	
 	
 	public native static long ngx_palloc(long pool, long size);

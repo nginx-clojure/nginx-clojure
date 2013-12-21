@@ -108,15 +108,16 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  
     if (ngx_http_clojure_check_jvm() != NGX_HTTP_CLOJURE_JVM_OK){
     	ngx_str_t *elts = lcf->jvm_options->elts;
     	char * options[NGX_HTTP_CLOJURE_JVM_MAX_OPTS];
+    	int i;
     	int len = lcf->jvm_options->nelts;
     	if (len > NGX_HTTP_CLOJURE_JVM_MAX_OPTS) {
     		len = NGX_HTTP_CLOJURE_JVM_MAX_OPTS;
     		ngx_log_error(NGX_LOG_WARN, log, 0, "tow many jvm_options, truncate it to %d", NGX_HTTP_CLOJURE_JVM_MAX_OPTS);
     	}
-    	for (int i = 0; i < len; i++){
-    		options[i] = elts[i].data;
+    	for (i = 0; i < len; i++){
+    		options[i] = (char *)elts[i].data;
     	}
-    	if (ngx_http_clojure_init_jvm(lcf->jvm_path.data, options, len) != NGX_HTTP_CLOJURE_JVM_OK) {
+    	if (ngx_http_clojure_init_jvm((char *)lcf->jvm_path.data, options, len) != NGX_HTTP_CLOJURE_JVM_OK) {
     		ngx_log_error(NGX_LOG_ERR, log, 0, "can not initialize jvm");
     		return NGX_HTTP_INTERNAL_SERVER_ERROR;
     	}
@@ -164,8 +165,6 @@ static void ngx_http_clojure_client_body_handler(ngx_http_request_t *r) {
 
 static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     ngx_int_t     rc;
-    ngx_buf_t    *b;
-    ngx_chain_t   out;
     ngx_http_clojure_loc_conf_t  *lcf;
 
 
