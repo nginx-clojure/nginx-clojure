@@ -4,7 +4,11 @@
  */
 package nginx.clojure;
 
+import static nginx.clojure.Constants.*;
+
+import java.io.Closeable;
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -15,7 +19,6 @@ import java.util.Map;
 import sun.misc.Unsafe;
 import clojure.lang.IFn;
 import clojure.lang.RT;
-import static nginx.clojure.Constants.*;
 
 public class NginxClojureRT {
 
@@ -62,18 +65,10 @@ public class NginxClojureRT {
 	
 	public native static long ngx_http_clojure_mem_get_variable(long r, long name, long varlenPtr);
 	
+//	public native static long ngx_http_clojure_mem_get_body_tmp_file(long r);
+	
 	public static synchronized void initMemIndex(long idxpt) {
-		if (UNSAFE != null) {
-			return;
-		}
-	    try{
-	        Field field = Unsafe.class.getDeclaredField("theUnsafe");
-	        field.setAccessible(true);
-	        UNSAFE = (Unsafe)field.get(null);
-	    }
-	    catch (Exception e){
-	        throw new RuntimeException(e);
-	    }
+		initUnsafe();
 	    
 	    BYTE_ARRAY_OFFSET = UNSAFE.arrayBaseOffset(byte[].class);
 	    
@@ -241,6 +236,20 @@ public class NginxClojureRT {
 		HEADER_FETCHER = new RequestHeaderFetcher();
 		BODY_FETCHER = new RequestBodyFetcher();
 	}
+
+	public static void initUnsafe() {
+		if (UNSAFE != null) {
+			return;
+		}
+	    try{
+	        Field field = Unsafe.class.getDeclaredField("theUnsafe");
+	        field.setAccessible(true);
+	        UNSAFE = (Unsafe)field.get(null);
+	    }
+	    catch (Exception e){
+	        throw new RuntimeException(e);
+	    }
+	}
 	
 	
 	public static synchronized int registerCode(long codePtr, long len) {
@@ -343,7 +352,10 @@ public class NginxClojureRT {
 			long headers_out = r + NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
 			pushNGXInt(headers_out + NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET, status);
 			Map headers = (Map) resp.get(HEADERS);
-			String contentType = (String) headers.get("content-type");
+			String contentType = null;
+			if (headers != null) {
+				contentType = (String) headers.get("content-type");
+			}
 			
 			if (contentType == null){
 				ngx_http_set_content_type(r);
@@ -384,8 +396,18 @@ public class NginxClojureRT {
 			UNSAFE.putAddress(chain + NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET, 0);
 			return (int)ngx_http_output_filter(r, chain);
 		}catch(Throwable e){
+			//log to nginx error log file
 			e.printStackTrace();
 			return 500;
+		}finally {
+			if (req.valAt(BODY) instanceof Closeable) {
+				try {
+					((Closeable)req.valAt(BODY)).close();
+				} catch (IOException e) {
+					//log to nginx error log file
+					e.printStackTrace();
+				}
+			}
 		}
 		
 		

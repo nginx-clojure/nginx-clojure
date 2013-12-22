@@ -7,6 +7,20 @@
 
 #include <jni.h>
 
+#if defined(_WIN32) || defined(WIN32)
+
+#pragma warning (disable : 4305)
+#pragma warning (disable : 4244)
+#pragma warning (disable : 4152)
+
+typedef jint (WINAPI *jni_createvm_pt)(JavaVM **pvm, void **penv, void *args);
+
+#else
+
+typedef jint (*jni_createvm_pt)(JavaVM **pvm, void **penv, void *args);
+
+#endif
+
 #define NGX_HTTP_CLOJURE_JVM_MAX_OPTS 64
 
 #define NGX_HTTP_CLOJURE_JVM_OK 0
@@ -24,7 +38,7 @@
 		} \
 	} while (0)
 
-typedef jint (*jni_createvm_pt)(JavaVM **pvm, void **penv, void *args);
+
 
 int ngx_http_clojure_check_jvm();
 

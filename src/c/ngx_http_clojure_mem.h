@@ -7,6 +7,14 @@
 
 #include <ngx_http.h>
 
+#if defined(_WIN32) || defined(WIN32)
+
+#pragma warning (disable : 4305)
+#pragma warning (disable : 4244)
+#pragma warning (disable : 4152)
+
+#endif
+
 #define NGX_HTTP_CLOJURE_MEM_IDX_START 0
 
 /*index for size of ngx_uint_t */

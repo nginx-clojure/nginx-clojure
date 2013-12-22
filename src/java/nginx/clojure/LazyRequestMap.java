@@ -71,7 +71,6 @@ public   class LazyRequestMap extends AFn  implements IPersistentMap {
 				HEADERS, HEADER_FETCHER,
 				BODY, BODY_FETCHER
 		});
-
 	}
 	
 	protected int index(Object key) {
@@ -197,12 +196,13 @@ public   class LazyRequestMap extends AFn  implements IPersistentMap {
 		Object o = array[i+1];
 		if (o instanceof RequestVarFetcher) {
 			RequestVarFetcher rf = (RequestVarFetcher) o;
+			array[i+1] = null;
 			Object rt = rf.fetch(r, DEFAULT_ENCODING);
 			array[i+1] = rt;
 //			System.out.println("LazyRequestMap, key=" + rt);
 			return rt;
 		}
-		System.out.println("LazyRequestMap, key=" + array[i] + ", val=" + o);
+//		System.out.println("LazyRequestMap, key=" + array[i] + ", val=" + o);
 		return o;
 	}
 	

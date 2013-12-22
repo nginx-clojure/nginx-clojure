@@ -1,0 +1,66 @@
+curl "http://localhost:8080/clojure"
+curl 'http://localhost:8080/src/c/ngx_http_clojure_mem.c'
+curl -v "http://localhost:8080/headers"
+curl -v -H "my-header:mytest"  http://localhost:8080/headers
+
+curl -v -H "my-header:mytest"  http://localhost:8080/headers?my=test
+
+curl -v --data "name=zyx&passwd=good" http://localhost:8080/form
+
+
+curl -v -H "my-header:mytest" --cookie "tc1=just1;tc2=just2"  http://localhost:8080/headers?my=test
+curl -v -H "my-header:mytest" -H "Content-Type:text/plain; charset=utf-8" --cookie "tc1=just1;tc2=just2"  http://localhost:8080/headers?my=test
+
+curl -v -H "my-header:mytest" -H "Content-Type:text/plain; charset=utf-8" --cookie "tc1=just1;tc2=just2"  http://localhost:8080/headers?my=test
+
+curl --header 'accept-encoding: gzip' -v "http://localhost:8080/src/c/ngx_http_clojure_mem.c"
+
+#test put text file
+curl -v --data-binary @post-test-data  "http://localhost:8080/echoUploadfile"
+#test multi form part
+curl -v --form  myf=@post-test-data "http://localhost:8080/echoUploadfile"
+
+ab -n 400000 -c 16 "http://localhost:8080/clojure"
+
+ab -n 400000 -c 16 -p post-test-data  -T 'application/x-www-form-urlencoded' http://localhost:8080/form
+
+
+#build win32
+
+--install msys
+
+mkdir objs
+mkdir objs/lib
+cd objs/lib
+tar -xzf ../../pcre-8.32.tar.gz
+tar -xzf ../../zlib-1.2.7.tar.gz
+tar -xzf ../../openssl-1.0.1e.tar.gz
+
+./configure --with-cc=cl --builddir=objs --prefix= \
+--conf-path=conf/nginx.conf --pid-path=logs/nginx.pid \
+--http-log-path=logs/access.log --error-log-path=logs/error.log \
+--sbin-path=nginx.exe --http-client-body-temp-path=temp/client_body_temp \
+--http-proxy-temp-path=temp/proxy_temp \
+--http-fastcgi-temp-path=temp/fastcgi_temp \
+--with-cc-opt=-DFD_SETSIZE=1024 --with-pcre=objs/lib/pcre-8.32 \
+--with-zlib=objs/lib/zlib-1.2.8 --with-openssl=objs/lib/openssl-1.0.1e \
+--with-select_module --with-http_ssl_module --with-ipv6
+--add-module=/home/who/git/nginx-clojure/src/c
+
+--add-module=/home/who/git/nginx-clojure/src/c
+
+nmake -f objs/Makefile
+
+auto/configure --with-cc=cl --builddir=objs --prefix= \
+--conf-path=conf/nginx.conf --pid-path=logs/nginx.pid \
+--http-log-path=logs/access.log --error-log-path=logs/error.log \
+--sbin-path=nginx.exe --http-client-body-temp-path=temp/client_body_temp \
+--http-proxy-temp-path=temp/proxy_temp \
+--http-fastcgi-temp-path=temp/fastcgi_temp \
+--with-cc-opt=-DFD_SETSIZE=1024 --with-pcre=objs/lib/pcre-8.32 \
+--with-zlib=objs/lib/zlib-1.2.8 \
+--with-select_module \
+--add-module=Y:/nginx-clojure/src/c
+
+
+nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx.conf -p /home/who/git/nginx-clojure/test/nginx-working-dir/

@@ -4,6 +4,7 @@
  */
 package nginx.clojure;
 
+import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.Map;
 
@@ -38,6 +39,16 @@ public  class RequestKnownNameVarFetcher implements RequestVarFetcher {
 //			}
 //		}
 		return fetchString(varValPtr + NGX_HTTP_CLOJURE_UINT_SIZE, len, DEFAULT_ENCODING);
+	}
+	
+	public InputStream fetchAsStream(long r) {
+		long varLenPtr = ngx_palloc(UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET), NGX_HTTP_CLOJURE_UINT_SIZE);
+		long varValPtr = ngx_http_clojure_mem_get_variable(r, nameNgxStrPtr, varLenPtr);
+		if (varValPtr == 0) {
+			return null;
+		}
+		int len = fetchNGXInt(varLenPtr);
+		return new NativeInputStream(UNSAFE.getAddress(varValPtr + NGX_HTTP_CLOJURE_UINT_SIZE), len);
 	}
 	
 }

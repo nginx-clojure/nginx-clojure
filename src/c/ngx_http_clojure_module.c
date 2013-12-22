@@ -14,7 +14,7 @@ static void* ngx_http_clojure_create_loc_conf(ngx_conf_t *cf);
 
 static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child);
 
-#define NGX_HTTP_CLOJURE_VER "0.0.1_b007"
+#define NGX_HTTP_CLOJURE_VER "0.0.1_b008"
 
 typedef struct {
     ngx_array_t *jvm_options;
@@ -189,9 +189,11 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     	return rc;
     }
 
-    if (r->method == NGX_HTTP_POST) {
+    if (r->method & (NGX_HTTP_POST|NGX_HTTP_PUT)) {
     	if (ngx_strcmp("application/x-www-form-urlencoded", r->headers_in.content_type->value.data) != 0) {
-    		return NGX_HTTP_NOT_ALLOWED;
+    		r->request_body_in_file_only = 1;
+    		r->request_body_in_clean_file = 1;
+    		r->request_body_in_persistent_file = 1;
     	}
     	rc = ngx_http_read_client_request_body(r, ngx_http_clojure_client_body_handler);
     	if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {

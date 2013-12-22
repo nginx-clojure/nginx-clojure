@@ -1,11 +1,17 @@
 /*
  *  Copyright (C) Zhang,Yuexiang (xfeep)
  */
-
-#include <stdlib.h>
-#include <string.h>
+#include <ngx_config.h>
 #include "ngx_http_clojure_jvm.h"
+
+#if defined(_WIN32) || defined(WIN32)
+
+
+#else
+
 #include <dlfcn.h>
+
+#endif
 
 static JNIEnv *env = NULL;
 static JavaVM *jvm = NULL;
@@ -27,22 +33,36 @@ int ngx_http_clojure_get_jvm(JavaVM **pvm) {
 	return ngx_http_clojure_check_jvm();
 }
 
+
+
 int ngx_http_clojure_init_jvm(char *jvm_path, char * *opts, size_t len) {
 
 	void *libVM;
 	JavaVMInitArgs vm_args;
 	JavaVMOption options[NGX_HTTP_CLOJURE_JVM_MAX_OPTS];
 	size_t i;
+	jni_createvm_pt jvm_creator;
 
 	if (jvm != NULL && env != NULL) {
 		return NGX_HTTP_CLOJURE_JVM_OK;
 	}
 
+#if defined(_WIN32) || defined(WIN32)
+
+	if ((libVM = LoadLibrary(jvm_path)) == NULL) {
+		return NGX_HTTP_CLOJURE_JVM_ERR_LOAD_LIB;
+	}
+	jvm_creator = (jni_createvm_pt)GetProcAddress(libVM, "JNI_CreateJavaVM");
+
+#else
+
 	if ((libVM = dlopen(jvm_path, RTLD_LAZY)) == NULL) {
 		return NGX_HTTP_CLOJURE_JVM_ERR_LOAD_LIB;
 	}
+	jvm_creator = dlsym(libVM, "JNI_CreateJavaVM");
 
-	jni_createvm_pt jvm_creator = dlsym(libVM, "JNI_CreateJavaVM");
+#endif
+
 	if (jvm_creator == NULL){
 		return NGX_HTTP_CLOJURE_JVM_ERR;
 	}

@@ -10,10 +10,23 @@ NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
     $ngx_addon_dir/ngx_http_clojure_mem.h \
 "
 
-CFLAGS="-I/usr/lib/jvm/java-7-oracle/include \
-        -I/usr/lib/jvm/java-7-oracle/include/linux \
-        $CFLAGS"
-        
+
+#windows
+if [ "$NGX_PLATFORM" == win32 ]; then
+JDK_HOME="C:/Program Files/Java/jdk1.7.0_25"
+JDK_OS_TAG=win32
+else
+JDK_OS_TAG=linux
+JDK_HOME="/usr/lib/jvm/java-7-oracle"
+fi
+
+CFLAGS="-I \"${JDK_HOME}/include\" \
+        -I \"${JDK_HOME}/include/${JDK_OS_TAG}\" \
+        $CFLAGS"        
 #CFLAGS="-g -O0 $CFLAGS"
 
+if [ "$NGX_PLATFORM" != win32 ]; then
+
 CORE_LIBS="$CORE_LIBS -ldl"
+
+fi
