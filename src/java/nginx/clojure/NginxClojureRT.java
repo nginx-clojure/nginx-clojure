@@ -39,6 +39,19 @@ public class NginxClojureRT {
 	
 	public native static long ngx_pcalloc(long pool, long size);
 	
+	public native static long ngx_array_create(long pool, long n, long size);
+
+	public native static long ngx_array_init(long array, long pool, long n, long size);
+
+	public native static long ngx_array_push_n(long array, long n);
+
+	public native static long ngx_list_create(long pool, long n, long size);
+
+	public native static long ngx_list_init(long list, long pool, long n, long size);
+
+	public native static long ngx_list_push(long list);
+	
+	
 	public native static long ngx_create_temp_buf(long pool, long size);
 	
 	public native static long ngx_create_file_buf(long r, long file, long name_len);
@@ -67,6 +80,13 @@ public class NginxClojureRT {
 	
 //	public native static long ngx_http_clojure_mem_get_body_tmp_file(long r);
 	
+	public static String formatVer(long ver) {
+		long f = ver / 1000000;
+		long s = ver / 1000 - f * 1000;
+		long t = ver - s * 1000 - f * 1000000;
+		return f + "." + s + "." + t;
+	}
+	
 	public static synchronized void initMemIndex(long idxpt) {
 		initUnsafe();
 	    
@@ -88,12 +108,12 @@ public class NginxClojureRT {
 		NGX_HTTP_CLOJURE_OFFT_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_OFFT_SIZE_IDX];
 		
 		NGX_HTTP_CLOJURE_TELT_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_TELT_SIZE_IDX];
-		NGX_HTTP_CLOJURE_TELT_HASH_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_TELT_HASH_IDX];
-		NGX_HTTP_CLOJURE_TELT_KEY_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_TELT_KEY_IDX];
-		NGX_HTTP_CLOJURE_TELT_VALUE_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_TELT_VALUE_IDX];
-		NGX_HTTP_CLOJURE_TELT_LOWCASE_KEY_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_TELT_LOWCASE_KEY_IDX];
+		NGX_HTTP_CLOJURE_TEL_HASH_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_TEL_HASH_IDX];
+		NGX_HTTP_CLOJURE_TEL_KEY_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_TEL_KEY_IDX];
+		NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_TEL_VALUE_IDX];
+		NGX_HTTP_CLOJURE_TEL_LOWCASE_KEY_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_TEL_LOWCASE_KEY_IDX];
 		
-		NGX_HTTP_CLOJURE_REQ_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_REQ_SIZE_IDX];
+		NGX_HTTP_CLOJURE_REQT_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_REQT_SIZE_IDX];
 		NGX_HTTP_CLOJURE_REQ_METHOD_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_REQ_METHOD_IDX];
 		NGX_HTTP_CLOJURE_REQ_URI_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_REQ_URI_IDX];
 		NGX_HTTP_CLOJURE_REQ_ARGS_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_REQ_ARGS_IDX];
@@ -101,15 +121,23 @@ public class NginxClojureRT {
 		NGX_HTTP_CLOJURE_REQ_POOL_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_REQ_POOL_IDX];
 		NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_IDX];
 		
-		NGX_HTTP_CLOJURE_CHAIN_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_CHAIN_SIZE_IDX];
+		NGX_HTTP_CLOJURE_CHAINT_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_CHAINT_SIZE_IDX];
 		NGX_HTTP_CLOJURE_CHAIN_BUF_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_CHAIN_BUF_IDX];
 		NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_CHAIN_NEXT_IDX];
 		
-		NGX_HTTP_CLOJURE_VARIABLE_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_VARIABLE_SIZE_IDX];
+		NGX_HTTP_CLOJURE_VARIABLET_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_VARIABLET_SIZE_IDX];
 		NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR = MEM_INDEX[NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR_IDX];
 		NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN = MEM_INDEX[NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN_IDX];
 		
-		NGX_HTTP_CLOJURE_HEADERSI_SIZE =  MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSI_SIZE_IDX];
+		
+		NGX_HTTP_CLOJURE_ARRAYT_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_ARRAYT_SIZE_IDX];
+		NGX_HTTP_CLOJURE_ARRAY_ELTS_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_ARRAY_ELTS_IDX];
+		NGX_HTTP_CLOJURE_ARRAY_NELTS_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_ARRAY_NELTS_IDX];
+		NGX_HTTP_CLOJURE_ARRAY_SIZE_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_ARRAY_SIZE_IDX];
+		NGX_HTTP_CLOJURE_ARRAY_NALLOC_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_ARRAY_NALLOC_IDX];
+		NGX_HTTP_CLOJURE_ARRAY_POOL_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_ARRAY_POOL_IDX];
+		
+		NGX_HTTP_CLOJURE_HEADERSIT_SIZE =  MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSIT_SIZE_IDX];
 		NGX_HTTP_CLOJURE_HEADERSI_HOST_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSI_HOST_IDX];
 		NGX_HTTP_CLOJURE_HEADERSI_CONNECTION_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSI_CONNECTION_IDX];
 		NGX_HTTP_CLOJURE_HEADERSI_IF_MODIFIED_SINCE_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSI_IF_MODIFIED_SINCE_IDX];
@@ -161,7 +189,7 @@ public class NginxClojureRT {
 
 
 		/*index for size of ngx_http_headers_out_t */
-		NGX_HTTP_CLOJURE_HEADERSO_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_SIZE_IDX];
+		NGX_HTTP_CLOJURE_HEADERSOT_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSOT_SIZE_IDX];
 		/*field offset index for ngx_http_headers_out_t*/
 		NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_STATUS_IDX];
 		NGX_HTTP_CLOJURE_HEADERSO_STATUS_LINE_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_STATUS_LINE_IDX];
@@ -191,6 +219,10 @@ public class NginxClojureRT {
 		
 		NGX_HTTP_CLOJURE_PTR_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_PTR_SIZE_IDX];
 		
+		NGINX_CLOJURE_VER = MEM_INDEX[NGINX_CLOJURE_VER_ID];
+		NGINX_VER = MEM_INDEX[NGINX_VER_ID];
+		NGINX_CLOJURE_FULL_VER = "nginx-clojure/" + formatVer(NGINX_VER) + "-" + formatVer(NGINX_CLOJURE_VER);
+		
 		KNOWN_REQ_HEADERS.put("host", NGX_HTTP_CLOJURE_HEADERSI_HOST_OFFSET);
 		KNOWN_REQ_HEADERS.put("connection", NGX_HTTP_CLOJURE_HEADERSI_CONNECTION_OFFSET);
 		KNOWN_REQ_HEADERS.put("if-modified-since", NGX_HTTP_CLOJURE_HEADERSI_IF_MODIFIED_SINCE_OFFSET);
@@ -218,6 +250,8 @@ public class NginxClojureRT {
 		KNOWN_REQ_HEADERS.put("date", NGX_HTTP_CLOJURE_HEADERSI_DATE_OFFSET);
 
 		KNOWN_REQ_HEADERS.put("cookie", NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET);
+		
+		
 
 		for (int i = 0; i < NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN; i++) {
 			long addr = NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR + i * NGX_HTTP_CLOJURE_STR_SIZE;
@@ -233,8 +267,22 @@ public class NginxClojureRT {
 		REQUEST_METHOD_FETCHER = new RequestMethodFetcher();
 		CONTENT_TYPE_FETCHER = new RequestKnownHeaderFetcher("content-type");
 		CHARACTER_ENCODING_FETCHER = new RequestCharacterEncodingFetcher();
-		HEADER_FETCHER = new RequestHeaderFetcher();
+		HEADER_FETCHER = new RequestHeadersFetcher();
 		BODY_FETCHER = new RequestBodyFetcher();
+		
+		KNOWN_RESP_HEADERS.put("server", SERVER_PUSHER = new ResponseTableEltHeaderPusher("server", NGX_HTTP_CLOJURE_HEADERSO_SERVER_OFFSET));
+		KNOWN_RESP_HEADERS.put("date", new ResponseTableEltHeaderPusher("date", NGX_HTTP_CLOJURE_HEADERSO_DATE_OFFSET));
+		KNOWN_RESP_HEADERS.put("content-length", new ResponseTableEltHeaderPusher("content-length", NGX_HTTP_CLOJURE_HEADERSO_CONTENT_LENGTH_OFFSET));
+		KNOWN_RESP_HEADERS.put("content-encoding", new ResponseTableEltHeaderPusher("content-encoding", NGX_HTTP_CLOJURE_HEADERSO_CONTENT_ENCODING_OFFSET));
+		KNOWN_RESP_HEADERS.put("location", new ResponseTableEltHeaderPusher("location", NGX_HTTP_CLOJURE_HEADERSO_LOCATION_OFFSET));
+		KNOWN_RESP_HEADERS.put("refresh", new ResponseTableEltHeaderPusher("refresh", NGX_HTTP_CLOJURE_HEADERSO_REFRESH_OFFSET));
+		KNOWN_RESP_HEADERS.put("last-modified", new ResponseTableEltHeaderPusher("last-modified", NGX_HTTP_CLOJURE_HEADERSO_LAST_MODIFIED_OFFSET));
+		KNOWN_RESP_HEADERS.put("content-range", new ResponseTableEltHeaderPusher("content-range", NGX_HTTP_CLOJURE_HEADERSO_CONTENT_RANGE_OFFSET));
+		KNOWN_RESP_HEADERS.put("accept-ranges", new ResponseTableEltHeaderPusher("accept-ranges", NGX_HTTP_CLOJURE_HEADERSO_ACCEPT_RANGES_OFFSET));
+		KNOWN_RESP_HEADERS.put("www-authenticate", new ResponseTableEltHeaderPusher("www-authenticate", NGX_HTTP_CLOJURE_HEADERSO_WWW_AUTHENTICATE_OFFSET));
+		KNOWN_RESP_HEADERS.put("expires", new ResponseTableEltHeaderPusher("expires", NGX_HTTP_CLOJURE_HEADERSO_EXPIRES_OFFSET));
+		KNOWN_RESP_HEADERS.put("etag", new ResponseTableEltHeaderPusher("etag", NGX_HTTP_CLOJURE_HEADERSO_ETAG_OFFSET));
+		KNOWN_RESP_HEADERS.put("cache-control", new ResponseArrayHeaderPusher("cache-control", NGX_HTTP_CLOJURE_HEADERSO_CACHE_CONTROL_OFFSET));
 	}
 
 	public static void initUnsafe() {
@@ -351,10 +399,27 @@ public class NginxClojureRT {
 			}
 			long headers_out = r + NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
 			pushNGXInt(headers_out + NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET, status);
-			Map headers = (Map) resp.get(HEADERS);
+			Map<String, Object> headers = (Map<String, Object>) resp.get(HEADERS);
 			String contentType = null;
 			if (headers != null) {
 				contentType = (String) headers.get("content-type");
+				for (Map.Entry<String, Object> hen : headers.entrySet()) {
+					String name = hen.getKey();
+					Object val = hen.getValue();
+					if (name == null || val == null || "content-type".equalsIgnoreCase(name) || "content-length".equalsIgnoreCase(name)) {
+						continue;
+					}
+					ResponseHeaderPusher pusher = KNOWN_RESP_HEADERS.get(hen.getKey());
+					if (pusher == null) {
+						pusher = new ResponseUnknownHeaderPusher(hen.getKey());
+					}
+					pusher.push(headers_out, pool, val);
+				}
+			}
+			
+			if (headers == null || !headers.containsKey("server")) {
+				SERVER_PUSHER.push(headers_out, pool, NGINX_CLOJURE_FULL_VER);
+				System.err.println(NGINX_CLOJURE_FULL_VER);
 			}
 			
 			if (contentType == null){
@@ -365,9 +430,7 @@ public class NginxClojureRT {
 				pushNGXSizet(headers_out + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_LEN_OFFSET, contentTypeLen);
 			}
 			
-			
 			Object body = resp.get(BODY);
-			
 			long b = 0;
 			if (body instanceof String) {
 				String bodyStr = (String) body;
@@ -391,7 +454,7 @@ public class NginxClojureRT {
 			if (rc == NGX_ERROR || rc > NGX_OK){
 				return rc;
 			}
-			long chain = ngx_palloc(pool, NGX_HTTP_CLOJURE_CHAIN_SIZE);
+			long chain = ngx_palloc(pool, NGX_HTTP_CLOJURE_CHAINT_SIZE);
 			UNSAFE.putAddress(chain + NGX_HTTP_CLOJURE_CHAIN_BUF_OFFSET, b);
 			UNSAFE.putAddress(chain + NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET, 0);
 			return (int)ngx_http_output_filter(r, chain);

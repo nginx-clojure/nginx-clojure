@@ -5,6 +5,8 @@
 #include "ngx_http_clojure_mem.h"
 #include "ngx_http_clojure_jvm.h"
 
+//static ngx_str_t NGX_HTTP_CLOJURE_FULL_VER_STR = ngx_string(NGINX_VER " & " NGINX_CLOJURE_VER);
+
 static JavaVM *jvm = NULL;
 static jclass nc_rt_class;
 static jmethodID nc_rt_eval_mid;
@@ -66,6 +68,32 @@ static jlong JNICALL jni_ngx_pcalloc (JNIEnv *env, jclass cls, jlong pool, jlong
 	return (uintptr_t)ngx_pcalloc((ngx_pool_t *)pool, (size_t)size);
 }
 
+static jlong JNICALL jni_ngx_array_create(JNIEnv *env, jclass cls, jlong pool, jlong n, jlong size) {
+	return (uintptr_t)ngx_array_create((ngx_pool_t *)pool, (ngx_uint_t)n, (size_t)size);
+}
+
+static jlong JNICALL jni_ngx_array_init(JNIEnv *env, jclass cls, jlong array, jlong pool, jlong n, jlong size) {
+	return (jlong)ngx_array_init((ngx_array_t *)array, (ngx_pool_t *)pool, (ngx_uint_t)n, (size_t)size);
+}
+
+static jlong JNICALL jni_ngx_array_push_n(JNIEnv *env, jclass cls, jlong array, jlong n) {
+	return (uintptr_t)ngx_array_push_n((ngx_array_t *)array,  (ngx_uint_t)n);
+}
+
+
+static jlong JNICALL jni_ngx_list_create(JNIEnv *env, jclass cls, jlong pool, jlong n, jlong size) {
+	return (uintptr_t)ngx_list_create((ngx_pool_t *)pool, (ngx_uint_t)n, (size_t)size);
+}
+
+static jlong JNICALL jni_ngx_list_init(JNIEnv *env, jclass cls, jlong list, jlong pool, jlong n, jlong size) {
+	return (jlong)ngx_list_init((ngx_list_t *)list, (ngx_pool_t *)pool, (ngx_uint_t)n, (size_t)size);
+}
+
+static jlong JNICALL jni_ngx_list_push(JNIEnv *env, jclass cls, jlong list) {
+	return (uintptr_t)ngx_list_push((ngx_list_t *)list);
+}
+
+
 static jlong JNICALL jni_ngx_create_temp_buf (JNIEnv *env, jclass cls, jlong pool, jlong size) {
 	return (uintptr_t)ngx_create_temp_buf((ngx_pool_t *)pool, (size_t)size);
 }
@@ -94,17 +122,19 @@ static jlong JNICALL jni_ngx_create_file_buf (JNIEnv *env, jclass cls, jlong r, 
 		return 0;
 	}
 
-	req->headers_out.content_length_n = ngx_file_fs_size(&b->file->info);//b->file->info.st_size;
+	req->headers_out.content_length_n = ngx_file_size(&b->file->info);//b->file->info.st_size;
 	b->file_pos = 0;
 	b->file_last = req->headers_out.content_length_n;
 	
 	//be friendly to gzip module
 	//TODO:use core module configuration
-	b->file->directio = 1;
+	//now we use send file by default
+	b->file->directio = 0;
     b->in_file = b->file_last ? 1: 0;
     b->last_buf = (req == req->main) ? 1: 0;
     b->last_in_chain = 1;
     req->headers_out.last_modified_time = ngx_file_mtime(&b->file->info);
+    req->allow_ranges = 1;
 
 	cln = ngx_pool_cleanup_add(req->pool, sizeof(ngx_pool_cleanup_file_t));
 	if (cln == NULL) {
@@ -235,6 +265,12 @@ int ngx_http_clojure_init_memory_util() {
 	JNINativeMethod nms[] = {
 			{"ngx_palloc", "(JJ)J", jni_ngx_palloc},
 			{"ngx_pcalloc", "(JJ)J", jni_ngx_pcalloc},
+			{"ngx_array_create", "(JJJ)J",jni_ngx_array_create},
+			{"ngx_array_init", "(JJJJ)J", jni_ngx_array_init},
+			{"ngx_array_push_n", "(JJ)J", jni_ngx_array_push_n},
+			{"ngx_list_create", "(JJJ)J", jni_ngx_list_create},
+			{"ngx_list_init", "(JJJJ)J", jni_ngx_list_init},
+			{"ngx_list_push", "(J)J", jni_ngx_list_push},
 			{"ngx_create_temp_buf", "(JJ)J", jni_ngx_create_temp_buf},
 			{"ngx_create_file_buf", "(JJJ)J", jni_ngx_create_file_buf},
 			{"ngx_http_set_content_type", "(J)J", jni_ngx_http_set_content_type},
@@ -262,27 +298,34 @@ int ngx_http_clojure_init_memory_util() {
 	memset(MEM_INDEX, -1, NGX_HTTP_CLOJURE_MEM_IDX_END * sizeof(jlong));
 	MEM_INDEX[NGX_HTTP_CLOJURE_UINT_SIZE_IDX] = NGX_HTTP_CLOJURE_UINT_SIZE;
 	MEM_INDEX[NGX_HTTP_CLOJURE_PTR_SIZE_IDX] = NGX_HTTP_CLOJURE_PTR_SIZE;
-	MEM_INDEX[NGX_HTTP_CLOJURE_STR_SIZE_IDX] = 	NGX_HTTP_CLOJURE_STR_SIZE;
+	MEM_INDEX[NGX_HTTP_CLOJURE_STRT_SIZE_IDX] = 	NGX_HTTP_CLOJURE_STRT_SIZE;
 	MEM_INDEX[NGX_HTTP_CLOJURE_STR_LEN_IDX] =	NGX_HTTP_CLOJURE_STR_LEN_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_STR_DATA_IDX] = NGX_HTTP_CLOJURE_STR_DATA_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_SIZET_SIZE_IDX] = NGX_HTTP_CLOJURE_SIZET_SIZE;
 	MEM_INDEX[NGX_HTTP_CLOJURE_OFFT_SIZE_IDX] = NGX_HTTP_CLOJURE_OFFT_SIZE;
 
 	MEM_INDEX[NGX_HTTP_CLOJURE_TELT_SIZE_IDX] = NGX_HTTP_CLOJURE_TELT_SIZE;
-	MEM_INDEX[NGX_HTTP_CLOJURE_TELT_HASH_IDX] = NGX_HTTP_CLOJURE_TELT_HASH_OFFSET;
-	MEM_INDEX[NGX_HTTP_CLOJURE_TELT_KEY_IDX] = NGX_HTTP_CLOJURE_TELT_KEY_OFFSET;
-	MEM_INDEX[NGX_HTTP_CLOJURE_TELT_VALUE_IDX] = NGX_HTTP_CLOJURE_TELT_VALUE_OFFSET;
-	MEM_INDEX[NGX_HTTP_CLOJURE_TELT_LOWCASE_KEY_IDX] = NGX_HTTP_CLOJURE_TELT_LOWCASE_KEY_OFFSET;
+	MEM_INDEX[NGX_HTTP_CLOJURE_TEL_HASH_IDX] = NGX_HTTP_CLOJURE_TEL_HASH_OFFSET;
+	MEM_INDEX[NGX_HTTP_CLOJURE_TEL_KEY_IDX] = NGX_HTTP_CLOJURE_TEL_KEY_OFFSET;
+	MEM_INDEX[NGX_HTTP_CLOJURE_TEL_VALUE_IDX] = NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET;
+	MEM_INDEX[NGX_HTTP_CLOJURE_TEL_LOWCASE_KEY_IDX] = NGX_HTTP_CLOJURE_TEL_LOWCASE_KEY_OFFSET;
 
-	MEM_INDEX[NGX_HTTP_CLOJURE_CHAIN_SIZE_IDX] = NGX_HTTP_CLOJURE_CHAIN_SIZE;
+	MEM_INDEX[NGX_HTTP_CLOJURE_CHAINT_SIZE_IDX] = NGX_HTTP_CLOJURE_CHAINT_SIZE;
 	MEM_INDEX[NGX_HTTP_CLOJURE_CHAIN_BUF_IDX] = NGX_HTTP_CLOJURE_CHAIN_BUF_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_CHAIN_NEXT_IDX] = NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET;
 
-	MEM_INDEX[NGX_HTTP_CLOJURE_VARIABLE_SIZE_IDX] = NGX_HTTP_CLOJURE_VARIABLE_SIZE;
+	MEM_INDEX[NGX_HTTP_CLOJURE_VARIABLET_SIZE_IDX] = NGX_HTTP_CLOJURE_VARIABLET_SIZE;
 	MEM_INDEX[NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR_IDX] = NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR;
 	MEM_INDEX[NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN_IDX] = NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN;
 
-	MEM_INDEX[NGX_HTTP_CLOJURE_REQ_SIZE_IDX] = NGX_HTTP_CLOJURE_REQ_SIZE;
+	MEM_INDEX[NGX_HTTP_CLOJURE_ARRAYT_SIZE_IDX] = NGX_HTTP_CLOJURE_ARRAYT_SIZE;
+	MEM_INDEX[NGX_HTTP_CLOJURE_ARRAY_ELTS_IDX] = NGX_HTTP_CLOJURE_ARRAY_ELTS_OFFSET;
+	MEM_INDEX[NGX_HTTP_CLOJURE_ARRAY_NELTS_IDX] = NGX_HTTP_CLOJURE_ARRAY_NELTS_OFFSET;
+	MEM_INDEX[NGX_HTTP_CLOJURE_ARRAY_SIZE_IDX] = NGX_HTTP_CLOJURE_ARRAY_SIZE_OFFSET;
+	MEM_INDEX[NGX_HTTP_CLOJURE_ARRAY_NALLOC_IDX] = NGX_HTTP_CLOJURE_ARRAY_NALLOC_OFFSET;
+	MEM_INDEX[NGX_HTTP_CLOJURE_ARRAY_POOL_IDX] = NGX_HTTP_CLOJURE_ARRAY_POOL_OFFSET;
+
+	MEM_INDEX[NGX_HTTP_CLOJURE_REQT_SIZE_IDX] = NGX_HTTP_CLOJURE_REQT_SIZE;
 	MEM_INDEX[NGX_HTTP_CLOJURE_REQ_METHOD_IDX] = NGX_HTTP_CLOJURE_REQ_METHOD_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_REQ_URI_IDX] = NGX_HTTP_CLOJURE_REQ_URI_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_REQ_ARGS_IDX] = NGX_HTTP_CLOJURE_REQ_ARGS_OFFSET;
@@ -291,7 +334,7 @@ int ngx_http_clojure_init_memory_util() {
 	MEM_INDEX[NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_IDX] = NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
 
 
-	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSI_SIZE_IDX] =  NGX_HTTP_CLOJURE_HEADERSI_SIZE;
+	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSIT_SIZE_IDX] =  NGX_HTTP_CLOJURE_HEADERSIT_SIZE;
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSI_HOST_IDX] =  NGX_HTTP_CLOJURE_HEADERSI_HOST_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSI_CONNECTION_IDX] = NGX_HTTP_CLOJURE_HEADERSI_CONNECTION_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSI_IF_MODIFIED_SINCE_IDX] = NGX_HTTP_CLOJURE_HEADERSI_IF_MODIFIED_SINCE_OFFSET;
@@ -343,7 +386,7 @@ int ngx_http_clojure_init_memory_util() {
 
 
 	/*index for size of ngx_http_headers_out_t */
-	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_SIZE_IDX] = NGX_HTTP_CLOJURE_HEADERSO_SIZE;
+	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSOT_SIZE_IDX] = NGX_HTTP_CLOJURE_HEADERSOT_SIZE;
 	/*field offset index for ngx_http_headers_out_t*/
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_STATUS_IDX] =  NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_STATUS_LINE_IDX] =  NGX_HTTP_CLOJURE_HEADERSO_STATUS_LINE_OFFSET;
@@ -371,6 +414,8 @@ int ngx_http_clojure_init_memory_util() {
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_LAST_MODIFIED_TIME_IDX] =  NGX_HTTP_CLOJURE_HEADERSO_LAST_MODIFIED_TIME_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_HEADERS_IDX] =  NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET;
 
+	MEM_INDEX[NGINX_VER_ID] = nginx_version;
+	MEM_INDEX[NGINX_CLOJURE_VER_ID] = nginx_clojure_ver;
 
 	(*jvm)->AttachCurrentThread(jvm, (void**)&env, NULL);
 	nc_rt_class = (*env)->FindClass(env, "nginx/clojure/NginxClojureRT");

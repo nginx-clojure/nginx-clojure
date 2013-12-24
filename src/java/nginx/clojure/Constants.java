@@ -57,6 +57,8 @@ public class Constants {
 	
 	public static Map<String, Long> KNOWN_REQ_HEADERS = new HashMap<String, Long>();
 	
+	public static Map<String, ResponseHeaderPusher> KNOWN_RESP_HEADERS = new HashMap<String, ResponseHeaderPusher>();
+	
 	public static Map<String, Long> CORE_VARS = new HashMap<String, Long>();
 	
 	public static final Keyword STATUS = RT.keyword(null, "status");
@@ -93,33 +95,47 @@ public class Constants {
 	public static int NGX_HTTP_CLOJURE_TELT_SIZE_IDX = 11;
 	public static long NGX_HTTP_CLOJURE_TELT_SIZE;
 	/* field offset index for ngx_table_elt_t */
-	public static int NGX_HTTP_CLOJURE_TELT_HASH_IDX = 12;
-	public static long NGX_HTTP_CLOJURE_TELT_HASH_OFFSET;
-	public static int NGX_HTTP_CLOJURE_TELT_KEY_IDX = 13;
-	public static long NGX_HTTP_CLOJURE_TELT_KEY_OFFSET;
-	public static int NGX_HTTP_CLOJURE_TELT_VALUE_IDX = 14;
-	public static long NGX_HTTP_CLOJURE_TELT_VALUE_OFFSET;
-	public static int NGX_HTTP_CLOJURE_TELT_LOWCASE_KEY_IDX = 15;
-	public static long NGX_HTTP_CLOJURE_TELT_LOWCASE_KEY_OFFSET;
+	public static int NGX_HTTP_CLOJURE_TEL_HASH_IDX = 12;
+	public static long NGX_HTTP_CLOJURE_TEL_HASH_OFFSET;
+	public static int NGX_HTTP_CLOJURE_TEL_KEY_IDX = 13;
+	public static long NGX_HTTP_CLOJURE_TEL_KEY_OFFSET;
+	public static int NGX_HTTP_CLOJURE_TEL_VALUE_IDX = 14;
+	public static long NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET;
+	public static int NGX_HTTP_CLOJURE_TEL_LOWCASE_KEY_IDX = 15;
+	public static long NGX_HTTP_CLOJURE_TEL_LOWCASE_KEY_OFFSET;
 
-	public static int  NGX_HTTP_CLOJURE_CHAIN_SIZE_IDX = 16;
-	public static long NGX_HTTP_CLOJURE_CHAIN_SIZE;
+	public static int  NGX_HTTP_CLOJURE_CHAINT_SIZE_IDX = 16;
+	public static long NGX_HTTP_CLOJURE_CHAINT_SIZE;
 	public static int NGX_HTTP_CLOJURE_CHAIN_BUF_IDX = 17;
 	public static long NGX_HTTP_CLOJURE_CHAIN_BUF_OFFSET;
 	public static int NGX_HTTP_CLOJURE_CHAIN_NEXT_IDX = 18;
 	public static long NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET;
 	
-	public static int NGX_HTTP_CLOJURE_VARIABLE_SIZE_IDX = 19;
-	public static long NGX_HTTP_CLOJURE_VARIABLE_SIZE;
+	public static int NGX_HTTP_CLOJURE_VARIABLET_SIZE_IDX = 19;
+	public static long NGX_HTTP_CLOJURE_VARIABLET_SIZE;
 	
 	public static int NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR_IDX = 20;
 	public static long NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR; 
 	public static int NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN_IDX  = 21;
 	public static long NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN;
 	
+	
+	public static int  NGX_HTTP_CLOJURE_ARRAYT_SIZE_IDX = 22;
+	public static long NGX_HTTP_CLOJURE_ARRAYT_SIZE;
+	public static int  NGX_HTTP_CLOJURE_ARRAY_ELTS_IDX = 23;
+	public static long NGX_HTTP_CLOJURE_ARRAY_ELTS_OFFSET;
+	public static int  NGX_HTTP_CLOJURE_ARRAY_NELTS_IDX = 24;
+	public static long NGX_HTTP_CLOJURE_ARRAY_NELTS_OFFSET;
+	public static int  NGX_HTTP_CLOJURE_ARRAY_SIZE_IDX = 25;
+	public static long NGX_HTTP_CLOJURE_ARRAY_SIZE_OFFSET;
+	public static int  NGX_HTTP_CLOJURE_ARRAY_NALLOC_IDX = 26;
+	public static long NGX_HTTP_CLOJURE_ARRAY_NALLOC_OFFSET;
+	public static int  NGX_HTTP_CLOJURE_ARRAY_POOL_IDX = 27;
+	public static long NGX_HTTP_CLOJURE_ARRAY_POOL_OFFSET;
+	
 	/* index for size of ngx_http_request_t */
-	public static int NGX_HTTP_CLOJURE_REQ_SIZE_IDX = 32;
-	public static long NGX_HTTP_CLOJURE_REQ_SIZE;
+	public static int NGX_HTTP_CLOJURE_REQT_SIZE_IDX = 32;
+	public static long NGX_HTTP_CLOJURE_REQT_SIZE;
 	/* field offset index for ngx_http_request_t */
 	public static int NGX_HTTP_CLOJURE_REQ_METHOD_IDX = 33;
 	public static long NGX_HTTP_CLOJURE_REQ_METHOD_OFFSET;
@@ -135,8 +151,8 @@ public class Constants {
 	public static long NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
 	
 	/*index for size of ngx_http_headers_in_t */
-	public static int  NGX_HTTP_CLOJURE_HEADERSI_SIZE_IDX = 64;
-	public static long NGX_HTTP_CLOJURE_HEADERSI_SIZE;
+	public static int  NGX_HTTP_CLOJURE_HEADERSIT_SIZE_IDX = 64;
+	public static long NGX_HTTP_CLOJURE_HEADERSIT_SIZE;
 	/*field offset index for ngx_http_headers_in_t*/
 	public static int  NGX_HTTP_CLOJURE_HEADERSI_HOST_IDX = 65;
 	public static long NGX_HTTP_CLOJURE_HEADERSI_HOST_OFFSET;
@@ -220,8 +236,8 @@ public class Constants {
 
 
 	/*index for size of ngx_http_headers_out_t */
-	public static int NGX_HTTP_CLOJURE_HEADERSO_SIZE_IDX = 128;
-	public static long NGX_HTTP_CLOJURE_HEADERSO_SIZE;
+	public static int NGX_HTTP_CLOJURE_HEADERSOT_SIZE_IDX = 128;
+	public static long NGX_HTTP_CLOJURE_HEADERSOT_SIZE;
 	/*field offset index for ngx_http_headers_out_t*/
 	public static int NGX_HTTP_CLOJURE_HEADERSO_STATUS_IDX  = 129;
 	public static long NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET;
@@ -274,8 +290,13 @@ public class Constants {
 	public static int NGX_HTTP_CLOJURE_HEADERSO_HEADERS_IDX  = 153;
 	public static long NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET;
 
-	
+	public static int NGINX_VER_ID = 253;
+	public static long NGINX_VER;
+	public static int NGINX_CLOJURE_VER_ID = 254;
+	public static long NGINX_CLOJURE_VER;
+	public static String NGINX_CLOJURE_FULL_VER;
 
+	
 	public static int NGX_HTTP_CLOJURE_MEM_IDX_END = 255;
 	
 	//ngx_core.h
@@ -330,4 +351,8 @@ public class Constants {
 	public static RequestVarFetcher HEADER_FETCHER;// = new RequestHeaderFetcher();
 	
 	public static RequestVarFetcher BODY_FETCHER;// = new RequestBodyFetcher();
+	
+	
+	public static ResponseTableEltHeaderPusher SERVER_PUSHER;
+	
 }

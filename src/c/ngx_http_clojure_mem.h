@@ -5,6 +5,7 @@
 #ifndef NGX_HTTP_CLOJURE_MEM_H_
 #define NGX_HTTP_CLOJURE_MEM_H_
 
+#include <nginx.h>
 #include <ngx_http.h>
 
 #if defined(_WIN32) || defined(WIN32)
@@ -14,6 +15,11 @@
 #pragma warning (disable : 4152)
 
 #endif
+
+#define nginx_clojure_ver 0000001
+
+#define NGINX_CLOJURE_VER "nginx clojure/0.0.1"
+
 
 #define NGX_HTTP_CLOJURE_MEM_IDX_START 0
 
@@ -31,8 +37,8 @@
 #define NGX_HTTP_CLOJURE_OFFT_SIZE sizeof(off_t)
 
 /*index for size of ngx_str_t */
-#define NGX_HTTP_CLOJURE_STR_SIZE_IDX 8
-#define NGX_HTTP_CLOJURE_STR_SIZE sizeof(ngx_str_t)
+#define NGX_HTTP_CLOJURE_STRT_SIZE_IDX 8
+#define NGX_HTTP_CLOJURE_STRT_SIZE sizeof(ngx_str_t)
 /*field offset index for ngx_str_t*/
 #define NGX_HTTP_CLOJURE_STR_LEN_IDX 9
 #define NGX_HTTP_CLOJURE_STR_LEN_OFFSET offsetof(ngx_str_t,len)
@@ -44,17 +50,17 @@
 #define NGX_HTTP_CLOJURE_TELT_SIZE_IDX 11
 #define NGX_HTTP_CLOJURE_TELT_SIZE sizeof(ngx_table_elt_t)
 /*field offset index for ngx_table_elt_t*/
-#define NGX_HTTP_CLOJURE_TELT_HASH_IDX 12
-#define NGX_HTTP_CLOJURE_TELT_HASH_OFFSET offsetof(ngx_table_elt_t,hash)
-#define NGX_HTTP_CLOJURE_TELT_KEY_IDX 13
-#define NGX_HTTP_CLOJURE_TELT_KEY_OFFSET offsetof(ngx_table_elt_t,key)
-#define NGX_HTTP_CLOJURE_TELT_VALUE_IDX 14
-#define NGX_HTTP_CLOJURE_TELT_VALUE_OFFSET offsetof(ngx_table_elt_t,value)
-#define NGX_HTTP_CLOJURE_TELT_LOWCASE_KEY_IDX 15
-#define NGX_HTTP_CLOJURE_TELT_LOWCASE_KEY_OFFSET offsetof(ngx_table_elt_t,lowcase_key)
+#define NGX_HTTP_CLOJURE_TEL_HASH_IDX 12
+#define NGX_HTTP_CLOJURE_TEL_HASH_OFFSET offsetof(ngx_table_elt_t,hash)
+#define NGX_HTTP_CLOJURE_TEL_KEY_IDX 13
+#define NGX_HTTP_CLOJURE_TEL_KEY_OFFSET offsetof(ngx_table_elt_t,key)
+#define NGX_HTTP_CLOJURE_TEL_VALUE_IDX 14
+#define NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET offsetof(ngx_table_elt_t,value)
+#define NGX_HTTP_CLOJURE_TEL_LOWCASE_KEY_IDX 15
+#define NGX_HTTP_CLOJURE_TEL_LOWCASE_KEY_OFFSET offsetof(ngx_table_elt_t,lowcase_key)
 
-#define NGX_HTTP_CLOJURE_CHAIN_SIZE_IDX 16
-#define NGX_HTTP_CLOJURE_CHAIN_SIZE sizeof(ngx_chain_t)
+#define NGX_HTTP_CLOJURE_CHAINT_SIZE_IDX 16
+#define NGX_HTTP_CLOJURE_CHAINT_SIZE sizeof(ngx_chain_t)
 #define NGX_HTTP_CLOJURE_CHAIN_BUF_IDX  17
 #define NGX_HTTP_CLOJURE_CHAIN_BUF_OFFSET  offsetof(ngx_chain_t, buf)
 #define NGX_HTTP_CLOJURE_CHAIN_NEXT_IDX  18
@@ -63,16 +69,31 @@
 
 extern ngx_conf_t *ngx_http_clojure_global_ngx_conf;
 
-#define NGX_HTTP_CLOJURE_VARIABLE_SIZE_IDX 19
-#define NGX_HTTP_CLOJURE_VARIABLE_SIZE sizeof(ngx_http_variable_t)
+#define NGX_HTTP_CLOJURE_VARIABLET_SIZE_IDX 19
+#define NGX_HTTP_CLOJURE_VARIABLET_SIZE sizeof(ngx_http_variable_t)
 #define NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR_IDX 20
 #define NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR (ngx_uint_t)ngx_http_clojure_core_variables_names
 #define NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN_IDX 21
 #define NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN (sizeof(ngx_http_clojure_core_variables_names)/ sizeof (ngx_str_t))
 
+
+
+#define NGX_HTTP_CLOJURE_ARRAYT_SIZE_IDX 22
+#define NGX_HTTP_CLOJURE_ARRAYT_SIZE sizeof(ngx_array_t)
+#define NGX_HTTP_CLOJURE_ARRAY_ELTS_IDX 23
+#define NGX_HTTP_CLOJURE_ARRAY_ELTS_OFFSET offsetof(ngx_array_t, elts)
+#define NGX_HTTP_CLOJURE_ARRAY_NELTS_IDX 24
+#define NGX_HTTP_CLOJURE_ARRAY_NELTS_OFFSET offsetof(ngx_array_t, nelts)
+#define NGX_HTTP_CLOJURE_ARRAY_SIZE_IDX 25
+#define NGX_HTTP_CLOJURE_ARRAY_SIZE_OFFSET offsetof(ngx_array_t, size)
+#define NGX_HTTP_CLOJURE_ARRAY_NALLOC_IDX 26
+#define NGX_HTTP_CLOJURE_ARRAY_NALLOC_OFFSET offsetof(ngx_array_t, nalloc)
+#define NGX_HTTP_CLOJURE_ARRAY_POOL_IDX 27
+#define NGX_HTTP_CLOJURE_ARRAY_POOL_OFFSET offsetof(ngx_array_t, pool)
+
 /*index for size of ngx_http_request_t */
-#define NGX_HTTP_CLOJURE_REQ_SIZE_IDX 32
-#define NGX_HTTP_CLOJURE_REQ_SIZE sizeof(ngx_http_request_t)
+#define NGX_HTTP_CLOJURE_REQT_SIZE_IDX 32
+#define NGX_HTTP_CLOJURE_REQT_SIZE sizeof(ngx_http_request_t)
 /*field offset index for ngx_http_request_t*/
 #define NGX_HTTP_CLOJURE_REQ_METHOD_IDX  33
 #define NGX_HTTP_CLOJURE_REQ_METHOD_OFFSET offsetof(ngx_http_request_t, method)
@@ -88,8 +109,8 @@ extern ngx_conf_t *ngx_http_clojure_global_ngx_conf;
 #define NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET offsetof(ngx_http_request_t, headers_out)
 
 /*index for size of ngx_http_headers_in_t */
-#define NGX_HTTP_CLOJURE_HEADERSI_SIZE_IDX 64
-#define NGX_HTTP_CLOJURE_HEADERSI_SIZE sizeof(ngx_http_headers_in_t)
+#define NGX_HTTP_CLOJURE_HEADERSIT_SIZE_IDX 64
+#define NGX_HTTP_CLOJURE_HEADERSIT_SIZE sizeof(ngx_http_headers_in_t)
 /*field offset index for ngx_http_headers_in_t*/
 #define NGX_HTTP_CLOJURE_HEADERSI_HOST_IDX  65
 #define NGX_HTTP_CLOJURE_HEADERSI_HOST_OFFSET offsetof(ngx_http_headers_in_t, host)
@@ -173,8 +194,8 @@ extern ngx_conf_t *ngx_http_clojure_global_ngx_conf;
 
 
 /*index for size of ngx_http_headers_out_t */
-#define NGX_HTTP_CLOJURE_HEADERSO_SIZE_IDX 128
-#define NGX_HTTP_CLOJURE_HEADERSO_SIZE sizeof(ngx_http_headers_out_t)
+#define NGX_HTTP_CLOJURE_HEADERSOT_SIZE_IDX 128
+#define NGX_HTTP_CLOJURE_HEADERSOT_SIZE sizeof(ngx_http_headers_out_t)
 /*field offset index for ngx_http_headers_out_t*/
 #define NGX_HTTP_CLOJURE_HEADERSO_STATUS_IDX  129
 #define NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET offsetof(ngx_http_headers_out_t, status)
@@ -227,8 +248,8 @@ extern ngx_conf_t *ngx_http_clojure_global_ngx_conf;
 #define NGX_HTTP_CLOJURE_HEADERSO_HEADERS_IDX  153
 #define NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET offsetof(ngx_http_headers_out_t, headers)
 
-
-
+#define NGINX_VER_ID 253
+#define NGINX_CLOJURE_VER_ID 254
 #define NGX_HTTP_CLOJURE_MEM_IDX_END 255
 
 

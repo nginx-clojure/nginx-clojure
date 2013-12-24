@@ -8,7 +8,7 @@ import java.nio.charset.Charset;
 
 import static nginx.clojure.Constants.*;
 
-public class RequestHeaderFetcher implements RequestVarFetcher {
+public class RequestHeadersFetcher implements RequestVarFetcher {
 
 	@Override
 	public Object fetch(long r, Charset encoding) {

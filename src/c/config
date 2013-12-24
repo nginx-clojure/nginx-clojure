@@ -22,7 +22,9 @@ fi
 
 CFLAGS="-I \"${JDK_HOME}/include\" \
         -I \"${JDK_HOME}/include/${JDK_OS_TAG}\" \
-        $CFLAGS"        
+        $CFLAGS"
+
+#for easy debug    
 #CFLAGS="-g -O0 $CFLAGS"
 
 if [ "$NGX_PLATFORM" != win32 ]; then

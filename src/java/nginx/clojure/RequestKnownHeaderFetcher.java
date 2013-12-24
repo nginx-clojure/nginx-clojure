@@ -9,7 +9,7 @@ import static nginx.clojure.Constants.DEFAULT_ENCODING;
 import static nginx.clojure.Constants.KNOWN_REQ_HEADERS;
 import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET;
 import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_REQ_HEADERS_IN_OFFSET;
-import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_TELT_VALUE_OFFSET;
+import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
 import static nginx.clojure.NginxClojureRT.fetchNGXString;
 import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_header;
@@ -47,7 +47,7 @@ public class RequestKnownHeaderFetcher implements RequestVarFetcher {
 				if (haddr == 0){
 					return null;
 				}
-				return fetchNGXString(haddr + NGX_HTTP_CLOJURE_TELT_VALUE_OFFSET, DEFAULT_ENCODING);
+				return fetchNGXString(haddr + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
 			}
 		}else {
 			byte[] kbs = name.getBytes();
@@ -56,7 +56,7 @@ public class RequestKnownHeaderFetcher implements RequestVarFetcher {
 			if (hp == 0){
 				return null;
 			}else {
-				return fetchNGXString(hp + NGX_HTTP_CLOJURE_TELT_VALUE_OFFSET, DEFAULT_ENCODING);
+				return fetchNGXString(hp + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
 			}
 		}
 

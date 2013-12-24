@@ -10,8 +10,8 @@ import static nginx.clojure.Constants.KNOWN_REQ_HEADERS;
 import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET;
 import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET;
 import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_REQ_HEADERS_IN_OFFSET;
-import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_TELT_KEY_OFFSET;
-import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_TELT_VALUE_OFFSET;
+import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_TEL_KEY_OFFSET;
+import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
 import static nginx.clojure.NginxClojureRT.fetchNGXString;
 import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_header;
@@ -70,8 +70,8 @@ public class LazyHeaderMap extends AFn implements IPersistentMap  {
 		}
 		long itemAddr = ngx_http_clojure_mem_get_list_item(headersPointer + NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET, i);
 //		System.out.println("LazyHeaderMap: i = " + i + ", addr:" + itemAddr + ", total=" + size);
-		String key = fetchNGXString(itemAddr + NGX_HTTP_CLOJURE_TELT_KEY_OFFSET, DEFAULT_ENCODING).toLowerCase();
-		String val = fetchNGXString(itemAddr + NGX_HTTP_CLOJURE_TELT_VALUE_OFFSET, DEFAULT_ENCODING);
+		String key = fetchNGXString(itemAddr + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET, DEFAULT_ENCODING).toLowerCase();
+		String val = fetchNGXString(itemAddr + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
 //		System.out.println("LazyHeaderMap: i = " + i + ", key:" + key + ", val:" + val);
 		return new MapEntry(key, val);
 	}
@@ -166,7 +166,7 @@ public class LazyHeaderMap extends AFn implements IPersistentMap  {
 			if (p.longValue() == NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET) {
 				val = (String)RequestKnownHeaderFetcher.cookieFetcher.fetch(headersPointer - NGX_HTTP_CLOJURE_REQ_HEADERS_IN_OFFSET, DEFAULT_ENCODING);
 			}else {
-				val = fetchNGXString(UNSAFE.getAddress(headersPointer + p.longValue()) + NGX_HTTP_CLOJURE_TELT_VALUE_OFFSET, DEFAULT_ENCODING);
+				val = fetchNGXString(UNSAFE.getAddress(headersPointer + p.longValue()) + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
 			}
 		}else {
 			byte[] kbs = key.toString().getBytes();
@@ -174,7 +174,7 @@ public class LazyHeaderMap extends AFn implements IPersistentMap  {
 			if (hp == 0){
 				val = null;
 			}else {
-				val = fetchNGXString(hp + NGX_HTTP_CLOJURE_TELT_VALUE_OFFSET, DEFAULT_ENCODING);
+				val = fetchNGXString(hp + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
 			}
 		}
 		return val;

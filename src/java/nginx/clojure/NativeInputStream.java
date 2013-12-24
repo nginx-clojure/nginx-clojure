@@ -29,22 +29,25 @@ public class NativeInputStream extends InputStream {
 		return -1;
 	}
 
-//	@Override
-//	public int read(byte[] b) throws IOException {
-//		return read(b, 0, b.length);
-//	}
-//	
-//	@Override
-//	public int read(byte[] b, int off, int l) throws IOException {
-//		int c = (int)(len - pos);
-//		if (l > b.length - off) {
-//			l = b.length - off;
-//		}
-//		if (c > l) {
-//			c = l;
-//		}
-//		ngx_http_clojure_mem_copy_to_obj(addr + pos, b, BYTE_ARRAY_OFFSET + off, c);
-//		pos += c;
-//		return c;
-//	}
+	@Override
+	public int read(byte[] b) throws IOException {
+		return read(b, 0, b.length);
+	}
+	
+	@Override
+	public int read(byte[] b, int off, int l) throws IOException {
+		if (pos == len) {
+			return -1;
+		}
+		int c = (int)(len - pos);
+		if (l > b.length - off) {
+			l = b.length - off;
+		}
+		if (c > l) {
+			c = l;
+		}
+		ngx_http_clojure_mem_copy_to_obj(addr + pos, b, BYTE_ARRAY_OFFSET + off, c);
+		pos += c;
+		return c;
+	}
 }
