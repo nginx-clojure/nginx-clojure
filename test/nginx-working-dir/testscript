@@ -25,8 +25,17 @@ curl -v --data-binary @post-test-data  "http://localhost:8080/echoUploadfile"
 curl -v --form mytoken=12345 --form  myf=@post-test-data "http://localhost:8080/echoUploadfile"
 
 ab -n 400000 -c 16 "http://localhost:8080/clojure"
+ab -n 100000 -c 16 "http://172.16.111.135:8080/clojure"
+
+
+ab -n 400000 -c 16 -rk -H "my-header:test" http://localhost:8080/headers
+ab -n 100000 -c 16 -rk -H "my-header:test" http://172.16.111.135:8080/headers
 
 ab -n 400000 -c 16 -p post-test-data  -T 'application/x-www-form-urlencoded' http://localhost:8080/form
+
+
+ab -n 120000 -c 8 -rk  "http://localhost:8080/files/index.htm"
+ab -n 120000 -c 8 -rk  "http://172.16.111.135:8080/src/c/ngx_http_clojure_mem.c"
 
 
 #build win32
@@ -53,7 +62,8 @@ tar -xzf ../../openssl-1.0.1e.tar.gz
 
 --add-module=/home/who/git/nginx-clojure/src/c
 
-nmake -f objs/Makefile
+#win32 build
+
 
 auto/configure --with-cc=cl --builddir=objs --with-debug --prefix= \
 --conf-path=conf/nginx.conf --pid-path=logs/nginx.pid \
@@ -73,6 +83,63 @@ auto/configure --with-cc=cl --builddir=objs --with-debug --prefix= \
 --with-http_secure_link_module --with-mail  \
 --with-openssl-opt=enable-tlsext --with-http_ssl_module --with-mail_ssl_module --with-ipv6 \
 --add-module=Y:/nginx-clojure/src/c
+nmake -f objs/Makefile
+
+#linux build
+#online
+sudo apt-get install libxml2 libxml2-dev libxslt1-dev
+sudo apt-get install libgd3 libgd-dev
+sudo apt-get install libgeoip-dev
+auto/configure --prefix=/usr/share/nginx --conf-path=/etc/nginx/nginx.conf --error-log-path=/var/log/nginx/error.log --http-client-body-temp-path=/var/lib/nginx/body --http-fastcgi-temp-path=/var/lib/nginx/fastcgi --http-log-path=/var/log/nginx/access.log --http-proxy-temp-path=/var/lib/nginx/proxy --http-scgi-temp-path=/var/lib/nginx/scgi --http-uwsgi-temp-path=/var/lib/nginx/uwsgi --lock-path=/var/lock/nginx.lock --pid-path=/run/nginx.pid --with-pcre-jit --with-debug --with-http_addition_module --with-http_dav_module --with-http_geoip_module --with-http_gzip_static_module --with-http_image_filter_module --with-http_realip_module --with-http_stub_status_module --with-http_ssl_module --with-http_sub_module --with-http_xslt_module --with-ipv6 --with-mail --with-mail_ssl_module --add-module=/home/who/git/nginx-clojure/src/c
+
+#for local test
+auto/configure --prefix= --conf-path=conf/nginx.conf --error-log-path=logs/error.log --http-client-body-temp-path=temp/client_body_temp --http-fastcgi-temp-path=temp/fastcgi_temp --http-log-path=logs/access.log --http-proxy-temp-path=temp/proxy_temp --http-scgi-temp-path=temp/scgi-temp --http-uwsgi-temp-path=temp/uwsgi-temp --lock-path=logs/nginx.lock --pid-path=logs/nginx.pid --with-pcre-jit --with-debug --with-http_addition_module --with-http_dav_module --with-http_geoip_module --with-http_gzip_static_module --with-http_image_filter_module --with-http_realip_module --with-http_stub_status_module --with-http_ssl_module --with-http_sub_module --with-http_xslt_module --with-ipv6 --with-mail --with-mail_ssl_module --add-module=/home/who/git/nginx-clojure/src/c
+
+
+#mlines
+auto/configure --prefix=/usr/share/nginx --conf-path=/etc/nginx/nginx.conf \
+--error-log-path=/var/log/nginx/error.log --http-client-body-temp-path=/var/lib/nginx/body \
+--http-fastcgi-temp-path=/var/lib/nginx/fastcgi \
+--http-log-path=/var/log/nginx/access.log \
+--http-proxy-temp-path=/var/lib/nginx/proxy \
+--http-scgi-temp-path=/var/lib/nginx/scgi \
+--http-uwsgi-temp-path=/var/lib/nginx/uwsgi \
+--lock-path=/var/lock/nginx.lock \
+--pid-path=/run/nginx.pid --with-pcre-jit \
+--with-debug --with-http_addition_module \
+--with-http_dav_module --with-http_geoip_module --with-http_gzip_static_module \
+--with-http_image_filter_module --with-http_realip_module \
+--with-http_stub_status_module --with-http_ssl_module --with-http_sub_module \
+--with-http_xslt_module --with-ipv6 --with-mail --with-mail_ssl_module \
+--add-module=/home/who/git/nginx-clojure/src/c
+
+#macosx
+
+mkdir objs
+cd objs
+mkdir lib
+cd objs
+tar -xjf ../../../pcre-8.32.tar.bz2
+cd ../../
+auto/configure --with-debug --prefix= \
+--conf-path=conf/nginx.conf --pid-path=logs/nginx.pid \
+--http-log-path=logs/access.log --error-log-path=logs/error.log \
+--sbin-path=nginx.exe --http-client-body-temp-path=temp/client_body_temp \
+--http-proxy-temp-path=temp/proxy_temp \
+--http-fastcgi-temp-path=temp/fastcgi_temp \
+--http-scgi-temp-path=temp/scgi_temp --http-uwsgi-temp-path=temp/uwsgi_temp \
+--with-pcre=objs/lib/pcre-8.32 \
+--with-select_module \
+--with-http_realip_module --with-http_addition_module \
+--with-http_sub_module --with-http_dav_module \
+--with-http_stub_status_module --with-http_flv_module \
+--with-http_mp4_module --with-http_gunzip_module \
+--with-http_gzip_static_module --with-http_random_index_module \
+--with-http_secure_link_module --with-mail  \
+--with-openssl-opt=enable-tlsext --with-http_ssl_module --with-mail_ssl_module --with-ipv6 \
+--add-module=../nginx-clojure/src/c
+
+make
 
 
 nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx.conf -p /home/who/git/nginx-clojure/test/nginx-working-dir/

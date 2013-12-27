@@ -16,9 +16,9 @@
 
 #endif
 
-#define nginx_clojure_ver 0000001
+#define nginx_clojure_ver  1000 /*0.1.0*/
 
-#define NGINX_CLOJURE_VER "nginx clojure/0.0.1"
+#define NGINX_CLOJURE_VER "nginx clojure/0.1.0"
 
 
 #define NGX_HTTP_CLOJURE_MEM_IDX_START 0

@@ -57,9 +57,14 @@ int ngx_http_clojure_init_jvm(char *jvm_path, char * *opts, size_t len) {
 #else
 
 	if ((libVM = dlopen(jvm_path, RTLD_LAZY)) == NULL) {
+		printf("can not open shared lib :%s,\n %s\n", jvm_path, dlerror());
 		return NGX_HTTP_CLOJURE_JVM_ERR_LOAD_LIB;
 	}
 	jvm_creator = dlsym(libVM, "JNI_CreateJavaVM");
+	if (jvm_creator == NULL) {
+		/*for macosx default jvm*/
+		jvm_creator = dlsym(libVM, "JNI_CreateJavaVM_Impl");
+	}
 
 #endif
 

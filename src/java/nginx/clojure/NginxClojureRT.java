@@ -419,7 +419,6 @@ public class NginxClojureRT {
 			
 			if (headers == null || !headers.containsKey("server")) {
 				SERVER_PUSHER.push(headers_out, pool, NGINX_CLOJURE_FULL_VER);
-				System.err.println(NGINX_CLOJURE_FULL_VER);
 			}
 			
 			if (contentType == null){

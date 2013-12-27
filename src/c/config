@@ -10,25 +10,25 @@ NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
     $ngx_addon_dir/ngx_http_clojure_mem.h \
 "
 
-
 #windows
-if [ "$NGX_PLATFORM" == win32 ]; then
-JDK_HOME="C:/Program Files/Java/jdk1.7.0_25"
-JDK_OS_TAG=win32
-else
-JDK_OS_TAG=linux
-JDK_HOME="/usr/lib/jvm/java-7-oracle"
-fi
+#JNI_HEADER_1="C:/Program Files/Java/jdk1.7.0_25"
+#JNI_HEADER_2="${JNI_HEADER_1}/win32"
 
-CFLAGS="-I \"${JDK_HOME}/include\" \
-        -I \"${JDK_HOME}/include/${JDK_OS_TAG}\" \
+#linux
+JNI_HEADER_1="/usr/lib/jvm/java-7-oracle"
+JNI_HEADER_2="${JNI_HEADER_1}/linux"
+
+#macosx
+#JNI_HEADER_1="/Library/Java/JavaVirtualMachines/1.6.0_65-b14-462.jdk/Contents/headers"
+#JNI_HEADER_2="${JNI_HEADER_1}"
+
+CFLAGS="-I \"${JNI_HEADER_1}\" \
+        -I \"${JNI_HEADER_2}\" \
         $CFLAGS"
 
 #for easy debug    
 #CFLAGS="-g -O0 $CFLAGS"
 
 if [ "$NGX_PLATFORM" != win32 ]; then
-
-CORE_LIBS="$CORE_LIBS -ldl"
-
+CORE_LIBS="$CORE_LIBS -ldl";
 fi

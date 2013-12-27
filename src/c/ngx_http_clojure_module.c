@@ -17,6 +17,8 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 
 static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle);
 
+static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf);
+
 
 typedef struct {
     ngx_array_t *jvm_options;
@@ -65,7 +67,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 
 static ngx_http_module_t  ngx_http_clojure_module_ctx = {
     NULL,                          /* preconfiguration */
-    NULL,                          /* postconfiguration */
+    ngx_http_clojure_postconfiguration, /* postconfiguration */
 
     NULL,                          /* create main configuration */
     NULL,                          /* init main configuration */
@@ -99,6 +101,7 @@ static void * ngx_http_clojure_create_loc_conf(ngx_conf_t *cf) {
 	if (conf == NULL){
 		return NGX_CONF_ERROR;
 	}
+	conf->jvm_path.len = NGX_CONF_UNSET_SIZE;
 	conf->jvm_options = NGX_CONF_UNSET_PTR;
 	conf->clojure_code_id = -1;
 	//conf->clojure_script = ngx_null_string;
@@ -159,6 +162,23 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 
 ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
 	ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, NGINX_CLOJURE_VER);
+	return NGX_OK;
+}
+
+ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
+
+	ngx_http_clojure_loc_conf_t *lcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_clojure_module);
+
+	if (lcf->jvm_path.len == NGX_CONF_UNSET_SIZE) {
+		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "no jvm_path configured!");
+		return NGX_ERROR ;
+	}
+
+	if (lcf->jvm_options == NGX_CONF_UNSET_PTR) {
+		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "no jvm_options configured!");
+		return NGX_ERROR ;
+	}
+
 	return NGX_OK;
 }
 
