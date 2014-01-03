@@ -47,18 +47,20 @@ import clojure.lang.Util;
 public   class LazyRequestMap extends AFn  implements IPersistentMap {
 	
 	protected long r;
+	protected int codeId;
 	protected Object[] array;
-	public final static LazyRequestMap EMPTY_MAP = new LazyRequestMap(0, new Object[0]);
+	public final static LazyRequestMap EMPTY_MAP = new LazyRequestMap(0, 0, new Object[0]);
 	
-	public LazyRequestMap(long r, Object[] array) {
+	public LazyRequestMap(int codeId, long r, Object[] array) {
 		this.r = r;
 		this.array = array;
+		this.codeId = codeId;
 	}
 	
 	@SuppressWarnings("unchecked")
-	public LazyRequestMap(long r) {
+	public LazyRequestMap(int codeId, long r) {
 		//TODO: SSL_CLIENT_CERT,BODY
-		this(r, new Object[] {
+		this(codeId, r, new Object[] {
 				SERVER_PORT,SERVER_PORT_FETCHER,
 				SERVER_NAME, SERVER_NAME_FETCHER,
 				REMOTE_ADDR, REMOTE_ADDR_FETCHER,
@@ -72,6 +74,9 @@ public   class LazyRequestMap extends AFn  implements IPersistentMap {
 				BODY, BODY_FETCHER
 		});
 	}
+	
+	
+	
 	
 	protected int index(Object key) {
 		for (int i = 0; i < array.length; i+=2){
@@ -232,7 +237,7 @@ public   class LazyRequestMap extends AFn  implements IPersistentMap {
 		System.arraycopy(array, 0, newArray, 0, array.length);
 		newArray[array.length] = key;
 		newArray[array.length+1] = val;
-		return new LazyRequestMap(r, newArray);
+		return new LazyRequestMap(codeId, r, newArray);
 	}
 
 	@Override

@@ -23,6 +23,7 @@ static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf);
 typedef struct {
     ngx_array_t *jvm_options;
     ngx_str_t jvm_path;
+    ngx_int_t jvm_workers;
     ngx_str_t clojure_code;
     ngx_flag_t enable;
     ngx_int_t clojure_code_id;
@@ -39,7 +40,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 	},
     {
 		ngx_string("jvm_options"),
-		NGX_HTTP_MAIN_CONF |NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
 		ngx_conf_set_str_array_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, jvm_options),
@@ -51,6 +52,14 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 		ngx_conf_set_str_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, jvm_path),
+		NULL
+    },
+    {
+		ngx_string("jvm_workers"),
+		NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
+		ngx_conf_set_num_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_clojure_loc_conf_t, jvm_workers),
 		NULL
     },
     {
@@ -103,6 +112,7 @@ static void * ngx_http_clojure_create_loc_conf(ngx_conf_t *cf) {
 	}
 	conf->jvm_path.len = NGX_CONF_UNSET_SIZE;
 	conf->jvm_options = NGX_CONF_UNSET_PTR;
+	conf->jvm_workers = NGX_CONF_UNSET;
 	conf->clojure_code_id = -1;
 	//conf->clojure_script = ngx_null_string;
 	return conf;
@@ -129,7 +139,7 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  
     }
 
     if (ngx_http_clojure_check_memory_util() != NGX_HTTP_CLOJURE_JVM_OK){
-		if (ngx_http_clojure_init_memory_util() != NGX_HTTP_CLOJURE_JVM_OK) {
+		if (ngx_http_clojure_init_memory_util(lcf->jvm_workers, log) != NGX_HTTP_CLOJURE_JVM_OK) {
 			ngx_log_error(NGX_LOG_ERR, log, 0, "can not initialize jvm memory util");
 			return NGX_HTTP_INTERNAL_SERVER_ERROR;
 		}
@@ -149,7 +159,7 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 	ngx_http_clojure_loc_conf_t *conf = child;
 	conf->jvm_options = prev->jvm_options;
 	conf->jvm_path = prev->jvm_path;
-
+	conf->jvm_workers = prev->jvm_workers;
 //	if (conf->enable) {
 //		ngx_int_t rc = ngx_http_clojure_init_jvm_and_mem(conf, cf->log);
 //		if (rc != NGX_HTTP_CLOJURE_JVM_OK){
@@ -161,6 +171,7 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 }
 
 ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
+	ngx_http_clojure_global_cycle = cycle;
 	ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, NGINX_CLOJURE_VER);
 	return NGX_OK;
 }
@@ -183,12 +194,15 @@ ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 }
 
 ngx_conf_t *ngx_http_clojure_global_ngx_conf;
+ngx_cycle_t *ngx_http_clojure_global_cycle;
 
 static void ngx_http_clojure_client_body_handler(ngx_http_request_t *r) {
 	ngx_http_clojure_loc_conf_t  *lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
 	int rc = ngx_http_clojure_eval(lcf->clojure_code_id, r);
 	ngx_http_finalize_request (r , rc);
 }
+
+
 
 static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     ngx_int_t     rc;
@@ -211,7 +225,7 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
 //    ngx_http_core_main_conf_t  *cmcf = ngx_http_get_module_main_conf(r, ngx_http_core_module);
 
 
-    rc = ngx_http_clojure_init_jvm_and_mem(lcf, r->connection->log);
+    rc = ngx_http_clojure_init_jvm_and_mem(lcf, ngx_http_clojure_global_cycle->log);
     if (rc != NGX_HTTP_CLOJURE_JVM_OK){
     	return rc;
     }

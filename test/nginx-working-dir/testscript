@@ -1,41 +1,53 @@
-curl "http://localhost:8080/clojure"
-curl 'http://localhost:8080/src/c/ngx_http_clojure_mem.c'
-curl -v "http://localhost:8080/headers"
-curl -v -H "my-header:mytest"  http://localhost:8080/headers
+curl -v "http://${testhost}:8080/clojure"
 
-curl -v -H "my-header:mytest"  http://localhost:8080/headers?my=test
+curl -v "http://172.16.111.135:8080/clojure"
 
-curl -v --data "name=zyx&passwd=good" http://localhost:8080/form
+curl -v "http://${testhost}:8080/testfiles/small.html"
+
+curl -v "http://172.16.111.135:8080/testfiles/small.html"
+
+curl -v "http://${testhost}:8080/headers"
+curl -v "http://172.16.111.135:8080/headers"
+
+curl -v -H "my-header:mytest"  http://${testhost}:8080/headers
+
+curl -v -H "my-header:mytest"  http://${testhost}:8080/headers?my=test
+
+curl -v -H "my-header:mytest"  http://172.16.111.135:8080/headers?my=test
+
+curl -v --data "name=zyx&passwd=good" http://${testhost}:8080/form
+curl -v --data "name=zyx&passwd=good" http://172.16.111.135:8080/form
+
+curl -v -H "my-header:mytest" --cookie "tc1=just1;tc2=just2"  http://${testhost}:8080/headers?my=test
+curl -v -H "my-header:mytest" --cookie "tc1=just1;tc2=just2"  http://172.16.111.135:8080/headers?my=test
+
+curl -v -H "my-header:mytest" -H "Content-Type:text/plain; charset=utf-8" --cookie "tc1=just1;tc2=just2"  http://${testhost}:8080/headers?my=test
+curl -v -H "my-header:mytest" -H "Content-Type:text/plain; charset=utf-8" --cookie "tc1=just1;tc2=just2"  http://172.16.111.135:8080/headers?my=test
 
 
-curl -v -H "my-header:mytest" --cookie "tc1=just1;tc2=just2"  http://localhost:8080/headers?my=test
-curl -v -H "my-header:mytest" -H "Content-Type:text/plain; charset=utf-8" --cookie "tc1=just1;tc2=just2"  http://localhost:8080/headers?my=test
+curl --header "accept-encoding: gzip" -v "http://${testhost}:8080/testfiles/small.html"
 
-curl -v -H "my-header:mytest" -H "Content-Type:text/plain; charset=utf-8" --cookie "tc1=just1;tc2=just2"  http://localhost:8080/headers?my=test
+curl -r 0-128 -v "http://${testhost}:8080/testfiles/small.html"
 
-curl --header 'accept-encoding: gzip' -v "http://localhost:8080/src/c/ngx_http_clojure_mem.c"
-
-curl -r 0-128 -v "http://localhost:8080/src/c/ngx_http_clojure_mem.c"
-
-curl --header 'accept-encoding: gzip' -r 0-128 -v "http://localhost:8080/src/c/ngx_http_clojure_mem.c"
+curl --header "accept-encoding: gzip" -r 0-128 -v "http://${testhost}:8080/testfiles/small.html"
 
 #test put text file
-curl -v --data-binary @post-test-data  "http://localhost:8080/echoUploadfile"
+curl -v --data-binary @post-test-data  "http://${testhost}:8080/echoUploadfile"
 #test multipart/form-data
-curl -v --form mytoken=12345 --form  myf=@post-test-data "http://localhost:8080/echoUploadfile"
+curl -v --form mytoken=12345 --form  myf=@post-test-data "http://${testhost}:8080/echoUploadfile"
 
-ab -n 400000 -c 16 "http://localhost:8080/clojure"
+ab -n 400000 -c 16 "http://${testhost}:8080/clojure"
 ab -n 100000 -c 16 "http://172.16.111.135:8080/clojure"
 
 
-ab -n 400000 -c 16 -rk -H "my-header:test" http://localhost:8080/headers
+ab -n 400000 -c 16 -rk -H "my-header:test" http://${testhost}:8080/headers
 ab -n 100000 -c 16 -rk -H "my-header:test" http://172.16.111.135:8080/headers
 
-ab -n 400000 -c 16 -p post-test-data  -T 'application/x-www-form-urlencoded' http://localhost:8080/form
+ab -n 400000 -c 16 -p post-test-data  -T "application/x-www-form-urlencoded" -rk  http://${testhost}:8080/form
 
 
-ab -n 120000 -c 8 -rk  "http://localhost:8080/files/index.htm"
-ab -n 120000 -c 8 -rk  "http://172.16.111.135:8080/src/c/ngx_http_clojure_mem.c"
+ab -n 120000 -c 8 -rk  "http://${testhost}:8080/testfiles/small.html"
+ab -n 120000 -c 8 -rk  "http://172.16.111.135:8080/testfiles/small.html"
 
 
 #build win32

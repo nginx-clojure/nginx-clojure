@@ -290,6 +290,8 @@ public class Constants {
 	public static int NGX_HTTP_CLOJURE_HEADERSO_HEADERS_IDX  = 153;
 	public static long NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET;
 
+	public static int NGINX_CLOJURE_RT_WORKERS_ID = 252;
+	public static long NGINX_CLOJURE_RT_WORKERS;
 	public static int NGINX_VER_ID = 253;
 	public static long NGINX_VER;
 	public static int NGINX_CLOJURE_VER_ID = 254;

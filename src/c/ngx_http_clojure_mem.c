@@ -11,6 +11,9 @@ static JavaVM *jvm = NULL;
 static jclass nc_rt_class;
 static jmethodID nc_rt_eval_mid;
 static jmethodID nc_rt_register_code_mid;
+static jmethodID nc_rt_handle_response_mid;
+
+static ngx_socket_t nc_jvm_worker_pipe_fds[2];
 
 static  ngx_str_t  ngx_http_clojure_core_variables_names[] = {
 		ngx_string("http_host"),
@@ -161,6 +164,10 @@ static jlong JNICALL jni_ngx_http_output_filter (JNIEnv *env, jclass cls, jlong 
 	return ngx_http_output_filter((ngx_http_request_t *)r, (ngx_chain_t *)chain);
 }
 
+static void JNICALL jni_ngx_http_finalize_request (JNIEnv *env, jclass cls, jlong r , jlong rc) {
+	ngx_http_finalize_request((ngx_http_request_t *)r, (ngx_int_t)rc);
+}
+
 static jlong JNICALL jni_ngx_http_clojure_mem_init_ngx_buf(JNIEnv *env, jclass cls, jlong buf, jobject obj, jlong offset, jlong len, jint last_buf) {
 	ngx_buf_t * b = (ngx_buf_t *)buf;
 	ngx_memcpy(b->pos, (char *)(*(uintptr_t*)obj) + offset, len);
@@ -248,6 +255,34 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_variable(JNIEnv *env, jclass c
 	return (uintptr_t)vp;
 }
 
+static void JNICALL jni_ngx_http_clojure_mem_inc_req_count(JNIEnv *env, jclass cls, jlong r) {
+	ngx_http_request_t *req = (ngx_http_request_t *) r;
+	req->main->count ++;
+}
+
+
+#define log_debug0(log, msg) do{ \
+	ngx_log_debug0(NGX_LOG_DEBUG_HTTP, log, 0, msg); \
+}while(0);
+
+#define log_debug1(log, msg, a1) do{ \
+	ngx_log_debug1(NGX_LOG_DEBUG_HTTP, log, 0, msg, a1); \
+}while(0);
+
+#if defined(_WIN32) || defined(WIN32)
+#define log_debug2(log, msg, a1, a2) do{ \
+	ngx_log_debug2(NGX_LOG_DEBUG_HTTP, log, 0, msg, a1, a2); \
+	if (log->log_level & NGX_LOG_DEBUG_HTTP) { \
+		printf(msg, a1, a2);\
+	} \
+}while(0);
+#else
+#define log_debug2(log, msg, a1, a2) do{ \
+	ngx_log_debug2(NGX_LOG_DEBUG_HTTP, log, 0, msg, a1, a2); \
+}while(0);
+#endif
+
+
 //we now use request_body_file variable
 //static jlong JNICALL jni_ngx_http_clojure_mem_get_body_tmp_file(JNIEnv *env, jclass cls, jlong r) {
 //	return &((ngx_http_request_t *) r)->request_body->temp_file->file.name;
@@ -255,11 +290,222 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_variable(JNIEnv *env, jclass c
 
 static int ngx_http_clojure_init_memory_util_flag = NGX_HTTP_CLOJURE_JVM_ERR;
 
+
+
+
+
+static int ngx_http_clojure_pipe(ngx_socket_t fds[2]) {
+
+#if defined(_WIN32) || defined(WIN32)
+	SOCKET s;
+	struct sockaddr_in serv_addr;
+	int len = sizeof( serv_addr );
+
+	fds[0] = fds[1] = INVALID_SOCKET;
+
+	if ( ( s = socket( AF_INET, SOCK_STREAM, 0 ) ) == INVALID_SOCKET ) {
+		log_debug1(ngx_http_clojure_global_cycle->log, "ngx clojure:ngx_http_clojure_pipe failed to create socket: %ui", WSAGetLastError());
+		return -1;
+	}
+
+	memset( &serv_addr, 0, sizeof( serv_addr ) );
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_port = htons(0);
+	serv_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+	if (bind(s, (SOCKADDR *) & serv_addr, len) == SOCKET_ERROR) {
+		log_debug1(ngx_http_clojure_global_cycle->log, "ngx clojure:ngx_http_clojure_pipe failed to bind: %ui", WSAGetLastError());
+		closesocket(s);
+		return -1;
+	}
+
+	if (listen(s, 1) == SOCKET_ERROR) {
+		log_debug1(ngx_http_clojure_global_cycle->log, "ngx clojure:ngx_http_clojure_pipe failed to listen: %ui", WSAGetLastError());
+		closesocket(s);
+		return -1;
+	}
+
+	if (getsockname(s, (SOCKADDR *) & serv_addr, &len) == SOCKET_ERROR) {
+		log_debug1(ngx_http_clojure_global_cycle->log, "ngx clojure:ngx_http_clojure_pipe failed to getsockname: %ui", WSAGetLastError());
+		closesocket(s);
+		return -1;
+	}
+
+	if ((fds[1] = socket(PF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
+		log_debug1(ngx_http_clojure_global_cycle->log, "ngx clojure:ngx_http_clojure_pipe failed to create socket 2: %ui", WSAGetLastError());
+		closesocket(s);
+		return -1;
+	}
+
+	if (connect(fds[1], (SOCKADDR *) & serv_addr, len) == SOCKET_ERROR) {
+		log_debug1(ngx_http_clojure_global_cycle->log, "ngx clojure:ngx_http_clojure_pipe failed to connect socket: %ui", WSAGetLastError());
+		closesocket(s);
+		return -1;
+	}
+
+	if ((fds[0] = accept(s, (SOCKADDR *) & serv_addr, &len)) == INVALID_SOCKET) {
+		log_debug1(ngx_http_clojure_global_cycle->log, "ngx clojure:ngx_http_clojure_pipe failed to accept socket 2: %ui", WSAGetLastError());
+		closesocket(fds[1]);
+		fds[1] = INVALID_SOCKET;
+		closesocket(s);
+		return -1;
+	}
+	closesocket(s);
+	return 0;
+#else
+	return pipe(fds);
+#endif
+
+}
+
+static int ngx_http_clojure_pipe_read(ngx_socket_t fd, void *buf, size_t size) {
+
+
+#if defined(_WIN32) || defined(WIN32)
+	int ret = recv(fd, buf, size, 0);
+
+	if (ret < 0) {
+		int err = WSAGetLastError();
+		/* EOF (win32 socket based implementation) or Resource temporarily unavailable. */
+		if (err == WSAECONNRESET || err == WSAEWOULDBLOCK) {
+			ret = 0;
+		}else {
+			ngx_log_error(NGX_LOG_ERR, ngx_http_clojure_global_cycle->log, 0,
+								"ngx clojure: can not recv, returns -1, err: %d:%s",err, strerror(err));
+		}
+	}
+	return ret;
+
+#else
+	ssize_t rdc = 0;
+AGAIN:
+	if ((rdc = read(fd, buf, size)) < 0){
+			if (errno == EINTR) {
+				log_debug0(ngx_http_clojure_global_cycle->log, "ngx clojure: ngx clojure read event interrupted system call, try again");
+				goto AGAIN;
+			}else if (errno == EAGAIN) {
+				return 0;
+			}
+			ngx_log_error(NGX_LOG_ERR, ngx_http_clojure_global_cycle->log, 0,
+					"ngx clojure: can not recv, returns -1, err: %d:%s",errno, strerror(errno));
+	}
+	return rdc;
+#endif
+
+}
+
+static int ngx_http_clojure_pipe_write(ngx_socket_t fd, void *buf, size_t size) {
+
+#if defined(_WIN32) || defined(WIN32)
+	return send(fd, buf, size, 0);
+#else
+	return write(fd, buf, size);
+#endif
+
+}
+
+static int ngx_http_clojure_pipe_close(ngx_socket_t fd) {
+
+#if defined(_WIN32) || defined(WIN32)
+	return closesocket(fd);
+#else
+	return close(fd);
+#endif
+
+}
+
+static void JNICALL jni_ngx_http_clojure_mem_post_write_event(JNIEnv *env, jclass cls, jlong r) {
+	//sizeof(jlong) is zero on win32 vc2010, so we have to use const 8
+	int wc = ngx_http_clojure_pipe_write(nc_jvm_worker_pipe_fds[1], &r, 8);
+	if (wc != 8 && r != 0) {
+		ngx_log_error(NGX_LOG_ERR, ((ngx_http_request_t *)r)->connection->log, 0, "jni_ngx_http_clojure_mem_post_write_event write count : %zu < %zu", wc, 8);
+	}
+	log_debug2(ngx_http_clojure_global_cycle->log, "ngx clojure: ngx clojure post event %"PRIu64", size:%d", r, 8);
+}
+
+
+static int ngx_http_clojure_handle_response(jlong r) {
+	JNIEnv *env;
+	(*jvm)->AttachCurrentThread(jvm, (void**)&env, NULL);
+	return (*env)->CallStaticIntMethod(env, nc_rt_class,  nc_rt_handle_response_mid, r);
+}
+
+
+static void ngx_http_clojure_jvm_worker_result_handler(ngx_event_t *e) {
+	jlong rp;
+	ngx_int_t rc;
+	ssize_t rdc = 0;
+	log_debug0(ngx_http_clojure_global_cycle->log, "ngx clojure: ngx clojure read event ......");
+
+	do {
+		//sizeof(jlong) is zero on win32 vc2010, so we have to use const 8
+		if ((rdc = ngx_http_clojure_pipe_read(nc_jvm_worker_pipe_fds[0], &rp, 8))
+				< 0) {
+			return;
+		} else if (rdc > 0) {
+			log_debug2(ngx_http_clojure_global_cycle->log,
+					"ngx clojure: ngx clojure read event %"PRIu64", size: %d",
+					rp, rdc);
+			rc = ngx_http_clojure_handle_response(rp);
+			if (rc != NGX_OK) {
+				ngx_log_error(NGX_LOG_ERR, e->log, 0,
+						"ngx clojure: ngx_http_clojure_handle_response failed");
+			}
+		}
+	} while (rdc != 0);
+
+}
+
+static  ngx_int_t ngx_http_clojure_jvm_worker_pipe_init(ngx_log_t *log) {
+	ngx_connection_t *c;
+	ngx_int_t rc;
+
+	rc = ngx_http_clojure_pipe(nc_jvm_worker_pipe_fds);
+	if (rc != 0) {
+		ngx_log_error(NGX_LOG_ERR, log, 0, "ngx clojure: create worker_pipe failed");
+		return NGX_ERROR;
+	}
+	if (ngx_nonblocking(nc_jvm_worker_pipe_fds[0]) == -1) {
+		ngx_log_error(NGX_LOG_ERR, log, 0, "ngx clojure create worker_pipe at ngx_nonblocking(fds[0]) failed");
+		return NGX_ERROR;
+	}
+	if (ngx_nonblocking(nc_jvm_worker_pipe_fds[1]) == -1) {
+		ngx_log_error(NGX_LOG_ERR, log, 0, "ngx clojure: create worker_pipe at ngx_nonblocking(fds[1]) failed");
+		return NGX_ERROR;
+	}
+
+	ngx_log_error(NGX_LOG_NOTICE, log, 0, "ngx clojure: init pipe for jvm worker, fds: %d, %d", nc_jvm_worker_pipe_fds[0], nc_jvm_worker_pipe_fds[1]);
+
+	c = ngx_get_connection(nc_jvm_worker_pipe_fds[0], log);
+	if (c == NULL) {
+		ngx_http_clojure_pipe_close(nc_jvm_worker_pipe_fds[1]);
+		ngx_http_clojure_pipe_close(nc_jvm_worker_pipe_fds[0]);
+		ngx_log_error(NGX_LOG_ERR, log, 0, "ngx clojure: create worker_pipe at ngx_get_connection failed");
+		return NGX_ERROR;
+	}
+
+	c->recv = ngx_recv;
+	c->send = ngx_send;
+	c->recv_chain = ngx_recv_chain;
+	c->send_chain = ngx_send_chain;
+	c->log = log;
+	c->read->log = log;
+	c->write->log = log;
+	c->data = NULL;
+	c->read->handler = ngx_http_clojure_jvm_worker_result_handler;
+
+	rc = ngx_handle_read_event(c->read, 0);
+	if (rc != NGX_OK) {
+		ngx_log_error(NGX_LOG_ERR, log, 0, "ngx clojure: create worker_pipe at ngx_handle_read_event failed");
+	}
+	return rc;
+}
+
 int ngx_http_clojure_check_memory_util() {
 	return ngx_http_clojure_init_memory_util_flag;
 }
 
-int ngx_http_clojure_init_memory_util() {
+int ngx_http_clojure_init_memory_util(ngx_int_t workers, ngx_log_t *log) {
 	jlong MEM_INDEX[NGX_HTTP_CLOJURE_MEM_IDX_END];
 	JNIEnv *env;
 	JNINativeMethod nms[] = {
@@ -276,6 +522,7 @@ int ngx_http_clojure_init_memory_util() {
 			{"ngx_http_set_content_type", "(J)J", jni_ngx_http_set_content_type},
 			{"ngx_http_send_header", "(J)J", jni_ngx_http_send_header},
 			{"ngx_http_output_filter", "(JJ)J", jni_ngx_http_output_filter},
+			{"ngx_http_finalize_request", "(JJ)V", jni_ngx_http_finalize_request},
 			{"ngx_http_clojure_mem_init_ngx_buf", "(JLjava/lang/Object;JJI)J", jni_ngx_http_clojure_mem_init_ngx_buf}, //jlong buf, jlong obj, jlong offset, jlong len, jint last_buf
 			{"ngx_http_clojure_mem_get_obj_addr", "(Ljava/lang/Object;)J", jni_ngx_http_clojure_mem_get_obj_addr},
 			{"ngx_http_clojure_mem_get_list_size", "(J)J", jni_ngx_http_clojure_mem_get_list_size},
@@ -284,6 +531,8 @@ int ngx_http_clojure_init_memory_util() {
 			{"ngx_http_clojure_mem_copy_to_addr", "(Ljava/lang/Object;JJJ)V", jni_ngx_http_clojure_mem_copy_to_addr},
 			{"ngx_http_clojure_mem_get_header", "(JJJ)J", jni_ngx_http_clojure_mem_get_header},
 			{"ngx_http_clojure_mem_get_variable", "(JJJ)J", jni_ngx_http_clojure_mem_get_variable},
+			{"ngx_http_clojure_mem_inc_req_count", "(J)V", jni_ngx_http_clojure_mem_inc_req_count},
+			{"ngx_http_clojure_mem_post_write_event", "(J)V", jni_ngx_http_clojure_mem_post_write_event}
 //			{"ngx_http_clojure_mem_get_body_tmp_file", "(J)J", jni_ngx_http_clojure_mem_get_body_tmp_file}
 	};
 	jmethodID nc_rt_init_mid;
@@ -294,6 +543,9 @@ int ngx_http_clojure_init_memory_util() {
 		return NGX_HTTP_CLOJURE_JVM_OK;
 	}
 
+	if (ngx_http_clojure_jvm_worker_pipe_init(log) != NGX_OK) {
+		return NGX_HTTP_CLOJURE_JVM_ERR_INIT_PIPE;
+	}
 
 	memset(MEM_INDEX, -1, NGX_HTTP_CLOJURE_MEM_IDX_END * sizeof(jlong));
 	MEM_INDEX[NGX_HTTP_CLOJURE_UINT_SIZE_IDX] = NGX_HTTP_CLOJURE_UINT_SIZE;
@@ -414,6 +666,7 @@ int ngx_http_clojure_init_memory_util() {
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_LAST_MODIFIED_TIME_IDX] =  NGX_HTTP_CLOJURE_HEADERSO_LAST_MODIFIED_TIME_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_HEADERS_IDX] =  NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET;
 
+	MEM_INDEX[NGINX_CLOJURE_RT_WORKERS_ID] = workers;
 	MEM_INDEX[NGINX_VER_ID] = nginx_version;
 	MEM_INDEX[NGINX_CLOJURE_VER_ID] = nginx_clojure_ver;
 
@@ -426,17 +679,19 @@ int ngx_http_clojure_init_memory_util() {
 	(*env)->RegisterNatives(env, nc_rt_class, nms, sizeof(nms) / sizeof(JNINativeMethod));
 	exception_handle(0 == 0, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 	nc_rt_register_code_mid = (*env)->GetStaticMethodID(env, nc_rt_class, "registerCode", "(JJ)I");
+	exception_handle(nc_rt_register_code_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_OK);
 	nc_rt_eval_mid = (*env)->GetStaticMethodID(env, nc_rt_class, "eval", "(IJ)I");
+	exception_handle(nc_rt_eval_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_OK);
 	nc_rt_init_mid = (*env)->GetStaticMethodID(env, nc_rt_class,"initMemIndex", "(J)V");
 	exception_handle(nc_rt_init_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_OK);
-
-
-
-
+	nc_rt_handle_response_mid = (*env)->GetStaticMethodID(env, nc_rt_class,"handleResponse", "(J)I");
 
 	(*env)->CallStaticVoidMethod(env, nc_rt_class, nc_rt_init_mid, MEM_INDEX);
 	return ngx_http_clojure_init_memory_util_flag = NGX_HTTP_CLOJURE_JVM_OK;
 }
+
+
+
 
 int ngx_http_clojure_register_script(u_char **script, size_t len, ngx_int_t *cid) {
 	JNIEnv *env;
@@ -457,5 +712,7 @@ int ngx_http_clojure_register_script(u_char **script, size_t len, ngx_int_t *cid
 int ngx_http_clojure_eval(int cid, void *r) {
 	JNIEnv *env;
 	(*jvm)->AttachCurrentThread(jvm, (void**)&env, NULL);
+	log_debug1(ngx_http_clojure_global_cycle->log, "ngx clojure eval request: %ul", (uintptr_t)r);
+	log_debug2(ngx_http_clojure_global_cycle->log, "ngx clojure eval request to jlong: %"PRIu64", size: %d", (jlong)r, 8);
 	return (*env)->CallStaticIntMethod(env, nc_rt_class,  nc_rt_eval_mid, (jint)cid, (uintptr_t)r);
 }

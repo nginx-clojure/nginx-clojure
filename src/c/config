@@ -10,13 +10,14 @@ NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
     $ngx_addon_dir/ngx_http_clojure_mem.h \
 "
 
-#windows
-#JNI_HEADER_1="C:/Program Files/Java/jdk1.7.0_25"
-#JNI_HEADER_2="${JNI_HEADER_1}/win32"
-
 #linux
-JNI_HEADER_1="/usr/lib/jvm/java-7-oracle"
+JNI_HEADER_1="/usr/lib/jvm/java-7-oracle/include"
 JNI_HEADER_2="${JNI_HEADER_1}/linux"
+
+#windows
+JNI_HEADER_1="C:/Program Files/Java/jdk1.7.0_25/include"
+JNI_HEADER_2="${JNI_HEADER_1}/win32"
+
 
 #macosx
 #JNI_HEADER_1="/Library/Java/JavaVirtualMachines/1.6.0_65-b14-462.jdk/Contents/headers"
@@ -26,7 +27,7 @@ CFLAGS="-I \"${JNI_HEADER_1}\" \
         -I \"${JNI_HEADER_2}\" \
         $CFLAGS"
 
-#for easy debug    
+#for easy debug on linux or macosx  
 #CFLAGS="-g -O0 $CFLAGS"
 
 if [ "$NGX_PLATFORM" != win32 ]; then

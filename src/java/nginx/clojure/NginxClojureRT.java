@@ -15,9 +15,21 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import sun.misc.Unsafe;
 import clojure.lang.IFn;
+import clojure.lang.PersistentArrayMap;
 import clojure.lang.RT;
 
 public class NginxClojureRT {
@@ -34,6 +46,11 @@ public class NginxClojureRT {
 	//mapping clojure code pointer address to clojure code id 
 	private static Map<Long, Integer> CODE_MAP = new HashMap<Long, Integer>();
 	
+	private static ConcurrentHashMap<Long, Map> REQ_RESP_MAP = new ConcurrentHashMap<Long, Map>();
+	
+	private static ExecutorService eventDispather;
+	
+	private static CompletionService<HandlerContext> workers;
 	
 	public native static long ngx_palloc(long pool, long size);
 	
@@ -61,6 +78,8 @@ public class NginxClojureRT {
 	public native static long ngx_http_send_header(long r);
 	
 	public native static long ngx_http_output_filter(long r, long chain);
+	
+	public native static void ngx_http_finalize_request(long r, long rc);
 
 	public native static long ngx_http_clojure_mem_init_ngx_buf(long buf, Object obj, long offset, long len, int last_buf);
 	
@@ -78,6 +97,10 @@ public class NginxClojureRT {
 	
 	public native static long ngx_http_clojure_mem_get_variable(long r, long name, long varlenPtr);
 	
+	public native static void ngx_http_clojure_mem_inc_req_count(long r);
+	
+	public native static void ngx_http_clojure_mem_post_write_event(long r);
+	
 //	public native static long ngx_http_clojure_mem_get_body_tmp_file(long r);
 	
 	public static String formatVer(long ver) {
@@ -85,6 +108,66 @@ public class NginxClojureRT {
 		long s = ver / 1000 - f * 1000;
 		long t = ver - s * 1000 - f * 1000000;
 		return f + "." + s + "." + t;
+	}
+	
+	public static final class HandlerContext {
+		public final LazyRequestMap request;
+		public final Map response;
+		public HandlerContext(LazyRequestMap request, Map response) {
+			this.request =request;
+			this.response = response;
+		}
+	}
+	
+	public static final class EventDispatherRunnable implements Runnable {
+		
+		final CompletionService<HandlerContext> workers;
+		
+		public EventDispatherRunnable(final CompletionService<HandlerContext> workers) {
+			this.workers = workers;
+		}
+		
+		@Override
+		public void run() {
+			while (true) {
+				try {
+					Future<HandlerContext> respFuture =  workers.take();
+					HandlerContext ctx = respFuture.get();
+					while (REQ_RESP_MAP.putIfAbsent(ctx.request.r, ctx.response) != null) {
+							Thread.sleep(0);
+					}
+//					System.out.println("REQ_RESP_MAP size:" + REQ_RESP_MAP.size());
+//					System.out.println("requet jlong value:" + ctx.request.r + ", jint:" + (int)ctx.request.r);
+					ngx_http_clojure_mem_post_write_event(ctx.request.r);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+					break;
+				} catch (ExecutionException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+	
+	public static void initWorkers(int n) {
+		if (n < 1) {
+			return;
+		}
+		eventDispather = Executors.newSingleThreadExecutor(new ThreadFactory() {
+			@Override
+			public Thread newThread(Runnable r) {
+				return new Thread(r, "nginx-clojure-eventDispather");
+			}
+		});
+		
+		workers = new ExecutorCompletionService<HandlerContext>(Executors.newFixedThreadPool(n, new ThreadFactory() {
+			final AtomicLong counter = new AtomicLong(0);
+			public Thread newThread(Runnable r) {
+				return new Thread(r, "nginx-clojure-worker-" + counter.getAndIncrement());
+			}
+		}));
+		
+		eventDispather.submit(new EventDispatherRunnable(workers));
 	}
 	
 	public static synchronized void initMemIndex(long idxpt) {
@@ -219,6 +302,7 @@ public class NginxClojureRT {
 		
 		NGX_HTTP_CLOJURE_PTR_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_PTR_SIZE_IDX];
 		
+		NGINX_CLOJURE_RT_WORKERS = MEM_INDEX[NGINX_CLOJURE_RT_WORKERS_ID];
 		NGINX_CLOJURE_VER = MEM_INDEX[NGINX_CLOJURE_VER_ID];
 		NGINX_VER = MEM_INDEX[NGINX_VER_ID];
 		NGINX_CLOJURE_FULL_VER = "nginx-clojure/" + formatVer(NGINX_VER) + "-" + formatVer(NGINX_CLOJURE_VER);
@@ -283,6 +367,8 @@ public class NginxClojureRT {
 		KNOWN_RESP_HEADERS.put("expires", new ResponseTableEltHeaderPusher("expires", NGX_HTTP_CLOJURE_HEADERSO_EXPIRES_OFFSET));
 		KNOWN_RESP_HEADERS.put("etag", new ResponseTableEltHeaderPusher("etag", NGX_HTTP_CLOJURE_HEADERSO_ETAG_OFFSET));
 		KNOWN_RESP_HEADERS.put("cache-control", new ResponseArrayHeaderPusher("cache-control", NGX_HTTP_CLOJURE_HEADERSO_CACHE_CONTROL_OFFSET));
+		
+		initWorkers((int)NGINX_CLOJURE_RT_WORKERS);
 	}
 
 	public static void initUnsafe() {
@@ -381,13 +467,62 @@ public class NginxClojureRT {
 		return bytes.length;
 	}
 	
+	public static int eval(final int codeId, final long r) {
+		
+		final LazyRequestMap req = new LazyRequestMap(codeId, r);
+		
+		if (workers == null) {
+			Map resp = handleRequest(req);
+			return handleResponse(r, resp);
+		}
+		
+		for (int i = 0; i < req.count(); i++) {
+			req.element(i);
+		}
+
+		ngx_http_clojure_mem_inc_req_count(r);
+		workers.submit(new Callable<NginxClojureRT.HandlerContext>() {
+			@Override
+			public HandlerContext call() throws Exception {
+				Map resp = handleRequest(req);
+				return new HandlerContext(req, resp);
+			}
+		});
+		return NGX_DONE;
+	}
 	
-	public static int eval(int codeId, long r) {
-		IFn f = HANDLERS.get(codeId);
-		LazyRequestMap req = new LazyRequestMap(r);
+	public static Map handleRequest(final LazyRequestMap req) {
+		IFn f = HANDLERS.get(req.codeId);
 		try{
-			long pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
 			Map resp = (Map) f.invoke(req);
+			return resp;
+		}catch(Throwable e){
+			return new PersistentArrayMap(new Object[] {STATUS, 500, BODY, e});
+		}finally {
+			if (req.valAt(BODY) instanceof Closeable) {
+				try {
+					((Closeable)req.valAt(BODY)).close();
+				} catch (IOException e) {
+					//log to nginx error log file
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+	
+	public static int handleResponse(long r) {
+//		System.out.println("handleResponse request jlong:" +r + ", jint :" + (int)r);
+//		for (Map.Entry<Long, Map> rr : REQ_RESP_MAP.entrySet()) {
+			Map resp = REQ_RESP_MAP.remove(r);
+			int rc = handleResponse(r, resp);
+			ngx_http_finalize_request(r, rc);
+//		}
+		return NGX_OK;
+	}
+	
+	public static int handleResponse(long r, final Map resp) {
+		try {
+			long pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
 			Object statusObj = resp.get(STATUS);
 			int status = 200;
 			if (statusObj != null) {
@@ -398,7 +533,7 @@ public class NginxClojureRT {
 				}
 			}
 			long headers_out = r + NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
-			pushNGXInt(headers_out + NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET, status);
+			
 			Map<String, Object> headers = (Map<String, Object>) resp.get(HEADERS);
 			String contentType = null;
 			if (headers != null) {
@@ -439,16 +574,18 @@ public class NginxClojureRT {
 				ngx_http_clojure_mem_init_ngx_buf(b, bytes, BYTE_ARRAY_OFFSET, bytes.length, 1);
 			}else if (body instanceof File) {
 				if (! ((File)body).exists() ) {
-					return 400;
-				}
-				byte[] bytes = ((File)body).getPath().getBytes();
-				long file = ngx_pcalloc(pool, bytes.length+1);
-				ngx_http_clojure_mem_copy_to_addr(bytes, BYTE_ARRAY_OFFSET, file, bytes.length);
-				b = ngx_create_file_buf(r, file, bytes.length);
-				if (b == 0){
-					return 500;
+					return 404;
+				}else {
+					byte[] bytes = ((File)body).getPath().getBytes();
+					long file = ngx_pcalloc(pool, bytes.length+1);
+					ngx_http_clojure_mem_copy_to_addr(bytes, BYTE_ARRAY_OFFSET, file, bytes.length);
+					b = ngx_create_file_buf(r, file, bytes.length);
+					if (b == 0){
+						return 500;
+					}
 				}
 			}
+			pushNGXInt(headers_out + NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET, status);
 			int rc = (int)ngx_http_send_header(r);
 			if (rc == NGX_ERROR || rc > NGX_OK){
 				return rc;
@@ -457,21 +594,11 @@ public class NginxClojureRT {
 			UNSAFE.putAddress(chain + NGX_HTTP_CLOJURE_CHAIN_BUF_OFFSET, b);
 			UNSAFE.putAddress(chain + NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET, 0);
 			return (int)ngx_http_output_filter(r, chain);
-		}catch(Throwable e){
-			//log to nginx error log file
+
+		}catch(Throwable e) {
 			e.printStackTrace();
 			return 500;
-		}finally {
-			if (req.valAt(BODY) instanceof Closeable) {
-				try {
-					((Closeable)req.valAt(BODY)).close();
-				} catch (IOException e) {
-					//log to nginx error log file
-					e.printStackTrace();
-				}
-			}
 		}
-		
-		
 	}
+	
 }

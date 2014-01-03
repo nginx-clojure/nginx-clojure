@@ -25,7 +25,7 @@ public class RequestBodyFetcher implements RequestVarFetcher {
 		}
 		String tmpfile = (String)BODY_FILE_FETCHER.fetch(r, encoding);
 		if (tmpfile != null){
-			System.out.println("tmp file:" + tmpfile);
+//			System.out.println("tmp file:" + tmpfile);
 			try {
 				return new FileInputStream(tmpfile);
 			} catch (FileNotFoundException e) {

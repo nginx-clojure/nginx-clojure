@@ -14,6 +14,10 @@
 #pragma warning (disable : 4244)
 #pragma warning (disable : 4152)
 
+#ifndef PRIu64
+#define PRIu64 "I64u"
+#endif
+
 #endif
 
 #define nginx_clojure_ver  1000 /*0.1.0*/
@@ -68,6 +72,7 @@
 
 
 extern ngx_conf_t *ngx_http_clojure_global_ngx_conf;
+extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 
 #define NGX_HTTP_CLOJURE_VARIABLET_SIZE_IDX 19
 #define NGX_HTTP_CLOJURE_VARIABLET_SIZE sizeof(ngx_http_variable_t)
@@ -248,6 +253,7 @@ extern ngx_conf_t *ngx_http_clojure_global_ngx_conf;
 #define NGX_HTTP_CLOJURE_HEADERSO_HEADERS_IDX  153
 #define NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET offsetof(ngx_http_headers_out_t, headers)
 
+#define NGINX_CLOJURE_RT_WORKERS_ID 252
 #define NGINX_VER_ID 253
 #define NGINX_CLOJURE_VER_ID 254
 #define NGX_HTTP_CLOJURE_MEM_IDX_END 255
@@ -258,7 +264,7 @@ int ngx_http_clojure_check_memory_util();
 /*
  *
  */
-int ngx_http_clojure_init_memory_util();
+int ngx_http_clojure_init_memory_util(ngx_int_t workers, ngx_log_t *log);
 
 int ngx_http_clojure_register_script(u_char **script, size_t len, ngx_int_t *cid);
 

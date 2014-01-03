@@ -18,3 +18,4 @@
 *.app
 /bin
 /target
+/.README.md.html
