@@ -37,7 +37,7 @@ public class NginxClojureRT {
 
 	public static long[] MEM_INDEX;
 	
-
+	public static Thread NGINX_MAIN_THREAD;
 	
 	protected static Unsafe UNSAFE = null;
 	
@@ -173,6 +173,8 @@ public class NginxClojureRT {
 	public static synchronized void initMemIndex(long idxpt) {
 		initUnsafe();
 	    
+		NGINX_MAIN_THREAD = Thread.currentThread();
+		
 	    BYTE_ARRAY_OFFSET = UNSAFE.arrayBaseOffset(byte[].class);
 	    
 	    long[] index = new long[NGX_HTTP_CLOJURE_MEM_IDX_END + 1];
@@ -476,9 +478,8 @@ public class NginxClojureRT {
 			return handleResponse(r, resp);
 		}
 		
-		for (int i = 0; i < req.count(); i++) {
-			req.element(i);
-		}
+		//for safe access with another thread
+		req.prefetchAll();
 
 		ngx_http_clojure_mem_inc_req_count(r);
 		workers.submit(new Callable<NginxClojureRT.HandlerContext>() {
@@ -497,12 +498,15 @@ public class NginxClojureRT {
 			Map resp = (Map) f.invoke(req);
 			return resp;
 		}catch(Throwable e){
-			return new PersistentArrayMap(new Object[] {STATUS, 500, BODY, e});
+			//log to nginx error log file
+			e.printStackTrace();
+			return new PersistentArrayMap(new Object[] {STATUS, 500, BODY, e, HEADERS, new PersistentArrayMap(new Object[] {CONTENT_TYPE.getName(), "text/plain"})});
 		}finally {
-			if (req.valAt(BODY) instanceof Closeable) {
+			int bodyIdx = req.index(BODY);
+			if (req.array[bodyIdx] instanceof Closeable) {
 				try {
-					((Closeable)req.valAt(BODY)).close();
-				} catch (IOException e) {
+					((Closeable)req.array[bodyIdx]).close();
+				} catch (Throwable e) {
 					//log to nginx error log file
 					e.printStackTrace();
 				}
@@ -566,13 +570,8 @@ public class NginxClojureRT {
 			
 			Object body = resp.get(BODY);
 			long b = 0;
-			if (body instanceof String) {
-				String bodyStr = (String) body;
-				byte[] bytes = bodyStr.getBytes(DEFAULT_ENCODING);
-				pushNGXOfft(headers_out + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_LENGTH_N_OFFSET, bytes.length);
-				b = ngx_create_temp_buf(pool, bytes.length);
-				ngx_http_clojure_mem_init_ngx_buf(b, bytes, BYTE_ARRAY_OFFSET, bytes.length, 1);
-			}else if (body instanceof File) {
+			
+			if (body instanceof File) {
 				if (! ((File)body).exists() ) {
 					return 404;
 				}else {
@@ -584,6 +583,14 @@ public class NginxClojureRT {
 						return 500;
 					}
 				}
+			}else if (body != null) {
+				String bodyStr = (String) body.toString();
+				byte[] bytes = bodyStr.getBytes(DEFAULT_ENCODING);
+				pushNGXOfft(headers_out + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_LENGTH_N_OFFSET, bytes.length);
+				b = ngx_create_temp_buf(pool, bytes.length);
+				ngx_http_clojure_mem_init_ngx_buf(b, bytes, BYTE_ARRAY_OFFSET, bytes.length, 1);
+			}else {
+				return 500;
 			}
 			pushNGXInt(headers_out + NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET, status);
 			int rc = (int)ngx_http_send_header(r);

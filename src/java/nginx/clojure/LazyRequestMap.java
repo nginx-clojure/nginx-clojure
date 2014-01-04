@@ -59,23 +59,32 @@ public   class LazyRequestMap extends AFn  implements IPersistentMap {
 	
 	@SuppressWarnings("unchecked")
 	public LazyRequestMap(int codeId, long r) {
-		//TODO: SSL_CLIENT_CERT,BODY
+		//TODO: SSL_CLIENT_CERT
 		this(codeId, r, new Object[] {
+				URI, URI_FETCHER,
+				BODY, BODY_FETCHER,
+				HEADERS, HEADER_FETCHER,
+				
 				SERVER_PORT,SERVER_PORT_FETCHER,
 				SERVER_NAME, SERVER_NAME_FETCHER,
 				REMOTE_ADDR, REMOTE_ADDR_FETCHER,
-				URI, URI_FETCHER,
+				
 				QUERY_STRING, QUERY_STRING_FETCHER,
 				SCHEME, SCHEME_FETCHER,
 				REQUEST_METHOD, REQUEST_METHOD_FETCHER,
 				CONTENT_TYPE, CONTENT_TYPE_FETCHER,
 				CHARACTER_ENCODING, CHARACTER_ENCODING_FETCHER,
-				HEADERS, HEADER_FETCHER,
-				BODY, BODY_FETCHER
+				
+				
 		});
 	}
 	
-	
+	public void prefetchAll() {
+		int len = count();
+		for (int i = 0; i < len; i++) {
+			element(i*2);
+		}
+	}
 	
 	
 	protected int index(Object key) {
@@ -200,6 +209,9 @@ public   class LazyRequestMap extends AFn  implements IPersistentMap {
 	protected Object element(int i) {
 		Object o = array[i+1];
 		if (o instanceof RequestVarFetcher) {
+			if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
+				throw new IllegalAccessError("fetching lazy value of " + array[i] + " in LazyRequestMap can only be called in main thread, please pre-access it in main thread OR call LazyRequestMap.prefetchAll() first in main thread");
+			}
 			RequestVarFetcher rf = (RequestVarFetcher) o;
 			array[i+1] = null;
 			Object rt = rf.fetch(r, DEFAULT_ENCODING);
