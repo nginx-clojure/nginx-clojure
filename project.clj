@@ -21,7 +21,9 @@
   :omit-source false
   :jar-exclusions [#"^test" #"\.java$"]
   :uberjar-exclusions [#"^test" #"\.java$"]
-  :profiles {:dev {:dependencies [[ring/ring-core "1.2.1"]
+  :profiles {:dev {:dependencies [;only for test usage
+                                  [ring/ring-core "1.2.1"]
+                                  [clj-http "0.7.8"]
                                   [junit/junit "4.10"]]}
              :1.4 {:dependencies [[org.clojure/clojure "1.4.0"]]}
              :1.5 {:dependencies [[org.clojure/clojure "1.5.0"]]}
