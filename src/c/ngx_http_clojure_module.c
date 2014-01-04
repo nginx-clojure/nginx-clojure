@@ -147,6 +147,7 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  
 
     if (lcf != NULL && lcf->clojure_code_id < 0) {
     	if (ngx_http_clojure_register_script(&lcf->clojure_code.data, lcf->clojure_code.len, &(lcf->clojure_code_id)) != NGX_HTTP_CLOJURE_JVM_OK){
+    		ngx_log_error(NGX_LOG_ERR, log, 0, "invalid clojure code : %s", lcf->clojure_code.data);
     		return NGX_HTTP_INTERNAL_SERVER_ERROR;
     	}
     }
