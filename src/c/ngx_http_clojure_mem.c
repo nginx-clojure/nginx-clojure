@@ -420,7 +420,7 @@ static void JNICALL jni_ngx_http_clojure_mem_post_write_event(JNIEnv *env, jclas
 	if (wc != 8 && r != 0) {
 		ngx_log_error(NGX_LOG_ERR, ((ngx_http_request_t *)r)->connection->log, 0, "jni_ngx_http_clojure_mem_post_write_event write count : %zu < %zu", wc, 8);
 	}
-	log_debug2(ngx_http_clojure_global_cycle->log, "ngx clojure: ngx clojure post event %"PRIu64", size:%d", r, 8);
+	log_debug2(ngx_http_clojure_global_cycle->log, "ngx clojure: ngx clojure post event %" PRIu64 ", size:%d", r, 8);
 }
 
 
@@ -444,7 +444,7 @@ static void ngx_http_clojure_jvm_worker_result_handler(ngx_event_t *e) {
 			return;
 		} else if (rdc > 0) {
 			log_debug2(ngx_http_clojure_global_cycle->log,
-					"ngx clojure: ngx clojure read event %"PRIu64", size: %d",
+					"ngx clojure: ngx clojure read event %" PRIu64 ", size: %d",
 					rp, rdc);
 			rc = ngx_http_clojure_handle_response(rp);
 			if (rc != NGX_OK) {
@@ -713,6 +713,6 @@ int ngx_http_clojure_eval(int cid, void *r) {
 	JNIEnv *env;
 	(*jvm)->AttachCurrentThread(jvm, (void**)&env, NULL);
 	log_debug1(ngx_http_clojure_global_cycle->log, "ngx clojure eval request: %ul", (uintptr_t)r);
-	log_debug2(ngx_http_clojure_global_cycle->log, "ngx clojure eval request to jlong: %"PRIu64", size: %d", (jlong)r, 8);
+	log_debug2(ngx_http_clojure_global_cycle->log, "ngx clojure eval request to jlong: %" PRIu64 ", size: %d", (jlong)r, 8);
 	return (*env)->CallStaticIntMethod(env, nc_rt_class,  nc_rt_eval_mid, (jint)cid, (uintptr_t)r);
 }

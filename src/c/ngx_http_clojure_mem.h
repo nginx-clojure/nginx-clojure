@@ -8,6 +8,8 @@
 #include <nginx.h>
 #include <ngx_http.h>
 
+
+
 #if defined(_WIN32) || defined(WIN32)
 
 #pragma warning (disable : 4305)
@@ -18,6 +20,9 @@
 #define PRIu64 "I64u"
 #endif
 
+#else
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
 #endif
 
 #define nginx_clojure_ver  1000 /*0.1.0*/
