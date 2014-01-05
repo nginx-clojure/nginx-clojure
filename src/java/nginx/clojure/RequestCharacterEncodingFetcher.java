@@ -16,7 +16,7 @@ public class RequestCharacterEncodingFetcher implements RequestVarFetcher {
 	public Object fetch(long r, Charset encoding) {
 		String v = (String) CONTENT_TYPE_FETCHER.fetch(r, encoding);
 		int sp = 0;
-		if (v == null || (sp = v.indexOf("; ")) < 0) {
+		if (v == null || (sp = v.indexOf("; charset=")) < 0) {
 			return null;
 		}
 		sp += CHARSET_OFFSET;
