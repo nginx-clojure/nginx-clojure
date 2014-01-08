@@ -78,6 +78,9 @@ tar -xzf ../../openssl-1.0.1e.tar.gz
 
 #win32 build
 
+#start visual studio  command prompt (2010)
+#run C:\MinGW\msys\1.0\msys.bat
+
 
 auto/configure --with-cc=cl --builddir=objs --with-debug --prefix= \
 --conf-path=conf/nginx.conf --pid-path=logs/nginx.pid \
@@ -97,35 +100,157 @@ auto/configure --with-cc=cl --builddir=objs --with-debug --prefix= \
 --with-http_secure_link_module --with-mail  \
 --with-openssl-opt=enable-tlsext --with-http_ssl_module --with-mail_ssl_module --with-ipv6 \
 --add-module=Y:/nginx-clojure/src/c
-nmake -f objs/Makefile
+nmake -f Makefile
+
+
 
 #linux build
+#dynamic
+sudo apt-get install libssl-dev
+
+#static
+cd cdev
+tar -xzf openssl-1.0.1e.tar.gz
+cd openssl-1.0.1e
+./config --prefix=/usr/local/openssl --openssldir=/usr/local/openssl
+make
+sudo make install
+
+
 #online
 sudo apt-get install libxml2 libxml2-dev libxslt1-dev
 sudo apt-get install libgd3 libgd-dev
 sudo apt-get install libgeoip-dev
 auto/configure --prefix=/usr/share/nginx --conf-path=/etc/nginx/nginx.conf --error-log-path=/var/log/nginx/error.log --http-client-body-temp-path=/var/lib/nginx/body --http-fastcgi-temp-path=/var/lib/nginx/fastcgi --http-log-path=/var/log/nginx/access.log --http-proxy-temp-path=/var/lib/nginx/proxy --http-scgi-temp-path=/var/lib/nginx/scgi --http-uwsgi-temp-path=/var/lib/nginx/uwsgi --lock-path=/var/lock/nginx.lock --pid-path=/run/nginx.pid --with-pcre-jit --with-debug --with-http_addition_module --with-http_dav_module --with-http_geoip_module --with-http_gzip_static_module --with-http_image_filter_module --with-http_realip_module --with-http_stub_status_module --with-http_ssl_module --with-http_sub_module --with-http_xslt_module --with-ipv6 --with-mail --with-mail_ssl_module --add-module=/home/who/git/nginx-clojure/src/c
 
+
+#look 
+#dpkg -L libssl-dev 
+#dpkg -L libssl-dev | less
+
+#for static
+#in makefile
+#-Wl,-Bstatic -lpcre -lssl -lcrypto -lgd -lGeoIP -Wl,-Bdynamic -lxml2 -lxslt -lexslt  -ldl -lz -lpthread -lm -ljpeg -lpng12 -lfreetype -lfontconfig -lcrypt
+
+auto/configure  --with-cc-opt="-I/usr/local/openssl/include/" --with-ld-opt="-L/usr/local/openssl/lib -Wl,-Bstatic -lssl -lcrypto -Wl,-Bdynamic -ldl" --prefix= --conf-path=conf/nginx.conf --error-log-path=logs/error.log --http-client-body-temp-path=temp/client_body_temp --http-fastcgi-temp-path=temp/fastcgi_temp --http-log-path=logs/access.log --http-proxy-temp-path=temp/proxy_temp --http-scgi-temp-path=temp/scgi-temp --http-uwsgi-temp-path=temp/uwsgi-temp --lock-path=logs/nginx.lock --pid-path=logs/nginx.pid --with-pcre-jit --with-debug --with-http_addition_module --with-http_dav_module --with-http_geoip_module --with-http_gzip_static_module --with-http_image_filter_module --with-http_realip_module --with-http_stub_status_module --with-http_ssl_module --with-http_sub_module --with-http_xslt_module --with-ipv6 --with-mail --with-mail_ssl_module --add-module=/home/who/git/nginx-clojure/src/c
+
+-Wl,-Bstatic -lssl -lcrypto -ldl -lpthread -lcrypt -ldl -lpcre -lssl -lcrypto -lz -lxml2 -lxslt -lexslt -lgd -lGeoIP
+auto/configure  --with-cc-opt="-I/usr/local/openssl/include/" --with-ld-opt="-L/usr/local/openssl/lib -Wl,-Bstatic -lssl -lcrypto -ldl -lpthread -lcrypt -ldl -lpcre -lssl -lcrypto -lz -lxml2 -lxslt -lexslt -lgd -lGeoIP" --prefix= --conf-path=conf/nginx.conf --error-log-path=logs/error.log --http-client-body-temp-path=temp/client_body_temp --http-fastcgi-temp-path=temp/fastcgi_temp --http-log-path=logs/access.log --http-proxy-temp-path=temp/proxy_temp --http-scgi-temp-path=temp/scgi-temp --http-uwsgi-temp-path=temp/uwsgi-temp --lock-path=logs/nginx.lock --pid-path=logs/nginx.pid --with-pcre-jit --with-debug --with-http_addition_module --with-http_dav_module --with-http_geoip_module --with-http_gzip_static_module --with-http_image_filter_module --with-http_realip_module --with-http_stub_status_module --with-http_ssl_module --with-http_sub_module --with-http_xslt_module --with-ipv6 --with-mail --with-mail_ssl_module --add-module=/home/who/git/nginx-clojure/src/c
 #for local test
-auto/configure --prefix= --conf-path=conf/nginx.conf --error-log-path=logs/error.log --http-client-body-temp-path=temp/client_body_temp --http-fastcgi-temp-path=temp/fastcgi_temp --http-log-path=logs/access.log --http-proxy-temp-path=temp/proxy_temp --http-scgi-temp-path=temp/scgi-temp --http-uwsgi-temp-path=temp/uwsgi-temp --lock-path=logs/nginx.lock --pid-path=logs/nginx.pid --with-pcre-jit --with-debug --with-http_addition_module --with-http_dav_module --with-http_geoip_module --with-http_gzip_static_module --with-http_image_filter_module --with-http_realip_module --with-http_stub_status_module --with-http_ssl_module --with-http_sub_module --with-http_xslt_module --with-ipv6 --with-mail --with-mail_ssl_module --add-module=/home/who/git/nginx-clojure/src/c
+auto/configure  --with-cc-opt="-I/usr/include/ -I/usr/include/x86_64-linux-gnu/" --with-ld-opt="-L/usr/lib/x86_64-linux-gnu/ -static" --prefix= --conf-path=conf/nginx.conf --error-log-path=logs/error.log --http-client-body-temp-path=temp/client_body_temp --http-fastcgi-temp-path=temp/fastcgi_temp --http-log-path=logs/access.log --http-proxy-temp-path=temp/proxy_temp --http-scgi-temp-path=temp/scgi-temp --http-uwsgi-temp-path=temp/uwsgi-temp --lock-path=logs/nginx.lock --pid-path=logs/nginx.pid --with-pcre-jit --with-debug --with-http_addition_module --with-http_dav_module --with-http_geoip_module --with-http_gzip_static_module --with-http_image_filter_module --with-http_realip_module --with-http_stub_status_module --with-http_ssl_module --with-http_sub_module --with-http_xslt_module --with-ipv6 --with-mail --with-mail_ssl_module --add-module=/home/who/git/nginx-clojure/src/c
 
 
 #mlines
-auto/configure --prefix=/usr/share/nginx --conf-path=/etc/nginx/nginx.conf \
---error-log-path=/var/log/nginx/error.log --http-client-body-temp-path=/var/lib/nginx/body \
+auto/configure --prefix=/usr/share/nginx \
+--conf-path=/etc/nginx/nginx.conf \
+--error-log-path=/var/log/nginx/error.log \
+--http-client-body-temp-path=/var/lib/nginx/body \
 --http-fastcgi-temp-path=/var/lib/nginx/fastcgi \
 --http-log-path=/var/log/nginx/access.log \
 --http-proxy-temp-path=/var/lib/nginx/proxy \
 --http-scgi-temp-path=/var/lib/nginx/scgi \
 --http-uwsgi-temp-path=/var/lib/nginx/uwsgi \
 --lock-path=/var/lock/nginx.lock \
---pid-path=/run/nginx.pid --with-pcre-jit \
---with-debug --with-http_addition_module \
---with-http_dav_module --with-http_geoip_module --with-http_gzip_static_module \
---with-http_image_filter_module --with-http_realip_module \
---with-http_stub_status_module --with-http_ssl_module --with-http_sub_module \
---with-http_xslt_module --with-ipv6 --with-mail --with-mail_ssl_module \
+--pid-path=/run/nginx.pid \
+--with-pcre-jit \
+--with-debug \
+--with-http_addition_module \
+--with-http_dav_module 
+--with-http_geoip_module 
+--with-http_gzip_static_module \
+--with-http_image_filter_module \
+--with-http_realip_module \
+--with-http_stub_status_module \
+--with-http_ssl_module \
+--with-http_sub_module \
+--with-http_xslt_module \
+--with-ipv6 \
+--with-mail \
+--with-mail_ssl_module \
 --add-module=/home/who/git/nginx-clojure/src/c
+
+#centos original
+auto/configure --prefix=/etc/nginx \
+--sbin-path=/usr/sbin/nginx \
+--conf-path=/etc/nginx/nginx.conf \
+--error-log-path=/var/log/nginx/error.log \
+--http-log-path=/var/log/nginx/access.log \
+--pid-path=/var/run/nginx.pid \
+--lock-path=/var/run/nginx.lock \
+--http-client-body-temp-path=/var/cache/nginx/client_temp \
+--http-proxy-temp-path=/var/cache/nginx/proxy_temp \
+--http-fastcgi-temp-path=/var/cache/nginx/fastcgi_temp \
+--http-uwsgi-temp-path=/var/cache/nginx/uwsgi_temp \
+--http-scgi-temp-path=/var/cache/nginx/scgi_temp \
+--user=nginx \
+--group=nginx \
+--with-http_ssl_module \
+--with-http_realip_module \
+--with-http_addition_module \
+--with-http_sub_module \
+--with-http_dav_module \
+--with-http_flv_module \
+--with-http_mp4_module \
+--with-http_gunzip_module \
+--with-http_gzip_static_module \
+--with-http_random_index_module \
+--with-http_secure_link_module \
+--with-http_stub_status_module \
+--with-mail \
+--with-mail_ssl_module \
+--with-file-aio \
+--with-ipv6 \
+--with-cc-opt='-O2 -g -pipe -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector --param=ssp-buffer-size=4 -m64 -mtune=generic' \
+--add-module=../nginx-clojure/src/c
+
+
+
+#centos nginx-clojure binary
+#first 
+
+#yum install -y gd gd-devel GeoIP GeoIP-devel
+
+auto/configure --prefix= \
+--sbin-path=nginx \
+--conf-path=conf/nginx.conf \
+--error-log-path=logs/error.log \
+--http-log-path=logs/access.log \
+--pid-path=logs/nginx.pid \
+--lock-path=logs/nginx.lock \
+--http-client-body-temp-path=temp/client_temp \
+--http-proxy-temp-path=temp/proxy_temp \
+--http-fastcgi-temp-path=temp/fastcgi_temp \
+--http-uwsgi-temp-path=temp/uwsgi_temp \
+--http-scgi-temp-path=temp/scgi_temp \
+--with-http_ssl_module \
+--with-pcre-jit \
+--with-debug \
+--with-http_image_filter_module \
+--with-http_realip_module \
+--with-http_addition_module \
+--with-http_sub_module \
+--with-http_dav_module \
+--with-http_flv_module \
+--with-http_mp4_module \
+--with-http_gunzip_module \
+--with-http_gzip_static_module \
+--with-http_random_index_module \
+--with-http_secure_link_module \
+--with-http_stub_status_module \
+--with-mail \
+--with-mail_ssl_module \
+--with-file-aio \
+--with-ipv6 \
+--with-openssl-opt=enable-tlsext \
+--with-pcre=../pcre-8.32 \
+--with-zlib=../zlib-1.2.8 \
+--with-openssl=../openssl-1.0.1e \
+--with-cc-opt='-O2 -g -pipe -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector --param=ssp-buffer-size=4 -m64 -mtune=generic' \
+--add-module=../nginx-clojure/src/c
+
+then modify objs/Makefile 
+
+-lpthread -lcrypt -ldl ../pcre-8.32/.libs/libpcre.a ../openssl-1.0.1e/.openssl/lib/libssl.a ../openssl-1.0.1e/.openssl/lib/libcrypto.a -ldl ../zlib-1.2.8/libz.a /usr/lib64/libgd.a -lm -ljpeg -lpng12 -lfreetype -lfontconfig
 
 #macosx
 
@@ -138,7 +263,7 @@ cd ../../
 auto/configure --with-debug --prefix= \
 --conf-path=conf/nginx.conf --pid-path=logs/nginx.pid \
 --http-log-path=logs/access.log --error-log-path=logs/error.log \
---sbin-path=nginx.exe --http-client-body-temp-path=temp/client_body_temp \
+--sbin-path=nginx --http-client-body-temp-path=temp/client_body_temp \
 --http-proxy-temp-path=temp/proxy_temp \
 --http-fastcgi-temp-path=temp/fastcgi_temp \
 --http-scgi-temp-path=temp/scgi_temp --http-uwsgi-temp-path=temp/uwsgi_temp \

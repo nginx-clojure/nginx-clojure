@@ -8,6 +8,7 @@
 //static ngx_str_t NGX_HTTP_CLOJURE_FULL_VER_STR = ngx_string(NGINX_VER " & " NGINX_CLOJURE_VER);
 
 static JavaVM *jvm = NULL;
+static JNIEnv *jvm_env = NULL;
 static jclass nc_rt_class;
 static jmethodID nc_rt_eval_mid;
 static jmethodID nc_rt_register_code_mid;
@@ -425,9 +426,9 @@ static void JNICALL jni_ngx_http_clojure_mem_post_write_event(JNIEnv *env, jclas
 
 
 static int ngx_http_clojure_handle_response(jlong r) {
-	JNIEnv *env;
-	(*jvm)->AttachCurrentThread(jvm, (void**)&env, NULL);
-	return (*env)->CallStaticIntMethod(env, nc_rt_class,  nc_rt_handle_response_mid, r);
+//	JNIEnv *env;
+//	(*jvm)->AttachCurrentThread(jvm, (void**)&env, NULL);
+	return (*jvm_env)->CallStaticIntMethod(jvm_env, nc_rt_class,  nc_rt_handle_response_mid, r);
 }
 
 
@@ -507,7 +508,7 @@ int ngx_http_clojure_check_memory_util() {
 
 int ngx_http_clojure_init_memory_util(ngx_int_t workers, ngx_log_t *log) {
 	jlong MEM_INDEX[NGX_HTTP_CLOJURE_MEM_IDX_END];
-	JNIEnv *env;
+//	JNIEnv *env;
 	JNINativeMethod nms[] = {
 			{"ngx_palloc", "(JJ)J", jni_ngx_palloc},
 			{"ngx_pcalloc", "(JJ)J", jni_ngx_pcalloc},
@@ -670,8 +671,10 @@ int ngx_http_clojure_init_memory_util(ngx_int_t workers, ngx_log_t *log) {
 	MEM_INDEX[NGINX_VER_ID] = nginx_version;
 	MEM_INDEX[NGINX_CLOJURE_VER_ID] = nginx_clojure_ver;
 
-	(*jvm)->AttachCurrentThread(jvm, (void**)&env, NULL);
-	nc_rt_class = (*env)->FindClass(env, "nginx/clojure/NginxClojureRT");
+//	(*jvm)->AttachCurrentThread(jvm, (void**)&env, NULL);
+	ngx_http_clojure_get_env(&jvm_env);
+	JNIEnv *env = jvm_env;
+	nc_rt_class = (*jvm_env)->FindClass(env, "nginx/clojure/NginxClojureRT");
 	exception_handle(nc_rt_class == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 
 
@@ -694,11 +697,7 @@ int ngx_http_clojure_init_memory_util(ngx_int_t workers, ngx_log_t *log) {
 
 
 int ngx_http_clojure_register_script(u_char **script, size_t len, ngx_int_t *cid) {
-	JNIEnv *env;
-	jint rc = (*jvm)->AttachCurrentThread(jvm, (void**)&env, NULL);
-	if (rc < 0){
-		return NGX_HTTP_CLOJURE_JVM_ERR;
-	}
+	JNIEnv *env = jvm_env;
 	*cid = (int)(*env)->CallStaticIntMethod(env, nc_rt_class, nc_rt_register_code_mid, (jlong)script, (jlong)len);
 	if ((*env)->ExceptionOccurred(env)) {
 		*cid = -1;
@@ -710,8 +709,7 @@ int ngx_http_clojure_register_script(u_char **script, size_t len, ngx_int_t *cid
 }
 
 int ngx_http_clojure_eval(int cid, void *r) {
-	JNIEnv *env;
-	(*jvm)->AttachCurrentThread(jvm, (void**)&env, NULL);
+	JNIEnv *env = jvm_env;
 	log_debug1(ngx_http_clojure_global_cycle->log, "ngx clojure eval request: %ul", (uintptr_t)r);
 	log_debug2(ngx_http_clojure_global_cycle->log, "ngx clojure eval request to jlong: %" PRIu64 ", size: %d", (jlong)r, 8);
 	return (*env)->CallStaticIntMethod(env, nc_rt_class,  nc_rt_eval_mid, (jint)cid, (uintptr_t)r);

@@ -13,7 +13,7 @@
 
 #endif
 
-static JNIEnv *env = NULL;
+static JNIEnv *jvm_env = NULL;
 static JavaVM *jvm = NULL;
 static jclass Class_java_lang_String = NULL;
 static jmethodID MID_String_init = NULL;
@@ -24,7 +24,7 @@ int ngx_http_clojure_check_jvm() {
 }
 
 int ngx_http_clojure_get_env(JNIEnv **penv) {
-	*penv = env;
+	*penv = jvm_env;
 	return ngx_http_clojure_check_jvm();
 }
 
@@ -38,12 +38,13 @@ int ngx_http_clojure_get_jvm(JavaVM **pvm) {
 int ngx_http_clojure_init_jvm(char *jvm_path, char * *opts, size_t len) {
 
 	void *libVM;
+	void *env;
 	JavaVMInitArgs vm_args;
 	JavaVMOption options[NGX_HTTP_CLOJURE_JVM_MAX_OPTS];
 	size_t i;
 	jni_createvm_pt jvm_creator;
 
-	if (jvm != NULL && env != NULL) {
+	if (jvm != NULL && jvm_env != NULL) {
 		return NGX_HTTP_CLOJURE_JVM_OK;
 	}
 
@@ -85,10 +86,10 @@ int ngx_http_clojure_init_jvm(char *jvm_path, char * *opts, size_t len) {
 	if ((*jvm_creator)(&jvm, (void **)&env, (void *)&vm_args) < 0){
 		return NGX_HTTP_CLOJURE_JVM_ERR;
 	}
-
-	Class_java_lang_String = (*env)->FindClass(env, "java/lang/String");
-	MID_String_getBytes = (*env)->GetMethodID(env, Class_java_lang_String, "getBytes", "()[B");
-	MID_String_init = (*env)->GetMethodID(env, Class_java_lang_String, "<init>", "([B)V");
+	jvm_env = env;
+	Class_java_lang_String = (*jvm_env)->FindClass(jvm_env, "java/lang/String");
+	MID_String_getBytes = (*jvm_env)->GetMethodID(jvm_env, Class_java_lang_String, "getBytes", "()[B");
+	MID_String_init = (*jvm_env)->GetMethodID(jvm_env, Class_java_lang_String, "<init>", "([B)V");
 
 
 	return NGX_HTTP_CLOJURE_JVM_OK;
@@ -144,16 +145,14 @@ int ngx_http_clojure_init_jvm(char *jvm_path, char * *opts, size_t len) {
 
 
 int ngx_http_clojure_close_jvm() {
-	JNIEnv * lenv;
 	jclass systemClass = NULL;
 	jmethodID exitMethod = NULL;
-	(*jvm)->AttachCurrentThread(jvm, (void**)&lenv, NULL);
-	systemClass = (*lenv)->FindClass(lenv, "java/lang/System");
-	exitMethod = (*lenv)->GetStaticMethodID(lenv, systemClass, "exit", "(I)V");
-	(*lenv)->CallStaticVoidMethod(lenv, systemClass, exitMethod, 0);
+	systemClass = (*jvm_env)->FindClass(jvm_env, "java/lang/System");
+	exitMethod = (*jvm_env)->GetStaticMethodID(jvm_env, systemClass, "exit", "(I)V");
+	(*jvm_env)->CallStaticVoidMethod(jvm_env, systemClass, exitMethod, 0);
 	(*jvm)->DestroyJavaVM(jvm);
 
-	env = NULL;
+	jvm_env = NULL;
 	jvm = NULL;
 
 	return NGX_HTTP_CLOJURE_JVM_OK;
