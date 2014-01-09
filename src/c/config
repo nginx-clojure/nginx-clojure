@@ -15,8 +15,8 @@ JNI_HEADER_1="/usr/lib/jvm/java-7-oracle/include"
 JNI_HEADER_2="${JNI_HEADER_1}/linux"
 
 #linux centos
-JNI_HEADER_1="/usr/java/jdk1.6.0_45/include/"
-JNI_HEADER_2="${JNI_HEADER_1}/linux"
+#JNI_HEADER_1="/usr/java/jdk1.6.0_45/include/"
+#JNI_HEADER_2="${JNI_HEADER_1}/linux"
 
 #windows
 #JNI_HEADER_1="C:/Program Files/Java/jdk1.7.0_25/include"

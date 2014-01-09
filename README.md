@@ -5,26 +5,135 @@ Nginx-Clojure is a [Nginx](http://nginx.org/) module for embedding Clojure or Ja
 
 There are some core features :
 
-1. compatible with [Ring](https://github.com/ring-clojure/ring/blob/master/SPEC) and obviously supports those Ring based frameworks, such as Compojure etc.
-1. one of  benifits of [Nginx](http://nginx.org/) is worker processes are automatically restarted by a master process if they crash
-1. utilizes lazy headers and direct memory operation between [Nginx](http://nginx.org/) and JVM to fast handle dynamic contents from Clojure or Java code.
-1. utilizes [Nginx](http://nginx.org/) zero copy file sending mechanism to fast handle static contents controlled by Clojure or Java code.
+1. Compatible with [Ring](https://github.com/ring-clojure/ring/blob/master/SPEC) and obviously supports those Ring based frameworks, such as Compojure etc.
+1. One of  benifits of [Nginx](http://nginx.org/) is worker processes are automatically restarted by a master process if they crash
+1. Utilizes lazy headers and direct memory operation between [Nginx](http://nginx.org/) and JVM to fast handle dynamic contents from Clojure or Java code.
+1. Utilizes [Nginx](http://nginx.org/) zero copy file sending mechanism to fast handle static contents controlled by Clojure or Java code.
+1. Supports Linux x64, Win32 and Mac OS X
 
 
-Installation
+1. Installation
 =============
 
-Installation by Binary
+The lastest version is [0.1.0](https://sourceforge.net/projects/nginx-clojure/files/).
+
+1.1 Installation by Binary
 -------------
 
-### Linux x64 Binary
+1. First you can download  the latest one from [here](https://sourceforge.net/projects/nginx-clojure/files/). 
+The zip file includes Nginx-Clojure binaries about Linux x64, Win32 and Mac OS X.
+1. Unzip the zip file downloaded then rename the file `nginx-${os-arc}` to `nginx`, eg. for linux is `nginx-linux-x64`
 
 
-### Win32 Binary
-
-
-### MacOSX x64 Binary
-
-
-Installation by Source
+1.2 Installation by Source
 -------------
+
+Nginx-Clojure may be compiled successfully on Linux x64, Win32 and Mac OS X x64.
+
+1. First download from [nginx site](http://nginx.org/en/download.html) or check out nginx source by hg from http://hg.nginx.org/nginx. 
+For Win32 users MUST check out nginx source by hg because the zipped source doesn't contain Win32 related code.
+1. Check out Nginx-Clojure source from github.
+1. If you want to use Http SSL module, you should install openssl and openssl dev first.
+1. Setting Java header include path in nginx-clojure/src/c/config
+
+	```nginx
+	#eg. on ubuntu
+	JNI_HEADER_1="/usr/lib/jvm/java-7-oracle/include"
+	JNI_HEADER_2="${JNI_HEADER_1}/linux"
+	````
+1. Add Nginx-Clojure module to Nginx configure command, here is a simplest example without more details about [InstallOptions](http://wiki.nginx.org/InstallOptions)
+
+	```bash
+	#If nginx source is checked out from hg, please replace ./configure with auto/configure
+	$./configure
+		--add-module=/home/who/git/nginx-clojure/src/c
+	$ make
+	$ make install
+	````
+
+2. Configurations
+=================
+
+2.1 JVM path & class path
+-----------------
+
+Setting JVM 	path and class path within `http {` block in  nginx.conf
+
+```nginx
+
+    #for win32,  jvm_path maybe "C:/Program Files/Java/jdk1.7.0_25/jre/bin/server/jvm.dll";
+    #for macosx, jvm_path maybe "/Library/Java/JavaVirtualMachines/1.6.0_65-b14-462.jdk/Contents/Libraries/libserver.dylib";
+    #for linux,  jvm_path maybe "/usr/lib/jvm/java-7-oracle/jre/lib/amd64/server/libjvm.so";
+    
+    jvm_path "/usr/lib/jvm/java-7-oracle/jre/lib/amd64/server/libjvm.so";
+    
+    #for win32, class path seperator is ";",  jvm_options maybe "-Djava.class.path=jars/nginx-clojure-0.1.0.jar;jars/clojure-1.5.1.jar";
+    jvm_options "-Djava.class.path=jars/nginx-clojure-0.1.0.jar:jars/clojure-1.5.1.jar";
+    
+    
+    #for engble java remote debug uncomment next two lines
+    #jvm_options "-Xdebug";
+    #jvm_options "-Xrunjdwp:server=y,transport=dt_socket,address=8400,suspend=n";
+````
+Now you can start nginx and access http://localhost:8080/clojure, ff some error happens please check error.log file. 
+
+2.2 Threads Number for Request Handler Thread Pool on JVM
+-----------------
+Within `http {` block in nginx.conf `jvm_workers` is a directive about threads number for request handler thread pool on JVM, default is 0. 
+**ONLY IF** you cann't resolve your performance problems by increasing worker_processes or reducing single request-response time, 
+you can consider the way.
+
+eg.
+
+```nginx
+jvm_workers 8;
+```
+Now Nginx-Clojure will create a thread pool with fixed eight threads  per JVM instance/Nginx worker to handle request. 
+
+2.3 Ring Handler for Location
+-----------------
+
+Within `location` block, directive `clojure` is an enable flag and directive clojure_code is used to setting a Ring handler.
+
+
+###2.3.1 Inline Ring Handler
+
+```nginx
+       location /clojure {
+          clojure;
+          clojure_code ' 
+						(fn[req]
+						  {
+						    :status 200,
+						    :headers {"content-type" "text/plain"},
+						    :body  "Hello Clojure & Nginx!" 
+						    })
+          ';
+       }
+```
+
+###2.3.2 Reference of External Ring Handlers
+
+```clojure
+(ns my.hello)
+(defn hello-world [request]
+  {:status 200
+   :headers {"Content-Type" "text/plain"}
+   :body "Hello World"})
+
+```
+
+You should setting your clojure JAR files to class path, see [2.1 JVM path & class path](#2.1 JVM path & class path) .
+
+
+```nginx
+       location /myClojure {
+          clojure;
+          clojure_code ' 
+          (do
+               (use \'[my.hello])
+                 hello-world))
+          ';
+       }
+```
+For more details and more useful examples for [Compojure](https://github.com/weavejester/compojure) which is a small routing library for Ring that allows web applications to be composed of small, independent parts. Please refer to https://github.com/weavejester/compojure
