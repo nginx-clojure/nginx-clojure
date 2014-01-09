@@ -49,7 +49,14 @@ For Win32 users MUST check out nginx source by hg because the zipped source does
 		--add-module=nginx-clojure/src/c
 	$ make
 	$ make install
-	````
+	```
+1. Create the jar about Nginx-Clojure
+
+	```bash
+	$ cd nginx-clojure
+	$ lein jar
+	```
+	Then you'll find nginx-clojure-${version}.jar (eg. nginx-clojure-0.1.0.jar) in the target folder.
 
 2. Configurations
 =================
