@@ -32,7 +32,7 @@ Nginx-Clojure may be compiled successfully on Linux x64, Win32 and Mac OS X x64.
 
 1. First download from [nginx site](http://nginx.org/en/download.html) or check out nginx source by hg from http://hg.nginx.org/nginx. 
 For Win32 users MUST check out nginx source by hg because the zipped source doesn't contain Win32 related code.
-1. Check out Nginx-Clojure source from github.
+1. Check out Nginx-Clojure source from github OR download the zipped source code from https://github.com/xfeep/nginx-clojure/releases
 1. If you want to use Http SSL module, you should install openssl and openssl dev first.
 1. Setting Java header include path in nginx-clojure/src/c/config
 
