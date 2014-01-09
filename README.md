@@ -45,8 +45,8 @@ For Win32 users MUST check out nginx source by hg because the zipped source does
 
 	```bash
 	#If nginx source is checked out from hg, please replace ./configure with auto/configure
-	$./configure
-		--add-module=/home/who/git/nginx-clojure/src/c
+	$./configure \
+		--add-module=nginx-clojure/src/c
 	$ make
 	$ make install
 	````
