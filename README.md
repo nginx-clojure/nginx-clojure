@@ -75,7 +75,7 @@ Setting JVM 	path and class path within `http {` block in  nginx.conf
     #jvm_options "-Xdebug";
     #jvm_options "-Xrunjdwp:server=y,transport=dt_socket,address=8400,suspend=n";
 ````
-Now you can start nginx and access http://localhost:8080/clojure, ff some error happens please check error.log file. 
+Now you can start nginx and access http://localhost:8080/clojure, if some error happens please check error.log file. 
 
 2.2 Threads Number for Request Handler Thread Pool on JVM
 -----------------
@@ -88,12 +88,12 @@ eg.
 ```nginx
 jvm_workers 8;
 ```
-Now Nginx-Clojure will create a thread pool with fixed eight threads  per JVM instance/Nginx worker to handle request. 
+Now Nginx-Clojure will create a thread pool with fixed eight threads  per JVM instance/Nginx worker to handle requests. 
 
 2.3 Ring Handler for Location
 -----------------
 
-Within `location` block, directive `clojure` is an enable flag and directive clojure_code is used to setting a Ring handler.
+Within `location` block, directive `clojure` is an enable flag and directive `clojure_code` is used to setting a Ring handler.
 
 
 ###2.3.1 Inline Ring Handler
@@ -123,7 +123,7 @@ Within `location` block, directive `clojure` is an enable flag and directive clo
 
 ```
 
-You should setting your clojure JAR files to class path, see [2.1 JVM path & class path](#2.1 JVM path & class path) .
+You should set your clojure JAR files to class path, see [2.1 JVM path & class path](#2.1 JVM path & class path) .
 
 
 ```nginx
