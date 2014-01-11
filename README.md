@@ -61,10 +61,10 @@ For Win32 users MUST check out nginx source by hg because the zipped source does
 2. Configurations
 =================
 
-2.1 JVM path & class path
+2.1 JVM Path , Class Path & Other JVM Options
 -----------------
 
-Setting JVM 	path and class path within `http {` block in  nginx.conf
+Setting JVM path and class path within `http {` block in  nginx.conf
 
 ```nginx
 
@@ -74,9 +74,13 @@ Setting JVM 	path and class path within `http {` block in  nginx.conf
     
     jvm_path "/usr/lib/jvm/java-7-oracle/jre/lib/amd64/server/libjvm.so";
     
+    #jvm_options can be repeated once per option.
     #for win32, class path seperator is ";",  jvm_options maybe "-Djava.class.path=jars/nginx-clojure-0.1.0.jar;jars/clojure-1.5.1.jar";
     jvm_options "-Djava.class.path=jars/nginx-clojure-0.1.0.jar:jars/clojure-1.5.1.jar";
     
+    #for memory setting
+    #jvm_options "-Xms256m"
+    #jvm_options "-Xmx256m"
     
     #for engble java remote debug uncomment next two lines
     #jvm_options "-Xdebug";
@@ -144,3 +148,47 @@ You should set your clojure JAR files to class path, see [2.1 JVM path & class p
        }
 ```
 For more details and more useful examples for [Compojure](https://github.com/weavejester/compojure) which is a small routing library for Ring that allows web applications to be composed of small, independent parts. Please refer to https://github.com/weavejester/compojure
+
+
+###2.3.3 Pure Java Handler
+
+```java
+package my;
+
+import nginx.clojure.Constants;
+import clojure.lang.AFn;
+import clojure.lang.IPersistentMap;
+import clojure.lang.PersistentArrayMap;
+
+public class HelloHandler extends AFn {
+	
+	@Override
+	public Object invoke(Object r) {
+		IPersistentMap req = (IPersistentMap)r;
+		
+		//get some info from req. eg. req.valAt(Constants.QUERY_STRING)
+		//....
+		
+		//prepare resps, more details about Ring handler on this site https://github.com/ring-clojure/ring/blob/master/SPEC
+		Object[] resps = new Object[] {Constants.STATUS, 200, 
+				Constants.HEADERS, new PersistentArrayMap(new Object[]{Constants.CONTENT_TYPE.getName(),"text/plain"}),
+				Constants.BODY, "Hello Java & Nginx!"};
+		return new PersistentArrayMap(resps);
+	}
+	
+}
+```
+
+
+In nginx.conf, eg.
+
+```nginx
+	location /java {
+          clojure;
+          clojure_code ' 
+               (do (import \'[my HelloHandler]) (HelloHandler.) )
+          ';
+       }
+```
+
+You should set your  JAR files to class path, see [2.1 JVM path & class path](#2.1 JVM path & class path) .
