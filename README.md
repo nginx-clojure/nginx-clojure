@@ -11,6 +11,8 @@ There are some core features :
 1. Utilizes [Nginx](http://nginx.org/) zero copy file sending mechanism to fast handle static contents controlled by Clojure or Java code.
 1. Supports Linux x64, Win32 and Mac OS X
 
+By the way it is very fast, the benchmarks can be found [HERE](https://github.com/ptaoussanis/clojure-web-server-benchmarks) .
+
 
 1. Installation
 =============
