@@ -9,6 +9,9 @@
 #include "ngx_http_clojure_jvm.h"
 #include "ngx_http_clojure_mem.h"
 
+ngx_conf_t *ngx_http_clojure_global_ngx_conf;
+ngx_cycle_t *ngx_http_clojure_global_cycle;
+
 static char* ngx_http_clojure(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 static void* ngx_http_clojure_create_loc_conf(ngx_conf_t *cf);
@@ -194,8 +197,7 @@ ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 	return NGX_OK;
 }
 
-ngx_conf_t *ngx_http_clojure_global_ngx_conf;
-ngx_cycle_t *ngx_http_clojure_global_cycle;
+
 
 static void ngx_http_clojure_client_body_handler(ngx_http_request_t *r) {
 	ngx_http_clojure_loc_conf_t  *lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);

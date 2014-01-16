@@ -145,6 +145,39 @@
     
   )
 
+(deftest test-seq
+  (testing "seq include String &  File without gzip"
+           (let [r (client/get (str "http://" *host* ":" *port* "/testSeq") {:coerce :unexceptional, :decompress-body false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================seq include String &  File without gzip=============================")
+             (is (= 200 (:status r)))
+             (is (= (str (+ 680 (count "header line\n"))) (h "content-length")))))
+  )
+
+
+(deftest test-inputstream
+  (testing "inputstream without gzip"
+           (let [r (client/get (str "http://" *host* ":" *port* "/testInputStream") {:coerce :unexceptional, :decompress-body false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================inputstream (no gzip) end =============================")
+             (is (= 200 (:status r)))
+             (is (= "680" (h "content-length")))))
+    (testing "inputstream with gzip"
+           ;clj-http will auto use Accept-Encoding	gzip, deflate
+           (let [r (client/get (str "http://" *host* ":" *port* "/testInputStream"))
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================inputstream (with gzip) end=============================")
+             (is (= 200 (:status r)))
+             (is (= "gzip" (:orig-content-encoding r)))
+             (is (= 680 (count (r :body))))))
+  )
+
 ;eg. (concurrent-run 10 (run-tests 'nginx.clojure.test-all))
 (defmacro concurrent-run 
   [n, form]

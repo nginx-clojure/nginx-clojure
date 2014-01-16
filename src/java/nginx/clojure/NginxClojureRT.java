@@ -9,10 +9,12 @@ import static nginx.clojure.Constants.*;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -29,8 +31,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import sun.misc.Unsafe;
 import clojure.lang.IFn;
+import clojure.lang.ISeq;
 import clojure.lang.PersistentArrayMap;
 import clojure.lang.RT;
+import clojure.lang.Seqable;
 
 public class NginxClojureRT {
 
@@ -69,9 +73,9 @@ public class NginxClojureRT {
 	public native static long ngx_list_push(long list);
 	
 	
-	public native static long ngx_create_temp_buf(long pool, long size);
+	public native static long ngx_create_temp_buf(long r, long size);
 	
-	public native static long ngx_create_file_buf(long r, long file, long name_len);
+	public native static long ngx_create_file_buf(long r, long file, long name_len, int last_buf);
 	
 	public native static long ngx_http_set_content_type(long r);
 	
@@ -140,10 +144,10 @@ public class NginxClojureRT {
 //					System.out.println("requet jlong value:" + ctx.request.r + ", jint:" + (int)ctx.request.r);
 					ngx_http_clojure_mem_post_write_event(ctx.request.r);
 				} catch (InterruptedException e) {
-					e.printStackTrace();
+					logError("interrupted!", e);
 					break;
 				} catch (ExecutionException e) {
-					e.printStackTrace();
+					logError("unexpected ExecutionException!", e);
 				}
 			}
 		}
@@ -307,6 +311,10 @@ public class NginxClojureRT {
 		NGINX_CLOJURE_RT_WORKERS = MEM_INDEX[NGINX_CLOJURE_RT_WORKERS_ID];
 		NGINX_CLOJURE_VER = MEM_INDEX[NGINX_CLOJURE_VER_ID];
 		NGINX_VER = MEM_INDEX[NGINX_VER_ID];
+		
+		if (NGINX_CLOJURE_RT_REQUIRED_LVER > NGINX_CLOJURE_VER) {
+			throw new IllegalStateException("NginxClojureRT required version is >=" + formatVer(NGINX_CLOJURE_RT_REQUIRED_LVER) + ", but here is " + formatVer(NGINX_CLOJURE_VER));
+		}
 		NGINX_CLOJURE_FULL_VER = "nginx-clojure/" + formatVer(NGINX_VER) + "-" + formatVer(NGINX_CLOJURE_VER);
 		
 		KNOWN_REQ_HEADERS.put("host", NGX_HTTP_CLOJURE_HEADERSI_HOST_OFFSET);
@@ -499,7 +507,7 @@ public class NginxClojureRT {
 			return resp;
 		}catch(Throwable e){
 			//log to nginx error log file
-			e.printStackTrace();
+			logError("server unhandled exception!", e);
 			return new PersistentArrayMap(new Object[] {STATUS, 500, BODY, e, HEADERS, new PersistentArrayMap(new Object[] {CONTENT_TYPE.getName(), "text/plain"})});
 		}finally {
 			int bodyIdx = req.index(BODY);
@@ -507,10 +515,18 @@ public class NginxClojureRT {
 				try {
 					((Closeable)req.array[bodyIdx]).close();
 				} catch (Throwable e) {
-					//log to nginx error log file
-					e.printStackTrace();
+					logError("can not close Closeable object such as FileInputStream!", e);
 				}
 			}
+		}
+	}
+	
+	public static void logError(String msg, Throwable err) {
+		//TODO: use nginx log 
+		//standard error stream is redirect to the nginx error log file, so we just simple println it.
+		System.err.println(msg);
+		if (err != null) {
+			err.printStackTrace();
 		}
 	}
 	
@@ -522,6 +538,147 @@ public class NginxClojureRT {
 			ngx_http_finalize_request(r, rc);
 //		}
 		return NGX_OK;
+	}
+	
+	public static long buildResponseFileBuf(File f, long r, long pool, int isLast, long chain) {
+		byte[] bytes = f.getPath().getBytes();
+		long file = ngx_pcalloc(pool, bytes.length + 1);
+		ngx_http_clojure_mem_copy_to_addr(bytes, BYTE_ARRAY_OFFSET, file, bytes.length);
+		long rc = ngx_create_file_buf(r, file, bytes.length, isLast);
+		
+		if (rc <= 0) {
+			return rc;
+		}
+		
+		UNSAFE.putAddress(chain + NGX_HTTP_CLOJURE_CHAIN_BUF_OFFSET, rc);
+		
+		return chain;
+	}
+	
+	public static long buildResponseInputStreamBuf(InputStream in, long r, long pool, int isLast, long chain) {
+		try {
+			long lastBuf = 0;
+			long lastChain = 0;
+			
+			while (true) {
+				byte[] buf = new byte[1024 * 32 * 2];
+				int c = 0;
+				int pos = 0;
+				
+				do {
+					c = in.read(buf, pos, buf.length - pos);
+					if (c > 0) {
+						pos += c;
+					}
+				}while (c >= 0 && pos < buf.length);
+				
+				if (pos > 0) {
+					lastBuf = ngx_create_temp_buf(r, pos);
+					if (lastBuf <= 0) {
+						return lastBuf;
+					}
+					ngx_http_clojure_mem_init_ngx_buf(lastBuf, buf, BYTE_ARRAY_OFFSET, pos, 0);
+					
+					if (lastChain != 0) {
+						chain = ngx_palloc(pool, NGX_HTTP_CLOJURE_CHAINT_SIZE);
+						if (chain == 0) {
+							return 0;
+						}
+					}
+					
+					UNSAFE.putAddress(chain + NGX_HTTP_CLOJURE_CHAIN_BUF_OFFSET, lastBuf);
+					
+					if (lastChain != 0) {
+						UNSAFE.putAddress(lastChain + NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET, chain);
+					}
+					lastChain = chain;
+				}
+				
+				if (c < 0) {
+					break;
+				}
+				
+				
+			}
+			
+			if (isLast == 1 && lastBuf > 0) {
+				//only set last buffer flag 
+				ngx_http_clojure_mem_init_ngx_buf(lastBuf, null, 0, 0, 1);
+			}
+			return lastChain;
+			
+		}catch(IOException e) {
+			logError("can not read from InputStream", e);
+			return -500; 
+		}finally {
+			try {
+				in.close();
+			} catch (IOException e) {
+				logError("can not close  InputStream", e);
+			}
+		}
+	}
+	
+	public static long buildResponseStringBuf(String s, long r, long pool, int isLast, long chain) {
+		if (s == null) {
+			return 0;
+		}
+		
+		byte[] bytes = s.getBytes(DEFAULT_ENCODING);
+		long b = ngx_create_temp_buf(r, bytes.length);
+		
+		if (b <= 0) {
+			return b;
+		}
+		
+		ngx_http_clojure_mem_init_ngx_buf(b, bytes, BYTE_ARRAY_OFFSET, bytes.length, isLast);
+		
+		UNSAFE.putAddress(chain + NGX_HTTP_CLOJURE_CHAIN_BUF_OFFSET, b);
+		
+		return chain;
+	}
+	
+	public static long buildResponseItemBuf(long r, long pool, Object item, int isLast, long chain) {
+
+		if (item instanceof File) {
+			return buildResponseFileBuf((File)item, r, pool, isLast, chain);
+		}else if (item instanceof InputStream) {
+			return buildResponseInputStreamBuf((InputStream)item, r, pool, isLast, chain);
+		}else if (item instanceof String) {
+			return buildResponseStringBuf((String)item, r, pool, isLast, chain);
+		}else if ((item instanceof ISeq) || (item instanceof Seqable) || (item instanceof Iterable)) {
+			ISeq seq = RT.seq(item);
+			long lastChain = 0;
+			while (seq != null) {
+				Object o = seq.first();
+				if (o != null) {
+					
+					if (lastChain != 0) {
+						chain = ngx_palloc(pool, NGX_HTTP_CLOJURE_CHAINT_SIZE);
+						if (chain == 0) {
+							return 0;
+						}
+					}
+					
+					seq = seq.next();
+					long subTail = 0;
+					if (isLast == 1 && seq == null) {
+						subTail = buildResponseItemBuf(r, pool, o, 1, chain);
+					}else {
+						subTail = buildResponseItemBuf(r, pool, o, 0, chain);
+					}
+					if (subTail <= 0) {
+						return subTail;
+					}
+					if (lastChain != 0) {
+						UNSAFE.putAddress(lastChain + NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET, chain);
+					}
+					lastChain = subTail;
+				}
+			}
+			return lastChain;
+		}
+		return -500;
 	}
 	
 	public static int handleResponse(long r, final Map resp) {
@@ -569,41 +726,34 @@ public class NginxClojureRT {
 			}
 			
 			Object body = resp.get(BODY);
-			long b = 0;
+			long chain = 0;
 			
-			if (body instanceof File) {
-				if (! ((File)body).exists() ) {
-					return 404;
-				}else {
-					byte[] bytes = ((File)body).getPath().getBytes();
-					long file = ngx_pcalloc(pool, bytes.length+1);
-					ngx_http_clojure_mem_copy_to_addr(bytes, BYTE_ARRAY_OFFSET, file, bytes.length);
-					b = ngx_create_file_buf(r, file, bytes.length);
-					if (b == 0){
-						return 500;
-					}
+			if (body != null) {
+				chain = ngx_palloc(pool, NGX_HTTP_CLOJURE_CHAINT_SIZE);
+				if (chain == 0) {
+					return 500;
 				}
-			}else if (body != null) {
-				String bodyStr = (String) body.toString();
-				byte[] bytes = bodyStr.getBytes(DEFAULT_ENCODING);
-				pushNGXOfft(headers_out + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_LENGTH_N_OFFSET, bytes.length);
-				b = ngx_create_temp_buf(pool, bytes.length);
-				ngx_http_clojure_mem_init_ngx_buf(b, bytes, BYTE_ARRAY_OFFSET, bytes.length, 1);
+				long tailChain = buildResponseItemBuf(r, pool, body, 1, chain);
+				if (tailChain == 0) {
+					return 500;
+				}else if (tailChain < 0) {
+					return -(int)tailChain;
+				}
+				UNSAFE.putAddress(tailChain + NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET, 0);
 			}else {
-				return 500;
+				return 204;
 			}
+			
 			pushNGXInt(headers_out + NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET, status);
 			int rc = (int)ngx_http_send_header(r);
-			if (rc == NGX_ERROR || rc > NGX_OK){
+			if (rc == NGX_ERROR || rc > NGX_OK || body == null){
 				return rc;
 			}
-			long chain = ngx_palloc(pool, NGX_HTTP_CLOJURE_CHAINT_SIZE);
-			UNSAFE.putAddress(chain + NGX_HTTP_CLOJURE_CHAIN_BUF_OFFSET, b);
-			UNSAFE.putAddress(chain + NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET, 0);
+			
 			return (int)ngx_http_output_filter(r, chain);
 
 		}catch(Throwable e) {
-			e.printStackTrace();
+			logError("server unhandled exception!", e);
 			return 500;
 		}
 	}

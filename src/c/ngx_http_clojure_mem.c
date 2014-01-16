@@ -4,6 +4,7 @@
 #include <ngx_config.h>
 #include "ngx_http_clojure_mem.h"
 #include "ngx_http_clojure_jvm.h"
+#include <ngx_http_config.h>
 
 //static ngx_str_t NGX_HTTP_CLOJURE_FULL_VER_STR = ngx_string(NGINX_VER " & " NGINX_CLOJURE_VER);
 
@@ -98,58 +99,131 @@ static jlong JNICALL jni_ngx_list_push(JNIEnv *env, jclass cls, jlong list) {
 }
 
 
-static jlong JNICALL jni_ngx_create_temp_buf (JNIEnv *env, jclass cls, jlong pool, jlong size) {
-	return (uintptr_t)ngx_create_temp_buf((ngx_pool_t *)pool, (size_t)size);
+static jlong JNICALL jni_ngx_create_temp_buf (JNIEnv *env, jclass cls, jlong r, jlong size) {
+	ngx_http_request_t *req = (ngx_http_request_t *) r;
+
+	if (req->headers_out.content_length_n < 0 ) {
+		req->headers_out.content_length_n = size;
+	}else {
+		req->headers_out.content_length_n += size;
+	}
+
+	/*
+	 * If File and String are in the same ISeq of one response body,
+	 * we should clear the last_modified_time.
+	 */
+	req->headers_out.last_modified_time = -2;
+	req->headers_out.last_modified = NULL;
+
+	return (uintptr_t)ngx_create_temp_buf(req->pool, (size_t)size);
 }
 
 
-static jlong JNICALL jni_ngx_create_file_buf (JNIEnv *env, jclass cls, jlong r, jlong file, jlong name_len) {
+static jlong JNICALL jni_ngx_create_file_buf (JNIEnv *env, jclass cls, jlong r, jlong file, jlong name_len, jint last_buf) {
 	ngx_http_request_t *req = (ngx_http_request_t *) r;
-	ngx_buf_t *b = ngx_pcalloc(req->pool, sizeof(ngx_buf_t));
-	ngx_pool_cleanup_t *cln;
-	ngx_pool_cleanup_file_t *clnf;
+	ngx_buf_t *b;
+	ngx_str_t path = {(ngx_int_t)name_len, (u_char *)file};
+	ngx_open_file_info_t of;
+	ngx_http_core_loc_conf_t  *clcf = ngx_http_get_module_loc_conf(req, ngx_http_core_module);
+	ngx_uint_t level;
+	ngx_log_t *log = req->connection->log;
 
-//	b->last_buf = 1;
-	b->in_file = 1;
-	b->file = ngx_pcalloc(req->pool, sizeof(ngx_file_t));
-	b->file->fd = ngx_open_file((u_char *)file, NGX_FILE_RDONLY | NGX_FILE_NONBLOCK, NGX_FILE_OPEN, 0);
+	/*just like http_static module */
 
-	if (b->file->fd <= 0) {
-		return 0;
+	ngx_memzero(&of, sizeof(ngx_open_file_info_t));
+
+	of.read_ahead = clcf->read_ahead;
+	of.directio = clcf->directio;
+	of.valid = clcf->open_file_cache_valid;
+	of.min_uses = clcf->open_file_cache_min_uses;
+	of.errors = clcf->open_file_cache_errors;
+	of.events = clcf->open_file_cache_events;
+
+	if (ngx_open_cached_file(clcf->open_file_cache, &path, &of, req->pool) != NGX_OK) {
+		ngx_int_t rc = 0;
+
+		switch (of.err) {
+
+		case 0:
+			return -NGX_HTTP_INTERNAL_SERVER_ERROR;
+
+		case NGX_ENOENT:
+		case NGX_ENOTDIR:
+		case NGX_ENAMETOOLONG:
+
+			level = NGX_LOG_ERR;
+			rc = NGX_HTTP_NOT_FOUND;
+			break;
+
+		case NGX_EACCES:
+
+			level = NGX_LOG_ERR;
+			rc = NGX_HTTP_FORBIDDEN;
+			break;
+
+		default:
+
+			level = NGX_LOG_CRIT;
+			rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+			break;
+		}
+
+		if (rc != NGX_HTTP_NOT_FOUND || clcf->log_not_found) {
+			ngx_log_error(level, log, of.err, "%s \"%s\" failed", of.failed,
+					path.data);
+		}
+
+		return -rc;
 	}
 
-	b->file->log = req->connection->log;
-	b->file->name.data = (u_char *)file;
-	b->file->name.len = name_len;
-
-	if (ngx_file_info((u_char *)file, &b->file->info) == NGX_FILE_ERROR) {
-		return 0;
+	if (of.is_dir) {
+		return -NGX_HTTP_NOT_FOUND;
 	}
 
-	req->headers_out.content_length_n = ngx_file_size(&b->file->info);//b->file->info.st_size;
-	b->file_pos = 0;
-	b->file_last = req->headers_out.content_length_n;
-	
-	//be friendly to gzip module
-	//TODO:use core module configuration
-	//now we use send file by default
-	b->file->directio = 0;
-    b->in_file = b->file_last ? 1: 0;
-    b->last_buf = (req == req->main) ? 1: 0;
-    b->last_in_chain = 1;
-    req->headers_out.last_modified_time = ngx_file_mtime(&b->file->info);
+#if !(NGX_WIN32) /* the not regular files are probably Unix specific */
+
+    if (!of.is_file) {
+        ngx_log_error(NGX_LOG_CRIT, log, 0,
+                      "\"%s\" is not a regular file", path.data);
+
+        return -NGX_HTTP_NOT_FOUND;
+    }
+
+#endif
+
     req->allow_ranges = 1;
 
-	cln = ngx_pool_cleanup_add(req->pool, sizeof(ngx_pool_cleanup_file_t));
-	if (cln == NULL) {
-		return 0;
-	}
-	cln->handler = ngx_pool_cleanup_file;
-	clnf = cln->data;
-	clnf->fd = b->file->fd;
-	clnf->name = b->file->name.data;
-	clnf->log = req->pool->log;
+    b = ngx_pcalloc(req->pool, sizeof(ngx_buf_t));
+    if (b == NULL) {
+        return -NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
 
+    b->file = ngx_pcalloc(req->pool, sizeof(ngx_file_t));
+    if (b->file == NULL) {
+        return -NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    b->file_pos = 0;
+    b->file_last = of.size;
+
+    b->in_file = b->file_last ? 1: 0;
+    b->last_buf = last_buf;
+    b->last_in_chain = last_buf;
+
+    b->file->fd = of.fd;
+    b->file->name = path;
+    b->file->log = log;
+    b->file->directio = of.is_directio;
+
+    if (req->headers_out.content_length_n < 0) {
+		req->headers_out.content_length_n = of.size;
+	} else {
+		req->headers_out.content_length_n += of.size;
+	}
+
+    if (req->headers_out.last_modified_time != -2 && req->headers_out.last_modified_time < of.mtime) {
+    	req->headers_out.last_modified_time = of.mtime;
+    }
 	return (uintptr_t)b;
 }
 
@@ -158,7 +232,11 @@ static jlong JNICALL jni_ngx_http_set_content_type(JNIEnv *env, jclass cls, jlon
 }
 
 static jlong JNICALL jni_ngx_http_send_header (JNIEnv *env, jclass cls, jlong r) {
-	return ngx_http_send_header((ngx_http_request_t *)r);
+	ngx_http_request_t *req = (ngx_http_request_t *) r;
+	if (req->headers_out.last_modified_time == -2) {
+		req->headers_out.last_modified_time = -1;
+	}
+	return ngx_http_send_header(req);
 }
 
 static jlong JNICALL jni_ngx_http_output_filter (JNIEnv *env, jclass cls, jlong r, jlong chain) {
@@ -171,9 +249,14 @@ static void JNICALL jni_ngx_http_finalize_request (JNIEnv *env, jclass cls, jlon
 
 static jlong JNICALL jni_ngx_http_clojure_mem_init_ngx_buf(JNIEnv *env, jclass cls, jlong buf, jobject obj, jlong offset, jlong len, jint last_buf) {
 	ngx_buf_t * b = (ngx_buf_t *)buf;
-	ngx_memcpy(b->pos, (char *)(*(uintptr_t*)obj) + offset, len);
-	b->last = b->pos + len;
+
+	if (len > 0) {
+		ngx_memcpy(b->pos, (char *)(*(uintptr_t*)obj) + offset, len);
+		b->last = b->pos + len;
+	}
+
 	b->last_buf = last_buf;
+	b->last_in_chain = last_buf;
 	return (uintptr_t)b;
 }
 
@@ -519,7 +602,7 @@ int ngx_http_clojure_init_memory_util(ngx_int_t workers, ngx_log_t *log) {
 			{"ngx_list_init", "(JJJJ)J", jni_ngx_list_init},
 			{"ngx_list_push", "(J)J", jni_ngx_list_push},
 			{"ngx_create_temp_buf", "(JJ)J", jni_ngx_create_temp_buf},
-			{"ngx_create_file_buf", "(JJJ)J", jni_ngx_create_file_buf},
+			{"ngx_create_file_buf", "(JJJI)J", jni_ngx_create_file_buf},
 			{"ngx_http_set_content_type", "(J)J", jni_ngx_http_set_content_type},
 			{"ngx_http_send_header", "(J)J", jni_ngx_http_send_header},
 			{"ngx_http_output_filter", "(JJ)J", jni_ngx_http_output_filter},
@@ -682,14 +765,16 @@ int ngx_http_clojure_init_memory_util(ngx_int_t workers, ngx_log_t *log) {
 	(*env)->RegisterNatives(env, nc_rt_class, nms, sizeof(nms) / sizeof(JNINativeMethod));
 	exception_handle(0 == 0, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 	nc_rt_register_code_mid = (*env)->GetStaticMethodID(env, nc_rt_class, "registerCode", "(JJ)I");
-	exception_handle(nc_rt_register_code_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_OK);
+	exception_handle(nc_rt_register_code_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 	nc_rt_eval_mid = (*env)->GetStaticMethodID(env, nc_rt_class, "eval", "(IJ)I");
-	exception_handle(nc_rt_eval_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_OK);
+	exception_handle(nc_rt_eval_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 	nc_rt_init_mid = (*env)->GetStaticMethodID(env, nc_rt_class,"initMemIndex", "(J)V");
-	exception_handle(nc_rt_init_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_OK);
+	exception_handle(nc_rt_init_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 	nc_rt_handle_response_mid = (*env)->GetStaticMethodID(env, nc_rt_class,"handleResponse", "(J)I");
 
 	(*env)->CallStaticVoidMethod(env, nc_rt_class, nc_rt_init_mid, MEM_INDEX);
+
+	exception_handle(1, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 	return ngx_http_clojure_init_memory_util_flag = NGX_HTTP_CLOJURE_JVM_OK;
 }
 
