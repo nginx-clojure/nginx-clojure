@@ -1,7 +1,7 @@
 ## 0.1.1 (2014-01-20)
 
 1. Supports InputStream, ISeq & recursive ISeq in Response Body. 
-1. Auto maintains HTTP last-modified header for multiple files in Body
+1. Auto maintains HTTP last-modified header for multiple files in Response Body
 
 
 ## 0.1.0 (2014-01-09)
