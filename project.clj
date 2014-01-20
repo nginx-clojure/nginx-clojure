@@ -1,4 +1,4 @@
-(defproject nginx-clojure "0.1.0"
+(defproject nginx-clojure "0.1.1"
   :description "Nginx module for clojure & java programming"
   :url "https://github.com/xfeep/nginx-clojure"
   :license {:name "BSD 2-Clause license"

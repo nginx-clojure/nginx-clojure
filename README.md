@@ -17,12 +17,12 @@ By the way it is very fast, the benchmarks can be found [HERE](https://github.co
 1. Installation
 =============
 
-The lastest version is [0.1.0](https://sourceforge.net/projects/nginx-clojure/files/).
+The lastest release is 0.1.1. Please check the  [Update History](HISTORY.md) for more details.
 
 1.1 Installation by Binary
 -------------
 
-1. First you can download  the latest one from [here](https://sourceforge.net/projects/nginx-clojure/files/). 
+1. First you can download  Release 0.1.0  from [here](https://sourceforge.net/projects/nginx-clojure/files/). 
 The zip file includes Nginx-Clojure binaries about Linux x64, Win32 and Mac OS X.
 1. Unzip the zip file downloaded then rename the file `nginx-${os-arc}` to `nginx`, eg. for linux is `nginx-linux-x64`
 
@@ -52,7 +52,9 @@ For Win32 users MUST check out nginx source by hg because the zipped source does
 	$ make
 	$ make install
 	```
-1. Create the jar about Nginx-Clojure
+1. Create the jar file about Nginx-Clojure
+
+	Please check the lein version `lein version`, it should be at least 2.0.0.
 
 	```bash
 	$ cd nginx-clojure
@@ -194,3 +196,7 @@ In nginx.conf, eg.
 ```
 
 You should set your  JAR files to class path, see [2.1 JVM path & class path](#2.1 JVM path & class path) .
+
+3. License
+=================
+Copyright © 2013-2014 Zhang, Yuexiang (xfeep) and released under a BSD license.
