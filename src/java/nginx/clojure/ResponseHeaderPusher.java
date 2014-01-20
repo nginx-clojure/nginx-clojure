@@ -1,3 +1,7 @@
+/**
+ *  Copyright (C) Zhang,Yuexiang (xfeep)
+ *
+ */
 package nginx.clojure;
 
 public interface ResponseHeaderPusher {

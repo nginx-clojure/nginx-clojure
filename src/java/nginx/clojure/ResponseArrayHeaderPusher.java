@@ -1,3 +1,7 @@
+/**
+ *  Copyright (C) Zhang,Yuexiang (xfeep)
+ *
+ */
 package nginx.clojure;
 
 import static nginx.clojure.Constants.DEFAULT_ENCODING;
