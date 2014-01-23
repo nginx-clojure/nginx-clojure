@@ -96,14 +96,16 @@ Now you can start nginx and access http://localhost:8080/clojure, if some error 
 -----------------
 Within `http {` block in nginx.conf `jvm_workers` is a directive about threads number for request handler thread pool on JVM, default is 0. 
 **ONLY IF** you cann't resolve your performance problems by increasing worker_processes or reducing single request-response time, 
-you can consider the way.
+you can try this way. If your tasks are often blocked by slow I/O operations, the thread pool method can make the nginx worker not blocked until
+all threads are exhuasted.
 
 eg.
 
 ```nginx
-jvm_workers 8;
+jvm_workers 40;
 ```
-Now Nginx-Clojure will create a thread pool with fixed eight threads  per JVM instance/Nginx worker to handle requests. 
+Now Nginx-Clojure will create a thread pool with fixed 40 threads  per JVM instance/Nginx worker to handle requests. If you get more memory, you can set
+a bigger number.
 
 2.3 Ring Handler for Location
 -----------------
