@@ -77,7 +77,8 @@ public class LazyHeaderMap extends AFn implements IPersistentMap  {
 	}
 
 	@Override
-	public boolean containsKey(Object key) {
+	public boolean containsKey(Object keyObj) {
+		String key = NginxClojureRT.normalizeHeaderName(keyObj);
 		if (key == null) {
 			return false;
 		}
@@ -156,7 +157,11 @@ public class LazyHeaderMap extends AFn implements IPersistentMap  {
 	}
 
 	@Override
-	public Object valAt(Object key) {
+	public Object valAt(Object keyObj) {
+		if (keyObj == null) {
+			return null;
+		}
+		String key = NginxClojureRT.normalizeHeaderName(keyObj);
 		if (key == null) {
 			return null;
 		}
@@ -169,7 +174,7 @@ public class LazyHeaderMap extends AFn implements IPersistentMap  {
 				val = fetchNGXString(UNSAFE.getAddress(headersPointer + p.longValue()) + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
 			}
 		}else {
-			byte[] kbs = key.toString().getBytes();
+			byte[] kbs = key.getBytes();
 			long hp = ngx_http_clojure_mem_get_header(headersPointer, ngx_http_clojure_mem_get_obj_addr(kbs) + BYTE_ARRAY_OFFSET , kbs.length);
 			if (hp == 0){
 				val = null;

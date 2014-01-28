@@ -38,6 +38,22 @@
              (is (= "/headers" (b :uri)))
              (is (= *port* (b :server-port)))))
   
+  (testing "lowercase/uppercase headers"
+           (let [r (client/get (str "http://" *host* ":" *port* "/loweruppercaseheaders") {:coerce :unexceptional, :headers {"My-Header" "mytest"}})
+                 h (:headers r)
+                 b (-> r :body (edn/read-string))]
+             (debug-println r)
+             (debug-println "===============lowercase/uppercase headers =============================")
+             (is (= 200 (:status r)))
+             (is (= "e29b7ffb8a5325de60aed2d46a9d150b" (h "etag")))
+             (is (= ["no-store" "no-cache"] (h "cache-control")))
+             (is (.startsWith (h "server") "nginx-clojure"))
+             (is (= "http" (b :scheme)))
+             (is (= "text/plain" (h "content-type")))
+             (is (= "mytest" (b :my-header)))
+             (is (= "/loweruppercaseheaders" (b :uri)))
+             (is (= *port* (b :server-port)))))
+  
   (testing "cookie & user defined headers"
            (let [r (client/get (str "http://" *host* ":" *port* "/headers") {:coerce :unexceptional, :headers {"my-header" "mytest"}, :cookies {"tc1" {:value "tc1value"}, "tc2" {:value "tc2value"} } })
                  h (:headers r)
@@ -186,7 +202,7 @@
              (debug-println r)
              (debug-println "=================redirect=============================")
              (is (= 302 (:status r)))
-             (is (= "/testfiles/small.html" (h "location"))))))
+             (is (= (str  "http://" *host* ":" *port*  "/testfiles/small.html") (h "location"))))))
 
 ;eg. (concurrent-run 10 (run-tests 'nginx.clojure.test-all))
 (defmacro concurrent-run 

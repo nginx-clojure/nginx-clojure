@@ -32,6 +32,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import sun.misc.Unsafe;
 import clojure.lang.IFn;
 import clojure.lang.ISeq;
+import clojure.lang.Keyword;
 import clojure.lang.PersistentArrayMap;
 import clojure.lang.RT;
 import clojure.lang.Seqable;
@@ -687,6 +688,18 @@ public class NginxClojureRT {
 		return -500;
 	}
 	
+	public final static String normalizeHeaderName(Object nameObj) {
+		String name;
+		if (nameObj instanceof String) {
+			name = (String)nameObj;
+		}else if (nameObj instanceof Keyword) {
+			name = ((Keyword)nameObj).getName();
+		}else {
+			name = nameObj.toString();
+		}
+		return name == null ? null : name.toLowerCase();
+	}
+	
 	public static int handleResponse(long r, final Map resp) {
 		try {
 			long pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
@@ -701,27 +714,47 @@ public class NginxClojureRT {
 			}
 			long headers_out = r + NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
 			
-			Map<String, Object> headers = (Map<String, Object>) resp.get(HEADERS);
+			Map<Object, Object> headers = (Map<Object, Object>) resp.get(HEADERS);
 			String contentType = null;
+			String server = null;
 			if (headers != null) {
-				contentType = (String) headers.get("content-type");
-				for (Map.Entry<String, Object> hen : headers.entrySet()) {
-					String name = hen.getKey();
+				for (Map.Entry<Object, Object> hen : headers.entrySet()) {
+					Object nameObj = hen.getKey();
 					Object val = hen.getValue();
-					if (name == null || val == null || "content-type".equalsIgnoreCase(name) || "content-length".equalsIgnoreCase(name)) {
+					
+					if (nameObj == null || val == null) {
 						continue;
 					}
-					ResponseHeaderPusher pusher = KNOWN_RESP_HEADERS.get(hen.getKey());
+					
+					String name = normalizeHeaderName(nameObj);
+					
+					if (name == null || name.length() == 0 || "content-length".equals(name)) {
+						continue;
+					}
+					
+					if ("content-type".equals(name)) {
+						if (val != null) {
+							contentType = (String)val;
+						}
+						continue;
+					}else if ("server".equals(name)) {
+						server = (String)val;
+						continue;
+					}
+					
+					ResponseHeaderPusher pusher = KNOWN_RESP_HEADERS.get(name);
 					if (pusher == null) {
-						pusher = new ResponseUnknownHeaderPusher(hen.getKey());
+						pusher = new ResponseUnknownHeaderPusher(name);
 					}
 					pusher.push(headers_out, pool, val);
 				}
 			}
 			
-			if (headers == null || !headers.containsKey("server")) {
-				SERVER_PUSHER.push(headers_out, pool, NGINX_CLOJURE_FULL_VER);
+			if (server == null) {
+				server = NGINX_CLOJURE_FULL_VER;
 			}
+			
+			SERVER_PUSHER.push(headers_out, pool, server);
 			
 			if (contentType == null){
 				ngx_http_set_content_type(r);
