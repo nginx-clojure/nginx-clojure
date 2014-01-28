@@ -624,6 +624,10 @@ public class NginxClojureRT {
 			return 0;
 		}
 		
+		if (s.length() == 0) {
+			return -204;
+		}
+		
 		byte[] bytes = s.getBytes(DEFAULT_ENCODING);
 		long b = ngx_create_temp_buf(r, bytes.length);
 		
@@ -667,13 +671,15 @@ public class NginxClojureRT {
 					}else {
 						subTail = buildResponseItemBuf(r, pool, o, 0, chain);
 					}
-					if (subTail <= 0) {
+					if (subTail <= 0 && subTail != -204) {
 						return subTail;
 					}
-					if (lastChain != 0) {
+					if (lastChain != 0 && subTail != -204) {
 						UNSAFE.putAddress(lastChain + NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET, chain);
 					}
-					lastChain = subTail;
+					if (subTail != -204) {
+						lastChain = subTail;
+					}
 				}
 			}
 			return lastChain;
@@ -736,18 +742,26 @@ public class NginxClojureRT {
 				long tailChain = buildResponseItemBuf(r, pool, body, 1, chain);
 				if (tailChain == 0) {
 					return 500;
-				}else if (tailChain < 0) {
+				}else if (tailChain < 0 && tailChain != -204) {
 					return -(int)tailChain;
 				}
-				UNSAFE.putAddress(tailChain + NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET, 0);
+				if (tailChain == -204) {
+					chain = -204;
+				}else {
+					UNSAFE.putAddress(tailChain + NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET, 0);
+				}
 			}else {
-				return 204;
+				chain = -204;
 			}
 			
 			pushNGXInt(headers_out + NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET, status);
 			int rc = (int)ngx_http_send_header(r);
-			if (rc == NGX_ERROR || rc > NGX_OK || body == null){
+			if (rc == NGX_ERROR || rc > NGX_OK){
 				return rc;
+			}
+			
+			if (chain == -204) {
+				return status;
 			}
 			
 			return (int)ngx_http_output_filter(r, chain);

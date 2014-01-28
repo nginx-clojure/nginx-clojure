@@ -178,6 +178,16 @@
              (is (= 680 (count (r :body))))))
   )
 
+(deftest test-redirect
+  (testing "redirect"
+           (let [r (client/get (str "http://" *host* ":" *port* "/testredirect") {:follow-redirects false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================redirect=============================")
+             (is (= 302 (:status r)))
+             (is (= "/testfiles/small.html" (h "location"))))))
+
 ;eg. (concurrent-run 10 (run-tests 'nginx.clojure.test-all))
 (defmacro concurrent-run 
   [n, form]

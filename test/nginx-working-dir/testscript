@@ -102,6 +102,48 @@ auto/configure --with-cc=cl --builddir=objs --with-debug --prefix= \
 --add-module=Y:/nginx-clojure/src/c
 nmake -f Makefile
 
+#win64 build
+
+#start visual studio x64  command prompt (2010)
+#run C:\MinGW\msys\1.0\msys.bat
+#modify auto/lib/openssl/makefile.msvc, two line
+
+perl Configure VC-WIN64A no-shared --prefix=openssl $(OPENSSL_OPT)
+ms\do_win64a
+
+#modify ms\do_win64a, add ping for race condition, suggestion from http://wishmesh.com/2013/01/building-openssl-with-visual-studio-2010-for-x64-win64-causes-error/
+
+
+perl ms\uplink-x86_64.pl masm > ms\uptable.asm
+ping 127.0.0.1
+ml64 -c -Foms\uptable.obj ms\uptable.asm
+
+#util/mkm1.pl http://stackoverflow.com/questions/7680189/openssl-cant-build-in-vc-2010
+line 330 add: 
+s/\r$//; #remove carriage return too!
+
+
+
+auto/configure --with-cc=cl --builddir=objs --with-debug --prefix= \
+--conf-path=conf/nginx.conf --pid-path=logs/nginx.pid \
+--http-log-path=logs/access.log --error-log-path=logs/error.log \
+--sbin-path=nginx.exe --http-client-body-temp-path=temp/client_body_temp \
+--http-proxy-temp-path=temp/proxy_temp \
+--http-fastcgi-temp-path=temp/fastcgi_temp \
+--http-scgi-temp-path=temp/scgi_temp --http-uwsgi-temp-path=temp/uwsgi_temp \
+--with-cc-opt=-DFD_SETSIZE=4096 --with-pcre=../pcre-8.32 \
+--with-zlib=../zlib-1.2.8 --with-openssl=../openssl-1.0.1e \
+--with-select_module \
+--with-http_realip_module --with-http_addition_module \
+--with-http_sub_module --with-http_dav_module \
+--with-http_stub_status_module --with-http_flv_module \
+--with-http_mp4_module --with-http_gunzip_module \
+--with-http_gzip_static_module --with-http_random_index_module \
+--with-http_secure_link_module --with-mail  \
+--with-openssl-opt=enable-tlsext --with-http_ssl_module --with-mail_ssl_module --with-ipv6 \
+--add-module=../nginx-clojure/src/c
+
+nmake -f objs\Makefile NGX_WIN64=1
 
 
 #linux build
@@ -138,6 +180,10 @@ auto/configure  --with-cc-opt="-I/usr/local/openssl/include/" --with-ld-opt="-L/
 auto/configure  --with-cc-opt="-I/usr/local/openssl/include/" --with-ld-opt="-L/usr/local/openssl/lib -Wl,-Bstatic -lssl -lcrypto -ldl -lpthread -lcrypt -ldl -lpcre -lssl -lcrypto -lz -lxml2 -lxslt -lexslt -lgd -lGeoIP" --prefix= --conf-path=conf/nginx.conf --error-log-path=logs/error.log --http-client-body-temp-path=temp/client_body_temp --http-fastcgi-temp-path=temp/fastcgi_temp --http-log-path=logs/access.log --http-proxy-temp-path=temp/proxy_temp --http-scgi-temp-path=temp/scgi-temp --http-uwsgi-temp-path=temp/uwsgi-temp --lock-path=logs/nginx.lock --pid-path=logs/nginx.pid --with-pcre-jit --with-debug --with-http_addition_module --with-http_dav_module --with-http_geoip_module --with-http_gzip_static_module --with-http_image_filter_module --with-http_realip_module --with-http_stub_status_module --with-http_ssl_module --with-http_sub_module --with-http_xslt_module --with-ipv6 --with-mail --with-mail_ssl_module --add-module=/home/who/git/nginx-clojure/src/c
 #for local test
 auto/configure  --with-cc-opt="-I/usr/include/ -I/usr/include/x86_64-linux-gnu/" --with-ld-opt="-L/usr/lib/x86_64-linux-gnu/ -static" --prefix= --conf-path=conf/nginx.conf --error-log-path=logs/error.log --http-client-body-temp-path=temp/client_body_temp --http-fastcgi-temp-path=temp/fastcgi_temp --http-log-path=logs/access.log --http-proxy-temp-path=temp/proxy_temp --http-scgi-temp-path=temp/scgi-temp --http-uwsgi-temp-path=temp/uwsgi-temp --lock-path=logs/nginx.lock --pid-path=logs/nginx.pid --with-pcre-jit --with-debug --with-http_addition_module --with-http_dav_module --with-http_geoip_module --with-http_gzip_static_module --with-http_image_filter_module --with-http_realip_module --with-http_stub_status_module --with-http_ssl_module --with-http_sub_module --with-http_xslt_module --with-ipv6 --with-mail --with-mail_ssl_module --add-module=/home/who/git/nginx-clojure/src/c
+
+back for local test ubuntu nginxx 1.4.4
+  --prefix= --conf-path=conf/nginx.conf --error-log-path=logs/error.log --http-client-body-temp-path=temp/client_body_temp --http-fastcgi-temp-path=temp/fastcgi_temp --http-log-path=logs/access.log --http-proxy-temp-path=temp/proxy_temp --http-scgi-temp-path=temp/scgi-temp --http-uwsgi-temp-path=temp/uwsgi-temp --lock-path=logs/nginx.lock --pid-path=logs/nginx.pid --with-pcre-jit --with-debug --with-http_addition_module --with-http_dav_module --with-http_geoip_module --with-http_gzip_static_module --with-http_image_filter_module --with-http_realip_module --with-http_stub_status_module --with-http_ssl_module --with-http_sub_module --with-http_xslt_module --with-ipv6 --with-mail --with-mail_ssl_module --add-module=/home/who/git/nginx-clojure/src/c
+
 
 
 #mlines
