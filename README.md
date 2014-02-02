@@ -17,12 +17,12 @@ By the way it is very fast, the benchmarks can be found [HERE](https://github.co
 1. Installation
 =============
 
-The lastest release is 0.1.1. Please check the  [Update History](HISTORY.md) for more details.
+The lastest release is 0.1.2. Please check the  [Update History](HISTORY.md) for more details.
 
 1.1 Installation by Binary
 -------------
 
-1. First you can download  Release 0.1.0  from [here](https://sourceforge.net/projects/nginx-clojure/files/). 
+1. First you can download  Release 0.1.2  from [here](https://sourceforge.net/projects/nginx-clojure/files/). 
 The zip file includes Nginx-Clojure binaries about Linux x64, Win32 and Mac OS X.
 1. Unzip the zip file downloaded then rename the file `nginx-${os-arc}` to `nginx`, eg. for linux is `nginx-linux-x64`
 
