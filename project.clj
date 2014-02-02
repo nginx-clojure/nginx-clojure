@@ -1,4 +1,4 @@
-(defproject nginx-clojure "0.1.1"
+(defproject nginx-clojure "0.1.2"
   :description "Nginx module for clojure & java programming"
   :url "https://github.com/xfeep/nginx-clojure"
   :license {:name "BSD 2-Clause license"
@@ -23,8 +23,10 @@
   :uberjar-exclusions [#"^test" #"\.java$"]
   :profiles {:dev {:dependencies [;only for test usage
                                   [ring/ring-core "1.2.1"]
+                                  [compojure "1.1.6"]
                                   [clj-http "0.7.8"]
-                                  [junit/junit "4.10"]]}
+                                  [junit/junit "4.10"]
+                                  ]}
              :1.4 {:dependencies [[org.clojure/clojure "1.4.0"]]}
              :1.5 {:dependencies [[org.clojure/clojure "1.5.0"]]}
              })

@@ -130,7 +130,7 @@
 
 (deftest test-file
   (testing "static file without gzip"
-           (let [r (client/get (str "http://" *host* ":" *port* "/testfiles/small.html") {:coerce :unexceptional, :decompress-body false})
+           (let [r (client/get (str "http://" *host* ":" *port* "/files/small.html") {:coerce :unexceptional, :decompress-body false})
                  h (:headers r)
                  b (r :body)]
              (debug-println r)
@@ -139,7 +139,7 @@
              (is (= "680" (h "content-length")))))
     (testing "static file with gzip"
            ;clj-http will auto use Accept-Encoding	gzip, deflate
-           (let [r (client/get (str "http://" *host* ":" *port* "/testfiles/small.html"))
+           (let [r (client/get (str "http://" *host* ":" *port* "/files/small.html"))
                  h (:headers r)
                  b (r :body)]
              (debug-println r)
@@ -150,7 +150,7 @@
     
    (testing "static file with range operation"
       ;clj-http will auto use Accept-Encoding	gzip, deflate
-      (let [r (client/get (str "http://" *host* ":" *port* "/testfiles/small.html")  {:coerce :unexceptional, :decompress-body false, :headers {"Range" "bytes=0-128"}})
+      (let [r (client/get (str "http://" *host* ":" *port* "/files/small.html")  {:coerce :unexceptional, :decompress-body false, :headers {"Range" "bytes=0-128"}})
             h (:headers r)
             b (r :body)]
         (debug-println r)
@@ -163,7 +163,7 @@
 
 (deftest test-seq
   (testing "seq include String &  File without gzip"
-           (let [r (client/get (str "http://" *host* ":" *port* "/testSeq") {:coerce :unexceptional, :decompress-body false})
+           (let [r (client/get (str "http://" *host* ":" *port* "/testMySeq") {:coerce :unexceptional, :decompress-body false})
                  h (:headers r)
                  b (r :body)]
              (debug-println r)
@@ -196,13 +196,124 @@
 
 (deftest test-redirect
   (testing "redirect"
-           (let [r (client/get (str "http://" *host* ":" *port* "/testredirect") {:follow-redirects false})
+           (let [r (client/get (str "http://" *host* ":" *port* "/testRedirect") {:follow-redirects false})
                  h (:headers r)
                  b (r :body)]
              (debug-println r)
              (debug-println "=================redirect=============================")
              (is (= 302 (:status r)))
-             (is (= (str  "http://" *host* ":" *port*  "/testfiles/small.html") (h "location"))))))
+             (is (= (str  "http://" *host* ":" *port*  "/files/small.html") (h "location"))))))
+
+
+(deftest test-ring-compojure
+    (testing "hello"
+           (let [r (client/get (str "http://" *host* ":" *port* "/ringCompojure/hello") {:throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================test-ring-compojure hello=============================")
+             (is (= 200 (:status r)))
+             (is (= "text/plain" (h "content-type")))
+             (is (= "Hello World" b))))
+    (testing "redirect"
+           (let [r (client/get (str "http://" *host* ":" *port* "/ringCompojure/redirect") {:follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================test-ring-compojure redirect=============================")
+             (is (= 302 (:status r)))
+             (is (= "http://example.com" (h "location")))))
+    (testing "file-response"
+           (let [r (client/get (str "http://" *host* ":" *port* "/ringCompojure/file-response" ) {:throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================test-ring-compojure file-response=============================")
+             (is (= 200 (:status r)))
+             ;(is (= "gzip" (:orig-content-encoding r)))
+             (is (= 680 (count (r :body))))))
+    (testing "resource-response"
+           (let [r (client/get (str "http://" *host* ":" *port* "/ringCompojure/resource-response") {:throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================test-ring-compojure resource-response=============================")
+             (is (= 200 (:status r)))
+             ;(is (= "gzip" (:orig-content-encoding r)))
+             (is (= 680 (count (r :body))))))
+    (testing "wrap-content-type"
+           (let [r (client/get (str "http://" *host* ":" *port* "/ringCompojure/wrap-content-type.html") {:throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================test-ring-compojure wrap-content-type=============================")
+             (is (= 200 (:status r)))
+             (is (= "text/x-foo" (h "content-type")))))
+    (testing "wrap-params"
+           (let [r (client/get (str "http://" *host* ":" *port* "/ringCompojure/wrap-params?x=hello&x=world") {:throw-exceptions false})
+                 h (:headers r)
+                 params (-> "rmap" h (edn/read-string) :params)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================test-ring-compojure wrap-params=============================")
+             (is (= 200 (:status r)))
+             ;(is (= "gzip" (:orig-content-encoding r)))
+             (is (= ["hello", "world"] (params "x")))))
+    (testing "wrap-params-post"
+           (let [r (client/post (str "http://" *host* ":" *port* "/ringCompojure/wrap-params" ) {:coerce :unexceptional, :form-params {:foo "bar"}, :throw-exceptions false})
+                 h (:headers r)
+                 params (-> "rmap" h (edn/read-string) :params)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================test-ring-compojure wrap-params-post=============================")
+             (is (= 200 (:status r)))
+             ;(is (= "gzip" (:orig-content-encoding r)))
+             (is (= "bar" (params "foo")))))
+    (testing "wrap-cookies"
+           (let [r (client/get (str "http://" *host* ":" *port* "/ringCompojure/wrap-cookies") {:coerce :unexceptional,:cookies {"tc1" {:value "tc1value"}, "tc2" {:value "tc2value"} }, :throw-exceptions false})
+                 h (:headers r)
+                 cookies (-> "rmap" h (edn/read-string) :cookies)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================test-ring-compojure wrap-cookies=============================")
+             (is (= 200 (:status r)))
+             ;(is (= "gzip" (:orig-content-encoding r)))
+             (is (= {"tc1" {:value "tc1value"}, "tc2" {:value "tc2value"} } cookies))))
+    (testing "wrap-session"
+           (let [cs (clj-http.cookies/cookie-store)]
+             (let [r (client/get (str "http://" *host* ":" *port* "/ringCompojure/wrap-session") {:throw-exceptions false, :cookie-store cs})
+                   b (r :body)]
+             (debug-println r)
+             (debug-println cs)
+             (debug-println "=================test-ring-compojure wrap-session 1=============================")
+             (is (= 200 (:status r)))
+             (is (= "Welcome guest!" b)))
+             (let [r (client/get (str "http://" *host* ":" *port* "/ringCompojure/wrap-session?user=Tom") {:throw-exceptions false, :cookie-store cs})
+                   b (r :body)]
+             (debug-println r)
+             (debug-println cs)
+             (debug-println "=================test-ring-compojure wrap-session 2=============================")
+             (is (= 200 (:status r)))
+             (is (= "Welcome Tom!" b)))
+             (let [r (client/get (str "http://" *host* ":" *port* "/ringCompojure/wrap-session") {:throw-exceptions false, :cookie-store cs})
+                   b (r :body)]
+             (debug-println r)
+             (debug-println cs)
+             (debug-println "=================test-ring-compojure wrap-session 3=============================")
+             (is (= 200 (:status r)))
+             (is (= "Welcome Tom!" b)))
+             )
+           )
+    (testing "not-found"
+           (let [r (client/get (str "http://" *host* ":" *port* "/ringCompojure/not-found") {:throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================test-ring-compojure hello=============================")
+             (is (= 404 (:status r)))
+             (is (= "text/html; charset=utf-8" (h "content-type")))
+             (is (= "<h1>Page not found</h1>" b))))    
+  )
 
 ;eg. (concurrent-run 10 (run-tests 'nginx.clojure.test-all))
 (defmacro concurrent-run 
