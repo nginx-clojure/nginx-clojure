@@ -606,6 +606,12 @@ public class NginxClojureRT {
 				//only set last buffer flag 
 				ngx_http_clojure_mem_init_ngx_buf(lastBuf, null, 0, 0, 1);
 			}
+			
+			//empty InputStream
+			if (lastChain == 0) {
+				return -204;
+			}
+			
 			return lastChain;
 			
 		}catch(IOException e) {
@@ -701,6 +707,9 @@ public class NginxClojureRT {
 	}
 	
 	public static int handleResponse(long r, final Map resp) {
+		if (resp == null) {
+			return 404;
+		}
 		try {
 			long pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
 			Object statusObj = resp.get(STATUS);
@@ -794,6 +803,10 @@ public class NginxClojureRT {
 			}
 			
 			if (chain == -204) {
+				if (status == 200) {
+					//let nginx finish this request
+					return 204;
+				}
 				return status;
 			}
 			

@@ -122,11 +122,15 @@ static jlong JNICALL jni_ngx_create_temp_buf (JNIEnv *env, jclass cls, jlong r, 
 static jlong JNICALL jni_ngx_create_file_buf (JNIEnv *env, jclass cls, jlong r, jlong file, jlong name_len, jint last_buf) {
 	ngx_http_request_t *req = (ngx_http_request_t *) r;
 	ngx_buf_t *b;
-	ngx_str_t path = {(ngx_int_t)name_len, (u_char *)file};
+	ngx_str_t path; // = {(ngx_int_t)name_len, (u_char *)file};
 	ngx_open_file_info_t of;
 	ngx_http_core_loc_conf_t  *clcf = ngx_http_get_module_loc_conf(req, ngx_http_core_module);
 	ngx_uint_t level;
 	ngx_log_t *log = req->connection->log;
+
+	/*make VS 2010 happy*/
+	path.data = (u_char *)file;
+	path.len = (ngx_int_t)name_len;
 
 	/*just like http_static module */
 
@@ -591,7 +595,7 @@ int ngx_http_clojure_check_memory_util() {
 
 int ngx_http_clojure_init_memory_util(ngx_int_t workers, ngx_log_t *log) {
 	jlong MEM_INDEX[NGX_HTTP_CLOJURE_MEM_IDX_END];
-//	JNIEnv *env;
+	JNIEnv *env;
 	JNINativeMethod nms[] = {
 			{"ngx_palloc", "(JJ)J", jni_ngx_palloc},
 			{"ngx_pcalloc", "(JJ)J", jni_ngx_pcalloc},
@@ -756,7 +760,7 @@ int ngx_http_clojure_init_memory_util(ngx_int_t workers, ngx_log_t *log) {
 
 //	(*jvm)->AttachCurrentThread(jvm, (void**)&env, NULL);
 	ngx_http_clojure_get_env(&jvm_env);
-	JNIEnv *env = jvm_env;
+	env = jvm_env;
 	nc_rt_class = (*jvm_env)->FindClass(env, "nginx/clojure/NginxClojureRT");
 	exception_handle(nc_rt_class == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 

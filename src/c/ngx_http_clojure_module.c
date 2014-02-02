@@ -234,7 +234,7 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     }
 
     if (r->method & (NGX_HTTP_POST|NGX_HTTP_PUT)) {
-    	if (ngx_strcmp("application/x-www-form-urlencoded", r->headers_in.content_type->value.data) != 0) {
+    	if (r->headers_in.content_type && ngx_strcmp("application/x-www-form-urlencoded", r->headers_in.content_type->value.data) != 0) {
     		r->request_body_in_file_only = 1;
     		r->request_body_in_clean_file = 1;
     		r->request_body_in_persistent_file = 1;

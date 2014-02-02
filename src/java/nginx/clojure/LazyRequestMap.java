@@ -263,7 +263,20 @@ public   class LazyRequestMap extends AFn  implements IPersistentMap {
 
 	@Override
 	public IPersistentMap without(Object key) {
-		throw new UnsupportedOperationException("without not supported now!");
+		int i = index(key);
+		if (i == -1) {
+			return this;
+		}else {
+			if (array.length == 2) {
+				return EMPTY_MAP;
+			}
+			Object[] newArray = new Object[array.length - 2];
+			if (i > 0) {
+				System.arraycopy(array, 0, newArray, 0, i);
+			}
+			System.arraycopy(array, i + 2, newArray, i, array.length - i - 2);
+			return new LazyRequestMap(codeId, r , newArray);
+		}
 	}
 
 	@Override
