@@ -199,6 +199,15 @@ In nginx.conf, eg.
 
 You should set your  JAR files to class path, see [2.1 JVM path & class path](#2.1 JVM path & class path) .
 
-3. License
+3. Useful Links
+=================
+
+* [Ring Documents](/ring-clojure/ring/wiki)
+* [Comojure Documents](/weavejester/compojure/wiki)
+* [Simple Examples](test/nginx-working-dir/conf/nginx.conf) in Nginx Clojure Testing Configuration
+* [Nginx Clojure Ring Handlers Examples for Testing](test/clojure/nginx/clojure/ring_handlers_for_test.clj) (Testing with Ring Core 1.2.1)
+
+
+4. License
 =================
 Copyright © 2013-2014 Zhang, Yuexiang (xfeep) and released under a BSD license.
