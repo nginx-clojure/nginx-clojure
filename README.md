@@ -202,9 +202,9 @@ You should set your  JAR files to class path, see [2.1 JVM path & class path](#2
 3. Useful Links
 =================
 
-* [Ring Documents](/ring-clojure/ring/wiki)
-* [Comojure Documents](/weavejester/compojure/wiki)
-* [Simple Examples](test/nginx-working-dir/conf/nginx.conf) in Nginx Clojure Testing Configuration
+* [Ring Documents](https://github.com/ring-clojure/ring/wiki)
+* [Comojure Documents](https://github.com/weavejester/compojure/wiki)
+* [Simple Examples](test/nginx-working-dir/conf/nginx.conf) in Nginx Clojure Testing Configuration & [Testing Client Code](test/clojure/nginx/clojure/test_all.clj)
 * [Nginx Clojure Ring Handlers Examples for Testing](test/clojure/nginx/clojure/ring_handlers_for_test.clj) (Testing with Ring Core 1.2.1)
 
 
