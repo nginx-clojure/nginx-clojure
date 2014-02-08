@@ -83,8 +83,8 @@ Setting JVM path and class path within `http {` block in  nginx.conf
     jvm_options "-Djava.class.path=jars/nginx-clojure-0.1.0.jar:jars/clojure-1.5.1.jar";
     
     #for memory setting
-    #jvm_options "-Xms256m"
-    #jvm_options "-Xmx256m"
+    #jvm_options "-Xms256m";
+    #jvm_options "-Xmx256m";
     
     #for engble java remote debug uncomment next two lines
     #jvm_options "-Xdebug";

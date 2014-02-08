@@ -51,7 +51,7 @@ public class NginxClojureRT {
 	//mapping clojure code pointer address to clojure code id 
 	private static Map<Long, Integer> CODE_MAP = new HashMap<Long, Integer>();
 	
-	private static ConcurrentHashMap<Long, Map> REQ_RESP_MAP = new ConcurrentHashMap<Long, Map>();
+	private static ConcurrentHashMap<Long, HandlerContext> REQ_RESP_MAP = new ConcurrentHashMap<Long, HandlerContext>();
 	
 	private static ExecutorService eventDispather;
 	
@@ -118,9 +118,11 @@ public class NginxClojureRT {
 	public static final class HandlerContext {
 		public final LazyRequestMap request;
 		public final Map response;
-		public HandlerContext(LazyRequestMap request, Map response) {
+		public final long chain;
+		public HandlerContext(LazyRequestMap request, Map response, long chain) {
 			this.request =request;
 			this.response = response;
+			this.chain = chain;
 		}
 	}
 	
@@ -138,7 +140,7 @@ public class NginxClojureRT {
 				try {
 					Future<HandlerContext> respFuture =  workers.take();
 					HandlerContext ctx = respFuture.get();
-					while (REQ_RESP_MAP.putIfAbsent(ctx.request.r, ctx.response) != null) {
+					while (REQ_RESP_MAP.putIfAbsent(ctx.request.r, ctx) != null) {
 							Thread.sleep(0);
 					}
 //					System.out.println("REQ_RESP_MAP size:" + REQ_RESP_MAP.size());
@@ -495,7 +497,8 @@ public class NginxClojureRT {
 			@Override
 			public HandlerContext call() throws Exception {
 				Map resp = handleRequest(req);
-				return new HandlerContext(req, resp);
+				//let output chain built before entering the main thread
+				return new HandlerContext(req, resp, buildOutputChain(r, resp));
 			}
 		});
 		return NGX_DONE;
@@ -534,9 +537,12 @@ public class NginxClojureRT {
 	public static int handleResponse(long r) {
 //		System.out.println("handleResponse request jlong:" +r + ", jint :" + (int)r);
 //		for (Map.Entry<Long, Map> rr : REQ_RESP_MAP.entrySet()) {
-			Map resp = REQ_RESP_MAP.remove(r);
-			int rc = handleResponse(r, resp);
-			ngx_http_finalize_request(r, rc);
+			long chain = REQ_RESP_MAP.remove(r).chain;
+			if (chain < 0) {
+				ngx_http_finalize_request(r, -chain);
+			}else {
+				ngx_http_finalize_request(r, ngx_http_output_filter(r, chain));
+			}
 //		}
 		return NGX_OK;
 	}
@@ -556,13 +562,15 @@ public class NginxClojureRT {
 		return chain;
 	}
 	
+	//TODO: optimize handling inputstream with large lazy data
 	public static long buildResponseInputStreamBuf(InputStream in, long r, long pool, int isLast, long chain) {
 		try {
 			long lastBuf = 0;
 			long lastChain = 0;
 			
 			while (true) {
-				byte[] buf = new byte[1024 * 32 * 2];
+				//TODO: buffer size should be the same as nginx buffer size
+				byte[] buf = new byte[1024 * 32];
 				int c = 0;
 				int pos = 0;
 				
@@ -706,9 +714,10 @@ public class NginxClojureRT {
 		return name == null ? null : name.toLowerCase();
 	}
 	
-	public static int handleResponse(long r, final Map resp) {
+	public static long buildOutputChain(long r, final Map resp) {
+
 		if (resp == null) {
-			return 404;
+			return -404;
 		}
 		try {
 			long pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
@@ -779,13 +788,13 @@ public class NginxClojureRT {
 			if (body != null) {
 				chain = ngx_palloc(pool, NGX_HTTP_CLOJURE_CHAINT_SIZE);
 				if (chain == 0) {
-					return 500;
+					return -500;
 				}
 				long tailChain = buildResponseItemBuf(r, pool, body, 1, chain);
 				if (tailChain == 0) {
-					return 500;
+					return -500;
 				}else if (tailChain < 0 && tailChain != -204) {
-					return -(int)tailChain;
+					return tailChain;
 				}
 				if (tailChain == -204) {
 					chain = -204;
@@ -797,6 +806,8 @@ public class NginxClojureRT {
 			}
 			
 			pushNGXInt(headers_out + NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET, status);
+			
+			
 			int rc = (int)ngx_http_send_header(r);
 			if (rc == NGX_ERROR || rc > NGX_OK){
 				return rc;
@@ -805,17 +816,26 @@ public class NginxClojureRT {
 			if (chain == -204) {
 				if (status == 200) {
 					//let nginx finish this request
-					return 204;
+					return -204;
 				}
-				return status;
+				return -status;
 			}
 			
-			return (int)ngx_http_output_filter(r, chain);
+			return chain;
 
 		}catch(Throwable e) {
 			logError("server unhandled exception!", e);
-			return 500;
+			return -500;
 		}
+	
+	}
+	
+	public static int handleResponse(long r, final Map resp) {
+		long chain = buildOutputChain(r, resp);
+		if (chain < 0) {
+			return -(int)chain;
+		}
+		return (int)ngx_http_output_filter(r, chain);
 	}
 	
 }
