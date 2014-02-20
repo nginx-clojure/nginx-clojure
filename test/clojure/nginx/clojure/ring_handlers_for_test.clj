@@ -5,6 +5,7 @@
         [ring.middleware.params]
         [ring.middleware.content-type]
         [ring.middleware.session.memory]
+        [ring.middleware.session.cookie]
         ;sadly ring.middleware.multipart-params is dependent on servlet api so we must comment it
         ;[ring.middleware.multipart-params]
         [compojure.core]
@@ -12,7 +13,7 @@
   (:require [compojure.route :as route])
   (:import [ring.middleware.session.memory.MemoryStore]))
 
-(def my-session-store (memory-store))
+(def my-session-store (cookie-store {:key "my-secrect-key!!"}))
 
 (defn- echo-handler [r]
   {:status 200
@@ -29,6 +30,7 @@
         (assoc :session session))))
 
 (defroutes ring-compojure-test-handler
+  (GET "/hello2" [] {:status 200, :headers {"content-type" "text/plain"}, :body "Hello World"})
   (GET "/hello" [] (-> (response "Hello World")
     (content-type "text/plain")))
   (GET "/redirect" [] (redirect "http://example.com"))
