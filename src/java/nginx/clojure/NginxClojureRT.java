@@ -29,6 +29,8 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import nginx.clojure.logger.LoggerService;
+import nginx.clojure.logger.TinyLogService;
 import sun.misc.Unsafe;
 import clojure.lang.IFn;
 import clojure.lang.ISeq;
@@ -56,6 +58,8 @@ public class NginxClojureRT {
 	private static ExecutorService eventDispather;
 	
 	private static CompletionService<HandlerContext> workers;
+	
+	private static LoggerService log;
 	
 	public native static long ngx_palloc(long pool, long size);
 	
@@ -147,10 +151,10 @@ public class NginxClojureRT {
 //					System.out.println("requet jlong value:" + ctx.request.r + ", jint:" + (int)ctx.request.r);
 					ngx_http_clojure_mem_post_write_event(ctx.request.r);
 				} catch (InterruptedException e) {
-					logError("interrupted!", e);
+					log.error("interrupted!", e);
 					break;
 				} catch (ExecutionException e) {
-					logError("unexpected ExecutionException!", e);
+					log.error("unexpected ExecutionException!", e);
 				}
 			}
 		}
@@ -178,6 +182,11 @@ public class NginxClojureRT {
 	}
 	
 	public static synchronized void initMemIndex(long idxpt) {
+		if (log == null) {
+			//TODO: use nginx log 
+			//standard error stream is redirect to the nginx error log file, so we just use System.err as output stream.
+			log = new TinyLogService(TinyLogService.getSystemPropertyOrDefaultLevel(), System.err, System.err);
+		}
 		initUnsafe();
 	    
 		NGINX_MAIN_THREAD = Thread.currentThread();
@@ -511,7 +520,7 @@ public class NginxClojureRT {
 			return resp;
 		}catch(Throwable e){
 			//log to nginx error log file
-			logError("server unhandled exception!", e);
+			log.error("server unhandled exception!", e);
 			return new PersistentArrayMap(new Object[] {STATUS, 500, BODY, e, HEADERS, new PersistentArrayMap(new Object[] {CONTENT_TYPE.getName(), "text/plain"})});
 		}finally {
 			int bodyIdx = req.index(BODY);
@@ -519,18 +528,9 @@ public class NginxClojureRT {
 				try {
 					((Closeable)req.array[bodyIdx]).close();
 				} catch (Throwable e) {
-					logError("can not close Closeable object such as FileInputStream!", e);
+					log.error("can not close Closeable object such as FileInputStream!", e);
 				}
 			}
-		}
-	}
-	
-	public static void logError(String msg, Throwable err) {
-		//TODO: use nginx log 
-		//standard error stream is redirect to the nginx error log file, so we just simple println it.
-		System.err.println(msg);
-		if (err != null) {
-			err.printStackTrace();
 		}
 	}
 	
@@ -623,13 +623,13 @@ public class NginxClojureRT {
 			return lastChain;
 			
 		}catch(IOException e) {
-			logError("can not read from InputStream", e);
+			log.error("can not read from InputStream", e);
 			return -500; 
 		}finally {
 			try {
 				in.close();
 			} catch (IOException e) {
-				logError("can not close  InputStream", e);
+				log.error("can not close  InputStream", e);
 			}
 		}
 	}
@@ -824,7 +824,7 @@ public class NginxClojureRT {
 			return chain;
 
 		}catch(Throwable e) {
-			logError("server unhandled exception!", e);
+			log.error("server unhandled exception!", e);
 			return -500;
 		}
 	
@@ -836,6 +836,14 @@ public class NginxClojureRT {
 			return -(int)chain;
 		}
 		return (int)ngx_http_output_filter(r, chain);
+	}
+
+	public static LoggerService getLog() {
+		return log;
+	}
+
+	public static void setLog(LoggerService log) {
+		NginxClojureRT.log = log;
 	}
 	
 }
