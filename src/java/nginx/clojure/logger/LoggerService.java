@@ -45,9 +45,13 @@ public interface LoggerService {
 	public abstract void trace(Object message);
 
 	public abstract void trace(Object message, Throwable t);
+	
+	public abstract void trace(String format, Object... objects);
 
 	public abstract void warn(Object message);
 
 	public abstract void warn(Object message, Throwable t);
+	
+	public abstract void warn(String format, Object... objects);
 
 }
