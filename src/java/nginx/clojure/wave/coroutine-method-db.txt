@@ -1,0 +1,20 @@
+class:java/lang/Thread
+	sleep(J)V:blocking
+	sleep(JI)V:blocking
+	join()V:blocking
+	join(J)V:blocking
+	join(JI)V:blocking
+
+class:java/lang/Object
+	wait()V:blocking
+	wait(J)V:blocking
+	wait(JI)V:blocking
+
+class:java/util/concurrent/locks/Lock
+	lock()V:blocking
+	lockInterruptibly()V:blocking
+	
+class:clojure/lang/IFn
+	/invoke.*:family
+	
+

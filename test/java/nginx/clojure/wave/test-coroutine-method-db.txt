@@ -1,0 +1,24 @@
+class:java/lang/Thread
+	sleep(J)V:blocking
+	sleep(JI)V:blocking
+	/join.*:blocking
+
+class:java/lang/Object
+	wait()V:blocking
+	wait(J)V:blocking
+	test-unknown-method()V:blocking
+	wait(JI)V:blocking
+
+class:my/notfound/class
+	test()V:normal
+	test2()V:normal
+
+class:java/util/concurrent/locks/Lock
+	lock()V:blocking
+	lockInterruptibly()V:blocking
+	
+class:clojure/lang/IFn
+	invoke()Ljava/lang/Object;:family
+	invoke()Ljava/lang/Object;:test-type
+
+

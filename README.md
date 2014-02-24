@@ -210,4 +210,8 @@ You should set your  JAR files to class path, see [2.1 JVM path & class path](#2
 
 4. License
 =================
-Copyright © 2013-2014 Zhang, Yuexiang (xfeep) and released under a BSD license.
+Copyright © 2013-2014 Zhang, Yuexiang (xfeep) and released under the BSD 3-Clause license.
+
+This program uses:
+* Re-rooted ASM bytecode engineering library which is distributed under the BSD 3-Clause license
+* Modified Continuations Library Written by Matthias Mann  is distributed under the BSD 3-Clause license

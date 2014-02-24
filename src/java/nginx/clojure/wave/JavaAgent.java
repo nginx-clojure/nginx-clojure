@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2008-2013, Matthias Mann
- *
+ * Copyright (C) 2014 Zhang,Yuexiang (xfeep)
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -61,6 +61,7 @@
  */
 package nginx.clojure.wave;
 
+import java.io.IOException;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
@@ -71,6 +72,7 @@ import nginx.clojure.asm.ClassReader;
 import nginx.clojure.asm.ClassVisitor;
 import nginx.clojure.asm.ClassWriter;
 import nginx.clojure.asm.util.CheckClassAdapter;
+import nginx.clojure.wave.MethodDatabase.ClassEntry;
 
 /*
  * Created on Nov 21, 2010
@@ -112,27 +114,36 @@ public class JavaAgent {
             }
         }
 
-        db.setLog(NginxClojureRT.getLog());
+        if (NginxClojureRT.getLog() != null) {
+        	db.setLog(NginxClojureRT.getLog());
+        }
 
-        instrumentation.addTransformer(new Transformer(db, checkArg));
+        instrumentation.addTransformer(new CoroutineWaver(db, checkArg));
     }
 
     static byte[] instrumentClass(MethodDatabase db, byte[] data, boolean check) {
         ClassReader r = new ClassReader(data);
         ClassWriter cw = new DBClassWriter(db, r);
         ClassVisitor cv = check ? new CheckClassAdapter(cw) : cw;
-        InstrumentClass ic = new InstrumentClass(cv, db, false);
+        ClassEntry ce = MethodDatabaseUtil.buildClassEntryFamily(db, r);
+        InstrumentClass ic = new InstrumentClass(r.getClassName(), ce, cv, db, false);
         r.accept(ic, ClassReader.SKIP_FRAMES);
         return cw.toByteArray();
     }
 
-    private static class Transformer implements ClassFileTransformer {
+    public static class CoroutineWaver implements ClassFileTransformer {
         private final MethodDatabase db;
         private final boolean check;
 
-        public Transformer(MethodDatabase db, boolean check) {
+        public CoroutineWaver(MethodDatabase db, boolean check) {
             this.db = db;
             this.check = check;
+            //load system configurations for method database
+            try {
+				MethodDatabaseUtil.load(db, "nginx/clojure/wave/coroutine-method-db.txt");
+			} catch (IOException e) {
+				db.error("file lost : nginx/clojure/wave/coroutine-method-db.txt", e);
+			}
         }
 
         @Override
@@ -145,7 +156,7 @@ public class JavaAgent {
                 return null;
             }
 
-            db.info("TRANSFORM: %s", className);
+            db.debug("TRANSFORM: %s", className);
 
             try {
                 return instrumentClass(db, classfileBuffer, check);

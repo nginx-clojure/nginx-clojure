@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2008-2013, Matthias Mann
+ * Copyright (C) 2014 Zhang,Yuexiang (xfeep)
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -75,7 +76,7 @@ public class CheckInstrumentationVisitor extends ClassVisitor {
     @Override
     public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
         this.className = name;
-        this.classEntry = new ClassEntry(superName);
+        this.classEntry = new ClassEntry(superName, interfaces);
     }
 
     @Override
@@ -96,7 +97,7 @@ public class CheckInstrumentationVisitor extends ClassVisitor {
                 throw new UnableToInstrumentException("synchronized method", className, name, desc);
             }
         }
-        classEntry.set(name, desc, suspendable);
+        classEntry.set(name, desc, suspendable ? MethodDatabase.SUSPEND_NORMAL : MethodDatabase.SUSPEND_NONE);
         return null;
     }
 

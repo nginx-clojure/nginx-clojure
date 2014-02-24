@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2008-2013, Matthias Mann
- * Copyright (C) Zhang,Yuexiang (xfeep)
+ * Copyright (C) 2014 Zhang,Yuexiang (xfeep)
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,9 +35,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
+import nginx.clojure.SuspendExecution;
 import nginx.clojure.asm.ClassReader;
+import nginx.clojure.asm.Type;
 import nginx.clojure.logger.LoggerService;
+import nginx.clojure.logger.TinyLogService;
 
 /**
  * <p>Collects information about classes and their suspendable methods.</p>
@@ -46,10 +50,27 @@ import nginx.clojure.logger.LoggerService;
  * @author Matthias Mann
  */
 public class MethodDatabase implements LoggerService {
+	
+	public static final String SUSPEND_BLOCKING_STR = "blocking";
+	public static final String SUSPEND_IGNORE_STR = "ignore";
+	public static final String SUSPEND_NONE_STR = "none";
+	public static final String SUSPEND_JUST_MARK_STR = "just_mark";
+	public static final String SUSPEND_NORMAL_STR = "normal";
+	public static final String SUSPEND_FAMILY_STR = "family";
+	
+	public static final Integer SUSPEND_BLOCKING = 0;
+	public static final Integer SUSPEND_NONE = 1;
+	public static final Integer SUSPEND_IGNORE = 2;
+	public static final Integer SUSPEND_JUST_MARK = 3;
+	public static final Integer SUSPEND_NORMAL = 4;
+	public static final Integer SUSPEND_FAMILY = 5;
+	
+	public static final String EXCEPTION_NAME = Type.getInternalName(SuspendExecution.class);
+	public static final String EXCEPTION_DESC = Type.getDescriptor(SuspendExecution.class);
     
     private final ClassLoader cl;
-    private final HashMap<String, ClassEntry> classes;
-    private final HashMap<String, String> superClasses;
+    private final ConcurrentHashMap<String, ClassEntry> classes;
+    private final ConcurrentHashMap<String, String> superClasses;
     private final ArrayList<File> workList;
     
     private LoggerService log;
@@ -57,7 +78,6 @@ public class MethodDatabase implements LoggerService {
     private boolean debug;
     private boolean allowMonitors;
     private boolean allowBlocking;
-    private int logLevelMask;
     
     public MethodDatabase(ClassLoader classloader) {
         if(classloader == null) {
@@ -66,9 +86,10 @@ public class MethodDatabase implements LoggerService {
         
         this.cl = classloader;
         
-        classes = new HashMap<String, ClassEntry>();
-        superClasses = new HashMap<String, String>();
+        classes = new ConcurrentHashMap<String, ClassEntry>();
+        superClasses = new ConcurrentHashMap<String, String>();
         workList = new ArrayList<File>();
+        log = new TinyLogService(TinyLogService.getSystemPropertyOrDefaultLevel(), System.err, System.err);
     }
 
     public boolean isAllowMonitors() {
@@ -87,6 +108,10 @@ public class MethodDatabase implements LoggerService {
         this.allowBlocking = allowBlocking;
     }
 
+    public ConcurrentHashMap<String, ClassEntry> getClasses() {
+		return classes;
+	}
+    
     public LoggerService getLog() {
         return log;
     }
@@ -143,65 +168,52 @@ public class MethodDatabase implements LoggerService {
         }
     }
     
-    public boolean isMethodSuspendable(String className, String methodName, String methodDesc, boolean searchSuperClass) {
+
+    
+    public Integer checkMethodSuspendType(String className, String methodName, String methodDesc, boolean searchSuperClass) {
         if(methodName.charAt(0) == '<') {
-            return false;   // special methods are never suspendable
+            return SUSPEND_NONE;   // special methods are never suspendable
         }
         
-        if(isJavaCore(className)) {
-            return false;
-        }
-
-        String curClassName = className;
-        do {
-            ClassEntry entry = getClassEntry(curClassName);
-            if(entry == null) {
-                entry = CLASS_NOT_FOUND;
-                
-                if(cl != null) {
-                    info("Trying to read class: %s", curClassName);
-
-                    CheckInstrumentationVisitor civ = checkClass(curClassName);
-                    if(civ == null) {
-                        warn("Class not found assuming suspendable: %s", curClassName);
-                    } else {
-                        entry = civ.getClassEntry();
-                    }
-                } else {
-                	warn("Can't check class - assuming suspendable: %s", curClassName);
-                }
-                
-                recordSuspendableMethods(curClassName, entry);
-            }
-            
-            if(entry == CLASS_NOT_FOUND) {
-                return true;
-            }
-
-            Boolean suspendable = entry.check(methodName, methodDesc);
-            if(suspendable != null) {
-                return suspendable;
-            }
-            
-            curClassName = entry.superName;
-        } while(searchSuperClass && curClassName != null);
+//        if(isJavaCore(className)) {
+//            return SUSPEND_NONE;
+//        }
         
-        warn("Method not found in class - assuming suspendable: %s#%s%s", className, methodName, methodDesc);
-        return true;
+        ClassEntry ce = MethodDatabaseUtil.buildClassEntryFamily(this, className);
+        if (ce == null) {
+        	warn("not found class - assuming suspendable: %s#%s%s", className, methodName, methodDesc);
+        	return SUSPEND_NORMAL;
+        }
+        
+        Integer st = null;
+        
+        while (st == null && ce != null) {
+        	st = ce.check(methodName, methodDesc);
+        	if (ce.superName != null) {
+        		ce = classes.get(ce.getSuperName());
+        	}else {
+        		ce = null;
+        	}
+        }
+        
+        if (st == null) {
+        	 warn("Method not found in class - assuming suspendable: %s#%s%s", className, methodName, methodDesc);
+             return SUSPEND_NORMAL;
+        }
+        return st;
     }
 
-    private synchronized ClassEntry getClassEntry(String className) {
-        return classes.get(className);
-    }
 
-    void recordSuspendableMethods(String className, ClassEntry entry) {
+    public void recordSuspendableMethods(String className, ClassEntry entry) {
         ClassEntry oldEntry;
         synchronized(this) {
             oldEntry = classes.put(className, entry);
         }
-        if(oldEntry != null) {
-            if(!oldEntry.equals(entry)) {
-            	warn("Duplicate class entries with different data for class: %s", className);
+        if (log.isDebugEnabled()) {
+            if(oldEntry != null) {
+                if(!oldEntry.equals(entry)) {
+                	warn("Duplicate class entries with different data for class: %s", className);
+                }
             }
         }
     }
@@ -354,7 +366,7 @@ public class MethodDatabase implements LoggerService {
      * @return a new CheckInstrumentationVisitor that has visited the specified
      * class or null if the class was not found
      */
-    protected CheckInstrumentationVisitor checkClass(String className) {
+    public  CheckInstrumentationVisitor checkClass(String className) {
         InputStream is = cl.getResourceAsStream(className + ".class");
         if(is != null) {
             return checkFileAndClose(is, className);
@@ -362,7 +374,21 @@ public class MethodDatabase implements LoggerService {
         return null;
     }
     
-    private CheckInstrumentationVisitor checkFileAndClose(InputStream is, String name) {
+    public  CheckInstrumentationVisitor checkClass(ClassReader r) {
+		try {
+			CheckInstrumentationVisitor civ = new CheckInstrumentationVisitor();
+			r.accept(civ, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES
+					| ClassReader.SKIP_CODE);
+			return civ;
+		} catch (UnableToInstrumentException ex) {
+			throw ex;
+		} catch (Exception ex) {
+			error(r.getClassName(), ex);
+		}
+		return null;
+    }
+    
+    public CheckInstrumentationVisitor checkFileAndClose(InputStream is, String name) {
         try {
             try {
                 ClassReader r = new ClassReader(is);
@@ -419,7 +445,7 @@ public class MethodDatabase implements LoggerService {
     }
 
     protected String getDirectSuperClass(String className) {
-        ClassEntry entry = getClassEntry(className);
+        ClassEntry entry = classes.get(className);
         if(entry != null && entry != CLASS_NOT_FOUND) {
             return entry.superName;
         }
@@ -450,23 +476,45 @@ public class MethodDatabase implements LoggerService {
                 className.startsWith("sun/") || className.startsWith("com/sun/");
     }
     
-    private static final ClassEntry CLASS_NOT_FOUND = new ClassEntry("<class not found>");
+    private static final ClassEntry CLASS_NOT_FOUND = new ClassEntry("<class not found>", new String[0]);
 
-    static final class ClassEntry {
-        private final HashMap<String, Boolean> methods;
-        final String superName;
+    
+    public static final class ClassEntry {
+    	
 
-        public ClassEntry(String superName) {
+    	
+        private final ConcurrentHashMap<String, Integer> methods;
+        private final String superName;
+        private final String[] interfaces;
+
+        public ClassEntry(String superName, String[] interfaces) {
             this.superName = superName;
-            this.methods = new HashMap<String, Boolean>();
+            this.interfaces = interfaces;
+            this.methods = new ConcurrentHashMap<String, Integer>();
         }
         
-        public void set(String name, String desc, boolean suspendable) {
+        public String[] getInterfaces() {
+			return interfaces;
+		}
+        
+        public ConcurrentHashMap<String, Integer> getMethods() {
+			return methods;
+		}
+        
+        public String getSuperName() {
+			return superName;
+		}
+        
+        public void set(String name, String desc, Integer suspendable) {
             String nameAndDesc = key(name, desc);
             methods.put(nameAndDesc, suspendable);
         }
         
-        public Boolean check(String name, String desc) {
+        public void set(String nameAndDesc, Integer suspendable) {
+            methods.put(nameAndDesc, suspendable);
+        }
+        
+        public Integer check(String name, String desc) {
             return methods.get(key(name, desc));
         }
 
@@ -481,7 +529,7 @@ public class MethodDatabase implements LoggerService {
                 return false;
             }
             final ClassEntry other = (ClassEntry)obj;
-            return superName.equals(other.superName) && methods.equals(other.methods);
+            return (superName == other.superName || superName != null && superName.equals(other.superName)) && methods.equals(other.methods);
         }
         
         private static String key(String methodName, String methodDesc) {

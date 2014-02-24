@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2008-2013, Matthias Mann
+ * Copyright (C) 2014 Zhang,Yuexiang (xfeep)
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -70,15 +71,8 @@ public class InstrumentMethod {
     private int additionalLocals;
     
     private boolean warnedAboutMonitors;
-    private int warnedAboutBlocking;
+    private boolean warnedAboutBlocking;
 
-    private static final BlockingMethod BLOCKING_METHODS[] = {
-        new BlockingMethod("java/lang/Thread", "sleep", "(J)V", "(JI)V"),
-        new BlockingMethod("java/lang/Thread", "join", "()V", "(J)V", "(JI)V"),
-        new BlockingMethod("java/lang/Object", "wait", "()V", "(J)V", "(JI)V"),
-        new BlockingMethod("java/util/concurrent/locks/Lock", "lock", "()V"),
-        new BlockingMethod("java/util/concurrent/locks/Lock", "lockInterruptibly", "()V"),
-    };
     
     public InstrumentMethod(MethodDatabase db, String className, MethodNode mn) throws AnalyzerException {
         this.db = db;
@@ -106,20 +100,18 @@ public class InstrumentMethod {
                 if(in.getType() == AbstractInsnNode.METHOD_INSN) {
                     MethodInsnNode min = (MethodInsnNode)in;
                     int opcode = min.getOpcode();
-                    if(db.isMethodSuspendable(min.owner, min.name, min.desc,
-                            opcode == Opcodes.INVOKEVIRTUAL || opcode == Opcodes.INVOKESTATIC)) {
+                    Integer st = db.checkMethodSuspendType(min.owner, min.name, min.desc, opcode == Opcodes.INVOKEVIRTUAL || opcode == Opcodes.INVOKESTATIC);
+                    if(st == MethodDatabase.SUSPEND_NORMAL || st == MethodDatabase.SUSPEND_FAMILY) {
                         db.debug("Method call at instruction %d to %s#%s%s is suspendable", i, min.owner, min.name, min.desc);
                         FrameInfo fi = addCodeBlock(f, i);
                         splitTryCatch(fi);
                     } else {
-                        int blockingId = isBlockingCall(min);
-                        if(blockingId >= 0) {
-                            int mask = 1 << blockingId;
+                        if(st == MethodDatabase.SUSPEND_BLOCKING) {
                             if(!db.isAllowBlocking()) {
                                 throw new UnableToInstrumentException("blocking call to " +
                                         min.owner + "#" + min.name + min.desc, className, mn.name, mn.desc);
-                            } else if((warnedAboutBlocking & mask) == 0) {
-                                warnedAboutBlocking |= mask;
+                            } else  {
+                                warnedAboutBlocking = true;
                                 db.warn("Method %s#%s%s contains potentially blocking call to " +
                                         min.owner + "#" + min.name + min.desc, className, mn.name, mn.desc);
                             }
@@ -133,17 +125,9 @@ public class InstrumentMethod {
         return numCodeBlocks > 1;
     }
     
-    private static int isBlockingCall(MethodInsnNode ins) {
-        for(int i=0,n=BLOCKING_METHODS.length ; i<n ; i++) {
-            if(BLOCKING_METHODS[i].match(ins)) {
-                return i;
-            }
-        }
-        return -1;
-    }
     
     public void accept(MethodVisitor mv) {
-        db.info("Instrumenting method %s%s%s", className, mn.name, mn.desc);
+        db.info("Instrumenting method %s.%s%s", className, mn.name, mn.desc);
         
         mv.visitCode();
         

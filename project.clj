@@ -6,6 +6,7 @@
   :dependencies [
                  [org.clojure/clojure "1.5.1"]
                  ]
+  :plugins [[lein-junit "1.1.2"]]
   ;; CLJ source code path
   :source-paths ["src/clojure"]
   :target-path "target/"
@@ -19,8 +20,13 @@
   :compile-path "target/classy-files"
   ;; Leave the contents of :source-paths out of jars (for AOT projects).
   :omit-source false
-  :jar-exclusions [#"^test" #"\.java$"]
+  :jvm-opts ["-javaagent:target/nginx-clojure-0.2.0.jar"]
+  :junit ["test/java"]
+  :jar-exclusions [#"^test" #"\.java$" #"Test.*class$"]
   :uberjar-exclusions [#"^test" #"\.java$"]
+  :manifest {"Premain-Class" "nginx.clojure.wave.JavaAgent"
+             "Can-Redefine-Classes" "true"
+             }
   :profiles {:dev {:dependencies [;only for test usage
                                   [ring/ring-core "1.2.1"]
                                   [compojure "1.1.6"]

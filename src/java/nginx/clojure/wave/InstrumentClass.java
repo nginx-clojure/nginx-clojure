@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2008-2013, Matthias Mann
+ * Copyright (C) 2014 Zhang,Yuexiang (xfeep)
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,18 +59,16 @@ public class InstrumentClass extends ClassVisitor {
     private boolean alreadyInstrumented;
     private ArrayList<MethodNode> methods;
     
-    public InstrumentClass(ClassVisitor cv, MethodDatabase db, boolean forceInstrumentation) {
+    public InstrumentClass(String className, ClassEntry classEntry, ClassVisitor cv, MethodDatabase db, boolean forceInstrumentation) {
         super(Opcodes.ASM4, cv);
-        
+        this.className = className;
+        this.classEntry = classEntry;
         this.db = db;
         this.forceInstrumentation = forceInstrumentation;
     }
 
     @Override
     public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-        this.className = name;
-        this.classEntry = new ClassEntry(superName);
-        
         // need atleast 1.5 for annotations to work
         if(version < Opcodes.V1_5) {
             version = Opcodes.V1_5;
@@ -88,10 +87,9 @@ public class InstrumentClass extends ClassVisitor {
 
     @Override
     public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
-        boolean suspendable = CheckInstrumentationVisitor.checkExceptions(exceptions);
-        classEntry.set(name, desc, suspendable);
+    	Integer suspendType = classEntry.check(name, desc);
         
-        if(suspendable && checkAccess(access) && !(className.equals(COROUTINE_NAME) && name.equals("yield"))) {
+        if((suspendType == MethodDatabase.SUSPEND_NORMAL || suspendType == MethodDatabase.SUSPEND_FAMILY) && checkAccess(access) && !(className.equals(COROUTINE_NAME) && name.equals("yield"))) {
             if(db.isDebug()) {
                 db.info("Instrumenting method %s#%s", className, name);
             }

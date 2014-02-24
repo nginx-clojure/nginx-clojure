@@ -4,6 +4,8 @@ import java.io.PrintStream;
 import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * This tiny log service is mainly for debug use
@@ -13,6 +15,14 @@ public class TinyLogService implements LoggerService {
 	public static final String NGINX_CLOJURE_LOG_LEVEL = "NGINX_CLOJURE_LOG_LEVEL";
 
 	public enum MsgType{ trace, debug,info, warn, error, fatal };
+	
+	public static final Set<String> LOG_METHODS = new HashSet<String>();
+	
+	static {
+		for (MsgType t : MsgType.values()) {
+			LOG_METHODS.add(t.name());
+		}
+	}
 	
 	protected MsgType level = MsgType.info;
 	
@@ -99,7 +109,7 @@ public class TinyLogService implements LoggerService {
 		if (type.compareTo(level) < 0){
 			return System.out;
 		}
-		return message(MessageFormat.format(format, objects), type);
+		return message(String.format(format, objects), type);
 	}
 
 	public PrintStream message(Object message, MsgType type){
@@ -111,7 +121,7 @@ public class TinyLogService implements LoggerService {
 		StackTraceElement se = null;
 		boolean meetCurrentMethod = false;
 		for (StackTraceElement si : Thread.currentThread().getStackTrace()){
-			if (si.getClassName().equals(TinyLogService.class.getName())){
+			if (si.getClassName().equals(TinyLogService.class.getName()) || LOG_METHODS.contains(si.getMethodName())){
 				meetCurrentMethod = true;
 				continue;
 			}

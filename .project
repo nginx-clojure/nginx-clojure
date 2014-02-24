@@ -3,7 +3,7 @@
 	<name>nginx-clojure</name>
 	<comment></comment>
 	<projects>
-		<project>nginx-1.0.15</project>
+		<project>nginx-1.4.4</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
@@ -23,7 +23,7 @@
 		</buildCommand>
 		<buildCommand>
 			<name>org.eclipse.cdt.managedbuilder.core.genmakebuilder</name>
-			<triggers>clean,full,incremental,</triggers>
+			<triggers></triggers>
 			<arguments>
 			</arguments>
 		</buildCommand>
