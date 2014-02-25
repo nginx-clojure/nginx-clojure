@@ -18,3 +18,12 @@ class:clojure/lang/IFn
 	/invoke.*:family
 	
 
+filter:org/objectweb/asm/
+filter:nginx/clojure/asm/
+filter:java/
+filter:sun/
+filter:com/sun/
+filter:clojure/asm
+filter:clojure/lang
+filter:clojure/core
+filter:org/junit

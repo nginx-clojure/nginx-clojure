@@ -34,7 +34,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 import nginx.clojure.SuspendExecution;
@@ -72,12 +71,14 @@ public class MethodDatabase implements LoggerService {
     private final ConcurrentHashMap<String, ClassEntry> classes;
     private final ConcurrentHashMap<String, String> superClasses;
     private final ArrayList<File> workList;
+    private final ArrayList<String> filters;
     
     private LoggerService log;
     private boolean verbose;
     private boolean debug;
     private boolean allowMonitors;
     private boolean allowBlocking;
+    private boolean allowOutofCoroutine = true;
     
     public MethodDatabase(ClassLoader classloader) {
         if(classloader == null) {
@@ -89,6 +90,7 @@ public class MethodDatabase implements LoggerService {
         classes = new ConcurrentHashMap<String, ClassEntry>();
         superClasses = new ConcurrentHashMap<String, String>();
         workList = new ArrayList<File>();
+        filters = new ArrayList<String>();
         log = new TinyLogService(TinyLogService.getSystemPropertyOrDefaultLevel(), System.err, System.err);
     }
 
@@ -107,6 +109,14 @@ public class MethodDatabase implements LoggerService {
     public void setAllowBlocking(boolean allowBlocking) {
         this.allowBlocking = allowBlocking;
     }
+    
+    public boolean isAllowOutofCoroutine() {
+		return allowOutofCoroutine;
+	}
+    
+    public void setAllowOutofCoroutine(boolean allowOutofCoroutine) {
+		this.allowOutofCoroutine = allowOutofCoroutine;
+	}
 
     public ConcurrentHashMap<String, ClassEntry> getClasses() {
 		return classes;
@@ -169,6 +179,9 @@ public class MethodDatabase implements LoggerService {
     }
     
 
+    public ArrayList<String> getFilters() {
+		return filters;
+	}
     
     public Integer checkMethodSuspendType(String className, String methodName, String methodDesc, boolean searchSuperClass) {
         if(methodName.charAt(0) == '<') {
@@ -186,9 +199,13 @@ public class MethodDatabase implements LoggerService {
         }
         
         Integer st = null;
+        Integer fst = null;
         
-        while (st == null && ce != null) {
+        while ((st == null || st == SUSPEND_NONE) && ce != null) {
         	st = ce.check(methodName, methodDesc);
+        	if (st != null && (fst == null || fst == SUSPEND_NONE)) {
+        		fst = st;
+        	}
         	if (ce.superName != null) {
         		ce = classes.get(ce.getSuperName());
         	}else {
@@ -196,11 +213,11 @@ public class MethodDatabase implements LoggerService {
         	}
         }
         
-        if (st == null) {
+        if (fst == null) {
         	 warn("Method not found in class - assuming suspendable: %s#%s%s", className, methodName, methodDesc);
              return SUSPEND_NORMAL;
         }
-        return st;
+        return st == null ? fst : st;
     }
 
 
@@ -469,6 +486,15 @@ public class MethodDatabase implements LoggerService {
             }
         }
         return superClass;
+    }
+    
+    public boolean shouldIgnore(String className) {
+    	for (String f : filters) {
+    		if (className.startsWith(f)) {
+    			return true;
+    		}
+    	}
+    	return false;
     }
     
     public static boolean isJavaCore(String className) {

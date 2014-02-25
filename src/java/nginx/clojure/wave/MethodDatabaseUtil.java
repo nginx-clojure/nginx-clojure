@@ -47,6 +47,8 @@ public class MethodDatabaseUtil {
 					}
 				}else if (l.length() == 0 || ce == null || l.charAt(0) == '#'){
 					continue;
+				}else if (l.startsWith("filter:")) {
+					db.getFilters().add(l.substring("filter:".length()).trim());
 				}else {
 					String[] ma = l.split(":");
 					String m = ma[0];
@@ -114,7 +116,7 @@ public class MethodDatabaseUtil {
 			if (st == MethodDatabase.SUSPEND_NONE) {
 				Integer sst = sms.get(me.getKey());
 				if (sst != null && sst != MethodDatabase.SUSPEND_NONE) {
-					me.setValue(st);
+					me.setValue(sst);
 				}
 			}
 		}
@@ -130,9 +132,9 @@ public class MethodDatabaseUtil {
 			if (sce == null) {
 				CheckInstrumentationVisitor sciv = db.checkClass(superName);
 				sce = buildClassEntryFamily(db, sciv);
-				mergeMethodsSuspendTypeFromSuper(ce, sce);
 				db.recordSuspendableMethods(superName, sce);
 			}
+			mergeMethodsSuspendTypeFromSuper(ce, sce);
 		}
 		
 		String[] interfaces = ce.getInterfaces();
@@ -142,9 +144,9 @@ public class MethodDatabaseUtil {
 				if (sce == null) {
 					CheckInstrumentationVisitor sciv = db.checkClass(itf);
 					sce = buildClassEntryFamily(db, sciv);
-					mergeMethodsSuspendTypeFromSuper(ce, sce);
 					db.recordSuspendableMethods(itf, sce);
 				}
+				mergeMethodsSuspendTypeFromSuper(ce, sce);
 			}
 		}
 		return ce;

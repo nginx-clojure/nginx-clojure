@@ -20,7 +20,6 @@
   :compile-path "target/classy-files"
   ;; Leave the contents of :source-paths out of jars (for AOT projects).
   :omit-source false
-  :jvm-opts ["-javaagent:target/nginx-clojure-0.2.0.jar"]
   :junit ["test/java"]
   :jar-exclusions [#"^test" #"\.java$" #"Test.*class$"]
   :uberjar-exclusions [#"^test" #"\.java$"]
@@ -33,6 +32,8 @@
                                   [clj-http "0.7.8"]
                                   [junit/junit "4.10"]
                                   ]}
+             :coroutine-test {:jvm-opts ["-javaagent:target/nginx-clojure-0.2.0.jar"] 
+                              :dependencies [[junit/junit "4.10"]]}
              :1.4 {:dependencies [[org.clojure/clojure "1.4.0"]]}
              :1.5 {:dependencies [[org.clojure/clojure "1.5.0"]]}
              })

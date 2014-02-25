@@ -29,9 +29,10 @@
  */
 package nginx.clojure.wave;
 
+import java.util.List;
+
 import nginx.clojure.Stack;
 import nginx.clojure.SuspendExecution;
-import java.util.List;
 import nginx.clojure.asm.Label;
 import nginx.clojure.asm.MethodVisitor;
 import nginx.clojure.asm.Opcodes;
@@ -54,6 +55,7 @@ import nginx.clojure.asm.tree.analysis.Value;
  * Instrument a method to allow suspension
  * 
  * @author Matthias Mann
+ * @author Zhang,Yuexiang (xfeep)
  */
 public class InstrumentMethod {
 
@@ -173,6 +175,11 @@ public class InstrumentMethod {
         mv.visitInsn(Opcodes.DUP);
         mv.visitVarInsn(Opcodes.ASTORE, lvarStack);
         
+        if (db.isAllowOutofCoroutine()) {
+            mv.visitJumpInsn(Opcodes.IFNULL, lMethodStart);
+            mv.visitVarInsn(Opcodes.ALOAD, lvarStack);
+        }
+        
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "nextMethodEntry", "()I");
         mv.visitTableSwitchInsn(1, numCodeBlocks-1, lMethodStart, lMethodCalls);
         
@@ -198,10 +205,22 @@ public class InstrumentMethod {
                 emitRestoreState(mv, i, fi);
                 dumpCodeBlock(mv, i, 1);    // skip the call
             } else {
+            	
+                final Label ocl = new Label();
+                if (db.isAllowOutofCoroutine()) {
+                    mv.visitVarInsn(Opcodes.ALOAD, lvarStack);
+                    mv.visitJumpInsn(Opcodes.IFNULL, ocl);
+                }
+            	
                 // normal case - call to a suspendable method - resume before the call
                 emitStoreState(mv, i, fi);
                 mv.visitLabel(lMethodCalls[i-1]);
                 emitRestoreState(mv, i, fi);
+                
+                if (db.isAllowOutofCoroutine()) {
+                	mv.visitLabel(ocl);
+                }
+                
                 dumpCodeBlock(mv, i, 0);
             }
         }
@@ -376,8 +395,20 @@ public class InstrumentMethod {
     }
     
     private void emitPopMethod(MethodVisitor mv) {
+    	
+        final Label ocl = new Label();
+        if (db.isAllowOutofCoroutine()) {
+            mv.visitVarInsn(Opcodes.ALOAD, lvarStack);
+            mv.visitJumpInsn(Opcodes.IFNULL, ocl);
+        }
+
+    	
         mv.visitVarInsn(Opcodes.ALOAD, lvarStack);
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "popMethod", "()V");
+        
+        if (db.isAllowOutofCoroutine()) {
+            mv.visitLabel(ocl);
+        }
     }
 
     private void emitStoreState(MethodVisitor mv, int idx, FrameInfo fi) {

@@ -1,13 +1,17 @@
 package nginx.clojure.wave;
 
 import static org.junit.Assert.*;
+
 import java.io.IOException;
 
+import nginx.clojure.asm.Type;
 import nginx.clojure.wave.MethodDatabase;
 import nginx.clojure.wave.MethodDatabase.ClassEntry;
 import nginx.clojure.wave.MethodDatabaseUtil;
 
 import org.junit.Test;
+
+import clojure.lang.AFunction;
 
 public class MethodDatabaseUtilTest {
 
@@ -33,6 +37,12 @@ public class MethodDatabaseUtilTest {
 	}
 	
 	
+	public static class MyAF extends AFunction {
+		@Override
+		public Object invoke() {
+			return super.invoke();
+		}
+	}
 	
 	@Test
 	public void testBuildClassEntryFamily() throws IOException {
@@ -42,6 +52,10 @@ public class MethodDatabaseUtilTest {
 		assertEquals(MethodDatabase.SUSPEND_NONE, ce.check("testCatch", "()V"));
 		assertEquals(MethodDatabase.SUSPEND_NORMAL, ce.check("run", "()V"));
 		
+		
+		
+		ClassEntry ifnce = MethodDatabaseUtil.buildClassEntryFamily(db, Type.getInternalName(MyAF.class));
+		assertEquals(MethodDatabase.SUSPEND_FAMILY, db.checkMethodSuspendType(Type.getInternalName(MyAF.class),"invoke", "()Ljava/lang/Object;", true));
 	}
 
 }

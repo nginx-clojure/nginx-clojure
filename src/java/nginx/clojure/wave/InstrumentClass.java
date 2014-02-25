@@ -87,7 +87,7 @@ public class InstrumentClass extends ClassVisitor {
 
     @Override
     public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
-    	Integer suspendType = classEntry.check(name, desc);
+    	Integer suspendType = db.checkMethodSuspendType(className, name, desc, true);
         
         if((suspendType == MethodDatabase.SUSPEND_NORMAL || suspendType == MethodDatabase.SUSPEND_FAMILY) && checkAccess(access) && !(className.equals(COROUTINE_NAME) && name.equals("yield"))) {
             if(db.isDebug()) {
