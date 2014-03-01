@@ -489,12 +489,18 @@ public class NginxClojureRT {
 		return bytes.length;
 	}
 	
+	public static final Map ASYNC_TAG = new HashMap(1);
+	
 	public static int eval(final int codeId, final long r) {
 		
 		final LazyRequestMap req = new LazyRequestMap(codeId, r);
 		
 		if (workers == null) {
 			Map resp = handleRequest(req);
+			if (resp == ASYNC_TAG) {
+				ngx_http_clojure_mem_inc_req_count(r);
+				return NGX_DONE;
+			}
 			return handleResponse(r, resp);
 		}
 		
@@ -830,6 +836,7 @@ public class NginxClojureRT {
 	
 	}
 	
+	
 	public static int handleResponse(long r, final Map resp) {
 		long chain = buildOutputChain(r, resp);
 		if (chain < 0) {
@@ -838,6 +845,15 @@ public class NginxClojureRT {
 		return (int)ngx_http_output_filter(r, chain);
 	}
 
+	public static void completeAsyncResponse(long r, final Map resp) {
+		int rc = handleResponse(r, resp);
+		ngx_http_finalize_request(r, rc);
+	}
+	
+	public static void completeAsyncResponse(long r, int rc) {
+		ngx_http_finalize_request(r, rc);
+	}
+	
 	public static LoggerService getLog() {
 		return log;
 	}

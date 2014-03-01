@@ -278,6 +278,10 @@ public   class LazyRequestMap extends AFn  implements IPersistentMap {
 			return new LazyRequestMap(codeId, r , newArray);
 		}
 	}
+	
+	public long nativeRequest() {
+		return r;
+	}
 
 	@Override
 	public boolean containsKey(Object key) {

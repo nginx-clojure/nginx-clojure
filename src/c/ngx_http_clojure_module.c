@@ -8,6 +8,7 @@
 #include <ngx_http.h>
 #include "ngx_http_clojure_jvm.h"
 #include "ngx_http_clojure_mem.h"
+#include "ngx_http_clojure_socket.h"
 
 ngx_conf_t *ngx_http_clojure_global_ngx_conf;
 ngx_cycle_t *ngx_http_clojure_global_cycle;
@@ -157,6 +158,13 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  
     return NGX_HTTP_CLOJURE_JVM_OK;
 }
 
+static ngx_int_t ngx_http_clojure_init_socket(ngx_http_clojure_loc_conf_t  *lcf, ngx_log_t *log) {
+	if (ngx_http_clojure_init_socket_util() != NGX_HTTP_CLOJURE_JVM_OK) {
+		ngx_log_error(NGX_LOG_ERR, log, 0, "can not initialize jvm socket util");
+	}
+	return NGX_HTTP_CLOJURE_JVM_OK;
+}
+
 
 static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child){
 	ngx_http_clojure_loc_conf_t *prev = parent;
@@ -212,23 +220,16 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     ngx_http_clojure_loc_conf_t  *lcf;
 
 
-    //only handle GET or HEAD, we have not support POST now.
-//    if (!(r->method & (NGX_HTTP_GET|NGX_HTTP_HEAD))) {
-//    	return NGX_HTTP_NOT_ALLOWED;
-//    }
-
-
-//    rc = ngx_http_discard_request_body(r);
-//    if (rc != NGX_OK && rc != NGX_AGAIN) {
-//        return rc;
-//    }
-
-
     lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
 //    ngx_http_core_main_conf_t  *cmcf = ngx_http_get_module_main_conf(r, ngx_http_core_module);
 
 
     rc = ngx_http_clojure_init_jvm_and_mem(lcf, ngx_http_clojure_global_cycle->log);
+    if (rc != NGX_HTTP_CLOJURE_JVM_OK){
+    	return rc;
+    }
+
+    rc = ngx_http_clojure_init_socket(lcf, ngx_http_clojure_global_cycle->log);
     if (rc != NGX_HTTP_CLOJURE_JVM_OK){
     	return rc;
     }

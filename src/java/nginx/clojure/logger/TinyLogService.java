@@ -107,14 +107,14 @@ public class TinyLogService implements LoggerService {
 	
 	public PrintStream message(String format, MsgType type, Object ...objects){
 		if (type.compareTo(level) < 0){
-			return System.out;
+			return out;
 		}
 		return message(String.format(format, objects), type);
 	}
 
 	public PrintStream message(Object message, MsgType type){
 		if (type.compareTo(level) < 0){
-			return System.out;
+			return this.out;
 		}
 		SimpleDateFormat sf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 		StringBuffer s = new StringBuffer();
@@ -133,9 +133,9 @@ public class TinyLogService implements LoggerService {
 		s.append(sf.format(new Date())).append("[").append(type).append("]:")
 		.append("[").append(se.getClassName()).append(".").append(se.getMethodName()).append("]:")
 		.append(message);
-		PrintStream out = System.out;
+		PrintStream out = this.out;
 		if (type != MsgType.debug && type != MsgType.info){
-			out = System.err;
+			out = this.err;
 		}
 		out.println(s);
 		return out;
@@ -149,7 +149,7 @@ public class TinyLogService implements LoggerService {
 
 	public void info(Object message, Throwable t) {
 		message(message, MsgType.info);
-		t.printStackTrace(System.out);
+		t.printStackTrace(out);
 	}
 
 	public  void info(String format, Object ... objects){
