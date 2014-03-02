@@ -1,3 +1,7 @@
+/**
+ *  Copyright (C) Zhang,Yuexiang (xfeep)
+ *
+ */
 package nginx.clojure.net;
 
 import clojure.lang.IFn;
@@ -40,9 +44,14 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	
 	
 	public NginxClojureAsynSocket() {
+		s = create(this);
+		if (s == 0) {
+			throw new OutOfMemoryError("no memory for create a native nginx clojure socket");
+		}
 	}
 	
 	public NginxClojureAsynSocket(NginxClojureSocketHandler handler) {
+		this();
 		this.handler = handler;
 	}
 	
@@ -58,26 +67,103 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 		return connected;
 	}
 	
-	private final void checkConnected() {
+	public final void checkConnected() {
 		if (s == 0 || !connected) {
-			throw new RuntimeException("socket has been closed or not connected");
+			throw new RuntimeException("socket has been closed or not connected!");
 		}
+	}
+	
+	public final void checkNotClosed() {
+		if (s == 0) {
+			throw new RuntimeException("socket has been closed!");
+		}
+	}
+	
+	/**
+	 * if timeout is negative, it will be ignored. if timeout is 0, this means no timeout.
+	 */
+	public void setConnectTimeout(long timeout) {
+		checkNotClosed();
+		setTimeout(s, timeout, -1, -1);
+	}
+	
+	/**
+	 * if timeout is negative, it will be ignored. if timeout is 0, this means no timeout.
+	 */
+	public void setReadTimeout(long timeout) {
+		checkNotClosed();
+		setTimeout(s, -1, timeout, -1);
+	}
+	
+	/**
+	 * if timeout is negative, it will be ignored. if timeout is 0, this means no timeout.
+	 */
+	public void setWriteTimeout(long timeout) {
+		checkNotClosed();
+		setTimeout(s, -1, -1, timeout);
+	}
+	
+	/**
+	 * if timeout is negative, it will be ignored. if timeout is 0, this means no timeout.
+	 */
+	public void setTimeout(long connectTimeout, long readTimeout, long writeTimeout) {
+		checkNotClosed();
+		setTimeout(s, connectTimeout, readTimeout, writeTimeout);
+	}
+	
+	public  long getReadTimeout() {
+		checkNotClosed();
+		return getReadTimeout(s);
+	}
+	
+	public  long getWriteTimeout() {
+		checkNotClosed();
+		return getWriteTimeout(s);
+	}
+	
+	public  long getConnectTimeout() {
+		checkNotClosed();
+		return getConnectTimeout(s);
+	}
+	
+	public long  getReceiveBufferSize() {
+		checkNotClosed();
+		return getReceiveBufferSize(s);
+	}
+	
+	public void  setReceiveBufferSize(long size) {
+		checkNotClosed();
+		setReceiveBufferSize(s, size);
 	}
 	
 	public long connect(String url) {
 		byte[] urlba = url.getBytes(Constants.DEFAULT_ENCODING);
-		s = create(this);
-		if (s == 0) {
-			return NGX_HTTP_CLOJURE_SOCKET_ERR_OUTOFMEMORY;
-		}
 		return connect(s, urlba, Constants.BYTE_ARRAY_OFFSET, urlba.length);
 	}
 	
+	/**
+	 * 
+	 * @param buf buffer
+	 * @param off offest of  buf,
+	 * @param size the number of bytes returned at most
+	 * @return 0 : EOF, 
+	 *         NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN : try on next event, 
+	 *         NGX_HTTP_CLOJURE_SOCKET_ERR_READ : read error
+	 */
 	public long read(byte[] buf, long off, long size) {
 		checkConnected();
 		return read(s, buf, Constants.BYTE_ARRAY_OFFSET + off, size);
 	}
 	
+	/**
+	 * 
+	 * @param buf buffer
+	 * @param off offest of  buf
+	 * @param size the number of bytes sent at most
+	 * @return 0 : EOF,
+	 *         NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN : try on next event,
+	 *         NGX_HTTP_CLOJURE_SOCKET_ERR_WRITE : write error
+	 */
 	public long write(byte[] buf, long off, long size) {
 		checkConnected();
 		return write(s, buf, Constants.BYTE_ARRAY_OFFSET + off, size);
@@ -175,6 +261,18 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	 *         NGX_HTTP_CLOJURE_SOCKET_ERR_WRITE : write error
 	 */
 	private static native long write(long s, Object buf, long off, long size);
+	
+	private static native void setTimeout(long s, long ctimeout, long rtimeout, long wtimeout);
+	
+	private static native long getReadTimeout(long s);
+	
+	private static native long getWriteTimeout(long s);
+	
+	private static native long getConnectTimeout(long s);
+	
+	private static native long  getReceiveBufferSize(long s);
+	
+	private static native long  setReceiveBufferSize(long s, long size);
 	
 	/**
 	 * @param url byte[], eg. "192.168.2.12:8080".getBytes();

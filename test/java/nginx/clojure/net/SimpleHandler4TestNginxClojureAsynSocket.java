@@ -121,6 +121,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 											Constants.CONTENT_TYPE.getName(),
 											"text/html" }),
 							Constants.BODY, new ByteArrayInputStream(ctx.resp.toByteArray()) };
+							//just for test not for good performance and right behavior for a http proxy
 							NginxClojureRT.completeAsyncResponse(ctx.clientRequest, new  PersistentArrayMap(resps));
 						}else {
 							ctx.rc += n;

@@ -838,6 +838,9 @@ public class NginxClojureRT {
 	
 	
 	public static int handleResponse(long r, final Map resp) {
+		if (Thread.currentThread() != NGINX_MAIN_THREAD) {
+			throw new RuntimeException("handleResponse can not be called out of nginx clojure main thread!");
+		}
 		long chain = buildOutputChain(r, resp);
 		if (chain < 0) {
 			return -(int)chain;

@@ -397,6 +397,39 @@ static jlong JNICALL jni_ngx_http_clojure_socket_connect_url(JNIEnv *env, jclass
 	return NGX_HTTP_CLOJURE_SOCKET_OK;
 }
 
+static void jni_ngx_http_clojure_socket_set_timeout(JNIEnv *env, jclass cls, jlong s, jlong ctimeout, jlong rtimeout, jlong wtimeout) {
+	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)s;
+	if (ctimeout >= 0) {
+		ngx_http_clojure_socket_upstream_set_connect_timeout(u, ctimeout);
+	}
+	if (rtimeout >= 0) {
+		ngx_http_clojure_socket_upstream_set_read_timeout(u, rtimeout);
+	}
+	if (wtimeout >= 0) {
+		ngx_http_clojure_socket_upstream_set_write_timeout(u, wtimeout);
+	}
+}
+
+static jlong jni_ngx_http_clojure_socket_get_connect_timeout(JNIEnv *env, jclass cls, jlong s) {
+	return ((ngx_http_clojure_socket_upstream_t *)s)->connect_timeout;
+}
+
+static jlong jni_ngx_http_clojure_socket_get_read_timeout(JNIEnv *env, jclass cls, jlong s) {
+	return ((ngx_http_clojure_socket_upstream_t *)s)->read_timeout;
+}
+
+static jlong jni_ngx_http_clojure_socket_get_write_timeout(JNIEnv *env, jclass cls, jlong s) {
+	return ((ngx_http_clojure_socket_upstream_t *)s)->write_timeout;
+}
+
+static void jni_ngx_http_clojure_socket_set_receive_buf(JNIEnv *env, jclass cls, jlong s, jlong size) {
+	((ngx_http_clojure_socket_upstream_t *)s)->buffer_size = (size_t)size;
+}
+
+static jlong jni_ngx_http_clojure_socket_get_receive_buf(JNIEnv *env, jclass cls, jlong s) {
+	return (jlong)((ngx_http_clojure_socket_upstream_t *)s)->buffer_size;
+}
+
 static jlong JNICALL jni_ngx_http_clojure_socket_read(JNIEnv *env, jclass cls, jlong s, jobject buf, jlong off, jlong len) {
 	char *dst = (char *)(*(uintptr_t*)buf) + off;
 	return ngx_http_clojure_socket_upstream_read((ngx_http_clojure_socket_upstream_t *)s, dst, len);
@@ -411,12 +444,12 @@ static void JNICALL jni_ngx_http_clojure_socket_close(JNIEnv *env, jclass cls, j
 	ngx_http_clojure_socket_upstream_close((ngx_http_clojure_socket_upstream_t *)u);
 }
 
-static jlong JNICALL jni_ngx_http_clojure_socket_shutdown(JNIEnv *env, jclass cls, jlong u, jlong how) {
-	return ngx_http_clojure_socket_upstream_shutdown((ngx_http_clojure_socket_upstream_t *)u, (int)how);
+static jlong JNICALL jni_ngx_http_clojure_socket_shutdown(JNIEnv *env, jclass cls, jlong s, jlong how) {
+	return ngx_http_clojure_socket_upstream_shutdown((ngx_http_clojure_socket_upstream_t *)s, (int)how);
 }
 
-static jlong JNICALL jni_ngx_http_clojure_socket_cancel_soft_shutdown(JNIEnv *env, jclass cls, jlong ju, jlong how) {
-	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)ju;
+static jlong JNICALL jni_ngx_http_clojure_socket_cancel_soft_shutdown(JNIEnv *env, jclass cls, jlong s, jlong how) {
+	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)s;
 	if (!(how & NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_SOFT_FLAG)) {
 		return NGX_HTTP_CLOJURE_SOCKET_ERR;
 	}
@@ -435,6 +468,12 @@ int ngx_http_clojure_init_socket_util() {
 	JNIEnv *env;
 	JNINativeMethod nms[] = {
 			{"create", "(Lnginx/clojure/net/NginxClojureSocketRawHandler;)J", jni_ngx_http_clojure_socket_create},
+			{"setTimeout", "(JJJJ)V", jni_ngx_http_clojure_socket_set_timeout},
+			{"getReadTimeout", "(J)J", jni_ngx_http_clojure_socket_get_read_timeout},
+			{"getWriteTimeout", "(J)J", jni_ngx_http_clojure_socket_get_write_timeout},
+			{"getConnectTimeout", "(J)J", jni_ngx_http_clojure_socket_get_connect_timeout},
+			{"getReceiveBufferSize", "(J)J", jni_ngx_http_clojure_socket_set_receive_buf},
+			{"setReceiveBufferSize", "(JJ)J", jni_ngx_http_clojure_socket_get_receive_buf},
 			{"connect", "(JLjava/lang/Object;JJ)J", jni_ngx_http_clojure_socket_connect_url},
 			{"read", "(JLjava/lang/Object;JJ)J", jni_ngx_http_clojure_socket_read},
 			{"write", "(JLjava/lang/Object;JJ)J", jni_ngx_http_clojure_socket_write},

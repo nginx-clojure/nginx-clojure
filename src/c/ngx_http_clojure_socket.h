@@ -104,13 +104,15 @@ struct ngx_http_clojure_socket_upstream_s {
 /*
  *Define macros to hint which field can be set as public field
  *All macros should be in a {} block, other kinds of usages maybe are wrong,
- *eg.  "if (xx) macros(x, y);"  should be "if (xx) { macros(x, y); }"
+ *eg.  "if (xx) macros(x, y);" is wrong! It should be "if (xx) { macros(x, y); }"
  **/
 #define ngx_http_clojure_socket_upstream_set_connect_timeout(u, t)  u->connect_timeout = t
 
 #define ngx_http_clojure_socket_upstream_set_send_timeout(u, t)  u->send_timeout = t
 
 #define ngx_http_clojure_socket_upstream_set_read_timeout(u, t)  u->read_timeout = t
+
+#define ngx_http_clojure_socket_upstream_set_write_timeout(u, t)  u->write_timeout = t
 
 #define ngx_http_clojure_socket_upstream_set_send_lowat(u, n) u->send_lowat = n
 
