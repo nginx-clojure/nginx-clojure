@@ -61,7 +61,10 @@
  */
 package nginx.clojure.wave;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
@@ -71,7 +74,10 @@ import nginx.clojure.NginxClojureRT;
 import nginx.clojure.asm.ClassReader;
 import nginx.clojure.asm.ClassVisitor;
 import nginx.clojure.asm.ClassWriter;
+import nginx.clojure.asm.MethodVisitor;
+import nginx.clojure.asm.Opcodes;
 import nginx.clojure.asm.util.CheckClassAdapter;
+import nginx.clojure.asm.util.TraceClassVisitor;
 import nginx.clojure.wave.MethodDatabase.ClassEntry;
 
 /*
@@ -84,6 +90,8 @@ public class JavaAgent {
     public static void premain(String agentArguments, Instrumentation instrumentation) {
         MethodDatabase db = new MethodDatabase(Thread.currentThread().getContextClassLoader());
         boolean checkArg = false;
+        boolean runTool = false;
+        boolean append = false;
 
         if(agentArguments != null) {
             for(char c : agentArguments.toCharArray()) {
@@ -107,7 +115,12 @@ public class JavaAgent {
                     case 'b':
                         db.setAllowBlocking(true);
                         break;
-
+                    case 't':
+                    	runTool = true;
+                    	break;
+                    case 'a':
+                    	append = true;
+                    	break;
                     default:
                         throw new IllegalStateException("Usage: vdmc (verbose, debug, allow monitors, check class)");
                 }
@@ -117,8 +130,15 @@ public class JavaAgent {
         if (NginxClojureRT.getLog() != null) {
         	db.setLog(NginxClojureRT.getLog());
         }
-
-        instrumentation.addTransformer(new CoroutineWaver(db, checkArg));
+        
+        if (runTool) {
+        	SuspendMethodTracer.db = db;
+        	SuspendMethodTracer.dumping.set(false);
+        	instrumentation.addTransformer(new CoroutineConfigurationToolWaver(db, append));
+        }else {
+        	instrumentation.addTransformer(new CoroutineWaver(db, checkArg));
+        }
+        
     }
 
     static byte[] instrumentClass(MethodDatabase db, byte[] data, boolean check) {
@@ -140,9 +160,21 @@ public class JavaAgent {
             this.check = check;
             //load system configurations for method database
             try {
+            	db.debug("load system coroutine wave file %s", "nginx/clojure/wave/coroutine-method-db.txt");
 				MethodDatabaseUtil.load(db, "nginx/clojure/wave/coroutine-method-db.txt");
 			} catch (IOException e) {
-				db.error("file lost : nginx/clojure/wave/coroutine-method-db.txt", e);
+				db.error("can not load nginx/clojure/wave/coroutine-method-db.txt", e);
+			}
+            String udfs = System.getProperty("nginx.clojure.wave.udfs");
+			if (udfs != null) {
+				for (String udf : udfs.split(",")) {
+					try {
+						db.debug("load use defined coroutine wave file %s", udf);
+						MethodDatabaseUtil.load(db, udf);
+					} catch (IOException e) {
+						db.warn("can not load " + udf, e);
+					}
+				}
 			}
         }
 
@@ -162,5 +194,112 @@ public class JavaAgent {
                 return null;
             }
         }
+    }
+    
+    public static class CoroutineConfigurationToolWaver implements ClassFileTransformer {
+
+    	private final MethodDatabase db;
+    	private final boolean append;
+    	
+    	public CoroutineConfigurationToolWaver(MethodDatabase db, boolean append) {
+    		this.db = db;
+    		this.append = append;
+    		Runtime.getRuntime().addShutdownHook(new Thread() {
+    			@Override
+    			public void run() {
+    				String file = System.getProperty("nginx.clojure.wave.CfgToolOutFile");
+    				if (file == null) {
+    					file = "nginx.clojure.wave.cfgtooloutfile";
+    					CoroutineConfigurationToolWaver.this.db.warn("system property 'nginx.clojure.wave.CfgToolOutFile' not found, use '%s' as file path", file);
+    				}
+    				try {
+						SuspendMethodTracer.dump(file, CoroutineConfigurationToolWaver.this.append);
+					} catch (IOException e) {
+						CoroutineConfigurationToolWaver.this.db.error("dump error!", e);
+					}
+    			}
+    		});
+		}
+//      filter:org/objectweb/asm/    	
+//    	filter:nginx/clojure/asm/
+//    	filter:java/
+//    	filter:sun/
+//    	filter:com/sun/
+//    	filter:clojure/asm
+//    	filter:clojure/lang
+//    	filter:clojure/core
+//    	filter:org/junit
+		@Override
+		public byte[] transform(ClassLoader loader, final String className, Class<?> classBeingRedefined,
+				ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
+			if (SuspendMethodTracer.dumping.get()) {
+				return classfileBuffer;
+			}
+			try {
+				
+				ClassReader cr = new ClassReader(classfileBuffer);
+				ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_MAXS) {
+					@Override
+					protected String getCommonSuperClass(String type1, String type2) {
+						return db.getCommonSuperClass(type1, type2);
+					}
+				};
+				ClassEntry ce = MethodDatabaseUtil.buildClassEntryFamily(db, cr);
+				if (className.startsWith("sun/launcher/")
+						|| className.startsWith("clojure/asm")
+						|| className.startsWith("org/objectweb/asm/")
+						|| className.startsWith("clojure/asm")
+						|| className.startsWith("org/junit")
+//						|| className.startsWith("clojure/main")
+//						|| className.startsWith("clojure/lang")
+						|| className.startsWith("sun/misc/ClassFileTransformer")
+						|| className.startsWith("nginx/clojure/asm") 
+						|| className.startsWith("nginx/clojure/wave") 
+						|| className.startsWith("java/util/ArrayList") 
+						|| className.startsWith("org/eclipse/jetty/server/")
+						|| className.startsWith("clojure/lang/Compiler")
+						|| className.startsWith("java/net/URLClassLoader")
+						|| className.startsWith("java/lang")) {
+					db.debug("skip class %s", className);
+					return classfileBuffer;
+				}
+				db.debug("loading class %s", className);
+				ClassVisitor cv = db.isVerbose() ?  new TraceClassVisitor(cw, new PrintWriter(System.out)) : cw;
+				cv = new ClassVisitor(Opcodes.ASM4, cv == null ? cw : cv) {
+					@Override
+					public MethodVisitor visitMethod(int access, String name,
+							String desc, String signature, String[] exceptions) {
+						MethodVisitor mv = super.visitMethod(access, name,
+								desc, signature, exceptions);
+						if ( (Opcodes.ACC_NATIVE & access) != 0
+								||  (Opcodes.ACC_ABSTRACT & access) != 0 
+//								|| name.startsWith("<cinit>")
+								) {
+							db.debug("skip native or abstract method: %s.%s%s", className, name, desc);
+							return mv;
+						}
+						return new SuspendMethodTracerAdvice(className, mv, access, name, desc);
+					}
+				};
+
+				cr.accept(cv, ClassReader.EXPAND_FRAMES);
+				byte[] rt = cw.toByteArray();
+				
+				if (db.isDebug() && db.isVerbose()) {
+					 File wavedFile = new File("waved", className+".class");
+                     wavedFile.getParentFile().mkdirs();
+                     FileOutputStream fo = new FileOutputStream(wavedFile);
+                     fo.write(rt);
+                     fo.close();
+				}
+				
+				return rt;
+				
+			} catch(Exception ex) {
+	                db.error("Unable to transform:" + className, ex);
+	                return null;
+	            }
+		}
+    	
     }
 }
