@@ -57,9 +57,14 @@ public class MethodDatabase implements LoggerService {
 	public static final String SUSPEND_NORMAL_STR = "normal";
 	public static final String SUSPEND_FAMILY_STR = "family";
 	
-	public static final Integer SUSPEND_BLOCKING = 0;
-	public static final Integer SUSPEND_NONE = 1;
+	public static final Integer SUSPEND_NONE = 0;
+	public static final Integer SUSPEND_BLOCKING = 1;
 	public static final Integer SUSPEND_IGNORE = 2;
+	/**
+	 * Those methods with suspend type SUSPEND_JUST_MARK will not or can not be waved, 
+	 * but because they will call some SUSPEND_NORMAL methods, their caller should take care
+	 * of this case generally will be waved.
+	 */
 	public static final Integer SUSPEND_JUST_MARK = 3;
 	public static final Integer SUSPEND_NORMAL = 4;
 	public static final Integer SUSPEND_FAMILY = 5;
@@ -257,15 +262,21 @@ public class MethodDatabase implements LoggerService {
     }
 
     public void debug(Object message) {
-		log.debug(message);
+    	if (debug) {
+			log.debug(message);
+    	}
 	}
 
 	public void debug(Object message, Throwable t) {
-		log.debug(message, t);
+		if (debug) {
+			log.debug(message, t);
+		}
 	}
 
 	public void debug(String format, Object... objects) {
-		log.debug(format, objects);
+		if (debug) {
+			log.debug(format, objects);
+		}
 	}
 
 	public void error(Object message) {

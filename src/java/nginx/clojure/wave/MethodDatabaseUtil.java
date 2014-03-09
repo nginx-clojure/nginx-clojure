@@ -26,7 +26,7 @@ public class MethodDatabaseUtil {
 	public static void load(MethodDatabase db, String resource) throws IOException {
 		InputStream in = null;
 		try {
-			in = MethodDatabaseUtil.class.getClassLoader().getResourceAsStream(resource);
+			in = Thread.currentThread().getContextClassLoader().getResourceAsStream(resource);
 			BufferedReader r = new BufferedReader(new InputStreamReader(in));
 			String l = null;
 			ClassEntry ce = null;
@@ -110,6 +110,9 @@ public class MethodDatabaseUtil {
 	}
 	
 	public static void mergeMethodsSuspendTypeFromSuper(ClassEntry ce, ClassEntry sce) {
+		if (ce == null || sce == null) {
+			return;
+		}
 		Map<String, Integer> sms = sce.getMethods();
 		for (Entry<String, Integer> me : ce.getMethods().entrySet()) {
 			Integer st = me.getValue();
@@ -131,9 +134,14 @@ public class MethodDatabaseUtil {
 			ClassEntry sce = db.getClasses().get(superName);
 			if (sce == null) {
 				CheckInstrumentationVisitor sciv = db.checkClass(superName);
-				sce = buildClassEntryFamily(db, sciv);
-				db.recordSuspendableMethods(superName, sce);
+				if (sciv == null) {
+					db.error("super class %s can not visited", superName);
+				}else {
+					sce = buildClassEntryFamily(db, sciv);
+					db.recordSuspendableMethods(superName, sce);
+				}
 			}
+			
 			mergeMethodsSuspendTypeFromSuper(ce, sce);
 		}
 		

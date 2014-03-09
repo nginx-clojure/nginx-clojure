@@ -67,6 +67,7 @@ public class Coroutine implements Runnable, Serializable {
     private final Runnable proto;
     private final Stack stack;
     private State state;
+    private int resumeCounter = 0;
     
     /**
      * Suspend the currently running Coroutine on the calling thread.
@@ -169,6 +170,7 @@ public class Coroutine implements Runnable, Serializable {
 		if(state != State.NEW && state != State.SUSPENDED) {
             throw new IllegalStateException("Not new or suspended");
         }
+		resumeCounter++;
         State result = State.FINISHED;
         Stack oldStack = Stack.getStack();
         try {
@@ -194,6 +196,10 @@ public class Coroutine implements Runnable, Serializable {
         }
         out.defaultWriteObject();
     }
+    
+    public int getResumeCounter() {
+		return resumeCounter;
+	}
     
     @SuppressWarnings("unchecked")
     private boolean isInstrumented(Runnable proto) {

@@ -20,5 +20,10 @@ class:java/util/concurrent/locks/Lock
 class:clojure/lang/IFn
 	invoke()Ljava/lang/Object;:family
 	invoke()Ljava/lang/Object;:test-type
+	
+class:java/io/InputStream
+  /read.*:just_mark
 
+class:java/io/OutputStream
+  /write.*:just_mark
 

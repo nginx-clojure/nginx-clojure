@@ -103,7 +103,7 @@ public class InstrumentMethod {
                     MethodInsnNode min = (MethodInsnNode)in;
                     int opcode = min.getOpcode();
                     Integer st = db.checkMethodSuspendType(min.owner, min.name, min.desc, opcode == Opcodes.INVOKEVIRTUAL || opcode == Opcodes.INVOKESTATIC);
-                    if(st == MethodDatabase.SUSPEND_NORMAL || st == MethodDatabase.SUSPEND_FAMILY) {
+                    if(st == MethodDatabase.SUSPEND_NORMAL || st == MethodDatabase.SUSPEND_FAMILY || st == MethodDatabase.SUSPEND_JUST_MARK) {
                         db.debug("Method call at instruction %d to %s#%s%s is suspendable", i, min.owner, min.name, min.desc);
                         FrameInfo fi = addCodeBlock(f, i);
                         splitTryCatch(fi);
@@ -129,7 +129,7 @@ public class InstrumentMethod {
     
     
     public void accept(MethodVisitor mv) {
-        db.info("Instrumenting method %s.%s%s", className, mn.name, mn.desc);
+        db.debug("Instrumenting method %s.%s%s", className, mn.name, mn.desc);
         
         mv.visitCode();
         

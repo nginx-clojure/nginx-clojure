@@ -142,7 +142,7 @@ public class TypeInterpreter extends BasicInterpreter {
                     superClass = "java/lang/Object";
                 }
                 String typeDescriptor = makeTypeDescriptor(superClass, dimensions);
-                db.info("Common super class for v=%s w=%s is %s", v, w, typeDescriptor);
+                db.debug("Common super class for v=%s w=%s is %s", v, w, typeDescriptor);
                 return new BasicValue(Type.getType(typeDescriptor));
             }
             return BasicValue.UNINITIALIZED_VALUE;

@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
+import java.net.Socket;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,6 +32,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import nginx.clojure.logger.LoggerService;
 import nginx.clojure.logger.TinyLogService;
+import nginx.clojure.net.NginxClojureSocketFactory;
 import sun.misc.Unsafe;
 import clojure.lang.IFn;
 import clojure.lang.ISeq;
@@ -58,6 +60,8 @@ public class NginxClojureRT {
 	private static ExecutorService eventDispather;
 	
 	private static CompletionService<HandlerContext> workers;
+	
+	private static boolean coroutineEnabled = false;
 	
 	private static LoggerService log;
 	
@@ -130,6 +134,34 @@ public class NginxClojureRT {
 		}
 	}
 	
+	public static final class CoroutineRunner implements Runnable {
+		
+		final LazyRequestMap request;
+		Map response;
+		final IFn handler;
+		
+		
+		public CoroutineRunner(IFn handler, LazyRequestMap request) {
+			super();
+			this.handler = handler;
+			this.request = request;
+		}
+
+		@Override
+		public void run() throws SuspendExecution {
+			try {
+				response = (Map) handler.invoke(request);
+			}catch(Throwable e) {
+				log.error("in coroutine run handler error", e);
+				completeAsyncResponse(request.r, 500);
+			}
+			
+			if (Coroutine.getActiveCoroutine().getResumeCounter() != 1) {
+				completeAsyncResponse(request.r, response);
+			}
+		}
+	}
+	
 	public static final class EventDispatherRunnable implements Runnable {
 		
 		final CompletionService<HandlerContext> workers;
@@ -161,6 +193,15 @@ public class NginxClojureRT {
 	}
 	
 	public static void initWorkers(int n) {
+		if (n == 0) {
+			coroutineEnabled = true;
+			try {
+				Socket.setSocketImplFactory(new NginxClojureSocketFactory());
+			} catch (IOException e) {
+				throw new RuntimeException("can not init NginxClojureSocketFactory!", e);
+			}
+			return;
+		}
 		if (n < 1) {
 			return;
 		}
@@ -522,8 +563,20 @@ public class NginxClojureRT {
 	public static Map handleRequest(final LazyRequestMap req) {
 		IFn f = HANDLERS.get(req.codeId);
 		try{
-			Map resp = (Map) f.invoke(req);
-			return resp;
+			
+			if (coroutineEnabled) {
+				CoroutineRunner coroutineRunner = new CoroutineRunner(f, req);
+				Coroutine coroutine = new Coroutine(coroutineRunner);
+				coroutine.resume();
+				if (coroutine.getState() == Coroutine.State.FINISHED) {
+					return coroutineRunner.response;
+				}else {
+					return ASYNC_TAG;
+				}
+			}else {
+				Map resp = (Map) f.invoke(req);
+				return resp;
+			}
 		}catch(Throwable e){
 			//log to nginx error log file
 			log.error("server unhandled exception!", e);

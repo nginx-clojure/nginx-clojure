@@ -12,7 +12,7 @@ import java.util.Set;
  */
 public class TinyLogService implements LoggerService {
 	
-	public static final String NGINX_CLOJURE_LOG_LEVEL = "NGINX_CLOJURE_LOG_LEVEL";
+	public static final String NGINX_CLOJURE_LOG_LEVEL = "nginx.clojure.logger.level";
 
 	public enum MsgType{ trace, debug,info, warn, error, fatal };
 	
