@@ -14,7 +14,7 @@
                 *assert* false}
   :java-source-paths ["src/java" "test/java"]
   :test-paths ["src/test/clojure"]
-  :javac-options ["-target" "1.6" "-source" "1.6" "-Xlint:-options"]
+  :javac-options ["-target" "1.6" "-source" "1.6" "-Xlint:-options" "-g"]
   ;; Directory in which to place AOT-compiled files. Including %s will
   ;; splice the :target-path into this value.
   :compile-path "target/classy-files"
