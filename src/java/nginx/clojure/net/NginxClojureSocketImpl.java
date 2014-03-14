@@ -45,6 +45,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 	@Override
 	public void setOption(int optID, Object v) throws SocketException {
 		checkCreatedAndNotClosed();
+		NginxClojureRT.getLog().debug("set socket options: %d, val: %s" , optID, v+"");
 		switch (optID) {
 		case SO_TIMEOUT:
 			if (v == null || !(v instanceof Integer)) {
@@ -76,7 +77,8 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
         case SO_KEEPALIVE:
         case SO_OOBINLINE:
         case SO_REUSEADDR:
-        	NginxClojureRT.getLog().warn("not supported socket options: %d, just ignored" , optID);
+        	NginxClojureRT.getLog().warn("not supported socket options: %d, val: %s just ignored" , optID, v+"");
+        	break;
         default:
             throw new SocketException("unknown TCP option: " + optID);
         }
@@ -118,12 +120,16 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		as.connect(new StringBuilder(host).append(':').append(port).toString());
 		if (!as.isConnected()) {
 			yieldFlag = YIELD_CONNECT;
+			log.debug("show connect stack trace for debug", new Exception("DEBUG USAGE"));
 			Coroutine.yield();
 		}
 	}
 
 	@Override
 	protected void connect(InetAddress address, int port) throws IOException {
+		if (log.isDebugEnabled()) {
+			log.debug("connecting to %s:%d", address.getHostAddress(), port);
+		}
 		connect(address.getHostAddress(), port);
 	}
 
@@ -282,7 +288,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 			if (off + len > b.length) {
 				throw new IndexOutOfBoundsException("buffer space is too small, off + len > b.length");
 			}
-			
+			log.debug("enter read offset %d len %d", off, len);
 			long rc = 0;
 			long c = 0;
 			do {
@@ -295,7 +301,11 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 					eof = true;
 					return (int)c;
 				}else if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
+					if (c > 0) {
+						return (int)c;
+					}
 					s.yieldFlag = YIELD_READ;
+					log.debug("yield read");
 					Coroutine.yield();
 				}else if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_READ_TIMEOUT) {
 					throw new SocketTimeoutException("socket read timeout :" + rc);
@@ -322,6 +332,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		
 		@Override
 		public void close() throws IOException {
+			log.debug("close input");
 			checkClosed();
 			closed = true;
 			s.as.shutdown(NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_READ);
@@ -353,7 +364,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 			if (off + len > b.length) {
 				throw new IndexOutOfBoundsException("buffer space is too small, off + len > b.length");
 			}
-			
+			log.debug("enter write offset %d len %d", off, len);
 			long rc = 0;
 			long c = 0;
 			do {
@@ -365,6 +376,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 					return;
 				}else if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
 					s.yieldFlag = YIELD_WRITE;
+					log.debug("yield write");
 					Coroutine.yield();
 				}else if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_READ_TIMEOUT) {
 					throw new SocketTimeoutException("socket read timeout :" + rc);
@@ -386,10 +398,9 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		@Override
 		public void close() throws IOException {
 			checkClosed();
-			log.debug("closing .......");
+			log.debug("close output");
 			closed = true;
 			s.as.shutdown(NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_WRITE);
-			log.debug("closed .......");
 		}
 	}
 }

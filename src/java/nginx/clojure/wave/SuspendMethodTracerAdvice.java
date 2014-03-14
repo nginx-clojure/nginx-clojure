@@ -5,12 +5,14 @@ import nginx.clojure.asm.commons.AdviceAdapter;
 
 public class SuspendMethodTracerAdvice extends AdviceAdapter {
 
+	protected MethodDatabase db;
 	protected String owner;
 	protected String method;
 	
-	public SuspendMethodTracerAdvice(String owner, MethodVisitor mv, int access,
+	public SuspendMethodTracerAdvice(MethodDatabase db,String owner, MethodVisitor mv, int access,
 			String name, String desc) {
 		super(ASM4, mv, access, name, desc);
+		this.db = db;
 		this.owner = owner;
 		this.method = name + desc;
 	}
