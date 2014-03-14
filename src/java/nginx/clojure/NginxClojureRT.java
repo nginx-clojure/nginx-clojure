@@ -147,6 +147,7 @@ public class NginxClojureRT {
 			this.request = request;
 		}
 
+		@SuppressWarnings("rawtypes")
 		@Override
 		public void run() throws SuspendExecution {
 			try {

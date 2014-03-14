@@ -16,6 +16,7 @@ import java.util.regex.Pattern;
 
 import nginx.clojure.asm.ClassReader;
 import nginx.clojure.wave.MethodDatabase.ClassEntry;
+import nginx.clojure.wave.MethodDatabase.LazyClassEntry;
 
 public class MethodDatabaseUtil {
 
@@ -30,11 +31,13 @@ public class MethodDatabaseUtil {
 			BufferedReader r = new BufferedReader(new InputStreamReader(in));
 			String l = null;
 			ClassEntry ce = null;
+			LazyClassEntry lce = null;
 			int lc = 0;
 			while ((l = r.readLine()) != null) {
 				lc++;
 				l = l.trim();
 				if (l.startsWith("class:")) {
+					lce = null;
 					String clz = l.substring("class:".length());
 					ce = db.getClasses().get(clz);
 					if (ce == null) {
@@ -45,10 +48,17 @@ public class MethodDatabaseUtil {
 							continue;
 						}
 					}
-				}else if (l.length() == 0 || ce == null || l.charAt(0) == '#'){
-					continue;
+				}else if (l.startsWith("lazyclass:")) {
+					String clz = l.substring("lazyclass:".length());
+					ce = null;
+					lce = db.getLazyClasses().get(clz);
+					if (lce == null) {
+						db.getLazyClasses().put(clz, lce = new LazyClassEntry(resource));
+					}
 				}else if (l.startsWith("filter:")) {
 					db.getFilters().add(l.substring("filter:".length()).trim());
+				}else if (l.length() == 0 || (ce == null && lce == null) || l.charAt(0) == '#'){
+					continue;
 				}else {
 					String[] ma = l.split(":");
 					String m = ma[0];
@@ -66,10 +76,16 @@ public class MethodDatabaseUtil {
 							st = MethodDatabase.SUSPEND_BLOCKING;
 						}else if (MethodDatabase.SUSPEND_FAMILY_STR.equals(ma[1])) {
 							st = MethodDatabase.SUSPEND_FAMILY;
+						}else if (MethodDatabase.SUSPEND_SKIP_STR.equals(ma[1])) {
+							st = MethodDatabase.SUSPEND_SKIP;
 						}else {
 							db.warn("file %s line %d : unknown suspend type: %s , we just set to 'normal'", resource , lc, ma[1]);
 							st = MethodDatabase.SUSPEND_NORMAL;
 						}
+					}
+					if (lce != null) {
+						lce.getMethods().put(m, st);
+						continue;
 					}
 					if (m.charAt(0) == '/') { // regex pattern
 						Pattern p = Pattern.compile(m.substring(1));
@@ -87,9 +103,15 @@ public class MethodDatabaseUtil {
 						db.warn("file %s line %d : unknown method: %s ,ignored", resource , lc, m);
 						continue;
 					}else {
-						ce.set(ma[0], st);
+						Integer ost = ce.getMethods().get(m);
+						if (ost == null || st.intValue() > ost.intValue()) {
+							ce.set(m, st);
+						}
 					}
 				}
+			}
+			if (db.isDebugEnabled()) {
+				MethodDatabase.getLog().debug("total filters:" + db.getFilters());
 			}
 		}finally {
 			if (in != null) {
@@ -127,8 +149,38 @@ public class MethodDatabaseUtil {
 	
 	public static ClassEntry buildClassEntryFamily(MethodDatabase db, CheckInstrumentationVisitor civ) {
 		ClassEntry ce = civ.getClassEntry();
+		String clz = civ.getName();
+		LazyClassEntry lce = db.getLazyClasses().get(clz);
+		if (lce != null) {
+			db.debug("rebuild wave info for lazy class %s", clz);
+			for (Entry<String, Integer> lme : lce.getMethods().entrySet()) {
+				String m = lme.getKey();
+				Integer st = lme.getValue();
+				if (m.charAt(0) == '/') { // regex pattern
+					Pattern p = Pattern.compile(m.substring(1));
+					boolean matched = false;
+					for (Entry<String, Integer> me : ce.getMethods().entrySet()) {
+						if (p.matcher(me.getKey()).find()) {
+							me.setValue(st);
+							matched = true;
+						}
+					}
+					if (!matched) {
+						db.warn("file %s lazy class %s: none of methods matched regex: %s ,ignored", lce.getResource() , clz, m);
+					}
+				}else if (ce.getMethods().get(m) == null) {
+					db.warn("file %s lazy class %s:  : unknown method: %s ,ignored", lce.getResource() , clz, m);
+					continue;
+				}else {
+					Integer ost = ce.getMethods().get(m);
+					if (ost == null || st.intValue() > ost.intValue()) {
+						ce.set(m, st);
+					}
+				}
+			}
+		}
 		String superName = ce.getSuperName();
-		db.recordSuspendableMethods(civ.getName(), ce);
+		db.recordSuspendableMethods(clz, ce);
 		
 		if (superName != null) {
 			ClassEntry sce = db.getClasses().get(superName);

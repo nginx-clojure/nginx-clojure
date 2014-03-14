@@ -30,6 +30,9 @@ package nginx.clojure;
 
 import java.io.Serializable;
 
+import nginx.clojure.logger.LoggerService;
+import nginx.clojure.wave.MethodDatabase;
+
 /**
  * Internal Class - DO NOT USE !
  * 
@@ -48,6 +51,8 @@ public final class Stack implements Serializable {
     public static SuspendExecution exception_instance_not_for_user_code = SuspendExecution.instance;
     
     final Coroutine co;
+    
+    private static  MethodDatabase db;
     
     private int methodTOS = -1;
     private int[] method;
@@ -81,6 +86,8 @@ public final class Stack implements Serializable {
      * @param numSlots the number of required stack slots for storing the state
      */
     public final void pushMethodAndReserveSpace(int entry, int numSlots) {
+    	
+    	
         final int methodIdx = methodTOS;
         
         if(method.length - methodIdx < 2) {
@@ -106,6 +113,9 @@ public final class Stack implements Serializable {
      * to allow the values to be GCed.
      */
     public final void popMethod() {
+    	if (db != null && db.isDebug()) {
+    		db.debug("popMethod %s", Thread.currentThread().getStackTrace()[2]);
+    	}
         int idx = methodTOS;
         method[idx] = 0;
         int oldSP = curMethodSP;
@@ -125,6 +135,9 @@ public final class Stack implements Serializable {
         int idx = methodTOS;
         curMethodSP = method[++idx];
         methodTOS = ++idx;
+    	if (db != null && db.isDebug()) {
+    		db.debug("nextMethodEntry sp=%d, tos=%d, %s", curMethodSP, methodTOS, Thread.currentThread().getStackTrace()[2]);
+    	}
         return method[idx];
     }
     
@@ -192,4 +205,8 @@ public final class Stack implements Serializable {
         
         method = Util.copyOf(method, newSize);
     }
+    
+    public static void setDb(MethodDatabase db) {
+		Stack.db = db;
+	}
 }

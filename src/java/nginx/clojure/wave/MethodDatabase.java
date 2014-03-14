@@ -34,6 +34,9 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 import nginx.clojure.SuspendExecution;
@@ -47,6 +50,7 @@ import nginx.clojure.logger.TinyLogService;
  * <p>Provides access to configuration parameters and to logging</p>
  * 
  * @author Matthias Mann
+ * @author Zhang,Yuexiang (xfeep)
  */
 public class MethodDatabase implements LoggerService {
 	
@@ -56,6 +60,7 @@ public class MethodDatabase implements LoggerService {
 	public static final String SUSPEND_JUST_MARK_STR = "just_mark";
 	public static final String SUSPEND_NORMAL_STR = "normal";
 	public static final String SUSPEND_FAMILY_STR = "family";
+	public static final String SUSPEND_SKIP_STR = "skip";
 	
 	public static final Integer SUSPEND_NONE = 0;
 	public static final Integer SUSPEND_BLOCKING = 1;
@@ -68,6 +73,7 @@ public class MethodDatabase implements LoggerService {
 	public static final Integer SUSPEND_JUST_MARK = 3;
 	public static final Integer SUSPEND_NORMAL = 4;
 	public static final Integer SUSPEND_FAMILY = 5;
+	public static final Integer SUSPEND_SKIP = 6;
 	
 	public static final String EXCEPTION_NAME = Type.getInternalName(SuspendExecution.class);
 	public static final String EXCEPTION_DESC = Type.getDescriptor(SuspendExecution.class);
@@ -75,15 +81,21 @@ public class MethodDatabase implements LoggerService {
     private final ClassLoader cl;
     private final ConcurrentHashMap<String, ClassEntry> classes;
     private final ConcurrentHashMap<String, String> superClasses;
+    
+    private final ConcurrentHashMap<String, LazyClassEntry> lazyClasses;
+    
     private final ArrayList<File> workList;
     private final ArrayList<String> filters;
     
-    private LoggerService log;
+    private static LoggerService log;
     private boolean verbose;
     private boolean debug;
+    private boolean dump;
     private boolean allowMonitors;
     private boolean allowBlocking;
     private boolean allowOutofCoroutine = true;
+    
+    private String dumpDir;
     
     public MethodDatabase(ClassLoader classloader) {
         if(classloader == null) {
@@ -94,9 +106,10 @@ public class MethodDatabase implements LoggerService {
         
         classes = new ConcurrentHashMap<String, ClassEntry>();
         superClasses = new ConcurrentHashMap<String, String>();
+        lazyClasses = new ConcurrentHashMap<String, LazyClassEntry>();
         workList = new ArrayList<File>();
         filters = new ArrayList<String>();
-        log = new TinyLogService(TinyLogService.getSystemPropertyOrDefaultLevel(), System.err, System.err);
+        getLog();
     }
 
     public boolean isAllowMonitors() {
@@ -127,12 +140,19 @@ public class MethodDatabase implements LoggerService {
 		return classes;
 	}
     
-    public LoggerService getLog() {
+    public ConcurrentHashMap<String, LazyClassEntry> getLazyClasses() {
+		return lazyClasses;
+	}
+    
+    public static LoggerService getLog() {
+        if (log == null) {
+        	log = new TinyLogService(TinyLogService.getSystemPropertyOrDefaultLevel(), System.err, System.err);
+        }
         return log;
     }
 
-    public void setLog(LoggerService log) {
-        this.log = log;
+    public  static void setLog(LoggerService log) {
+        MethodDatabase.log = log;
     }
 
     public boolean isVerbose() {
@@ -144,6 +164,22 @@ public class MethodDatabase implements LoggerService {
         
     }
 
+    public boolean isDump() {
+		return dump;
+	}
+    
+    public void setDump(boolean dump) {
+		this.dump = dump;
+	}
+    
+    public String getDumpDir() {
+		return dumpDir;
+	}
+    
+    public void setDumpDir(String dumpDir) {
+		this.dumpDir = dumpDir;
+	}
+    
     public boolean isDebug() {
         return debug;
     }
@@ -188,6 +224,34 @@ public class MethodDatabase implements LoggerService {
 		return filters;
 	}
     
+    protected Integer checkMethodFamilySuspendType(ClassEntry ce, String fullname) {
+    	Integer st = ce.check(fullname);
+    	Integer fst = st;
+    	if (st == null || st == SUSPEND_NONE) {
+    		if (ce.getSuperName() != null) {
+    			ClassEntry sce = classes.get(ce.getSuperName());
+        		if (sce != null) {
+        			st = checkMethodFamilySuspendType(sce, fullname);
+        		}
+        		if (st != null && (fst == null || fst == SUSPEND_NONE)) {
+            		fst = st;
+            	}
+    		}
+    		if ((st == null || st == SUSPEND_NONE) && ce.interfaces != null) {
+    			for (String itf : ce.interfaces) {
+    				ClassEntry sce = classes.get(itf);
+    				if (sce != null) {
+    					st = checkMethodFamilySuspendType(sce, fullname);
+    					if (st != null && (fst == null || fst == SUSPEND_NONE)) {
+    		        		fst = st;
+    		        	}
+    				}
+    			}
+    		}
+    	}
+        return st == null ? fst : st;
+    }
+    
     public Integer checkMethodSuspendType(String className, String methodName, String methodDesc, boolean searchSuperClass) {
         if(methodName.charAt(0) == '<') {
             return SUSPEND_NONE;   // special methods are never suspendable
@@ -196,33 +260,24 @@ public class MethodDatabase implements LoggerService {
 //        if(isJavaCore(className)) {
 //            return SUSPEND_NONE;
 //        }
-        
+        String fullname = ClassEntry.key(methodName, methodDesc);
         ClassEntry ce = MethodDatabaseUtil.buildClassEntryFamily(this, className);
         if (ce == null) {
         	warn("not found class - assuming suspendable: %s#%s%s", className, methodName, methodDesc);
         	return SUSPEND_NORMAL;
         }
-        
         Integer st = null;
-        Integer fst = null;
-        
-        while ((st == null || st == SUSPEND_NONE) && ce != null) {
-        	st = ce.check(methodName, methodDesc);
-        	if (st != null && (fst == null || fst == SUSPEND_NONE)) {
-        		fst = st;
-        	}
-        	if (ce.superName != null) {
-        		ce = classes.get(ce.getSuperName());
-        	}else {
-        		ce = null;
-        	}
+        if (searchSuperClass) {
+        	st =  checkMethodFamilySuspendType(ce, fullname);
+        }else {
+        	st = ce.check(fullname);
         }
-        
-        if (fst == null) {
+       
+        if (st == null) {
         	 warn("Method not found in class - assuming suspendable: %s#%s%s", className, methodName, methodDesc);
              return SUSPEND_NORMAL;
         }
-        return st == null ? fst : st;
+        return st;
     }
 
 
@@ -516,6 +571,20 @@ public class MethodDatabase implements LoggerService {
     private static final ClassEntry CLASS_NOT_FOUND = new ClassEntry("<class not found>", new String[0]);
 
     
+    public static final class LazyClassEntry {
+    	private final LinkedHashMap<String, Integer> methods = new LinkedHashMap<String, Integer>();
+    	private final String resource;
+    	public LazyClassEntry(String resource) {
+    		this.resource = resource;
+		}
+    	public LinkedHashMap<String, Integer> getMethods() {
+			return methods;
+		}
+    	public String getResource() {
+			return resource;
+		}
+    }
+    
     public static final class ClassEntry {
     	
 
@@ -554,6 +623,10 @@ public class MethodDatabase implements LoggerService {
         public Integer check(String name, String desc) {
             return methods.get(key(name, desc));
         }
+        
+        public Integer check(String fullname) {
+            return methods.get(fullname);
+        }
 
         @Override
         public int hashCode() {
@@ -569,9 +642,10 @@ public class MethodDatabase implements LoggerService {
             return (superName == other.superName || superName != null && superName.equals(other.superName)) && methods.equals(other.methods);
         }
         
-        private static String key(String methodName, String methodDesc) {
+        public static String key(String methodName, String methodDesc) {
             return methodName.concat(methodDesc);
         }
+        
     }
 
 }

@@ -104,19 +104,19 @@ public class TypeInterpreter extends BasicInterpreter {
                 Type typeV = v.getType();
                 Type typeW = w.getType();
                 if(typeV.getSort() != typeW.getSort()) {
-                    db.debug("Array and none array type can't be merged: %s %s", v, w);
+                    db.trace("Array and none array type can't be merged: %s %s", v, w);
                     return BasicValue.UNINITIALIZED_VALUE;
                 }
                 if(typeW.getSort() == Type.ARRAY) {
                     dimensions = typeV.getDimensions();
                     if(dimensions != typeW.getDimensions()) {
-                        db.debug("Arrays with different dimensions can't be merged: %s %s", v, w);
+                        db.trace("Arrays with different dimensions can't be merged: %s %s", v, w);
                         return BasicValue.UNINITIALIZED_VALUE;
                     }
                     typeV = typeV.getElementType();
                     typeW = typeW.getElementType();
                     if(typeV.getSort() != Type.OBJECT || typeW.getSort() != Type.OBJECT) {
-                        db.debug("Arrays of different primitive type can't be merged: %s %s", v, w);
+                        db.trace("Arrays of different primitive type can't be merged: %s %s", v, w);
                         return BasicValue.UNINITIALIZED_VALUE;
                     }
                 }
@@ -142,7 +142,7 @@ public class TypeInterpreter extends BasicInterpreter {
                     superClass = "java/lang/Object";
                 }
                 String typeDescriptor = makeTypeDescriptor(superClass, dimensions);
-                db.debug("Common super class for v=%s w=%s is %s", v, w, typeDescriptor);
+                db.trace("Common super class for v=%s w=%s is %s", v, w, typeDescriptor);
                 return new BasicValue(Type.getType(typeDescriptor));
             }
             return BasicValue.UNINITIALIZED_VALUE;

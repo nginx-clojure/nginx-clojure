@@ -62,15 +62,18 @@
 package nginx.clojure.wave;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.RandomAccessFile;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
 import java.security.ProtectionDomain;
 
 import nginx.clojure.NginxClojureRT;
+import nginx.clojure.Stack;
 import nginx.clojure.asm.ClassReader;
 import nginx.clojure.asm.ClassVisitor;
 import nginx.clojure.asm.ClassWriter;
@@ -85,6 +88,7 @@ import nginx.clojure.wave.MethodDatabase.ClassEntry;
  *
  * @author Riven
  * @author Matthias Mann
+ * @author Zhang,Yuexing (xfeep)
  */
 public class JavaAgent {
     public static void premain(String agentArguments, Instrumentation instrumentation) {
@@ -121,8 +125,11 @@ public class JavaAgent {
                     case 'a':
                     	append = true;
                     	break;
+                    case 'p' :
+                    	db.setDump(true);
+                    	break;
                     default:
-                        throw new IllegalStateException("Usage: vdmc (verbose, debug, allow monitors, check class)");
+                        throw new IllegalStateException("Usage: vdmcbtap (Verbose, Debug, allow Monitors, Check class, allow Blocking, run configuration generation Tool,  Append result, dumP waved class)");
                 }
             }
         }
@@ -130,6 +137,17 @@ public class JavaAgent {
         if (NginxClojureRT.getLog() != null) {
         	db.setLog(NginxClojureRT.getLog());
         }
+        
+        if (db.isDump()) {
+            if (System.getProperty("nginx.clojure.wave.dumpdir") != null) {
+            	db.setDumpDir(System.getProperty("nginx.clojure.wave.dumpdir"));
+            }else {
+            	db.setDumpDir(System.getProperty("java.io.tmpdir") + "/nginx-clojure-wave-dump");
+            }
+        }
+
+        
+        Stack.setDb(db);
         
         if (runTool) {
         	SuspendMethodTracer.db = db;
@@ -146,6 +164,10 @@ public class JavaAgent {
         ClassWriter cw = new DBClassWriter(db, r);
         ClassVisitor cv = check ? new CheckClassAdapter(cw) : cw;
         ClassEntry ce = MethodDatabaseUtil.buildClassEntryFamily(db, r);
+        if(db.shouldIgnore(r.getClassName())) {
+            return null;
+        }
+        db.trace("TRANSFORM: %s", r.getClassName());
         InstrumentClass ic = new InstrumentClass(r.getClassName(), ce, cv, db, false);
         r.accept(ic, ClassReader.SKIP_FRAMES);
         return cw.toByteArray();
@@ -167,7 +189,7 @@ public class JavaAgent {
 			}
             String udfs = System.getProperty("nginx.clojure.wave.udfs");
 			if (udfs != null) {
-				for (String udf : udfs.split(",")) {
+				for (String udf : udfs.split(",|;")) {
 					try {
 						db.debug("load use defined coroutine wave file %s", udf);
 						MethodDatabaseUtil.load(db, udf);
@@ -181,19 +203,39 @@ public class JavaAgent {
         @Override
         public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined,
                 ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
-            if(db.shouldIgnore(className)) {
-                return null;
-            }
-
-            db.debug("TRANSFORM: %s", className);
 
             try {
-                return instrumentClass(db, classfileBuffer, check);
+                byte[] bs = instrumentClass(db, classfileBuffer, check);
+                if (db.isDump() && bs != null && bs.length != classfileBuffer.length) {
+                	File wavedFile = new File(new File(db.getDumpDir() + "/waved"), className + ".class");
+                	wavedFile.getParentFile().mkdirs();
+                	dumpClass(bs, wavedFile);
+                }
+                return bs;
             } catch(Exception ex) {
+            	if (db.isDump()){
+            		File errDumpFile = new File(new File(db.getDumpDir() + "/failed"), className + ".class");
+            		errDumpFile.getParentFile().mkdirs();
+            		dumpClass(classfileBuffer, errDumpFile);
+            	}
                 db.error("Unable to instrument:" + className, ex);
                 return null;
             }
+            
         }
+
+		public void dumpClass(byte[] classfileBuffer, File df)  {
+			try{
+				RandomAccessFile raf = new RandomAccessFile(df, "rw");
+				raf.setLength(0);
+				raf.write(classfileBuffer, 0, classfileBuffer.length);
+				raf.close();
+			}catch(IOException e) {
+				e.printStackTrace();
+				db.error("dump file : " + df.getName(), e);
+			}
+
+		}
     }
     
     public static class CoroutineConfigurationToolWaver implements ClassFileTransformer {
@@ -278,7 +320,7 @@ public class JavaAgent {
 							db.debug("skip native or abstract method: %s.%s%s", className, name, desc);
 							return mv;
 						}
-						return new SuspendMethodTracerAdvice(className, mv, access, name, desc);
+						return new SuspendMethodTracerAdvice(db, className, mv, access, name, desc);
 					}
 				};
 

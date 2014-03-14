@@ -16,8 +16,15 @@ class:java/util/concurrent/locks/Lock
 	
 class:clojure/lang/IFn
 	/invoke.*:family
+	/applyToHelper.*|applyTo.*:none
+
+class:clojure/lang/AFn
+  /applyToHelper.*|applyTo.*:none	
 
 class:java/net/Socket
+  /connect.*:normal
+  
+class:java/net/SocketImpl
   /connect.*:normal
 	
 class:java/io/InputStream
@@ -31,7 +38,6 @@ class:nginx/clojure/net/NginxClojureSocketImpl
 
 class:nginx/clojure/net/NginxClojureSocketImpl$SocketInputStream
   /read.*
-  /skip.*
 
 
 class:nginx/clojure/net/NginxClojureSocketImpl$SocketOutputStream
@@ -43,6 +49,6 @@ filter:nginx/clojure/asm/
 filter:sun/
 filter:com/sun/
 filter:clojure/asm
-filter:clojure/lang
-filter:clojure/core
+#filter:clojure/lang/RestFn
+#filter:clojure/core$apply
 filter:org/junit

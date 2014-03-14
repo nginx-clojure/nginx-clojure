@@ -32,6 +32,8 @@ package nginx.clojure;
 import java.io.IOException;
 import java.io.Serializable;
 
+import clojure.lang.IFn;
+
 /**
  * <p>A Coroutine is used to run a CoroutineProto.</p>
  * <p>It also provides a function to suspend a running Coroutine.</p>
@@ -177,7 +179,11 @@ public class Coroutine implements Runnable, Serializable {
             state = State.RUNNING;
             Stack.setStack(stack);
             try {
-                proto.run();
+            	if (proto instanceof IFn) {
+            		((IFn)proto).invoke();
+            	}else {
+            		proto.run();
+            	}
             } catch (SuspendExecution ex) {
                 assert ex == SuspendExecution.instance;
                 result = State.SUSPENDED;

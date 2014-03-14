@@ -38,6 +38,7 @@ import nginx.clojure.asm.ClassVisitor;
 import nginx.clojure.asm.MethodVisitor;
 import nginx.clojure.asm.Opcodes;
 import nginx.clojure.asm.Type;
+import nginx.clojure.asm.commons.JSRInlinerAdapter;
 import nginx.clojure.asm.tree.MethodNode;
 import nginx.clojure.asm.tree.analysis.AnalyzerException;
 import nginx.clojure.wave.MethodDatabase.ClassEntry;
@@ -91,7 +92,7 @@ public class InstrumentClass extends ClassVisitor {
         
         if((suspendType == MethodDatabase.SUSPEND_NORMAL || suspendType == MethodDatabase.SUSPEND_FAMILY) && checkAccess(access) && !(className.equals(COROUTINE_NAME) && name.equals("yield"))) {
             if(db.isDebug()) {
-                db.info("Instrumenting method %s#%s", className, name);
+                db.trace("Instrumenting method %s#%s", className, name);
             }
             
             if(methods == null) {
@@ -106,7 +107,6 @@ public class InstrumentClass extends ClassVisitor {
     }
 
     @Override
-    @SuppressWarnings("CallToThreadDumpStack")
     public void visitEnd() {
         db.recordSuspendableMethods(className, classEntry);
         
@@ -143,7 +143,8 @@ public class InstrumentClass extends ClassVisitor {
     }
 
     private MethodVisitor makeOutMV(MethodNode mn) {
-        return super.visitMethod(mn.access, mn.name, mn.desc, mn.signature, toStringArray(mn.exceptions));
+    	String[] exps = toStringArray(mn.exceptions);
+    	return new JSRInlinerAdapter(super.visitMethod(mn.access, mn.name, mn.desc, mn.signature, exps), mn.access, mn.name, mn.desc, mn.signature, exps);
     }
 
     private static boolean checkAccess(int access) {

@@ -21,7 +21,7 @@
   ;; Leave the contents of :source-paths out of jars (for AOT projects).
   :omit-source false
   :junit ["test/java"]
-  :jar-exclusions [#"^test" #"\.java$" #"Test.*class$"]
+  :jar-exclusions [#"^test" #"\.java$" #"Test.*class$" #".*for_test.clj$"]
   :uberjar-exclusions [#"^test" #"\.java$"]
   :manifest {"Premain-Class" "nginx.clojure.wave.JavaAgent"
              "Can-Redefine-Classes" "true"
@@ -30,10 +30,10 @@
                                   [ring/ring-core "1.2.1"]
                                   [compojure "1.1.6"]
                                   [clj-http "0.7.8"]
-                                  [junit/junit "4.10"]
+                                  [junit/junit "4.11"]
                                   ]}
              :coroutine-test {:jvm-opts ["-javaagent:target/nginx-clojure-0.2.0.jar"] 
-                              :dependencies [[junit/junit "4.10"]]}
+                              :dependencies [[junit/junit "4.11"]]}
              :1.4 {:dependencies [[org.clojure/clojure "1.4.0"]]}
              :1.5 {:dependencies [[org.clojure/clojure "1.5.0"]]}
              })
