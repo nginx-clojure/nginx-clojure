@@ -24,3 +24,19 @@
   (doseq [i (range 3)]
     (apply echo-out-of-coroutine [ma i])
     ))
+
+(defn coadd [a b]
+  ;(.printStackTrace (Exception. "debug usage================="))
+  (Coroutine/yield)
+  (println "a=" a, "b=" b)
+  (+ a b))
+
+(defn coduce [c]
+  (reduce coadd c))
+
+(defn co [c, ma]
+  (Coroutine. (fn []
+    (.add ma (coduce c)))))
+
+(defn coreduce-test [ma]
+  (co [1 3 5 7 9] ma))

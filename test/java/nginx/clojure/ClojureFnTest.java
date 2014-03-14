@@ -81,4 +81,19 @@ public class ClojureFnTest {
 	}
 	
 
+	@Test
+	public void testReduce() {
+		for (int k = 0; k < 10; k++) {
+			RT.var("clojure.core", "require").invoke(Symbol.create("nginx.clojure.fns-for-test"));
+//			System.out.println("rq cl :" + rq.getClass().getClassLoader());
+			final IFn  fn = (IFn)RT.var("nginx.clojure.fns-for-test", "coreduce-test").fn();
+			ArrayList<Long> ma = new ArrayList<Long>();
+			Coroutine cr = (Coroutine)fn.invoke(ma);
+			cr.resume();
+			for (int i = 0; i < 4; i++) {
+				cr.resume();
+			}
+			assertEquals(25L, (Number)ma.get(0));
+		}
+	}
 }
