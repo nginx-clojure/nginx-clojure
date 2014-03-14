@@ -58,6 +58,7 @@ For Win32 users MUST check out nginx source by hg because the zipped source does
 
 	```bash
 	$ cd nginx-clojure
+	$ lein javac
 	$ lein jar
 	```
 	Then you'll find nginx-clojure-${version}.jar (eg. nginx-clojure-0.1.0.jar) in the target folder.
