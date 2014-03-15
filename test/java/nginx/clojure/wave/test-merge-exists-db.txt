@@ -1,0 +1,17 @@
+####comment*****************
+
+class:my/notfound/class
+	test()V:normal
+	test2()V:normal
+
+###comment-----------------
+	
+lazyclass:java/net/SocketInputStream
+  read([B)I:normal
+  read([BII)I:normal
+
+lazyclass:org/apache/http/io/SessionInputBuffer
+#mark from sub org/apache/http/impl/io/AbstractSessionInputBuffer
+  read([BII)I:just_mark
+#mark from sub org/apache/http/impl/io/AbstractSessionInputBuffer
+  readLine(Lorg/apache/http/util/CharArrayBuffer;)I:just_mark
