@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.regex.Pattern;
 
+import nginx.clojure.Constants;
 import nginx.clojure.asm.ClassReader;
 import nginx.clojure.wave.MethodDatabase.ClassEntry;
 import nginx.clojure.wave.MethodDatabase.LazyClassEntry;
@@ -28,7 +29,7 @@ public class MethodDatabaseUtil {
 		InputStream in = null;
 		try {
 			in = Thread.currentThread().getContextClassLoader().getResourceAsStream(resource);
-			BufferedReader r = new BufferedReader(new InputStreamReader(in));
+			BufferedReader r = new BufferedReader(new InputStreamReader(in, Constants.DEFAULT_ENCODING));
 			String l = null;
 			ClassEntry ce = null;
 			LazyClassEntry lce = null;
