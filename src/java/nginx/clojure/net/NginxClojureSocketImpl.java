@@ -120,7 +120,9 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		as.connect(new StringBuilder(host).append(':').append(port).toString());
 		if (!as.isConnected()) {
 			yieldFlag = YIELD_CONNECT;
-			log.debug("show connect stack trace for debug", new Exception("DEBUG USAGE"));
+			if (log.isDebugEnabled()) {
+				log.debug("show connect stack trace for debug", new Exception("DEBUG USAGE"));
+			}
 			Coroutine.yield();
 		}
 	}
