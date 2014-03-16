@@ -3,7 +3,6 @@ package nginx.clojure.wave;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,7 +10,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,11 +18,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-import nginx.clojure.Constants;
 import nginx.clojure.wave.MethodDatabase.ClassEntry;
 
 
@@ -43,11 +38,18 @@ public class SuspendMethodTracer {
 			this.owner = owner;
 			this.method = method;
 		}
+		
+		@Override
+		public String toString() {
+			return owner + "." + method;
+		}
 	}
 
 	protected static ThreadLocal<ArrayList<MethodInfo> > tracerStacks = new ThreadLocal<ArrayList<MethodInfo>>();
 	
-	protected static AtomicBoolean dumping = new AtomicBoolean(false);
+	protected static ConcurrentHashMap<Long, ArrayList<MethodInfo>> threadTraceStacks = new ConcurrentHashMap<Long, ArrayList<MethodInfo>>();
+	
+	protected static ThreadLocal<Boolean> quiteFlags = new ThreadLocal<Boolean>();
 	
 	protected static MethodDatabase db;
 	
@@ -55,7 +57,10 @@ public class SuspendMethodTracer {
 		ArrayList<MethodInfo> stack = tracerStacks.get();
 		if (stack == null) {
 			tracerStacks.set(stack = new ArrayList<MethodInfo>());
+			threadTraceStacks.put(Thread.currentThread().getId(), stack);
+			quiteFlags.set(false);
 		}
+		assert stack == threadTraceStacks.get(Thread.currentThread().getId());
 		return stack;
 	}
 	
@@ -164,7 +169,7 @@ public class SuspendMethodTracer {
 		
 		{
 			Set<String> coroutineMethods = new HashSet<String>();
-			coroutineMethods.add("yield()V");
+			coroutineMethods.add("yieldp()V");
 			SUSPEND_CAUSE_SET.put("nginx/clojure/Coroutine", coroutineMethods);
 		}
 	}
@@ -175,10 +180,19 @@ public class SuspendMethodTracer {
 	}
 	
 	public static void enter(String owner, String method) {
-		if (dumping.get()) {
+		ArrayList<MethodInfo> stack = fetchStack();
+		if (quiteFlags.get()) {
 			return;
 		}
-		ArrayList<MethodInfo> stack = fetchStack();
+		if (db != null) {
+			quiteFlags.set(true);
+			if (db.meetTraceTargetClassMethod(owner, method)) {
+				db.info("enter %s.%s", owner, method);
+			}else {
+				db.debug("enter %s.%s", owner, method);
+			}
+			quiteFlags.set(false);
+		}
 		if (isSuspend(owner, method)) {
 			for (int i = stack.size() - 1; i > -1;  i--) {
 				MethodInfo mi = stack.get(i);
@@ -204,12 +218,31 @@ public class SuspendMethodTracer {
 		stack.add(new MethodInfo(owner, method));
 	}
 	
-	public static void leave() {
-		if (dumping.get()) {
+	public static void leave(String owner, String method) {
+		if (quiteFlags.get()) {
 			return;
 		}
+		if (db != null) {
+			quiteFlags.set(true);
+			if (db.meetTraceTargetClassMethod(owner, method)) {
+				db.info("leave %s.%s", owner, method);
+			}else {
+				db.debug("leave %s.%s", owner, method);
+			}
+			quiteFlags.set(false);
+		}
 		ArrayList<MethodInfo> stack = fetchStack();
-		stack.remove(stack.size() - 1);
+		MethodInfo mi = stack.get(stack.size() - 1);
+		if (!mi.owner.equals(owner) || !mi.method.equals(method)) {
+			if (db != null){
+				quiteFlags.set(true);
+				db.error("Thread #%d, leave != enter %s.%s != %s.%s", Thread.currentThread().getId(),  owner, method, mi.owner, mi.method);
+				db.error("thread list: %s", threadTraceStacks.keySet().toString());
+				quiteFlags.set(false);
+			}
+		}else {
+			stack.remove(stack.size() - 1);
+		}
 	}
 	
 	public static void markSuper(String clz, Set<String> methods, Map<String, TreeMap<String, String>> upperMarks) {
@@ -249,7 +282,7 @@ public class SuspendMethodTracer {
 
 		BufferedReader r = null;
 		try{
-			r = new BufferedReader(new InputStreamReader(in, Constants.DEFAULT_ENCODING));
+			r = new BufferedReader(new InputStreamReader(in, MethodDatabase.UTF_8));
 			String line;
 			String lastLine = null;
 			String clz = null;
@@ -268,7 +301,9 @@ public class SuspendMethodTracer {
 					String[] md = line.split(":");
 					if (clz == null) {
 						if (db != null) {
+							quiteFlags.set(true);
 							db.error("line:%d, method %s without class defined before", lc, md[0]);
+							quiteFlags.set(false);
 						}
 						lastLine = line;
 						continue;
@@ -307,46 +342,47 @@ public class SuspendMethodTracer {
 	}
 	
 	public static void dump(String path, boolean append) throws IOException {
-		dumping.set(true);
+		quiteFlags.set(true);
 		Map<String, TreeMap<String, String>> upperMarks = new TreeMap<String, TreeMap<String, String>>();
 		
 		if (append) {
 			load(path, SUSPEND_INFO_RESULTS, upperMarks);
 		}
 		
-		PrintWriter writer = new PrintWriter(new OutputStreamWriter(new FileOutputStream(new File(path), append), Constants.DEFAULT_ENCODING));
+		PrintWriter writer = new PrintWriter(new OutputStreamWriter(new FileOutputStream(new File(path)), MethodDatabase.UTF_8));
 		writer.printf("############Generated By Nginx-Clojure SuspendMethodTracer %1$tY-%1$tm-%1$td ##############\r\n", new Date());
-		
-		for (Entry<String, ConcurrentHashMap<String,Object>> en : new TreeMap<String, ConcurrentHashMap<String,Object>>(SUSPEND_INFO_RESULTS).entrySet()) {
-			writer.printf("lazyclass:%s\r\n", en.getKey());
-			markSuper(en.getKey(), en.getValue().keySet(), upperMarks);
-			for (Entry<String, Object> me : new TreeMap<String, Object>(en.getValue()).entrySet()) {
-				writer.printf("  %s:normal\r\n", me.getKey());
-				
-				if (db != null && db.isDebug() && "" != me.getValue()) {
-					writer.printf("#from trace:---------------------------------------\r\n");
-					Object[] dinfo = (Object[])me.getValue();
-					for (StackTraceElement se : (StackTraceElement[])dinfo[0]) {
-						writer.printf("####%s.%s(%s:%s)\r\n", se.getClassName(), se.getMethodName(), se.getFileName(), se.getLineNumber());
-					}
-					for (MethodInfo mi : (List<MethodInfo>) dinfo[1]) {
-						writer.printf("#--->%s.%s\r\n", mi.owner, mi.method);
+		try {
+			for (Entry<String, ConcurrentHashMap<String,Object>> en : new TreeMap<String, ConcurrentHashMap<String,Object>>(SUSPEND_INFO_RESULTS).entrySet()) {
+				writer.printf("lazyclass:%s\r\n", en.getKey());
+				markSuper(en.getKey(), en.getValue().keySet(), upperMarks);
+				for (Entry<String, Object> me : new TreeMap<String, Object>(en.getValue()).entrySet()) {
+					writer.printf("  %s:normal\r\n", me.getKey());
+					
+					if (db != null && db.isDebug() && "" != me.getValue()) {
+						writer.printf("#from trace:---------------------------------------\r\n");
+						Object[] dinfo = (Object[])me.getValue();
+						for (StackTraceElement se : (StackTraceElement[])dinfo[0]) {
+							writer.printf("####%s.%s(%s:%s)\r\n", se.getClassName(), se.getMethodName(), se.getFileName(), se.getLineNumber());
+						}
+						for (MethodInfo mi : (List<MethodInfo>) dinfo[1]) {
+							writer.printf("#--->%s.%s\r\n", mi.owner, mi.method);
+						}
 					}
 				}
+				writer.printf("\r\n");
 			}
-			writer.printf("\r\n");
-		}
-		
-		for (Entry<String, TreeMap<String, String>> umen : upperMarks.entrySet()) {
-			writer.printf("lazyclass:%s\r\n", umen.getKey());
-			for (Entry<String, String> me : umen.getValue().entrySet()) {
-				writer.printf("#mark from sub %s\r\n", me.getValue());
-				writer.printf("  %s:just_mark\r\n", me.getKey());
+			
+			for (Entry<String, TreeMap<String, String>> umen : upperMarks.entrySet()) {
+				writer.printf("lazyclass:%s\r\n", umen.getKey());
+				for (Entry<String, String> me : umen.getValue().entrySet()) {
+					writer.printf("#mark from sub %s\r\n", me.getValue());
+					writer.printf("  %s:just_mark\r\n", me.getKey());
+				}
+				writer.printf("\r\n");
 			}
-			writer.printf("\r\n");
+		}finally{
+			writer.close();
 		}
-		
-		writer.close();
 	}
 
 }

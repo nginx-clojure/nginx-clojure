@@ -32,7 +32,6 @@ package nginx.clojure.wave;
 import java.util.ArrayList;
 import java.util.List;
 
-import nginx.clojure.Coroutine;
 import nginx.clojure.asm.AnnotationVisitor;
 import nginx.clojure.asm.ClassVisitor;
 import nginx.clojure.asm.MethodVisitor;
@@ -50,7 +49,7 @@ import nginx.clojure.wave.MethodDatabase.ClassEntry;
  */
 public class InstrumentClass extends ClassVisitor {
 
-    static final String COROUTINE_NAME = Type.getInternalName(Coroutine.class);
+    static final String COROUTINE_NAME = "nginx/clojure/Coroutine";
     static final String ALREADY_INSTRUMENTED_NAME = Type.getDescriptor(AlreadyInstrumented.class);
     
     private final MethodDatabase db;
@@ -90,7 +89,11 @@ public class InstrumentClass extends ClassVisitor {
     public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
     	Integer suspendType = db.checkMethodSuspendType(className, name, desc, true);
         
-        if((suspendType == MethodDatabase.SUSPEND_NORMAL || suspendType == MethodDatabase.SUSPEND_FAMILY) && checkAccess(access) && !(className.equals(COROUTINE_NAME) && name.equals("yield"))) {
+        if((suspendType == MethodDatabase.SUSPEND_NORMAL 
+//Now for less boot cost we don't wave those class just mark  SUSPEND_FAMILY        		
+//        		|| suspendType == MethodDatabase.SUSPEND_FAMILY
+        		) 
+        		&& checkAccess(access) && !(className.equals(COROUTINE_NAME) && name.equals("yield"))) {
             if(db.isDebug()) {
                 db.trace("Instrumenting method %s#%s", className, name);
             }

@@ -1,7 +1,6 @@
 package nginx.clojure.logger;
 
 import java.io.PrintStream;
-import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashSet;
@@ -28,7 +27,12 @@ public class TinyLogService implements LoggerService {
 	
 	protected PrintStream out;
 	protected PrintStream err;
+	protected boolean showMethod = false;
 	
+	
+	public static TinyLogService createDefaultTinyLogService() {
+		return new TinyLogService(TinyLogService.getSystemPropertyOrDefaultLevel(), System.err, System.err);
+	}
 	
 	public static MsgType getSystemPropertyOrDefaultLevel() {
 		String l = System.getProperty(NGINX_CLOJURE_LOG_LEVEL);
@@ -118,21 +122,24 @@ public class TinyLogService implements LoggerService {
 		}
 		SimpleDateFormat sf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 		StringBuffer s = new StringBuffer();
-		StackTraceElement se = null;
-		boolean meetCurrentMethod = false;
-		for (StackTraceElement si : Thread.currentThread().getStackTrace()){
-			if (si.getClassName().equals(TinyLogService.class.getName()) || LOG_METHODS.contains(si.getMethodName())){
-				meetCurrentMethod = true;
-				continue;
+		s.append(sf.format(new Date())).append("[").append(type).append("]:");
+		
+		if (showMethod) {
+			StackTraceElement se = null;
+			boolean meetCurrentMethod = false;
+			for (StackTraceElement si : Thread.currentThread().getStackTrace()){
+				if (si.getClassName().equals(TinyLogService.class.getName()) || LOG_METHODS.contains(si.getMethodName())){
+					meetCurrentMethod = true;
+					continue;
+				}
+				if (meetCurrentMethod){
+					se = si;
+					break;
+				}
 			}
-			if (meetCurrentMethod){
-				se = si;
-				break;
-			}
+			s.append("[").append(se.getClassName()).append(".").append(se.getMethodName()).append("]:");
 		}
-		s.append(sf.format(new Date())).append("[").append(type).append("]:")
-		.append("[").append(se.getClassName()).append(".").append(se.getMethodName()).append("]:")
-		.append(message);
+		s.append(message);
 		PrintStream out = this.out;
 		if (type != MsgType.debug && type != MsgType.info){
 			out = this.err;
@@ -245,6 +252,12 @@ public class TinyLogService implements LoggerService {
 		this.err = err;
 	}
 	
+	public void setShowMethod(boolean showMethod) {
+		this.showMethod = showMethod;
+	}
 	
+	public boolean isShowMethod() {
+		return showMethod;
+	}
 
 }

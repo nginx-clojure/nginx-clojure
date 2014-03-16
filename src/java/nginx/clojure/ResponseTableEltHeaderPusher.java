@@ -5,9 +5,7 @@
 package nginx.clojure;
 
 import static nginx.clojure.Constants.DEFAULT_ENCODING;
-import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
-import static nginx.clojure.NginxClojureRT.pushNGXString;
 
 public class ResponseTableEltHeaderPusher implements ResponseHeaderPusher {
 

@@ -30,7 +30,6 @@ package nginx.clojure;
 
 import java.io.Serializable;
 
-import nginx.clojure.logger.LoggerService;
 import nginx.clojure.wave.MethodDatabase;
 
 /**

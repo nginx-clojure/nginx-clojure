@@ -4,12 +4,18 @@
  */
 package nginx.clojure;
 
+import static nginx.clojure.Constants.CORE_VARS;
+import static nginx.clojure.Constants.DEFAULT_ENCODING;
+import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_REQ_POOL_OFFSET;
+import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_UINT_SIZE;
+import static nginx.clojure.NginxClojureRT.UNSAFE;
+import static nginx.clojure.NginxClojureRT.fetchNGXInt;
+import static nginx.clojure.NginxClojureRT.fetchString;
+import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_variable;
+import static nginx.clojure.NginxClojureRT.ngx_palloc;
+
 import java.io.InputStream;
 import java.nio.charset.Charset;
-import java.util.Map;
-
-import static nginx.clojure.NginxClojureRT.*;
-import static nginx.clojure.Constants.*;
 
 public  class RequestKnownNameVarFetcher implements RequestVarFetcher {
 

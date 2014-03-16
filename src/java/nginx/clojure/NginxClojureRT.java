@@ -15,7 +15,6 @@ import java.net.Socket;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -27,7 +26,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import nginx.clojure.logger.LoggerService;
@@ -227,7 +225,7 @@ public class NginxClojureRT {
 		if (log == null) {
 			//TODO: use nginx log 
 			//standard error stream is redirect to the nginx error log file, so we just use System.err as output stream.
-			log = new TinyLogService(TinyLogService.getSystemPropertyOrDefaultLevel(), System.err, System.err);
+			log = TinyLogService.createDefaultTinyLogService();
 		}
 		initUnsafe();
 	    

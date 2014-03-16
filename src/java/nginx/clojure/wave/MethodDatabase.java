@@ -33,11 +33,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 import nginx.clojure.SuspendExecution;
 import nginx.clojure.asm.ClassReader;
@@ -77,6 +77,8 @@ public class MethodDatabase implements LoggerService {
 	
 	public static final String EXCEPTION_NAME = Type.getInternalName(SuspendExecution.class);
 	public static final String EXCEPTION_DESC = Type.getDescriptor(SuspendExecution.class);
+	
+	public static final Charset UTF_8 = Charset.forName("utf-8");
     
     private final ClassLoader cl;
     private final ConcurrentHashMap<String, ClassEntry> classes;
@@ -94,6 +96,8 @@ public class MethodDatabase implements LoggerService {
     private boolean allowMonitors;
     private boolean allowBlocking;
     private boolean allowOutofCoroutine = true;
+    private Pattern traceClassPattern = null;
+    private Pattern traceClassMethodPattern = null;
     
     private String dumpDir;
     
@@ -120,7 +124,23 @@ public class MethodDatabase implements LoggerService {
         this.allowMonitors = allowMonitors;
     }
 
-    public boolean isAllowBlocking() {
+    public Pattern getTraceClassPattern() {
+		return traceClassPattern;
+	}
+
+	public void setTraceClassPattern(Pattern traceClassPattern) {
+		this.traceClassPattern = traceClassPattern;
+	}
+	
+	public Pattern getTraceClassMethodPattern() {
+		return traceClassMethodPattern;
+	}
+	
+	public void setTraceClassMethodPattern(Pattern traceClassMethodPattern) {
+		this.traceClassMethodPattern = traceClassMethodPattern;
+	}
+
+	public boolean isAllowBlocking() {
         return allowBlocking;
     }
 
@@ -563,6 +583,14 @@ public class MethodDatabase implements LoggerService {
     	return false;
     }
     
+    public boolean meetTraceTargetClass(String clz) {
+    	return traceClassPattern != null && traceClassPattern.matcher(clz).find();
+    }
+    
+    public boolean meetTraceTargetClassMethod(String clz, String method) {
+    	return traceClassMethodPattern != null && traceClassMethodPattern.matcher(clz + "." + method).find();
+    }
+    
     public static boolean isJavaCore(String className) {
         return className.startsWith("java/") || className.startsWith("javax/") ||
                 className.startsWith("sun/") || className.startsWith("com/sun/");
@@ -627,6 +655,7 @@ public class MethodDatabase implements LoggerService {
         public Integer check(String fullname) {
             return methods.get(fullname);
         }
+        
 
         @Override
         public int hashCode() {

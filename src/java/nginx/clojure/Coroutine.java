@@ -80,6 +80,15 @@ public class Coroutine implements Runnable, Serializable {
     public static void yield() throws SuspendExecution, IllegalStateException {
         throw new Error("Calling function not instrumented");
     }
+    
+    /**
+     * DON'T call this, this method is used by wave tool
+     * @throws SuspendExecution
+     * @throws IllegalStateException
+     */
+    public static void yieldp() throws SuspendExecution, IllegalStateException {
+    	
+    }
 
     /**
      * Creates a new Coroutine from the given CoroutineProto. A CoroutineProto
@@ -210,7 +219,7 @@ public class Coroutine implements Runnable, Serializable {
     @SuppressWarnings("unchecked")
     private boolean isInstrumented(Runnable proto) {
         try {
-            Class clz = Class.forName("de.matthiasmann.continuations.instrument.AlreadyInstrumented");
+            Class clz = Class.forName("nginx.clojure.wave.AlreadyInstrumented");
             return proto.getClass().isAnnotationPresent(clz);
         } catch (ClassNotFoundException ex) {
             return true;   // can't check

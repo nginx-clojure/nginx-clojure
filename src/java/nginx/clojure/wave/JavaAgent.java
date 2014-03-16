@@ -62,8 +62,6 @@
 package nginx.clojure.wave;
 
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.RandomAccessFile;
@@ -71,8 +69,8 @@ import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
 import java.security.ProtectionDomain;
+import java.util.regex.Pattern;
 
-import nginx.clojure.NginxClojureRT;
 import nginx.clojure.Stack;
 import nginx.clojure.asm.ClassReader;
 import nginx.clojure.asm.ClassVisitor;
@@ -81,6 +79,7 @@ import nginx.clojure.asm.MethodVisitor;
 import nginx.clojure.asm.Opcodes;
 import nginx.clojure.asm.util.CheckClassAdapter;
 import nginx.clojure.asm.util.TraceClassVisitor;
+import nginx.clojure.logger.TinyLogService;
 import nginx.clojure.wave.MethodDatabase.ClassEntry;
 
 /*
@@ -134,9 +133,7 @@ public class JavaAgent {
             }
         }
 
-        if (NginxClojureRT.getLog() != null) {
-        	db.setLog(NginxClojureRT.getLog());
-        }
+       db.setLog(TinyLogService.createDefaultTinyLogService());
         
         if (db.isDump()) {
             if (System.getProperty("nginx.clojure.wave.dumpdir") != null) {
@@ -145,13 +142,39 @@ public class JavaAgent {
             	db.setDumpDir(System.getProperty("java.io.tmpdir") + "/nginx-clojure-wave-dump");
             }
         }
-
+        
+        if (System.getProperty("nginx.clojure.wave.trace.classpattern") != null) {
+        	db.setTraceClassPattern(Pattern.compile(System.getProperty("nginx.clojure.wave.trace.classpattern")));
+        }
+        
+        if (System.getProperty("nginx.clojure.wave.trace.classmethodpattern") != null) {
+        	db.setTraceClassMethodPattern(Pattern.compile(System.getProperty("nginx.clojure.wave.trace.classmethodpattern")));
+        }
+        
+        //load system configurations for method database
+        try {
+        	db.debug("load system coroutine wave file %s", "nginx/clojure/wave/coroutine-method-db.txt");
+			MethodDatabaseUtil.load(db, "nginx/clojure/wave/coroutine-method-db.txt");
+		} catch (IOException e) {
+			db.error("can not load nginx/clojure/wave/coroutine-method-db.txt", e);
+		}
+        String udfs = System.getProperty("nginx.clojure.wave.udfs");
+		if (udfs != null) {
+			for (String udf : udfs.split(",|;")) {
+				try {
+					db.debug("load use defined coroutine wave file %s", udf);
+					MethodDatabaseUtil.load(db, udf);
+				} catch (IOException e) {
+					db.warn("can not load " + udf, e);
+				}
+			}
+		}
         
         Stack.setDb(db);
         
         if (runTool) {
         	SuspendMethodTracer.db = db;
-        	SuspendMethodTracer.dumping.set(false);
+        	SuspendMethodTracer.quiteFlags.set(false);
         	instrumentation.addTransformer(new CoroutineConfigurationToolWaver(db, append));
         }else {
         	instrumentation.addTransformer(new CoroutineWaver(db, checkArg));
@@ -172,6 +195,18 @@ public class JavaAgent {
         r.accept(ic, ClassReader.SKIP_FRAMES);
         return cw.toByteArray();
     }
+    
+	public static void dumpClass(byte[] classfileBuffer, File df, MethodDatabase db)  {
+		try{
+			RandomAccessFile raf = new RandomAccessFile(df, "rw");
+			raf.setLength(0);
+			raf.write(classfileBuffer, 0, classfileBuffer.length);
+			raf.close();
+		}catch(IOException e) {
+			e.printStackTrace();
+			db.error("dump file : " + df.getName(), e);
+		}
+	}
 
     public static class CoroutineWaver implements ClassFileTransformer {
         private final MethodDatabase db;
@@ -180,43 +215,29 @@ public class JavaAgent {
         public CoroutineWaver(MethodDatabase db, boolean check) {
             this.db = db;
             this.check = check;
-            //load system configurations for method database
-            try {
-            	db.debug("load system coroutine wave file %s", "nginx/clojure/wave/coroutine-method-db.txt");
-				MethodDatabaseUtil.load(db, "nginx/clojure/wave/coroutine-method-db.txt");
-			} catch (IOException e) {
-				db.error("can not load nginx/clojure/wave/coroutine-method-db.txt", e);
-			}
-            String udfs = System.getProperty("nginx.clojure.wave.udfs");
-			if (udfs != null) {
-				for (String udf : udfs.split(",|;")) {
-					try {
-						db.debug("load use defined coroutine wave file %s", udf);
-						MethodDatabaseUtil.load(db, udf);
-					} catch (IOException e) {
-						db.warn("can not load " + udf, e);
-					}
-				}
-			}
         }
 
         @Override
         public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined,
                 ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
 
+        	if (db.meetTraceTargetClass(className)) {
+        		db.info("meet traced class %s", className);
+        	}
+			
             try {
                 byte[] bs = instrumentClass(db, classfileBuffer, check);
                 if (db.isDump() && bs != null && bs.length != classfileBuffer.length) {
                 	File wavedFile = new File(new File(db.getDumpDir() + "/waved"), className + ".class");
                 	wavedFile.getParentFile().mkdirs();
-                	dumpClass(bs, wavedFile);
+                	dumpClass(bs, wavedFile, db);
                 }
                 return bs;
             } catch(Exception ex) {
             	if (db.isDump()){
             		File errDumpFile = new File(new File(db.getDumpDir() + "/failed"), className + ".class");
             		errDumpFile.getParentFile().mkdirs();
-            		dumpClass(classfileBuffer, errDumpFile);
+            		dumpClass(classfileBuffer, errDumpFile, db);
             	}
                 db.error("Unable to instrument:" + className, ex);
                 return null;
@@ -224,18 +245,6 @@ public class JavaAgent {
             
         }
 
-		public void dumpClass(byte[] classfileBuffer, File df)  {
-			try{
-				RandomAccessFile raf = new RandomAccessFile(df, "rw");
-				raf.setLength(0);
-				raf.write(classfileBuffer, 0, classfileBuffer.length);
-				raf.close();
-			}catch(IOException e) {
-				e.printStackTrace();
-				db.error("dump file : " + df.getName(), e);
-			}
-
-		}
     }
     
     public static class CoroutineConfigurationToolWaver implements ClassFileTransformer {
@@ -256,7 +265,7 @@ public class JavaAgent {
     				}
     				try {
 						SuspendMethodTracer.dump(file, CoroutineConfigurationToolWaver.this.append);
-					} catch (IOException e) {
+					} catch (Throwable e) {
 						CoroutineConfigurationToolWaver.this.db.error("dump error!", e);
 					}
     			}
@@ -274,7 +283,12 @@ public class JavaAgent {
 		@Override
 		public byte[] transform(ClassLoader loader, final String className, Class<?> classBeingRedefined,
 				ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
-			if (SuspendMethodTracer.dumping.get()) {
+			
+        	if (db.meetTraceTargetClass(className)) {
+        		db.info("meet traced class %s", className);
+        	}
+			
+			if (SuspendMethodTracer.quiteFlags.get()) {
 				return classfileBuffer;
 			}
 			try {
@@ -286,22 +300,37 @@ public class JavaAgent {
 						return db.getCommonSuperClass(type1, type2);
 					}
 				};
+				
 				ClassEntry ce = MethodDatabaseUtil.buildClassEntryFamily(db, cr);
-				if (className.startsWith("sun/launcher/")
-						|| className.startsWith("clojure/asm")
-						|| className.startsWith("org/objectweb/asm/")
-						|| className.startsWith("clojure/asm")
-						|| className.startsWith("org/junit")
-//						|| className.startsWith("clojure/main")
-//						|| className.startsWith("clojure/lang")
-						|| className.startsWith("sun/misc/ClassFileTransformer")
-						|| className.startsWith("nginx/clojure/asm") 
-						|| className.startsWith("nginx/clojure/wave") 
-						|| className.startsWith("java/util/ArrayList") 
-						|| className.startsWith("org/eclipse/jetty/server/")
-						|| className.startsWith("clojure/lang/Compiler")
-						|| className.startsWith("java/net/URLClassLoader")
-						|| className.startsWith("java/lang")) {
+//				if (className.startsWith("sun/launcher/")
+//						|| className.startsWith("clojure/asm")
+//						|| className.startsWith("org/objectweb/asm/")
+//						|| className.startsWith("clojure/asm")
+//						|| className.startsWith("org/junit")
+////						|| className.startsWith("clojure/main")
+////						|| className.startsWith("clojure/lang")
+//						|| className.startsWith("sun/misc/ClassFileTransformer")
+//						|| className.startsWith("nginx/clojure/asm") 
+//						|| className.startsWith("nginx/clojure/wave") 
+//						|| className.startsWith("java/util/ArrayList") 
+//						|| className.startsWith("org/eclipse/jetty/server/")
+//						|| className.startsWith("clojure/lang/Compiler")
+//						|| className.startsWith("java/net/URLClassLoader")
+//						|| className.startsWith("java/io/PrintStream")
+//						|| className.startsWith("java/util/concurrent/ConcurrentHashMap")
+//						|| className.startsWith("java/util/concurrent/atomic/AtomicBoolean")
+//						|| className.startsWith("java/")
+//						|| className.startsWith("sun/")
+//						|| className.startsWith("com/sun/")
+//						|| className.startsWith("org/eclipse/jdt/")
+//						|| className.endsWith("ClassLoader")
+//						|| className.startsWith("clojure/lang/PersistentHashMap")
+//						|| className.startsWith("clojure/lang/Keyword")
+//						|| className.startsWith("clojure/lang/Symbol")
+//						|| className.startsWith("clojure/lang/Namespace")
+//						|| className.startsWith("clojure/lang/Persistent")
+//						|| className.startsWith("java/lang")) 
+				if (db.shouldIgnore(className)){
 					db.debug("skip class %s", className);
 					return classfileBuffer;
 				}
@@ -327,12 +356,10 @@ public class JavaAgent {
 				cr.accept(cv, ClassReader.EXPAND_FRAMES);
 				byte[] rt = cw.toByteArray();
 				
-				if (db.isDebug() && db.isVerbose()) {
-					 File wavedFile = new File("waved", className+".class");
-                     wavedFile.getParentFile().mkdirs();
-                     FileOutputStream fo = new FileOutputStream(wavedFile);
-                     fo.write(rt);
-                     fo.close();
+				if (db.isDump()) {
+					File wavedFile = new File(new File(db.getDumpDir() + "/waved-by-tool"), className + ".class");
+                    wavedFile.getParentFile().mkdirs();
+                    dumpClass(rt, wavedFile, db);
 				}
 				
 				return rt;
@@ -340,7 +367,7 @@ public class JavaAgent {
 			} catch(Exception ex) {
 	                db.error("Unable to transform:" + className, ex);
 	                return null;
-	            }
+	        }
 		}
     	
     }

@@ -8,13 +8,10 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.regex.Pattern;
 
-import nginx.clojure.Constants;
 import nginx.clojure.asm.ClassReader;
 import nginx.clojure.wave.MethodDatabase.ClassEntry;
 import nginx.clojure.wave.MethodDatabase.LazyClassEntry;
@@ -29,7 +26,7 @@ public class MethodDatabaseUtil {
 		InputStream in = null;
 		try {
 			in = Thread.currentThread().getContextClassLoader().getResourceAsStream(resource);
-			BufferedReader r = new BufferedReader(new InputStreamReader(in, Constants.DEFAULT_ENCODING));
+			BufferedReader r = new BufferedReader(new InputStreamReader(in, MethodDatabase.UTF_8));
 			String l = null;
 			ClassEntry ce = null;
 			LazyClassEntry lce = null;

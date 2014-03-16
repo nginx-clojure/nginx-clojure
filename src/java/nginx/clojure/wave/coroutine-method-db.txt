@@ -43,12 +43,14 @@ class:nginx/clojure/net/NginxClojureSocketImpl$SocketInputStream
 class:nginx/clojure/net/NginxClojureSocketImpl$SocketOutputStream
   /write.*
 
-filter:org/objectweb/asm/
-filter:nginx/clojure/asm/
-#filter:java/lang
-filter:sun/
-filter:com/sun/
 filter:clojure/asm
-#filter:clojure/lang/RestFn
-#filter:clojure/core$apply
+filter:com/sun/crypto/provider/
+#filter:java/lang
+filter:nginx/clojure/asm/
+filter:nginx/clojure/wave/
+filter:org/eclipse/jdt/
 filter:org/junit
+filter:org/objectweb/asm/
+filter:sun/security/ec/
+
+
