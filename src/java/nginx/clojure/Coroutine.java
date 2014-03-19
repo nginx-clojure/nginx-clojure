@@ -82,11 +82,11 @@ public class Coroutine implements Runnable, Serializable {
     }
     
     /**
-     * DON'T call this, this method is used by wave tool
+     * DON'T call this, this method is used by wave tool for generate waving configuration file
      * @throws SuspendExecution
      * @throws IllegalStateException
      */
-    public static void yieldp() throws SuspendExecution, IllegalStateException {
+    public static void _yieldp() throws SuspendExecution, IllegalStateException {
     	
     }
 
@@ -182,6 +182,39 @@ public class Coroutine implements Runnable, Serializable {
             throw new IllegalStateException("Not new or suspended");
         }
 		resumeCounter++;
+        State result = State.FINISHED;
+        Stack oldStack = Stack.getStack();
+        try {
+            state = State.RUNNING;
+            Stack.setStack(stack);
+            try {
+            	if (proto instanceof IFn) {
+            		((IFn)proto).invoke();
+            	}else {
+            		proto.run();
+            	}
+            } catch (SuspendExecution ex) {
+                assert ex == SuspendExecution.instance;
+                result = State.SUSPENDED;
+                //stack.dump();
+                stack.resumeStack();
+            }
+        } finally {
+            Stack.setStack(oldStack);
+            state = result;
+        }
+	}
+	
+	/**
+	 * DON'T call this, this method is used by wave tool for generate waving configuration file
+	 */
+	public void _resumep(){
+		if ( ++resumeCounter > 1) {
+			return;
+		}
+		if(state != State.NEW && state != State.SUSPENDED) {
+            throw new IllegalStateException("Not new or suspended");
+        }
         State result = State.FINISHED;
         Stack oldStack = Stack.getStack();
         try {

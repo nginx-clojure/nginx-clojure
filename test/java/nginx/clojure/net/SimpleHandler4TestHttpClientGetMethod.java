@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import nginx.clojure.Constants;
-import nginx.clojure.LazyRequestMap;
 
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;

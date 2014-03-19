@@ -328,3 +328,16 @@ make
 
 
 nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx.conf -p /home/who/git/nginx-clojure/test/nginx-working-dir/
+
+
+for coroutine socket:
+
+curl -v "http://localhost:8080/clojure"
+curl -v "http://localhost:8080/socket"
+curl -v "http://localhost:8080/httpclientget"
+curl -v "http://localhost:8080/simple-httpclientget"
+curl -v "http://localhost:8080/coroutineSocketAndCompojure/simple-httpclientget"
+curl -v "http://localhost:8080/coroutineSocketAndCompojure/simple-clj-http-test"
+
+
+

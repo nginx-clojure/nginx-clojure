@@ -14,7 +14,13 @@
             [clj-http.client :as client])
   (:import [ring.middleware.session.memory.MemoryStore]
            [nginx.clojure.net SimpleHandler4TestHttpClientGetMethod]
-           [nginx.clojure Coroutine]))
+           [nginx.clojure Coroutine]
+           [nginx.clojure.logger TinyLogService]))
+
+(def tlog (TinyLogService/createDefaultTinyLogService))
+;
+(defn println [& args]
+  (.info tlog (first args) (into-array  Object (rest args))))
 
 
 (defn do-simple-selfresume [selfresume]
@@ -38,6 +44,10 @@
        (let [{:keys [status,headers, body]} (do-simple-selfresume true)]
          {:status status, :headers headers :body body})
        )
+  (GET "/simplefalse" [] 
+     (let [{:keys [status,headers, body]} (do-simple-selfresume false)]
+       {:status status, :headers headers :body body})
+     )
   ;this is only call by junit test
   (GET "/simple2" [] 
        (let [{:keys [status,headers, body]} (do-simple-selfresume false)]

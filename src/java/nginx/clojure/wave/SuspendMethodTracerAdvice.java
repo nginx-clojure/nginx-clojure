@@ -30,7 +30,9 @@ public class SuspendMethodTracerAdvice extends AdviceAdapter {
 	public void visitMethodInsn(int opcode, String owner, String name,
 			String desc) {
 		if (owner.equals("nginx/clojure/Coroutine") && name.equals("yield")) {
-			super.visitMethodInsn(opcode, owner, "yieldp", desc);
+			super.visitMethodInsn(opcode, owner, "_yieldp", desc);
+		}else if (owner.equals("nginx/clojure/Coroutine") && name.equals("resume")) {
+			super.visitMethodInsn(opcode, owner, "_resumep", desc);
 		}else {
 			super.visitMethodInsn(opcode, owner, name, desc);
 		}

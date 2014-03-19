@@ -8,7 +8,6 @@ import nginx.clojure.LazyRequestMap;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.logger.LoggerService;
 import clojure.lang.AFn;
-import clojure.lang.IPersistentMap;
 import clojure.lang.PersistentArrayMap;
 
 public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{

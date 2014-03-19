@@ -55,7 +55,7 @@ import nginx.clojure.logger.TinyLogService;
 public class MethodDatabase implements LoggerService {
 	
 	public static final String SUSPEND_BLOCKING_STR = "blocking";
-	public static final String SUSPEND_IGNORE_STR = "ignore";
+//	public static final String SUSPEND_IGNORE_STR = "ignore";
 	public static final String SUSPEND_NONE_STR = "none";
 	public static final String SUSPEND_JUST_MARK_STR = "just_mark";
 	public static final String SUSPEND_NORMAL_STR = "normal";
@@ -64,16 +64,27 @@ public class MethodDatabase implements LoggerService {
 	
 	public static final Integer SUSPEND_NONE = 0;
 	public static final Integer SUSPEND_BLOCKING = 1;
-	public static final Integer SUSPEND_IGNORE = 2;
+	
+	public static final Integer SUSPEND_FAMILY = 2;
 	/**
 	 * Those methods with suspend type SUSPEND_JUST_MARK will not or can not be waved, 
 	 * but because they will call some SUSPEND_NORMAL methods, their caller should take care
 	 * of this case generally will be waved.
 	 */
 	public static final Integer SUSPEND_JUST_MARK = 3;
+	
 	public static final Integer SUSPEND_NORMAL = 4;
-	public static final Integer SUSPEND_FAMILY = 5;
-	public static final Integer SUSPEND_SKIP = 6;
+	
+	public static final Integer SUSPEND_SKIP = 5;
+	
+	public static final String[] SUSPEND_TYPE_STRS = new String[] {
+		SUSPEND_NONE_STR,
+		SUSPEND_BLOCKING_STR,
+		SUSPEND_FAMILY_STR,
+		SUSPEND_JUST_MARK_STR,
+		SUSPEND_NORMAL_STR,
+		SUSPEND_SKIP_STR
+	};
 	
 	public static final String EXCEPTION_NAME = Type.getInternalName(SuspendExecution.class);
 	public static final String EXCEPTION_DESC = Type.getDescriptor(SuspendExecution.class);
@@ -272,30 +283,34 @@ public class MethodDatabase implements LoggerService {
         return st == null ? fst : st;
     }
     
-    public Integer checkMethodSuspendType(String className, String methodName, String methodDesc, boolean searchSuperClass) {
-        if(methodName.charAt(0) == '<') {
+    public final Integer checkMethodSuspendType(String className, String method, boolean searchSuperClass) {
+    	return checkMethodSuspendType(className, method, searchSuperClass, true);
+    }
+    
+    public final Integer checkMethodSuspendType(String className, String method, boolean searchSuperClass, boolean returnDefault) {
+        if(method.charAt(0) == '<') {
             return SUSPEND_NONE;   // special methods are never suspendable
         }
         
 //        if(isJavaCore(className)) {
 //            return SUSPEND_NONE;
 //        }
-        String fullname = ClassEntry.key(methodName, methodDesc);
+//        String fullname = ClassEntry.key(methodName, methodDesc);
         ClassEntry ce = MethodDatabaseUtil.buildClassEntryFamily(this, className);
         if (ce == null) {
-        	warn("not found class - assuming suspendable: %s#%s%s", className, methodName, methodDesc);
+        	warn("not found class - assuming suspendable: %s#%s", className, method);
         	return SUSPEND_NORMAL;
         }
         Integer st = null;
         if (searchSuperClass) {
-        	st =  checkMethodFamilySuspendType(ce, fullname);
+        	st =  checkMethodFamilySuspendType(ce, method);
         }else {
-        	st = ce.check(fullname);
+        	st = ce.check(method);
         }
        
-        if (st == null) {
-        	 warn("Method not found in class - assuming suspendable: %s#%s%s", className, methodName, methodDesc);
-             return SUSPEND_NORMAL;
+        if (st == null && returnDefault) {
+        	 warn("Method not found in class - assuming suspendable: %s#%s", className, method);
+             st = SUSPEND_NORMAL;
         }
         return st;
     }
@@ -605,12 +620,20 @@ public class MethodDatabase implements LoggerService {
     	public LazyClassEntry(String resource) {
     		this.resource = resource;
 		}
-    	public LinkedHashMap<String, Integer> getMethods() {
+    	public final LinkedHashMap<String, Integer> getMethods() {
 			return methods;
 		}
-    	public String getResource() {
+    	public final String getResource() {
 			return resource;
 		}
+    	
+        public final void set(String nameAndDesc, Integer suspendable) {
+            methods.put(nameAndDesc, suspendable);
+        }
+        
+        public final Integer get(String nameAndDesc) {
+            return methods.get(nameAndDesc);
+        }
     }
     
     public static final class ClassEntry {
@@ -639,20 +662,24 @@ public class MethodDatabase implements LoggerService {
 			return superName;
 		}
         
-        public void set(String name, String desc, Integer suspendable) {
+        public final void set(String name, String desc, Integer suspendable) {
             String nameAndDesc = key(name, desc);
             methods.put(nameAndDesc, suspendable);
         }
         
-        public void set(String nameAndDesc, Integer suspendable) {
+        public final void set(String nameAndDesc, Integer suspendable) {
             methods.put(nameAndDesc, suspendable);
         }
         
-        public Integer check(String name, String desc) {
+        public final Integer get(String nameAndDesc) {
+            return methods.get(nameAndDesc);
+        }
+        
+        public final Integer check(String name, String desc) {
             return methods.get(key(name, desc));
         }
         
-        public Integer check(String fullname) {
+        public final Integer check(String fullname) {
             return methods.get(fullname);
         }
         

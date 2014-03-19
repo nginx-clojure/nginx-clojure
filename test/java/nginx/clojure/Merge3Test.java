@@ -4,7 +4,6 @@
  */
 package nginx.clojure;
 
-import junit.framework.TestCase;
 
 /**
  *

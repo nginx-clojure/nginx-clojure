@@ -1,46 +1,63 @@
-class:java/lang/Thread
+lazyclass:clojure/lang/IFn
+	/invoke.*:family
+	/applyToHelper.*|applyTo.*:just_mark
+
+lazyclass:clojure/lang/AFn
+  /applyToHelper.*|applyTo.*:just_mark	
+
+lazyclass:clojure/lang/RestFn
+  /invoke.*:just_mark
+  /doInvoke.*:just_mark
+
+lazyclass:clojure/core$apply
+  /invoke.*:just_mark
+
+lazyclass:nginx/clojure/Coroutine
+  resume()V:skip
+  run()V:skip
+  _resumep()V:skip
+
+
+lazyclass:java/io/PrintWriter
+  flush()V:skip
+
+lazyclass:java/lang/Thread
 	sleep(J)V:blocking
 	sleep(JI)V:blocking
 	join()V:blocking
 	join(J)V:blocking
 	join(JI)V:blocking
 
-class:java/lang/Object
+lazyclass:java/lang/Object
 	wait()V:blocking
 	wait(J)V:blocking
 	wait(JI)V:blocking
 
-class:java/util/concurrent/locks/Lock
+lazyclass:java/util/concurrent/locks/Lock
 	lock()V:blocking
 	lockInterruptibly()V:blocking
 	
-class:clojure/lang/IFn
-	/invoke.*:family
-	/applyToHelper.*|applyTo.*:none
 
-class:clojure/lang/AFn
-  /applyToHelper.*|applyTo.*:none	
-
-class:java/net/Socket
+lazyclass:java/net/Socket
   /connect.*:normal
   
-class:java/net/SocketImpl
+lazyclass:java/net/SocketImpl
   /connect.*:normal
 	
-class:java/io/InputStream
+lazyclass:java/io/InputStream
   /read.*:just_mark
 
-class:java/io/OutputStream
+lazyclass:java/io/OutputStream
   /write.*:just_mark
 
-class:nginx/clojure/net/NginxClojureSocketImpl
+lazyclass:nginx/clojure/net/NginxClojureSocketImpl
 	/connect.*
 
-class:nginx/clojure/net/NginxClojureSocketImpl$SocketInputStream
+lazyclass:nginx/clojure/net/NginxClojureSocketImpl$SocketInputStream
   /read.*
 
 
-class:nginx/clojure/net/NginxClojureSocketImpl$SocketOutputStream
+lazyclass:nginx/clojure/net/NginxClojureSocketImpl$SocketOutputStream
   /write.*
 
 filter:clojure/asm

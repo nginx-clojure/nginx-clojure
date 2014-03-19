@@ -31,12 +31,13 @@ public class MethodDatabaseUtil {
 			ClassEntry ce = null;
 			LazyClassEntry lce = null;
 			int lc = 0;
+			String clz = null;
 			while ((l = r.readLine()) != null) {
 				lc++;
 				l = l.trim();
 				if (l.startsWith("class:")) {
 					lce = null;
-					String clz = l.substring("class:".length());
+					clz = l.substring("class:".length());
 					ce = db.getClasses().get(clz);
 					if (ce == null) {
 						ce = buildClassEntryFamily(db, clz);
@@ -47,7 +48,7 @@ public class MethodDatabaseUtil {
 						}
 					}
 				}else if (l.startsWith("lazyclass:")) {
-					String clz = l.substring("lazyclass:".length());
+					clz = l.substring("lazyclass:".length());
 					ce = null;
 					lce = db.getLazyClasses().get(clz);
 					if (lce == null) {
@@ -64,8 +65,6 @@ public class MethodDatabaseUtil {
 					if (ma.length > 1) {
 						if (MethodDatabase.SUSPEND_NORMAL_STR.equals(ma[1])) {
 							st = MethodDatabase.SUSPEND_NORMAL;
-						}else if (MethodDatabase.SUSPEND_IGNORE_STR.equals(ma[1])) {
-							st = MethodDatabase.SUSPEND_IGNORE;
 						}else if (MethodDatabase.SUSPEND_NONE_STR.equals(ma[1])) {
 							st = MethodDatabase.SUSPEND_NONE;
 						}else if (MethodDatabase.SUSPEND_JUST_MARK_STR.equals(ma[1])) {
@@ -82,7 +81,13 @@ public class MethodDatabaseUtil {
 						}
 					}
 					if (lce != null) {
-						lce.getMethods().put(m, st);
+						Integer ost = lce.getMethods().get(m);
+						if (ost == null || st.intValue() > ost.intValue()) {
+							lce.set(m, st);
+						}
+						if (db.meetTraceTargetClassMethod(clz, m)) {
+							db.info("meet traced method %s.%s, suspend type = ", clz, m, MethodDatabase.SUSPEND_TYPE_STRS[lce.get(m)]);
+						}
 						continue;
 					}
 					if (m.charAt(0) == '/') { // regex pattern
@@ -104,6 +109,9 @@ public class MethodDatabaseUtil {
 						Integer ost = ce.getMethods().get(m);
 						if (ost == null || st.intValue() > ost.intValue()) {
 							ce.set(m, st);
+						}
+						if (db.meetTraceTargetClassMethod(clz, m)) {
+							db.info("meet traced method %s.%s, suspend type = ", clz, m, MethodDatabase.SUSPEND_TYPE_STRS[ce.get(m)]);
 						}
 					}
 				}

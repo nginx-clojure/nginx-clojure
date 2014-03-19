@@ -5,8 +5,7 @@
 
 package nginx.clojure;
 
-import static org.junit.Assert.*;
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 

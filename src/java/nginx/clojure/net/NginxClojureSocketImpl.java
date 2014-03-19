@@ -117,6 +117,9 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 	@Override
 	protected void connect(String host, int port) throws IOException {
 		checkCreatedAndNotClosed();
+		if (log.isDebugEnabled()) {
+			log.debug("connecting to %s:%d", host, port);
+		}
 		as.connect(new StringBuilder(host).append(':').append(port).toString());
 		if (!as.isConnected()) {
 			yieldFlag = YIELD_CONNECT;
@@ -129,9 +132,6 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 
 	@Override
 	protected void connect(InetAddress address, int port) throws IOException {
-		if (log.isDebugEnabled()) {
-			log.debug("connecting to %s:%d", address.getHostAddress(), port);
-		}
 		connect(address.getHostAddress(), port);
 	}
 

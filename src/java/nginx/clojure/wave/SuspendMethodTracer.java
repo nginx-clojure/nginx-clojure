@@ -28,7 +28,7 @@ public class SuspendMethodTracer {
 	public static class MethodInfo {
 		public String owner;
 		public String method;
-		public Integer suspendType = MethodDatabase.SUSPEND_NONE; 
+		public Integer suspendType = -1; 
 		
 		public MethodInfo() {
 		}
@@ -169,7 +169,7 @@ public class SuspendMethodTracer {
 		
 		{
 			Set<String> coroutineMethods = new HashSet<String>();
-			coroutineMethods.add("yieldp()V");
+			coroutineMethods.add("_yieldp()V");
 			SUSPEND_CAUSE_SET.put("nginx/clojure/Coroutine", coroutineMethods);
 		}
 	}
@@ -184,22 +184,34 @@ public class SuspendMethodTracer {
 		if (quiteFlags.get()) {
 			return;
 		}
-		if (db != null) {
-			quiteFlags.set(true);
-			if (db.meetTraceTargetClassMethod(owner, method)) {
-				db.info("enter %s.%s", owner, method);
-			}else {
-				db.debug("enter %s.%s", owner, method);
-			}
-			quiteFlags.set(false);
+		quiteFlags.set(true);
+		if (db.meetTraceTargetClassMethod(owner, method)) {
+			db.info("enter %s.%s", owner, method);
+		} else {
+			db.debug("enter %s.%s", owner, method);
 		}
+		quiteFlags.set(false);
 		if (isSuspend(owner, method)) {
 			for (int i = stack.size() - 1; i > -1;  i--) {
 				MethodInfo mi = stack.get(i);
-				if (mi.suspendType == MethodDatabase.SUSPEND_NORMAL) {
+				if (mi.suspendType == MethodDatabase.SUSPEND_NORMAL || mi.suspendType == MethodDatabase.SUSPEND_NONE) {
 					break;
 				}
-				mi.suspendType = MethodDatabase.SUSPEND_NORMAL;
+				boolean meetTraced = db.meetTraceTargetClassMethod(mi.owner, mi.method);
+				Integer knownType = db.checkMethodSuspendType(mi.owner, mi.method, false, false);
+				if (knownType != null && knownType >= MethodDatabase.SUSPEND_NORMAL) {
+					mi.suspendType = knownType;
+					if (meetTraced) {
+						db.info("meet traced method %s.%s, known suspend type=%s", mi.owner, mi.method, MethodDatabase.SUSPEND_TYPE_STRS[knownType]);
+					}
+					//we need not record those records which has been defined by predefined configuration files
+					continue;
+				}else {
+					mi.suspendType = MethodDatabase.SUSPEND_NORMAL;
+					if (meetTraced) {
+						db.info("meet traced method %s.%s, set unknown suspend type to =%s", mi.owner, mi.method, MethodDatabase.SUSPEND_TYPE_STRS[knownType]);
+					}
+				}
 				ConcurrentHashMap<String, Object> omis = SUSPEND_INFO_RESULTS.get(mi.owner);
 				ConcurrentHashMap<String, Object> mis = omis;
 				if (omis == null) {
@@ -222,24 +234,22 @@ public class SuspendMethodTracer {
 		if (quiteFlags.get()) {
 			return;
 		}
-		if (db != null) {
-			quiteFlags.set(true);
-			if (db.meetTraceTargetClassMethod(owner, method)) {
-				db.info("leave %s.%s", owner, method);
-			}else {
-				db.debug("leave %s.%s", owner, method);
-			}
-			quiteFlags.set(false);
+		quiteFlags.set(true);
+		if (db.meetTraceTargetClassMethod(owner, method)) {
+			db.info("leave %s.%s", owner, method);
+		} else {
+			db.debug("leave %s.%s", owner, method);
 		}
+		quiteFlags.set(false);
 		ArrayList<MethodInfo> stack = fetchStack();
 		MethodInfo mi = stack.get(stack.size() - 1);
 		if (!mi.owner.equals(owner) || !mi.method.equals(method)) {
-			if (db != null){
-				quiteFlags.set(true);
-				db.error("Thread #%d, leave != enter %s.%s != %s.%s", Thread.currentThread().getId(),  owner, method, mi.owner, mi.method);
-				db.error("thread list: %s", threadTraceStacks.keySet().toString());
-				quiteFlags.set(false);
-			}
+			quiteFlags.set(true);
+			db.error("Thread #%d, leave != enter %s.%s != %s.%s", Thread
+					.currentThread().getId(), owner, method, mi.owner,
+					mi.method);
+			db.error("thread list: %s", threadTraceStacks.keySet().toString());
+			quiteFlags.set(false);
 		}else {
 			stack.remove(stack.size() - 1);
 		}
@@ -247,6 +257,10 @@ public class SuspendMethodTracer {
 	
 	public static void markSuper(String clz, Set<String> methods, Map<String, TreeMap<String, String>> upperMarks) {
 		ClassEntry ce = db.getClasses().get(clz);
+		if (ce == null) {
+			db.warn("can not found class %s in db, maybe its' suspend info defined in orginal configuration file");
+			return;
+		}
 		String[] itfs = ce.getInterfaces();
 		if (itfs != null) {
 			for (String itf : ce.getInterfaces()) {

@@ -135,13 +135,11 @@ public class JavaAgent {
 
        db.setLog(TinyLogService.createDefaultTinyLogService());
         
-        if (db.isDump()) {
-            if (System.getProperty("nginx.clojure.wave.dumpdir") != null) {
-            	db.setDumpDir(System.getProperty("nginx.clojure.wave.dumpdir"));
-            }else {
-            	db.setDumpDir(System.getProperty("java.io.tmpdir") + "/nginx-clojure-wave-dump");
-            }
-        }
+		if (System.getProperty("nginx.clojure.wave.dumpdir") != null) {
+			db.setDumpDir(System.getProperty("nginx.clojure.wave.dumpdir"));
+		} else {
+			db.setDumpDir(System.getProperty("java.io.tmpdir") + "/nginx-clojure-wave-dump");
+		}
         
         if (System.getProperty("nginx.clojure.wave.trace.classpattern") != null) {
         	db.setTraceClassPattern(Pattern.compile(System.getProperty("nginx.clojure.wave.trace.classpattern")));
@@ -232,8 +230,13 @@ public class JavaAgent {
                 	wavedFile.getParentFile().mkdirs();
                 	dumpClass(bs, wavedFile, db);
                 }
+            	if (db.meetTraceTargetClass(className)) {
+            		File orgFile = new File(new File(db.getDumpDir() + "/org"), className + ".class");
+            		orgFile.getParentFile().mkdirs();
+            		dumpClass(classfileBuffer, orgFile, db);
+            	}
                 return bs;
-            } catch(Exception ex) {
+            } catch(Throwable ex) {
             	if (db.isDump()){
             		File errDumpFile = new File(new File(db.getDumpDir() + "/failed"), className + ".class");
             		errDumpFile.getParentFile().mkdirs();
@@ -364,7 +367,7 @@ public class JavaAgent {
 				
 				return rt;
 				
-			} catch(Exception ex) {
+			} catch(Throwable ex) {
 	                db.error("Unable to transform:" + className, ex);
 	                return null;
 	        }

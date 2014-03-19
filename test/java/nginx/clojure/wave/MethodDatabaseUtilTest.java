@@ -58,7 +58,7 @@ public class MethodDatabaseUtilTest {
 		
 		
 		ClassEntry ifnce = MethodDatabaseUtil.buildClassEntryFamily(db, Type.getInternalName(MyAF.class));
-		assertEquals(MethodDatabase.SUSPEND_FAMILY, db.checkMethodSuspendType(Type.getInternalName(MyAF.class),"invoke", "()Ljava/lang/Object;", true));
+		assertEquals(MethodDatabase.SUSPEND_FAMILY, db.checkMethodSuspendType(Type.getInternalName(MyAF.class),"invoke()Ljava/lang/Object;", true));
 	}
 	
 	@Test

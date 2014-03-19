@@ -50,6 +50,7 @@ import nginx.clojure.asm.tree.analysis.AnalyzerException;
 import nginx.clojure.asm.tree.analysis.BasicValue;
 import nginx.clojure.asm.tree.analysis.Frame;
 import nginx.clojure.asm.tree.analysis.Value;
+import nginx.clojure.wave.MethodDatabase.ClassEntry;
 
 /**
  * Instrument a method to allow suspension
@@ -102,7 +103,7 @@ public class InstrumentMethod {
                 if(in.getType() == AbstractInsnNode.METHOD_INSN) {
                     MethodInsnNode min = (MethodInsnNode)in;
                     int opcode = min.getOpcode();
-                    Integer st = db.checkMethodSuspendType(min.owner, min.name, min.desc, opcode == Opcodes.INVOKEVIRTUAL || opcode == Opcodes.INVOKESTATIC || opcode == Opcodes.INVOKEINTERFACE);
+                    Integer st = db.checkMethodSuspendType(min.owner, ClassEntry.key(min.name, min.desc), opcode == Opcodes.INVOKEVIRTUAL || opcode == Opcodes.INVOKESTATIC || opcode == Opcodes.INVOKEINTERFACE);
                     if(st == MethodDatabase.SUSPEND_NORMAL || st == MethodDatabase.SUSPEND_FAMILY || st == MethodDatabase.SUSPEND_JUST_MARK) {
                         db.trace("Method call at instruction %d to %s#%s%s is suspendable", i, min.owner, min.name, min.desc);
                         FrameInfo fi = addCodeBlock(f, i);
@@ -181,6 +182,15 @@ public class InstrumentMethod {
         }
         
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "nextMethodEntry", "()I");
+        mv.visitInsn(Opcodes.DUP);
+        Label tableSwitchLabel = new Label();
+        mv.visitJumpInsn(Opcodes.IFGE, tableSwitchLabel);
+        mv.visitInsn(Opcodes.POP);
+        mv.visitInsn(Opcodes.ACONST_NULL);
+        mv.visitVarInsn(Opcodes.ASTORE, lvarStack);
+        mv.visitJumpInsn(Opcodes.GOTO, lMethodStart);
+        
+        mv.visitLabel(tableSwitchLabel);
         mv.visitTableSwitchInsn(1, numCodeBlocks-1, lMethodStart, lMethodCalls);
         
         mv.visitLabel(lMethodStart);

@@ -6,7 +6,7 @@ package nginx.clojure;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import junit.framework.TestCase;
+
 import org.junit.Test;
 
 /**

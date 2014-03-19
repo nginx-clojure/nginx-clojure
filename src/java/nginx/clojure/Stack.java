@@ -99,7 +99,9 @@ public final class Stack implements Serializable {
         method[methodIdx] = entry;
         method[methodIdx+1] = dataTOS;
         
-        //System.out.println("entry="+entry+" size="+size+" sp="+curMethodSP+" tos="+dataTOS+" nr="+methodIdx);
+        if (db != null && db.isDebug()) {
+          db.debug("th#%d: pushMethodAndReserveSpace  entry=%d, numSlots=%d, sp=%d, dtos=%d,  nr(tos)=%d, %s", Thread.currentThread().getId(), entry, numSlots, curMethodSP, dataTOS, methodIdx, Thread.currentThread().getStackTrace()[2]);
+        }
         
         if(dataTOS > dataObject.length) {
             growDataStack(dataTOS);
@@ -112,9 +114,7 @@ public final class Stack implements Serializable {
      * to allow the values to be GCed.
      */
     public final void popMethod() {
-    	if (db != null && db.isDebug()) {
-    		db.debug("popMethod %s", Thread.currentThread().getStackTrace()[2]);
-    	}
+
         int idx = methodTOS;
         method[idx] = 0;
         int oldSP = curMethodSP;
@@ -124,6 +124,10 @@ public final class Stack implements Serializable {
         for(int i=newSP ; i<oldSP ; i++) {
             dataObject[i] = null;
         }
+        
+    	if (db != null && db.isDebug()) {
+    		db.debug("th#%d: popMethod sp=%d, tos=%d %s", Thread.currentThread().getId(), curMethodSP, methodTOS, Thread.currentThread().getStackTrace()[2]);
+    	}
     }
     
     /**
@@ -131,11 +135,15 @@ public final class Stack implements Serializable {
      * @return the entry point of this method
      */
     public final int nextMethodEntry() {
+    	if (methodTOS > 0 && (methodTOS + 1 == method.length || method[methodTOS + 1] == 0)) {
+    		db.debug("th#%d:nextMethodEntry tos=%d return -1, we meet a broken suspend methods path because of unwaved methods mingled in the path, %s", Thread.currentThread().getId(), methodTOS, Thread.currentThread().getStackTrace()[2]);
+    		return -1;
+    	}
         int idx = methodTOS;
         curMethodSP = method[++idx];
         methodTOS = ++idx;
     	if (db != null && db.isDebug()) {
-    		db.debug("nextMethodEntry sp=%d, tos=%d, %s", curMethodSP, methodTOS, Thread.currentThread().getStackTrace()[2]);
+    		db.debug("th#%d: nextMethodEntry entry=%d, sp=%d, tos=%d, %s",Thread.currentThread().getId(), method[idx], curMethodSP, methodTOS , Thread.currentThread().getStackTrace()[2]);
     	}
         return method[idx];
     }
