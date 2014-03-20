@@ -25,9 +25,9 @@
 #include <inttypes.h>
 #endif
 
-#define nginx_clojure_ver  1002 /*0.1.2*/
+#define nginx_clojure_ver  2000 /*0.2.0*/
 
-#define NGINX_CLOJURE_VER "nginx clojure/0.1.2"
+#define NGINX_CLOJURE_VER "nginx clojure/0.2.0"
 
 
 #define NGX_HTTP_CLOJURE_MEM_IDX_START 0
