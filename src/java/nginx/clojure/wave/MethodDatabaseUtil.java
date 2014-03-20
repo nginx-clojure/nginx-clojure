@@ -10,13 +10,17 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import nginx.clojure.asm.ClassReader;
 import nginx.clojure.wave.MethodDatabase.ClassEntry;
+import nginx.clojure.wave.MethodDatabase.FuzzyLazyClassEntry;
 import nginx.clojure.wave.MethodDatabase.LazyClassEntry;
 
 public class MethodDatabaseUtil {
+
+	public final static Pattern FUZZY_CLASS_PATTERN = Pattern.compile("\\$fn__(\\d+)");
 
 	public MethodDatabaseUtil() {
 	}
@@ -30,6 +34,7 @@ public class MethodDatabaseUtil {
 			String l = null;
 			ClassEntry ce = null;
 			LazyClassEntry lce = null;
+			FuzzyLazyClassEntry flce = null;
 			int lc = 0;
 			String clz = null;
 			while ((l = r.readLine()) != null) {
@@ -37,6 +42,7 @@ public class MethodDatabaseUtil {
 				l = l.trim();
 				if (l.startsWith("class:")) {
 					lce = null;
+					flce = null;
 					clz = l.substring("class:".length());
 					ce = db.getClasses().get(clz);
 					if (ce == null) {
@@ -50,13 +56,20 @@ public class MethodDatabaseUtil {
 				}else if (l.startsWith("lazyclass:")) {
 					clz = l.substring("lazyclass:".length());
 					ce = null;
+					flce = null;
 					lce = db.getLazyClasses().get(clz);
 					if (lce == null) {
 						db.getLazyClasses().put(clz, lce = new LazyClassEntry(resource));
 					}
+				}else if (l.startsWith("fuzzyclass:")) {
+					clz = l.substring("fuzzyclass:".length());
+					ce = null;
+					lce = null;
+					flce = new FuzzyLazyClassEntry(Pattern.compile(clz), resource);
+					db.getFuzzlyLazyClasses().add(flce);
 				}else if (l.startsWith("filter:")) {
 					db.getFilters().add(l.substring("filter:".length()).trim());
-				}else if (l.length() == 0 || (ce == null && lce == null) || l.charAt(0) == '#'){
+				}else if (l.length() == 0 || (ce == null && lce == null && flce == null) || l.charAt(0) == '#'){
 					continue;
 				}else {
 					String[] ma = l.split(":");
@@ -81,12 +94,27 @@ public class MethodDatabaseUtil {
 						}
 					}
 					if (lce != null) {
-						Integer ost = lce.getMethods().get(m);
+						Map<String, Integer> methods = lce.getMethods();
+						Integer ost = methods.get(m);
 						if (ost == null || st.intValue() > ost.intValue()) {
-							lce.set(m, st);
+							methods.put(m, st);
+						}else {
+							st = ost;
 						}
 						if (db.meetTraceTargetClassMethod(clz, m)) {
-							db.info("meet traced method %s.%s, suspend type = ", clz, m, MethodDatabase.SUSPEND_TYPE_STRS[lce.get(m)]);
+							db.info("meet traced method %s.%s, suspend type = ", clz, m, MethodDatabase.SUSPEND_TYPE_STRS[st]);
+						}
+						continue;
+					}else if (flce != null) {
+						Map<String, Integer> methods = flce.getMethods();
+						Integer ost = methods.get(m);
+						if (ost == null || st.intValue() > ost.intValue()) {
+							methods.put(m, st);
+						}else {
+							st = ost;
+						}
+						if (db.meetTraceTargetClassMethod(clz, m)) {
+							db.info("meet traced method %s.%s, suspend type = ", clz, m, MethodDatabase.SUSPEND_TYPE_STRS[st]);
 						}
 						continue;
 					}
@@ -109,9 +137,11 @@ public class MethodDatabaseUtil {
 						Integer ost = ce.getMethods().get(m);
 						if (ost == null || st.intValue() > ost.intValue()) {
 							ce.set(m, st);
+						}else {
+							st = ost;
 						}
 						if (db.meetTraceTargetClassMethod(clz, m)) {
-							db.info("meet traced method %s.%s, suspend type = ", clz, m, MethodDatabase.SUSPEND_TYPE_STRS[ce.get(m)]);
+							db.info("meet traced method %s.%s, suspend type = ", clz, m, MethodDatabase.SUSPEND_TYPE_STRS[st]);
 						}
 					}
 				}
@@ -126,6 +156,24 @@ public class MethodDatabaseUtil {
 		}
 		
 		
+	}
+	
+	public static String toFuzzyString(Pattern p, String s, String rep) {
+		Matcher m = p.matcher(s);
+		int start = 0;
+		StringBuilder rt = new StringBuilder();
+		while (m.find()) {
+			rt.append(Matcher.quoteReplacement(s.substring(start, m.start())));
+			rt.append(rep);
+			start = m.end();
+		}
+		if (rt.length() == 0){
+			return null;
+		}
+		if (start < s.length()) {
+			rt.append(s.substring(start));
+		}
+		return rt.toString();
 	}
 	
 	public static ClassEntry buildClassEntryFamily(MethodDatabase db, ClassReader r) {
@@ -157,6 +205,7 @@ public class MethodDatabaseUtil {
 		ClassEntry ce = civ.getClassEntry();
 		String clz = civ.getName();
 		LazyClassEntry lce = db.getLazyClasses().get(clz);
+		
 		if (lce != null) {
 			db.debug("rebuild wave info for lazy class %s", clz);
 			for (Entry<String, Integer> lme : lce.getMethods().entrySet()) {
@@ -185,6 +234,40 @@ public class MethodDatabaseUtil {
 				}
 			}
 		}
+		
+		if (FUZZY_CLASS_PATTERN.matcher(clz).find()) {
+			for (FuzzyLazyClassEntry flce : db.getFuzzlyLazyClasses()) {
+				if (flce.getPattern().matcher(clz).find()) {
+					db.debug("rebuild wave info for fuzzylazy class %s, pattern %s", clz, flce.getPattern().toString());
+					for (Entry<String, Integer> lme : flce.getMethods().entrySet()) {
+						String m = lme.getKey();
+						Integer st = lme.getValue();
+						if (m.charAt(0) == '/') { // regex pattern
+							Pattern p = Pattern.compile(m.substring(1));
+							boolean matched = false;
+							for (Entry<String, Integer> me : ce.getMethods().entrySet()) {
+								if (p.matcher(me.getKey()).find()) {
+									me.setValue(st);
+									matched = true;
+								}
+							}
+							if (!matched) {
+								db.warn("file %s fuzzylazy class %s: none of methods matched regex: %s ,ignored", flce.getResource() , clz, m);
+							}
+						}else if (ce.getMethods().get(m) == null) {
+							db.warn("file %s fuzzylazy class %s:  : unknown method: %s ,ignored", flce.getResource() , clz, m);
+							continue;
+						}else {
+							Integer ost = ce.getMethods().get(m);
+							if (ost == null || st.intValue() > ost.intValue()) {
+								ce.set(m, st);
+							}
+						}
+					}
+				}
+			}
+		}
+		
 		String superName = ce.getSuperName();
 		db.recordSuspendableMethods(clz, ce);
 		

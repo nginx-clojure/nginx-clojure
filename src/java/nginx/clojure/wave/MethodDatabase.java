@@ -97,6 +97,8 @@ public class MethodDatabase implements LoggerService {
     
     private final ConcurrentHashMap<String, LazyClassEntry> lazyClasses;
     
+    private final ArrayList<FuzzyLazyClassEntry> fuzzlyLazyClasses;
+    
     private final ArrayList<File> workList;
     private final ArrayList<String> filters;
     
@@ -122,6 +124,7 @@ public class MethodDatabase implements LoggerService {
         classes = new ConcurrentHashMap<String, ClassEntry>();
         superClasses = new ConcurrentHashMap<String, String>();
         lazyClasses = new ConcurrentHashMap<String, LazyClassEntry>();
+        fuzzlyLazyClasses = new ArrayList<MethodDatabase.FuzzyLazyClassEntry>();
         workList = new ArrayList<File>();
         filters = new ArrayList<String>();
         getLog();
@@ -173,6 +176,10 @@ public class MethodDatabase implements LoggerService {
     
     public ConcurrentHashMap<String, LazyClassEntry> getLazyClasses() {
 		return lazyClasses;
+	}
+    
+    public ArrayList<FuzzyLazyClassEntry> getFuzzlyLazyClasses() {
+		return fuzzlyLazyClasses;
 	}
     
     public static LoggerService getLog() {
@@ -626,14 +633,27 @@ public class MethodDatabase implements LoggerService {
     	public final String getResource() {
 			return resource;
 		}
+    }
+    
+    public static final class FuzzyLazyClassEntry {
+    	private final LinkedHashMap<String, Integer> methods = new LinkedHashMap<String, Integer>();
+    	private final String resource;
+    	private final Pattern pattern;
     	
-        public final void set(String nameAndDesc, Integer suspendable) {
-            methods.put(nameAndDesc, suspendable);
-        }
-        
-        public final Integer get(String nameAndDesc) {
-            return methods.get(nameAndDesc);
-        }
+    	public FuzzyLazyClassEntry(Pattern pattern, String resource) {
+    		this.pattern = pattern;
+    		this.resource = resource;
+		}
+    	public final LinkedHashMap<String, Integer> getMethods() {
+			return methods;
+		}
+    	public final String getResource() {
+			return resource;
+		}
+    	
+    	public final Pattern getPattern() {
+			return pattern;
+		}
     }
     
     public static final class ClassEntry {

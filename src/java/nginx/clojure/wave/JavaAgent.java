@@ -127,8 +127,12 @@ public class JavaAgent {
                     case 'p' :
                     	db.setDump(true);
                     	break;
+                    case 'n':
+                    	TinyLogService.createDefaultTinyLogService().info("nginx clojure will do nothing about class waving!");
+                    	//do nothing!!
+                    	return;
                     default:
-                        throw new IllegalStateException("Usage: vdmcbtap (Verbose, Debug, allow Monitors, Check class, allow Blocking, run configuration generation Tool,  Append result, dumP waved class)");
+                        throw new IllegalStateException("Usage: nvdmcbtap (do Nothing, Verbose, Debug, allow Monitors, Check class, allow Blocking, run configuration generation Tool,  Append result, dumP waved class)");
                 }
             }
         }

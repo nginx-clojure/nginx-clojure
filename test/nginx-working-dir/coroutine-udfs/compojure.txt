@@ -2,35 +2,35 @@
 lazyclass:clojure/core$apply
   invoke(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;:normal
 
-lazyclass:clojure/core$eval3377$fn__3378
-  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
-
 lazyclass:clojure/core$some
   invoke(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;:normal
+
+fuzzyclass:clojure/core\$eval3377\$fn__(\d+)
+  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
 
 lazyclass:clojure/lang/RestFn
   applyTo(Lclojure/lang/ISeq;)Ljava/lang/Object;:normal
   invoke(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;:normal
 
-lazyclass:compojure/core$if_method$fn__1812
-  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
-
-lazyclass:compojure/core$if_route$fn__1819
-  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
-
-lazyclass:compojure/core$make_route$fn__1835
-  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
-
-lazyclass:compojure/core$routes$fn__1845
-  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
-
 lazyclass:compojure/core$routing
   doInvoke(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;:normal
 
-lazyclass:compojure/core$routing$fn__1841
+fuzzyclass:compojure/core\$if_method\$fn__(\d+)
   invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
 
-lazyclass:compojure/core$wrap_context$fn__1895
+fuzzyclass:compojure/core\$if_route\$fn__(\d+)
+  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
+
+fuzzyclass:compojure/core\$make_route\$fn__(\d+)
+  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
+
+fuzzyclass:compojure/core\$routes\$fn__(\d+)
+  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
+
+fuzzyclass:compojure/core\$routing\$fn__(\d+)
+  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
+
+fuzzyclass:compojure/core\$wrap_context\$fn__(\d+)
   invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
 
 lazyclass:java/net/Socket
@@ -58,28 +58,22 @@ lazyclass:nginx/clojure/compojure_fns_for_test$do_simple_response
 lazyclass:nginx/clojure/compojure_fns_for_test$do_simple_selfresume
   invoke()Ljava/lang/Object;:normal
 
-lazyclass:nginx/clojure/compojure_fns_for_test$fn__1990
-  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
-
-lazyclass:nginx/clojure/compojure_fns_for_test$fn__1993
-  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
-
 lazyclass:nginx/clojure/compojure_fns_for_test$simple_handler
   invoke()Ljava/lang/Object;:normal
 
 lazyclass:nginx/clojure/compojure_fns_for_test$simple_selfresume_handler
   invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
 
+fuzzyclass:nginx/clojure/compojure_fns_for_test\$fn__(\d+)
+  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
+
 lazyclass:nginx/clojure/coroutine_socket_handlers_for_test$do_simple_selfresume
   invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
 
-lazyclass:nginx/clojure/coroutine_socket_handlers_for_test$fn__3363
-  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
-
-lazyclass:nginx/clojure/coroutine_socket_handlers_for_test$fn__3369
-  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
-
 lazyclass:nginx/clojure/coroutine_socket_handlers_for_test$simple_handler
+  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
+
+fuzzyclass:nginx/clojure/coroutine_socket_handlers_for_test\$fn__(\d+)
   invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
 
 lazyclass:clojure/lang/AFn

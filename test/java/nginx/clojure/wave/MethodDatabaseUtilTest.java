@@ -37,8 +37,19 @@ public class MethodDatabaseUtilTest {
 		
 		ce = db.getClasses().get("clojure/lang/IFn");
 		assertEquals(MethodDatabase.SUSPEND_FAMILY, ce.check("invoke", "()Ljava/lang/Object;"));
+		
+		ClassEntry mce = MethodDatabaseUtil.buildClassEntryFamily(db, Type.getInternalName(MyAF.class));
+		assertEquals(MethodDatabase.SUSPEND_FAMILY, db.checkMethodSuspendType(Type.getInternalName(MyAF.class), "invoke()Ljava/lang/Object;", true));
+		
 	}
 	
+	
+	public void testLazyAndFuzzyClass() throws IOException { 
+		MethodDatabase db = new MethodDatabase(Thread.currentThread().getContextClassLoader());
+		MethodDatabaseUtil.load(db, "nginx/clojure/wave/test-coroutine-and-compojure-db.txt");
+		ClassEntry sce = MethodDatabaseUtil.buildClassEntryFamily(db, "nginx/clojure/net/SimpleHandler4TestNginxClojureSocket");
+		assertEquals(MethodDatabase.SUSPEND_NORMAL, sce.check("invoke(Ljava/lang/Object;)Ljava/lang/Object;"));
+	}
 	
 	public static class MyAF extends AFunction {
 		@Override

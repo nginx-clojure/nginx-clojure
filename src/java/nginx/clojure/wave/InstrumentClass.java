@@ -90,7 +90,7 @@ public class InstrumentClass extends ClassVisitor {
     	String method = ClassEntry.key(name, desc);
     	Integer suspendType = db.checkMethodSuspendType(className, method, true);
         if (db.meetTraceTargetClassMethod(className, method)) {
-        	db.info("meet traced method %s.%s, suspend type = %s", className, name+desc, MethodDatabase.SUSPEND_TYPE_STRS[suspendType]);
+        	db.info("meet traced method %s.%s, suspend type = %s", className, method, MethodDatabase.SUSPEND_TYPE_STRS[suspendType]);
         }
         if((suspendType == MethodDatabase.SUSPEND_NORMAL 
 //Now for less boot cost we don't wave those class just mark  SUSPEND_FAMILY        		
