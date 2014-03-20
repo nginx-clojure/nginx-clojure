@@ -201,7 +201,7 @@ public class NginxClojureRT {
 			}
 			return;
 		}
-		if (n < 1) {
+		if (n < 0) {
 			return;
 		}
 		eventDispather = Executors.newSingleThreadExecutor(new ThreadFactory() {
