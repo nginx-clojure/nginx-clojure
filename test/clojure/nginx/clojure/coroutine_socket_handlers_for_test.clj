@@ -37,7 +37,7 @@
 
 (defroutes coroutine-socket-test-handler
   (GET "/simple-clj-http-test" [] 
-       (let [{:keys [status, body]} (client/get "http://cn.bing.com")]
+       (let [{:keys [status, body]} (client/get "http://cn.bing.com" {:socket-timeout 5000})]
          {:status status, :body body}))
   (GET "/simple-httpclientget" [req] ((SimpleHandler4TestHttpClientGetMethod.) req))
   (GET "/simple" [] 

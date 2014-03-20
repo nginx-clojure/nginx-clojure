@@ -15,6 +15,9 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	public static final long NGX_HTTP_CLOJURE_SOCKET_ERR_RESOLVE = -17;
 	public static final long NGX_HTTP_CLOJURE_SOCKET_ERR_CONNECT = -18;
 	public static final long NGX_HTTP_CLOJURE_SOCKET_ERR_CONNECT_TIMEOUT = -19;
+	/**
+	 * @deprecated please use either of NGX_HTTP_CLOJURE_SOCKET_ERR_CONNECT_TIMEOUT, NGX_HTTP_CLOJURE_SOCKET_ERR_READ_TIMEOUT or NGX_HTTP_CLOJURE_SOCKET_ERR_WRITE_TIMEOUT
+	 */
 	public static final long NGX_HTTP_CLOJURE_SOCKET_ERR_TIMEOUT = -20;
 	public static final long NGX_HTTP_CLOJURE_SOCKET_ERR_READ = -21;
 	public static final long NGX_HTTP_CLOJURE_SOCKET_ERR_READ_TIMEOUT = -22;

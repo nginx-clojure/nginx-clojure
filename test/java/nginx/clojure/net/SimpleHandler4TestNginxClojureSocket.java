@@ -28,6 +28,7 @@ public class SimpleHandler4TestNginxClojureSocket extends AFn {
 		Socket socket = new Socket();
 		try {
 			InetSocketAddress inetSocketAddress = new InetSocketAddress("cn.bing.com", 80);
+			socket.setSoTimeout(5000);
 			socket.connect(inetSocketAddress);
 			log.info("fininsh connect");
 			OutputStream out = socket.getOutputStream();

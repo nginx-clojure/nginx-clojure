@@ -31,6 +31,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 	protected NginxClojureAsynSocket as;
 	protected Coroutine coroutine;
 	protected int yieldFlag = 0;
+	protected long status = NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK;
 	protected SocketInputStream inputStream;
 	protected SocketOutputStream outputStream;
 
@@ -126,6 +127,9 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 			if (log.isDebugEnabled()) {
 				log.debug("show connect stack trace for debug", new Exception("DEBUG USAGE"));
 			}
+			if (status == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_CONNECT_TIMEOUT) {
+				throw new SocketTimeoutException("nginx clojure socket connect timeout!");
+			}
 			Coroutine.yield();
 		}
 	}
@@ -219,6 +223,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 	@Override
 	public void onConnect(NginxClojureAsynSocket s, long sc) {
 		log.debug("on connect status=%d", sc);
+		status = sc;
 		NginxClojureSocketImpl ns = (NginxClojureSocketImpl)s.getHandler();
 		if (ns.yieldFlag == NginxClojureSocketImpl.YIELD_CONNECT){
 			log.debug("find suspend on YIELD_CONNECT, we'ill resume it");
@@ -231,6 +236,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 	@Override
 	public void onRead(NginxClojureAsynSocket s, long sc) {
 		log.debug("on read status=%d", sc);
+		status = sc;
 		NginxClojureSocketImpl ns = (NginxClojureSocketImpl)s.getHandler();
 		if (ns.yieldFlag == NginxClojureSocketImpl.YIELD_READ){
 			log.debug("find suspend on YIELD_READ, we'ill resume it");
@@ -243,6 +249,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 	@Override
 	public void onWrite(NginxClojureAsynSocket s, long sc) {
 		log.debug("on write status=%d", sc);
+		status = sc;
 		NginxClojureSocketImpl ns = (NginxClojureSocketImpl)s.getHandler();
 		if (ns.yieldFlag == NginxClojureSocketImpl.YIELD_WRITE){
 			log.debug("find suspend on YIELD_WRITE, we'ill resume it");
@@ -255,6 +262,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 	@Override
 	public void onRelease(NginxClojureAsynSocket s, long sc) {
 		log.debug("on release status=%d", sc);
+		status = sc;
 		NginxClojureSocketImpl ns = (NginxClojureSocketImpl)s.getHandler();
 		if (ns.coroutine.getState() == State.SUSPENDED){
 			NginxClojureRT.getLog().warn("onRelease : coroutine is not finished, but we receive release event!");
@@ -306,11 +314,12 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 					if (c > 0) {
 						return (int)c;
 					}
+					if (s.status == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_READ_TIMEOUT) {
+						throw new SocketTimeoutException("nginx clojure socket read timeout!");
+					}
 					s.yieldFlag = YIELD_READ;
 					log.debug("yield read");
 					Coroutine.yield();
-				}else if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_READ_TIMEOUT) {
-					throw new SocketTimeoutException("socket read timeout :" + rc);
 				}else if (rc < 0) {
 					if (c > 0) {
 						log.warn("meet error %d, but we have read some data (len=%d), just return it", rc, c);
@@ -377,11 +386,12 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 				if (rc == 0) {
 					return;
 				}else if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
+					if (s.status == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_WRITE_TIMEOUT) {
+						throw new SocketTimeoutException("nginx clojure socket write timeout!");
+					}
 					s.yieldFlag = YIELD_WRITE;
 					log.debug("yield write");
 					Coroutine.yield();
-				}else if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_READ_TIMEOUT) {
-					throw new SocketTimeoutException("socket read timeout :" + rc);
 				}else if (rc < 0) {
 					throw new SocketException("socket read error :" + rc);
 				}else {
