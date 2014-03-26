@@ -90,8 +90,11 @@ import nginx.clojure.wave.MethodDatabase.ClassEntry;
  * @author Zhang,Yuexing (xfeep)
  */
 public class JavaAgent {
+	
+	public static MethodDatabase db;
+	
     public static void premain(String agentArguments, Instrumentation instrumentation) {
-        MethodDatabase db = new MethodDatabase(Thread.currentThread().getContextClassLoader());
+        MethodDatabase db = JavaAgent.db = new MethodDatabase(Thread.currentThread().getContextClassLoader());
         boolean checkArg = false;
         boolean runTool = false;
         boolean append = false;

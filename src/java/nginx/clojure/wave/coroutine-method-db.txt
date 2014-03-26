@@ -17,6 +17,14 @@ lazyclass:nginx/clojure/Coroutine
   run()V:skip
   _resumep()V:skip
 
+lazyclass:java/lang/reflect/Method
+  invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;:just_mark
+  
+lazyclass:java/lang/invoke/MethodHandle
+  invoke([Ljava/lang/Object;)Ljava/lang/Object;:just_mark
+
+lazyclass:java/lang/reflect/InvocationHandler
+  invoke(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;:just_mark
 
 lazyclass:java/io/PrintWriter
   flush()V:skip

@@ -29,7 +29,10 @@
  */
 package nginx.clojure.wave;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import nginx.clojure.Stack;
 import nginx.clojure.SuspendExecution;
@@ -75,7 +78,16 @@ public class InstrumentMethod {
     
     private boolean warnedAboutMonitors;
     private boolean warnedAboutBlocking;
-
+    
+    private boolean hasReflectInvoke;
+    
+    private Set<LabelNode> reflectExceptionHandlers;
+    
+	private final static Set<String> REFLECT_EXCEPTION_SET = new HashSet<String>(
+			Arrays.asList("java/lang/reflect/InvocationTargetException",
+					"java/lang/reflect/ReflectiveOperationException",
+					"java/lang/Exception",
+					"java/lang/Throwable"));
     
     public InstrumentMethod(MethodDatabase db, String className, MethodNode mn) throws AnalyzerException {
         this.db = db;
@@ -103,6 +115,9 @@ public class InstrumentMethod {
                 if(in.getType() == AbstractInsnNode.METHOD_INSN) {
                     MethodInsnNode min = (MethodInsnNode)in;
                     int opcode = min.getOpcode();
+                    if (min.owner.equals("java/lang/reflect/Method") && min.name.equals("invoke")) {
+                    	hasReflectInvoke = true;
+                    }
                     Integer st = db.checkMethodSuspendType(min.owner, ClassEntry.key(min.name, min.desc), opcode == Opcodes.INVOKEVIRTUAL || opcode == Opcodes.INVOKESTATIC || opcode == Opcodes.INVOKEINTERFACE);
                     if(st == MethodDatabase.SUSPEND_NORMAL || st == MethodDatabase.SUSPEND_FAMILY || st == MethodDatabase.SUSPEND_JUST_MARK) {
                         db.trace("Method call at instruction %d to %s#%s%s is suspendable", i, min.owner, min.name, min.desc);
@@ -146,8 +161,15 @@ public class InstrumentMethod {
         
         mv.visitTryCatchBlock(lMethodStart, lMethodEnd, lCatchSEE, CheckInstrumentationVisitor.EXCEPTION_NAME);
         
+        
         for(Object o : mn.tryCatchBlocks) {
             TryCatchBlockNode tcb = (TryCatchBlockNode)o;
+            if (hasReflectInvoke && REFLECT_EXCEPTION_SET.contains(tcb.type)) {
+            	if (reflectExceptionHandlers == null){
+            		reflectExceptionHandlers = new HashSet<LabelNode>();
+            	}
+            	reflectExceptionHandlers.add(tcb.handler);
+            }
             if(CheckInstrumentationVisitor.EXCEPTION_NAME.equals(tcb.type)) {
                 throw new UnableToInstrumentException("catch for " +
                         SuspendExecution.class.getSimpleName(), className, mn.name, mn.desc);
@@ -240,6 +262,9 @@ public class InstrumentMethod {
         mv.visitLabel(lCatchAll);
         emitPopMethod(mv);
         mv.visitLabel(lCatchSEE);
+        if (hasReflectInvoke) {
+        	emitRelectExceptionHandleCode(mv, false);
+        }
         mv.visitInsn(Opcodes.ATHROW);   // rethrow shared between catchAll and catchSSE
         
         if(mn.localVariables != null) {
@@ -251,6 +276,19 @@ public class InstrumentMethod {
         mv.visitMaxs(mn.maxStack+3, mn.maxLocals+1+additionalLocals);
         mv.visitEnd();
     }
+
+	private void emitRelectExceptionHandleCode(MethodVisitor mv, boolean doThrow) {
+		Label lNoReflectException = new Label();
+		mv.visitInsn(Opcodes.DUP);
+		mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/Throwable", "getCause", "()Ljava/lang/Throwable;");
+		mv.visitFieldInsn(Opcodes.GETSTATIC, "nginx/clojure/Stack", "exception_instance_not_for_user_code", "Lnginx/clojure/SuspendExecution;");
+		mv.visitJumpInsn(Opcodes.IF_ACMPNE, lNoReflectException);
+		mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/Throwable", "getCause", "()Ljava/lang/Throwable;");
+		if (doThrow) {
+			mv.visitInsn(Opcodes.ATHROW);
+		}
+		mv.visitLabel(lNoReflectException);
+	}
 
     private FrameInfo addCodeBlock(Frame f, int end) {
         if(++numCodeBlocks == codeBlocks.length) {
@@ -316,6 +354,16 @@ public class InstrumentMethod {
         
         for(int i=start+skip ; i<end ; i++) {
             AbstractInsnNode ins = mn.instructions.get(i);
+            
+            if (ins instanceof LabelNode) {
+            	ins.accept(mv);
+				LabelNode ln = (LabelNode) ins;
+				if (hasReflectInvoke && reflectExceptionHandlers.contains(ln)) {
+					emitRelectExceptionHandleCode(mv, true);
+				}
+				continue;
+			}
+            
             switch(ins.getOpcode()) {
             case Opcodes.RETURN:
             case Opcodes.ARETURN:
