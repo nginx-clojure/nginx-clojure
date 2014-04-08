@@ -21,6 +21,8 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 
 static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle);
 
+static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle);
+
 static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf);
 
 
@@ -99,7 +101,7 @@ ngx_module_t  ngx_http_clojure_module = {
     NGX_HTTP_MODULE,               /* module type */
     NULL,                          /* init master */
     ngx_http_clojure_module_init,  /* init module */
-    NULL,                          /* init process */
+    ngx_http_clojure_process_init, /* init process */
     NULL,                          /* init thread */
     NULL,                          /* exit thread */
     NULL,                          /* exit process */
@@ -118,10 +120,20 @@ static void * ngx_http_clojure_create_loc_conf(ngx_conf_t *cf) {
 	conf->jvm_options = NGX_CONF_UNSET_PTR;
 	conf->jvm_workers = NGX_CONF_UNSET;
 	conf->clojure_code_id = -1;
-	//conf->clojure_script = ngx_null_string;
+	conf->clojure_code.len = 0;
+	conf->clojure_code.data = NULL;
 	return conf;
 }
 
+static ngx_int_t ngx_http_clojure_init_clojure_script(ngx_http_clojure_loc_conf_t  *lcf, ngx_log_t *log) {
+    if (lcf != NULL && lcf->clojure_code_id < 0 && lcf->enable && lcf->clojure_code.len > 0) {
+    	if (ngx_http_clojure_register_script(&lcf->clojure_code.data, lcf->clojure_code.len, &(lcf->clojure_code_id)) != NGX_HTTP_CLOJURE_JVM_OK){
+    		ngx_log_error(NGX_LOG_ERR, log, 0, "invalid clojure code : %s", lcf->clojure_code.data);
+    		return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    	}
+    }
+    return NGX_HTTP_CLOJURE_JVM_OK;
+}
 
 static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  *lcf, ngx_log_t *log) {
     if (ngx_http_clojure_check_jvm() != NGX_HTTP_CLOJURE_JVM_OK){
@@ -149,12 +161,10 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  
 		}
     }
 
-    if (lcf != NULL && lcf->clojure_code_id < 0) {
-    	if (ngx_http_clojure_register_script(&lcf->clojure_code.data, lcf->clojure_code.len, &(lcf->clojure_code_id)) != NGX_HTTP_CLOJURE_JVM_OK){
-    		ngx_log_error(NGX_LOG_ERR, log, 0, "invalid clojure code : %s", lcf->clojure_code.data);
-    		return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    	}
+    if (ngx_http_clojure_init_clojure_script(lcf, log) != NGX_HTTP_CLOJURE_JVM_OK) {
+    	return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
+
     return NGX_HTTP_CLOJURE_JVM_OK;
 }
 
@@ -172,23 +182,32 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 	conf->jvm_options = prev->jvm_options;
 	conf->jvm_path = prev->jvm_path;
 	conf->jvm_workers = prev->jvm_workers;
-//	if (conf->enable) {
-//		ngx_int_t rc = ngx_http_clojure_init_jvm_and_mem(conf, cf->log);
-//		if (rc != NGX_HTTP_CLOJURE_JVM_OK){
-//		    return NGX_CONF_ERROR;
-//		}
-//	}
 
 	return NGX_CONF_OK;
 }
 
-ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
+static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
 	ngx_http_clojure_global_cycle = cycle;
 	ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, NGINX_CLOJURE_VER);
 	return NGX_OK;
 }
 
-ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
+static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
+	ngx_http_conf_ctx_t * ctx = (ngx_http_conf_ctx_t *)ngx_get_conf(cycle->conf_ctx, ngx_http_module);
+	ngx_int_t rc = 0;
+/*	ngx_http_core_main_conf_t *hcmcf = ngx_http_cycle_get_module_main_conf(cycle, ngx_http_core_module);*/
+	ngx_http_clojure_loc_conf_t *mcf = ctx->loc_conf[ngx_http_clojure_module.ctx_index];
+
+    rc = ngx_http_clojure_init_jvm_and_mem(mcf, cycle->log);
+    if (rc != NGX_HTTP_CLOJURE_JVM_OK){
+    	return rc;
+    }
+
+    rc = ngx_http_clojure_init_socket(mcf, cycle->log);
+    return rc;
+}
+
+static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 
 	ngx_http_clojure_loc_conf_t *lcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_clojure_module);
 
@@ -221,9 +240,9 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
 
 
     lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
-//    ngx_http_core_main_conf_t  *cmcf = ngx_http_get_module_main_conf(r, ngx_http_core_module);
+/*  ngx_http_core_main_conf_t  *cmcf = ngx_http_get_module_main_conf(r, ngx_http_core_module);*/
 
-
+/*move to init process
     rc = ngx_http_clojure_init_jvm_and_mem(lcf, ngx_http_clojure_global_cycle->log);
     if (rc != NGX_HTTP_CLOJURE_JVM_OK){
     	return rc;
@@ -232,7 +251,12 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     rc = ngx_http_clojure_init_socket(lcf, ngx_http_clojure_global_cycle->log);
     if (rc != NGX_HTTP_CLOJURE_JVM_OK){
     	return rc;
-    }
+    }*/
+
+    rc = ngx_http_clojure_init_clojure_script(lcf, ngx_http_clojure_global_cycle->log);
+	if (rc != NGX_HTTP_CLOJURE_JVM_OK) {
+		return rc;
+	}
 
     if (r->method & (NGX_HTTP_POST|NGX_HTTP_PUT)) {
     	if (r->headers_in.content_type && ngx_strcmp("application/x-www-form-urlencoded", r->headers_in.content_type->value.data) != 0) {
