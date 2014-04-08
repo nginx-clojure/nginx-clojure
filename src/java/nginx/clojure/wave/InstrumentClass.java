@@ -30,7 +30,6 @@
 package nginx.clojure.wave;
 
 import java.util.ArrayList;
-import java.util.List;
 
 import nginx.clojure.asm.AnnotationVisitor;
 import nginx.clojure.asm.ClassVisitor;
@@ -105,13 +104,22 @@ public class InstrumentClass extends ClassVisitor {
                 methods = new ArrayList<MethodNode>();
             }
             
-            MethodNode mn = new MethodNode(access, name, desc, signature, exceptions);
+            MethodNode mn = new InstrumentMethodNode(db, access, name, desc, signature, exceptions);
             methods.add(mn);
             return mn;
         }
         return super.visitMethod(access, name, desc, signature, exceptions);
     }
 
+
+    
+    public   MethodVisitor getConstructorFacadeRest(MethodNode mn) {
+    	String[] exps = MethodDatabase.toStringArray(mn.exceptions);
+    	return new JSRInlinerAdapter(super.visitMethod(mn.access, "_init_s_", mn.desc, mn.signature, exps), mn.access, "_init_s_", mn.desc, mn.signature, exps);
+    }
+    
+    
+    
     @Override
     public void visitEnd() {
         db.recordSuspendableMethods(className, classEntry);
@@ -128,15 +136,23 @@ public class InstrumentClass extends ClassVisitor {
                 
                 for(MethodNode mn : methods) {
                     MethodVisitor outMV = makeOutMV(mn);
+                    
                     try {
-                        InstrumentMethod im = new InstrumentMethod(db, className, mn);
-                        if(im.collectCodeBlocks()) {
-                            if(mn.name.charAt(0) == '<') {
-                                throw new UnableToInstrumentException("special method", className, mn.name, mn.desc);
+                    	if (mn.name.charAt(0) == '<' && mn.name.charAt(1) == 'i') {
+                    		mn.accept(outMV);
+                        	InstrumentConstructorMethod icm = new InstrumentConstructorMethod(db, className, mn);
+                        	icm.accept(this);
+                        }else {
+                        	InstrumentMethod im = new InstrumentMethod(db, className, mn);
+                            if(im.collectCodeBlocks()) {
+                                if(mn.name.charAt(0) == '<') {
+                                		throw new UnableToInstrumentException("special method", className, mn.name, mn.desc);
+                                }else {
+                                	im.accept(outMV);
+                                }
+                            } else {
+                                mn.accept(outMV);
                             }
-                            im.accept(outMV);
-                        } else {
-                            mn.accept(outMV);
                         }
                     } catch(AnalyzerException ex) {
                         ex.printStackTrace();
@@ -148,19 +164,16 @@ public class InstrumentClass extends ClassVisitor {
         super.visitEnd();
     }
 
-    private MethodVisitor makeOutMV(MethodNode mn) {
-    	String[] exps = toStringArray(mn.exceptions);
+    protected MethodVisitor makeOutMV(MethodNode mn) {
+    	String[] exps = MethodDatabase.toStringArray(mn.exceptions);
     	return new JSRInlinerAdapter(super.visitMethod(mn.access, mn.name, mn.desc, mn.signature, exps), mn.access, mn.name, mn.desc, mn.signature, exps);
     }
 
-    private static boolean checkAccess(int access) {
-        return (access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) == 0;
+    protected MethodVisitor makeOutMV(int access, String name, String desc, String signature, String[] exceptions) {
+    	return super.visitMethod(access, name, desc, signature, exceptions);
     }
     
-    private static String[] toStringArray(List<?> l) {
-        if(l.isEmpty()) {
-            return null;
-        }
-        return l.toArray(new String[l.size()]);
+    private static boolean checkAccess(int access) {
+        return (access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) == 0;
     }
 }

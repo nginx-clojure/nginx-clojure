@@ -61,6 +61,8 @@ public final class Stack implements Serializable {
     
     transient int curMethodSP;
     
+    SuspendableConstructorUtilStack sustack;
+    
     Stack(Coroutine co, int stackSize) {
         if(stackSize <= 0) {
             throw new IllegalArgumentException("stackSize");
@@ -69,6 +71,7 @@ public final class Stack implements Serializable {
         this.method = new int[8];
         this.dataLong = new long[stackSize];
         this.dataObject = new Object[stackSize];
+        this.sustack = new SuspendableConstructorUtilStack(stackSize);
     }
     
     public static Stack getStack() {

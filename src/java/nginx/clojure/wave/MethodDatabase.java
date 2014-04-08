@@ -36,6 +36,7 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
@@ -295,7 +296,7 @@ public class MethodDatabase implements LoggerService {
     }
     
     public final Integer checkMethodSuspendType(String className, String method, boolean searchSuperClass, boolean returnDefault) {
-        if(method.charAt(0) == '<') {
+        if(method.charAt(0) == '<' && method.charAt(1) == 'c') {
             return SUSPEND_NONE;   // special methods are never suspendable
         }
         
@@ -316,6 +317,9 @@ public class MethodDatabase implements LoggerService {
         }
        
         if (st == null && returnDefault) {
+        	if(method.charAt(0) == '<') {
+        		return SUSPEND_NONE;
+        	}
         	 warn("Method not found in class - assuming suspendable: %s#%s", className, method);
              st = SUSPEND_NORMAL;
         }
@@ -616,6 +620,13 @@ public class MethodDatabase implements LoggerService {
     public static boolean isJavaCore(String className) {
         return className.startsWith("java/") || className.startsWith("javax/") ||
                 className.startsWith("sun/") || className.startsWith("com/sun/");
+    }
+    
+    public static String[] toStringArray(List<?> l) {
+        if(l.isEmpty()) {
+            return null;
+        }
+        return l.toArray(new String[l.size()]);
     }
     
     private static final ClassEntry CLASS_NOT_FOUND = new ClassEntry("<class not found>", new String[0]);

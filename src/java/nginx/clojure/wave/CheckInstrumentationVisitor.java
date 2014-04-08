@@ -45,8 +45,8 @@ import nginx.clojure.asm.Type;
  */
 public class CheckInstrumentationVisitor extends ClassVisitor {
 
-    static final String EXCEPTION_NAME = Type.getInternalName(SuspendExecution.class);
-    static final String EXCEPTION_DESC = Type.getDescriptor(SuspendExecution.class);
+    public static final String EXCEPTION_NAME = Type.getInternalName(SuspendExecution.class);
+    public static final String EXCEPTION_DESC = Type.getDescriptor(SuspendExecution.class);
 
     private String className;
     private ClassEntry classEntry;
