@@ -20,6 +20,8 @@ public class ConstructorTest {
 	
 	public static class A {
 		
+		public static ArrayList<Integer> sresult;
+		
 		public A(int n, ArrayList<Integer> result) throws SuspendExecution {
 			for (int i = 0; i < n; i++) {
 				Coroutine.yield();
@@ -27,6 +29,20 @@ public class ConstructorTest {
 			}
 		}
 		
+		public A(ArrayList<Integer> result) throws SuspendExecution {
+			this(4, result);
+			System.out.println("A(ArrayList<Integer> result) haha finish!");
+		}
+		
+		public A() throws SuspendExecution {
+			this(sresult);
+			System.out.println("A() haha finish!");
+		}
+		
+		public String haha(String msg) {
+			System.out.println(msg);
+			return msg + ":handled";
+		}
 	}
 
 	@Test
@@ -52,6 +68,67 @@ public class ConstructorTest {
 		assertEquals(3, result.size());
 		assertEquals((Integer)2, result.get(2));
 		
+	}
+	
+	@Test
+	public void testComplexConstructor() {
+		
+		final ArrayList<Integer> result = new ArrayList<Integer>();
+		{
+		Coroutine co = new Coroutine(new Runnable() {
+			
+			@Override
+			public void run() throws SuspendExecution {
+				A a = new A(result);
+				a.haha("cpx good");
+			}
+		});
+		co.resume();
+		assertEquals(0, result.size());
+		co.resume();
+		assertEquals(1, result.size());
+		assertEquals((Integer)0, result.get(0));
+		co.resume();
+		assertEquals(2, result.size());
+		assertEquals((Integer)1, result.get(1));
+		co.resume();
+		assertEquals(3, result.size());
+		assertEquals((Integer)2, result.get(2));
+		co.resume();
+		assertEquals(4, result.size());
+		assertEquals((Integer)3, result.get(3));
+		
+		
+		}
+		
+		result.clear();
+		
+		{
+			A.sresult = result;
+			Coroutine co = new Coroutine(new Runnable() {
+				
+				@Override
+				public void run() throws SuspendExecution {
+					A a = new A();
+					a.haha("vcpx good");
+				}
+			});
+			co.resume();
+			assertEquals(0, result.size());
+			co.resume();
+			assertEquals(1, result.size());
+			assertEquals((Integer)0, result.get(0));
+			co.resume();
+			assertEquals(2, result.size());
+			assertEquals((Integer)1, result.get(1));
+			co.resume();
+			assertEquals(3, result.size());
+			assertEquals((Integer)2, result.get(2));
+			co.resume();
+			assertEquals(4, result.size());
+			assertEquals((Integer)3, result.get(3));
+			
+		}
 	}
 
 } 

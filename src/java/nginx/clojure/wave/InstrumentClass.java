@@ -104,7 +104,7 @@ public class InstrumentClass extends ClassVisitor {
                 methods = new ArrayList<MethodNode>();
             }
             
-            MethodNode mn = new InstrumentMethodNode(db, access, name, desc, signature, exceptions);
+            MethodNode mn = name.charAt(0) == '<' ? new MethodNode(access, name, desc, signature, exceptions) : new InstrumentMethodNode(db, access, name, desc, signature, exceptions);
             methods.add(mn);
             return mn;
         }

@@ -100,7 +100,7 @@ public class InstrumentConstructorMethod {
 		String[] expss = MethodDatabase.toStringArray(exps);
 		MethodNode mv = new MethodNode(Opcodes.ACC_PUBLIC, buildInitHelpMethodName(mn.desc), "()V", null, expss);
 		
-		if (db.checkMethodSuspendType(className, invokedInitInsn.name + invokedInitInsn.desc, false) == MethodDatabase.SUSPEND_NORMAL) {
+		if (db.checkMethodSuspendType(invokedInitInsn.owner, ClassEntry.key(invokedInitInsn.name, invokedInitInsn.desc), false) == MethodDatabase.SUSPEND_NORMAL) {
 			mv.visitVarInsn(Opcodes.ALOAD, 0);
 			mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, invokedInitInsn.owner, "inch_" + getMD5(invokedInitInsn.desc), "()V");
 		}
@@ -163,11 +163,12 @@ public class InstrumentConstructorMethod {
 			mn.instructions.get(i).accept(cmv);
 		}
 		
-		if (db.checkMethodSuspendType(className, ClassEntry.key(invokedInitInsn.name, invokedInitInsn.desc), false, false) == MethodDatabase.SUSPEND_NORMAL) {
+		if (db.checkMethodSuspendType(invokedInitInsn.owner, ClassEntry.key(invokedInitInsn.name, invokedInitInsn.desc), false, false) == MethodDatabase.SUSPEND_NORMAL) {
 			Type[] tps = Type.getArgumentTypes(invokedInitInsn.desc);
 			Type[] ntps = new Type[tps.length + 1];
 			System.arraycopy(tps, 0, ntps, 0, tps.length);
 			ntps[tps.length] = Type.getType(CheckInstrumentationVisitor.EXCEPTION_DESC);
+			cmv.visitInsn(Opcodes.ACONST_NULL);
 			cmv.visitMethodInsn(invokedInitInsn.getOpcode(), invokedInitInsn.owner,invokedInitInsn.name, Type.getMethodDescriptor(Type.VOID_TYPE, ntps));
 		}else {
 			invokedInitInsn.accept(cmv);
