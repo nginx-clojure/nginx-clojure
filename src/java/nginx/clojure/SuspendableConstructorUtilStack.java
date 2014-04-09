@@ -13,7 +13,7 @@ public final class SuspendableConstructorUtilStack implements Serializable {
 
     private static final long serialVersionUID = 1396934991052L;
     
-    
+    private static final ThreadLocal<SuspendableConstructorUtilStack>  cstacks = new ThreadLocal<SuspendableConstructorUtilStack>();
     
     private static  MethodDatabase db;
     
@@ -34,7 +34,15 @@ public final class SuspendableConstructorUtilStack implements Serializable {
     }
     
     public static SuspendableConstructorUtilStack getStack() {
-        return Stack.getStack().sustack;
+    	SuspendableConstructorUtilStack cs = cstacks.get();
+    	if (cs == null) {
+    		cstacks.set(cs = new SuspendableConstructorUtilStack(3));
+    	}
+    	return cs;
+    }
+    
+    public final boolean empty() {
+    	return sp == -1;
     }
         
     public final void incRefsAndReserveSpace(int numSlots) {

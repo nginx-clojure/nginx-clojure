@@ -24,7 +24,9 @@ public class ConstructorTest {
 		
 		public A(int n, ArrayList<Integer> result) throws SuspendExecution {
 			for (int i = 0; i < n; i++) {
-				Coroutine.yield();
+				if (Coroutine.getActiveCoroutine() != null) {
+					Coroutine.yield();
+				}
 				result.add(i);
 			}
 		}
@@ -67,7 +69,7 @@ public class ConstructorTest {
 		co.resume();
 		assertEquals(3, result.size());
 		assertEquals((Integer)2, result.get(2));
-		
+		assertTrue(SuspendableConstructorUtilStack.getStack().empty());
 	}
 	
 	@Test
@@ -97,7 +99,7 @@ public class ConstructorTest {
 		co.resume();
 		assertEquals(4, result.size());
 		assertEquals((Integer)3, result.get(3));
-		
+		assertTrue(SuspendableConstructorUtilStack.getStack().empty());
 		
 		}
 		
@@ -127,8 +129,29 @@ public class ConstructorTest {
 			co.resume();
 			assertEquals(4, result.size());
 			assertEquals((Integer)3, result.get(3));
-			
+			assertTrue(SuspendableConstructorUtilStack.getStack().empty());
 		}
 	}
+	
+	@Test
+	public void testNonCoroutine() {
+		
+		final ArrayList<Integer> result = new ArrayList<Integer>();
+		A.sresult = result;
+		
+		Runnable r = new Runnable() {
+			
+			@Override
+			public void run() throws SuspendExecution {
+				A a = new A(result);
+				a.haha("cpx good");
+			}
+		};
+		r.run();
+		assertEquals(4, result.size());
+		assertEquals((Integer)3, result.get(3));
+		assertTrue(SuspendableConstructorUtilStack.getStack().empty());
+	}
+	
 
 } 
