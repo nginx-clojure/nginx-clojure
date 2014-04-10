@@ -10,6 +10,8 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.net.Socket;
 import java.nio.charset.Charset;
@@ -579,7 +581,11 @@ public class NginxClojureRT {
 		}catch(Throwable e){
 			//log to nginx error log file
 			log.error("server unhandled exception!", e);
-			return new PersistentArrayMap(new Object[] {STATUS, 500, BODY, e, HEADERS, new PersistentArrayMap(new Object[] {CONTENT_TYPE.getName(), "text/plain"})});
+			StringWriter sw = new StringWriter();
+			PrintWriter pw = new PrintWriter(sw);
+			e.printStackTrace(pw);
+			pw.close();
+			return new PersistentArrayMap(new Object[] {STATUS, 500, BODY, sw.toString(), HEADERS, new PersistentArrayMap(new Object[] {CONTENT_TYPE.getName(), "text/plain"})});
 		}finally {
 			int bodyIdx = req.index(BODY);
 			if (req.array[bodyIdx] instanceof Closeable) {
