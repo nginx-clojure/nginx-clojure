@@ -151,17 +151,24 @@ public class SuspendMethodTracer {
 //
 //		  public void bind(java.net.SocketAddress) throws java.io.IOException;
 //		    Signature: (Ljava/net/SocketAddress;)V
+//
+//        private java.net.Socket(java.net.SocketAddress, java.net.SocketAddress, boolean) throws java.io.IOException;
+//	        Signature: (Ljava/net/SocketAddress;Ljava/net/SocketAddress;Z)V
+//
+
 		{
 		Set<String> socketMethods = new HashSet<String>();
-		socketMethods.add("<init>(Ljava/net/Proxy;)V");
+//		socketMethods.add("<init>(Ljava/net/Proxy;)V");
 		socketMethods.add("<init>(Ljava/lang/String;I)V");
 		socketMethods.add("<init>(Ljava/net/InetAddress;I)V");
 		socketMethods.add("<init>(Ljava/lang/String;ILjava/net/InetAddress;I)V");
 		socketMethods.add("<init>(Ljava/net/InetAddress;ILjava/net/InetAddress;I)V");
 		socketMethods.add("<init>(Ljava/lang/String;IZ)V");
+		socketMethods.add("<init>(Ljava/net/SocketAddress;Ljava/net/SocketAddress;Z)V");
 		socketMethods.add("<init>(Ljava/net/InetAddress;IZ)V");
 		socketMethods.add("connect(Ljava/net/SocketAddress;)V");
 		socketMethods.add("connect(Ljava/net/SocketAddress;I)V");
+
 //		socketMethods.add("bind(Ljava/net/InetAddress;IZ)V");
 		
 		SUSPEND_CAUSE_SET.put("java/net/Socket", socketMethods);

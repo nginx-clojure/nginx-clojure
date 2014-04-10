@@ -65,7 +65,7 @@ public class TypeAnalyzer extends Analyzer {
      * Returns the same result as {@code Type.getArgumentTypes(desc).length }
      * just with no memory allocations
      */
-    static int getNumArguments(String methodDesc) {
+    public static int getNumArguments(String methodDesc) {
         int off = 1;
         int size = 0;
         for(;;) {

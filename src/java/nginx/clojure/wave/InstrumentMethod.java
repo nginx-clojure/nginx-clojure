@@ -162,8 +162,7 @@ public class InstrumentMethod {
         mv.visitTryCatchBlock(lMethodStart, lMethodEnd, lCatchSEE, CheckInstrumentationVisitor.EXCEPTION_NAME);
         
         
-        for(Object o : mn.tryCatchBlocks) {
-            TryCatchBlockNode tcb = (TryCatchBlockNode)o;
+        for(TryCatchBlockNode tcb : mn.tryCatchBlocks) {
             if (hasReflectInvoke && REFLECT_EXCEPTION_SET.contains(tcb.type)) {
             	if (reflectExceptionHandlers == null){
             		reflectExceptionHandlers = new HashSet<LabelNode>();
@@ -389,17 +388,21 @@ public class InstrumentMethod {
                 if("<init>".equals(min.name)) {
                     int argSize = TypeAnalyzer.getNumArguments(min.desc);
                     Frame frame = frames[i];
-                    int stackIndex = frame.getStackSize() - argSize - 1;
-                    Value thisValue = frame.getStack(stackIndex);
-                    if(stackIndex >= 1 &&
-                            isNewValue(thisValue, true) &&
-                            isNewValue(frame.getStack(stackIndex-1), false)) {
-                        NewValue newValue = (NewValue)thisValue;
-                        if(newValue.omitted) {
-                            emitNewAndDup(mv, frame, stackIndex, min);
-                        }
-                    } else {
-                        db.warn("Expected to find a NewValue on stack index %d: %s", stackIndex, frame);
+                    if (frame != null) {
+                    	 int stackIndex = frame.getStackSize() - argSize - 1;
+                         Value thisValue = frame.getStack(stackIndex);
+                         if(stackIndex >= 1 &&
+                                 isNewValue(thisValue, true) &&
+                                 isNewValue(frame.getStack(stackIndex-1), false)) {
+                             NewValue newValue = (NewValue)thisValue;
+                             if(newValue.omitted) {
+                                 emitNewAndDup(mv, frame, stackIndex, min);
+                             }
+                         } else {
+                             db.warn("Expected to find a NewValue on stack index %d: %s", stackIndex, frame);
+                         }
+                    }else {
+                    	db.error("frame is null!!");
                     }
                 }
                 break;

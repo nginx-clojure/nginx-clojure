@@ -46,6 +46,26 @@ public class ConstructorTest {
 			return msg + ":handled";
 		}
 	}
+	
+	public static class B {
+		public A a;
+		public B(int n, ArrayList<Integer> result) throws SuspendExecution {
+			System.out.println("b begin");
+			try {
+				a = new A(n, result);
+				a.haha("in b (1)");
+				a = null;
+				a.haha("npe!");
+			}catch(Exception e) {
+				System.out.println("b exception");
+			}
+			
+			a = new A(n, result);
+			a.haha("in b (2)");
+
+			System.out.println("b end");
+		}
+	}
 
 	@Test
 	public void testSimpleConstructor() {
@@ -153,5 +173,52 @@ public class ConstructorTest {
 		assertTrue(SuspendableConstructorUtilStack.getStack().empty());
 	}
 	
+	
+	@Test
+	public void testException() {
+		final ArrayList<Integer> result = new ArrayList<Integer>();
+
+
+		Coroutine co = new Coroutine(new Runnable() {
+			
+			@Override
+			public void run() throws SuspendExecution {
+				B b = new B(4, result);
+				b.a.haha("run end");
+			}
+		});
+		co.resume();
+		assertEquals(0, result.size());
+		co.resume();
+		assertEquals(1, result.size());
+		assertEquals((Integer)0, result.get(0));
+		co.resume();
+		assertEquals(2, result.size());
+		assertEquals((Integer)1, result.get(1));
+		co.resume();
+		assertEquals(3, result.size());
+		assertEquals((Integer)2, result.get(2));
+		co.resume();
+		assertEquals(4, result.size());
+		assertEquals((Integer)3, result.get(3));
+		
+		result.clear();
+		
+		assertEquals(0, result.size());
+		co.resume();
+		assertEquals(1, result.size());
+		assertEquals((Integer)0, result.get(0));
+		co.resume();
+		assertEquals(2, result.size());
+		assertEquals((Integer)1, result.get(1));
+		co.resume();
+		assertEquals(3, result.size());
+		assertEquals((Integer)2, result.get(2));
+		co.resume();
+		assertEquals(4, result.size());
+		assertEquals((Integer)3, result.get(3));
+		
+		
+	}
 
 } 

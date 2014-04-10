@@ -4,6 +4,8 @@
  */
 package nginx.clojure.wave;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -19,11 +21,15 @@ import nginx.clojure.asm.tree.InsnList;
 import nginx.clojure.asm.tree.LabelNode;
 import nginx.clojure.asm.tree.MethodInsnNode;
 import nginx.clojure.asm.tree.MethodNode;
+import nginx.clojure.asm.tree.TryCatchBlockNode;
 import nginx.clojure.asm.tree.analysis.Analyzer;
 import nginx.clojure.asm.tree.analysis.AnalyzerException;
 import nginx.clojure.asm.tree.analysis.BasicValue;
 import nginx.clojure.asm.tree.analysis.Frame;
 import nginx.clojure.asm.tree.analysis.Value;
+import nginx.clojure.asm.util.Printer;
+import nginx.clojure.asm.util.Textifier;
+import nginx.clojure.asm.util.TraceMethodVisitor;
 import nginx.clojure.wave.MethodDatabase.ClassEntry;
 
 
@@ -63,18 +69,33 @@ public class InstrumentConstructorMethod {
 		}
     }
     
+    
+
+    //for debug usage
+    public static String insnToString(AbstractInsnNode insn){
+        Printer printer = new Textifier();
+        TraceMethodVisitor mp = new TraceMethodVisitor(printer);
+        insn.accept(mp);
+        StringWriter sw = new StringWriter();
+        printer.print(new PrintWriter(sw));
+        printer.getText().clear();
+        return sw.toString();
+    }
+    
     public void trySplitIntoTwoNewMethods(InstrumentClass cv) throws AnalyzerException {
     	int numIns = mn.instructions.size();
     	int splitPos = -1;
     	MethodInsnNode invokedInitInsn = null;
     	for(int i = 0 ; i < numIns ; i++) {
     		AbstractInsnNode insn = mn.instructions.get(i);
-    		if (insn.getOpcode() == Opcodes.NEW) {
-    			break;
+    		if (db.meetTraceTargetClassMethod(className, mn.name)) {
+    			db.debug(insnToString(insn));
     		}
+//    		System.out.println(insnToString(insn));
     		if (insn instanceof MethodInsnNode) {
 				MethodInsnNode minsn = (MethodInsnNode) insn;
-				if (minsn.name.equals("<init>")) {
+				Frame mif = frames[i];
+				if (minsn.name.equals("<init>") && mif.getLocal(0) == mif.getStack(mif.getStackSize()-1-TypeAnalyzer.getNumArguments(minsn.desc)) ) {
 					splitPos = i+1;
 					invokedInitInsn = minsn;
 					break;
@@ -137,12 +158,29 @@ public class InstrumentConstructorMethod {
 		mv.visitVarInsn(Opcodes.ALOAD,lvarCStack);
 		emitConst(mv, fi.numSlots);
 		mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "release", "(I)V");
-		
+		int maxStack = mn.maxStack;
 		for (int i = splitPos; i < numIns; i++) {
-			mn.instructions.get(i).accept(mv);
+			AbstractInsnNode insn = mn.instructions.get(i);
+			if (insn instanceof MethodInsnNode) {
+				MethodInsnNode misn = (MethodInsnNode) insn;
+				String name = misn.name;
+				if (name.charAt(0) == '<' && name.charAt(1) == 'i' && db != null && db.checkMethodSuspendType(misn.owner, ClassEntry.key(name, misn.desc), false, false) == MethodDatabase.SUSPEND_NORMAL) {
+					mv.visitInsn(Opcodes.ACONST_NULL);
+					mv.visitMethodInsn(misn.getOpcode(), misn.owner, name, InstrumentConstructorMethod.buildShrinkedInitMethodDesc(misn.desc));
+					mv.visitInsn(Opcodes.DUP);
+					mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, misn.owner, InstrumentConstructorMethod.buildInitHelpMethodName(misn.desc), "()V");
+					maxStack = mn.maxStack + 1;
+					continue;
+				}
+			}
+			insn.accept(mv);
 		}
+		
+		for(TryCatchBlockNode tcb : mn.tryCatchBlocks) {
+            tcb.accept(mv);
+        }
 
-		mv.visitMaxs(mn.maxStack+3, mn.maxLocals+3);
+		mv.visitMaxs(maxStack+3, mn.maxLocals+3);
 		mv.visitEnd();
 		
 		InstrumentMethod im = new InstrumentMethod(db, className, mv);
