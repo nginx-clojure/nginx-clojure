@@ -19,6 +19,7 @@ import nginx.clojure.asm.Type;
 import nginx.clojure.asm.tree.AbstractInsnNode;
 import nginx.clojure.asm.tree.InsnList;
 import nginx.clojure.asm.tree.LabelNode;
+import nginx.clojure.asm.tree.LocalVariableNode;
 import nginx.clojure.asm.tree.MethodInsnNode;
 import nginx.clojure.asm.tree.MethodNode;
 import nginx.clojure.asm.tree.TryCatchBlockNode;
@@ -51,7 +52,7 @@ public class InstrumentConstructorMethod {
         this.className = className;
         this.mn = mn;
         try {
-            Analyzer a = new TypeAnalyzer(db);
+            Analyzer a = MethodDatabaseUtil.buildAnalyzer(db);
             this.frames = a.analyze(className, mn);
             this.lvarCStack = mn.maxLocals+2;
             this.firstLocal = ((mn.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC) ? 0 : 1;
@@ -114,6 +115,9 @@ public class InstrumentConstructorMethod {
     }
 
 	public void emitInitHelpMethod(InstrumentClass cv, int numIns, int splitPos, Frame f, FrameInfo fi, MethodInsnNode invokedInitInsn) throws AnalyzerException {
+		
+		mn.instructions.resetLabels();
+		
 		List<String> exps = new ArrayList<String>(mn.exceptions);
 		if (!exps.contains(CheckInstrumentationVisitor.EXCEPTION_NAME)) {
 			exps.add(CheckInstrumentationVisitor.EXCEPTION_NAME);
@@ -121,9 +125,11 @@ public class InstrumentConstructorMethod {
 		String[] expss = MethodDatabase.toStringArray(exps);
 		MethodNode mv = new MethodNode(Opcodes.ACC_PUBLIC, buildInitHelpMethodName(mn.desc), "()V", null, expss);
 		
-		if (db.checkMethodSuspendType(invokedInitInsn.owner, ClassEntry.key(invokedInitInsn.name, invokedInitInsn.desc), false) == MethodDatabase.SUSPEND_NORMAL) {
-			mv.visitVarInsn(Opcodes.ALOAD, 0);
-			mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, invokedInitInsn.owner, "inch_" + getMD5(invokedInitInsn.desc), "()V");
+		if (invokedInitInsn != null) {
+			if (db.checkMethodSuspendType(invokedInitInsn.owner, ClassEntry.key(invokedInitInsn.name, invokedInitInsn.desc), false) == MethodDatabase.SUSPEND_NORMAL) {
+				mv.visitVarInsn(Opcodes.ALOAD, 0);
+				mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, invokedInitInsn.owner, "inch_" + getMD5(invokedInitInsn.desc), "()V");
+			}
 		}
 		
 		mv.visitMethodInsn(Opcodes.INVOKESTATIC, CSTACK_NAME, "getStack", "()L"+CSTACK_NAME+";");
@@ -180,6 +186,12 @@ public class InstrumentConstructorMethod {
             tcb.accept(mv);
         }
 
+		if(mn.localVariables != null && !mn.localVariables.isEmpty()) {
+			for (int i = 0; i < f.getLocals(); i++) {
+				mn.localVariables.get(i).accept(mv);
+			}
+        }
+		
 		mv.visitMaxs(maxStack+3, mn.maxLocals+3);
 		mv.visitEnd();
 		
@@ -201,17 +213,18 @@ public class InstrumentConstructorMethod {
 			mn.instructions.get(i).accept(cmv);
 		}
 		
-		if (db.checkMethodSuspendType(invokedInitInsn.owner, ClassEntry.key(invokedInitInsn.name, invokedInitInsn.desc), false, false) == MethodDatabase.SUSPEND_NORMAL) {
-			Type[] tps = Type.getArgumentTypes(invokedInitInsn.desc);
-			Type[] ntps = new Type[tps.length + 1];
-			System.arraycopy(tps, 0, ntps, 0, tps.length);
-			ntps[tps.length] = Type.getType(CheckInstrumentationVisitor.EXCEPTION_DESC);
-			cmv.visitInsn(Opcodes.ACONST_NULL);
-			cmv.visitMethodInsn(invokedInitInsn.getOpcode(), invokedInitInsn.owner,invokedInitInsn.name, Type.getMethodDescriptor(Type.VOID_TYPE, ntps));
-		}else {
-			invokedInitInsn.accept(cmv);
+		if (invokedInitInsn != null) {
+			if (db.checkMethodSuspendType(invokedInitInsn.owner, ClassEntry.key(invokedInitInsn.name, invokedInitInsn.desc), false, false) == MethodDatabase.SUSPEND_NORMAL) {
+				Type[] tps = Type.getArgumentTypes(invokedInitInsn.desc);
+				Type[] ntps = new Type[tps.length + 1];
+				System.arraycopy(tps, 0, ntps, 0, tps.length);
+				ntps[tps.length] = Type.getType(CheckInstrumentationVisitor.EXCEPTION_DESC);
+				cmv.visitInsn(Opcodes.ACONST_NULL);
+				cmv.visitMethodInsn(invokedInitInsn.getOpcode(), invokedInitInsn.owner,invokedInitInsn.name, Type.getMethodDescriptor(Type.VOID_TYPE, ntps));
+			}else {
+				invokedInitInsn.accept(cmv);
+			}
 		}
-		
 		
 		cmv.visitMethodInsn(Opcodes.INVOKESTATIC, CSTACK_NAME, "getStack", "()L"+CSTACK_NAME+";");
 		cmv.visitVarInsn(Opcodes.ASTORE, lvarCStack);
@@ -242,7 +255,17 @@ public class InstrumentConstructorMethod {
 		        emitStoreValue(cmv, v, lvarCStack, slotIdx);
 		    }
 		}
-		
+        if(mn.localVariables != null) {
+            for(LocalVariableNode var : mn.localVariables) {
+            	if (invokedInitInsn != null) {
+            		if (mn.instructions.indexOf(var.start) <= splitPos) {
+            			var.accept(cmv);
+            		}
+            	}else if (var.start.getPrevious() == null) {
+            		var.accept(cmv);
+            	}
+            }
+        }
 		cmv.visitInsn(Opcodes.RETURN);
 		cmv.visitMaxs(mn.maxStack+3, mn.maxLocals+3);
 		cmv.visitEnd();

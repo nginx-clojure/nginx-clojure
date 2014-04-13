@@ -35,6 +35,7 @@ import nginx.clojure.asm.tree.TypeInsnNode;
 import nginx.clojure.asm.tree.analysis.AnalyzerException;
 import nginx.clojure.asm.tree.analysis.BasicInterpreter;
 import nginx.clojure.asm.tree.analysis.BasicValue;
+import nginx.clojure.asm.tree.analysis.SimpleVerifier;
 
 /**
  * An extension to {@link BasicInterpreter} which collects the type of
@@ -42,7 +43,7 @@ import nginx.clojure.asm.tree.analysis.BasicValue;
  * 
  * @author Matthias Mann
  */
-public class TypeInterpreter extends BasicInterpreter {
+public class TypeInterpreter extends SimpleVerifier {
 
     private final MethodDatabase db;
 
@@ -96,59 +97,59 @@ public class TypeInterpreter extends BasicInterpreter {
         return super.binaryOperation(insn, value1, value2);
     }
 
-    @Override
-    public BasicValue merge(BasicValue v, BasicValue w) {
-        if (!v.equals(w)) {
-            if(v.isReference() && w.isReference()) {
-                int dimensions = 0;
-                Type typeV = v.getType();
-                Type typeW = w.getType();
-                if(typeV.getSort() != typeW.getSort()) {
-                    db.trace("Array and none array type can't be merged: %s %s", v, w);
-                    return BasicValue.UNINITIALIZED_VALUE;
-                }
-                if(typeW.getSort() == Type.ARRAY) {
-                    dimensions = typeV.getDimensions();
-                    if(dimensions != typeW.getDimensions()) {
-                        db.trace("Arrays with different dimensions can't be merged: %s %s", v, w);
-                        return BasicValue.UNINITIALIZED_VALUE;
-                    }
-                    typeV = typeV.getElementType();
-                    typeW = typeW.getElementType();
-                    if(typeV.getSort() != Type.OBJECT || typeW.getSort() != Type.OBJECT) {
-                        db.trace("Arrays of different primitive type can't be merged: %s %s", v, w);
-                        return BasicValue.UNINITIALIZED_VALUE;
-                    }
-                }
-                String internalV = typeV.getInternalName();
-                String internalW = typeW.getInternalName();
-                if("null".equals(internalV)) {
-                    return w;
-                }
-                if("null".equals(internalW)) {
-                    return v;
-                }
-                String superClass = db.getCommonSuperClass(internalV, internalW);
-                if(superClass == null) {
-                    if(db.isException(internalW)) {
-                        db.warn("Could not determine super class for v=%s w=%s - decided to use exception %s", v, w, w);
-                        return w;
-                    }
-                    if(db.isException(internalV)) {
-                        db.warn("Could not determine super class for v=%s w=%s - decided to use exception %s", v, w, v);
-                        return v;
-                    }
-                    db.warn("Could not determine super class for v=%s w=%s - decided to use java/lang/Object", v, w);
-                    superClass = "java/lang/Object";
-                }
-                String typeDescriptor = makeTypeDescriptor(superClass, dimensions);
-                db.trace("Common super class for v=%s w=%s is %s", v, w, typeDescriptor);
-                return new BasicValue(Type.getType(typeDescriptor));
-            }
-            return BasicValue.UNINITIALIZED_VALUE;
-        }
-        return v;
-    }
+//    @Override
+//    public BasicValue merge(BasicValue v, BasicValue w) {
+//        if (!v.equals(w)) {
+//            if(v.isReference() && w.isReference()) {
+//                int dimensions = 0;
+//                Type typeV = v.getType();
+//                Type typeW = w.getType();
+//                if(typeV.getSort() != typeW.getSort()) {
+//                    db.trace("Array and none array type can't be merged: %s %s", v, w);
+//                    return BasicValue.UNINITIALIZED_VALUE;
+//                }
+//                if(typeW.getSort() == Type.ARRAY) {
+//                    dimensions = typeV.getDimensions();
+//                    if(dimensions != typeW.getDimensions()) {
+//                        db.trace("Arrays with different dimensions can't be merged: %s %s", v, w);
+//                        return BasicValue.UNINITIALIZED_VALUE;
+//                    }
+//                    typeV = typeV.getElementType();
+//                    typeW = typeW.getElementType();
+//                    if(typeV.getSort() != Type.OBJECT || typeW.getSort() != Type.OBJECT) {
+//                        db.trace("Arrays of different primitive type can't be merged: %s %s", v, w);
+//                        return BasicValue.UNINITIALIZED_VALUE;
+//                    }
+//                }
+//                String internalV = typeV.getInternalName();
+//                String internalW = typeW.getInternalName();
+//                if("null".equals(internalV)) {
+//                    return w;
+//                }
+//                if("null".equals(internalW)) {
+//                    return v;
+//                }
+//                String superClass = db.getCommonSuperClass(internalV, internalW);
+//                if(superClass == null) {
+//                    if(db.isException(internalW)) {
+//                        db.warn("Could not determine super class for v=%s w=%s - decided to use exception %s", v, w, w);
+//                        return w;
+//                    }
+//                    if(db.isException(internalV)) {
+//                        db.warn("Could not determine super class for v=%s w=%s - decided to use exception %s", v, w, v);
+//                        return v;
+//                    }
+//                    db.warn("Could not determine super class for v=%s w=%s - decided to use java/lang/Object", v, w);
+//                    superClass = "java/lang/Object";
+//                }
+//                String typeDescriptor = makeTypeDescriptor(superClass, dimensions);
+//                db.trace("Common super class for v=%s w=%s is %s", v, w, typeDescriptor);
+//                return new BasicValue(Type.getType(typeDescriptor));
+//            }
+//            return BasicValue.UNINITIALIZED_VALUE;
+//        }
+//        return v;
+//    }
 
     private static String makeTypeDescriptor(String className, int dimensions) {
         int len = className.length();
@@ -161,4 +162,77 @@ public class TypeInterpreter extends BasicInterpreter {
         tmp[dimensions+1+len] = ';';
         return new String(tmp);
     }
+    
+    @Override
+    protected Type getSuperClass(Type t) {
+    	return Type.getObjectType(db.getDirectSuperClass(t.getInternalName()));
+    }
+    
+	@Override
+	protected boolean isInterface(Type t) {
+		return db.isInterface(t.getInternalName());
+	}
+    
+    @Override
+    protected boolean isAssignableFrom(Type t, Type u) {
+
+		try {
+			int us = u.getSort();
+			switch (t.getSort()) {
+			case Type.BOOLEAN:
+				return us == Type.BOOLEAN;
+			case Type.BYTE:
+				return us == Type.BYTE;
+			case Type.CHAR:
+				return us == Type.BYTE || us == Type.CHAR;
+			case Type.SHORT:
+				return us == Type.BYTE || us == Type.CHAR || us == Type.SHORT;
+			case Type.DOUBLE:
+				return us == Type.BYTE || us == Type.CHAR
+						|| us == Type.INT || us == Type.FLOAT || us == Type.DOUBLE;
+			case Type.FLOAT:
+				return us == Type.BYTE || us == Type.CHAR
+						|| us == Type.INT || us == Type.FLOAT;
+			case Type.INT:
+				return us == Type.BYTE || us == Type.CHAR
+						|| us == Type.INT;
+			case Type.LONG:
+				return us == Type.BYTE || us == Type.CHAR
+				|| us == Type.INT || us == Type.LONG;
+			}
+
+			if (t.getInternalName() != null && t.getInternalName().equals("java/lang/Object")) {
+				return true;
+			}
+			
+			if (t.getSort() == Type.ARRAY) {
+				// System.out.println("ARRAY isAssignableFrom: " +
+				// t.getInternalName() + "/" + u.getInternalName());
+				return us == Type.ARRAY 
+						&& isAssignableFrom(t.getElementType(),
+								u.getElementType());
+			}
+			
+			if (u.getSort() == Type.ARRAY) {
+				return false;
+			}
+			// System.out.println("isAssignableFrom: " + t.getInternalName() +
+			// "/" + u.getInternalName());
+			boolean b = t.getInternalName().equals(u.getInternalName())
+					|| db.getCommonSuperClass(u.getInternalName(),
+							t.getInternalName()).equals(t.getInternalName());
+//			 boolean ob = getClass(t).isAssignableFrom(getClass(u));
+//			 if (b != ob) {
+//			 throw new RuntimeException("isAssignableFrom : " + b + "!=" + ob
+//			 + ", getCommonSuperClass=" +
+//			 db.getCommonSuperClass(u.getInternalName(), t.getInternalName())
+//			 + " t :" + t.getInternalName() + ", u:" + u.getInternalName());
+//			 }
+			return b;
+		} catch (Throwable e) {
+			db.error("isAssignableFrom error t=" + t + ", u=" + u, e);
+			return false;
+		}
+    }
+    
 }

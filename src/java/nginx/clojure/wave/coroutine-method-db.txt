@@ -17,6 +17,7 @@ lazyclass:nginx/clojure/Coroutine
   run()V:skip
   _resumep()V:skip
 
+
 lazyclass:java/lang/reflect/Method
   invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;:just_mark
   
@@ -47,7 +48,15 @@ lazyclass:java/util/concurrent/locks/Lock
 	
 
 lazyclass:java/net/Socket
-  /connect.*:normal
+	<init>(Ljava/lang/String;I)V:normal
+	<init>(Ljava/net/InetAddress;I)V:normal
+	<init>(Ljava/lang/String;ILjava/net/InetAddress;I)V:normal
+	<init>(Ljava/net/InetAddress;ILjava/net/InetAddress;I)V:normal
+	<init>(Ljava/net/SocketAddress;Ljava/net/SocketAddress;Z)V:normal
+	<init>(Ljava/lang/String;IZ)V:normal
+	<init>(Ljava/net/InetAddress;IZ)V:normal
+	connect(Ljava/net/SocketAddress;)V:normal
+	connect(Ljava/net/SocketAddress;I)V:normal
   
 lazyclass:java/net/SocketImpl
   /connect.*:normal
@@ -71,6 +80,7 @@ lazyclass:nginx/clojure/net/NginxClojureSocketImpl$SocketOutputStream
 filter:clojure/asm
 filter:com/sun/crypto/provider/
 #filter:java/lang
+filter:java/util/LinkedHashMap
 filter:nginx/clojure/asm/
 filter:nginx/clojure/wave/
 filter:org/eclipse/jdt/

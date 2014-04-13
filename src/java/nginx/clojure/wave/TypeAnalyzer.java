@@ -46,8 +46,8 @@ import nginx.clojure.asm.tree.analysis.Value;
  */
 public class TypeAnalyzer extends Analyzer {
 
-    public TypeAnalyzer(MethodDatabase db) {
-        super(new TypeInterpreter(db));
+    public TypeAnalyzer(Interpreter interpreter) {
+        super(interpreter);
     }
 
     @Override

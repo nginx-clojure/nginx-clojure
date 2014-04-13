@@ -230,6 +230,17 @@ public class NginxClojureRT {
 			log = TinyLogService.createDefaultTinyLogService();
 		}
 		initUnsafe();
+		
+		//hack jdbc
+		try {
+			Class mysqljdbcUtilClz = Thread.currentThread().getContextClassLoader().loadClass("com.mysql.jdbc.Util");
+			Field  isJdbc4Field = mysqljdbcUtilClz.getDeclaredField("isJdbc4");
+			isJdbc4Field.setAccessible(true);
+			isJdbc4Field.set(null, false);
+		} catch (Throwable e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	    
 		NGINX_MAIN_THREAD = Thread.currentThread();
 		

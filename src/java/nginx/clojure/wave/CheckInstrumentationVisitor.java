@@ -76,7 +76,7 @@ public class CheckInstrumentationVisitor extends ClassVisitor {
     @Override
     public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
         this.className = name;
-        this.classEntry = new ClassEntry(superName, interfaces);
+        this.classEntry = new ClassEntry(superName, interfaces, (access & Opcodes.ACC_INTERFACE) != 0);
     }
 
     @Override

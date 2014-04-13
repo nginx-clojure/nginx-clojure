@@ -31,7 +31,6 @@ package nginx.clojure.wave;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -94,7 +93,6 @@ public class MethodDatabase implements LoggerService {
     
     private final ClassLoader cl;
     private final ConcurrentHashMap<String, ClassEntry> classes;
-    private final ConcurrentHashMap<String, String> superClasses;
     
     private final ConcurrentHashMap<String, LazyClassEntry> lazyClasses;
     
@@ -123,7 +121,6 @@ public class MethodDatabase implements LoggerService {
         this.cl = classloader;
         
         classes = new ConcurrentHashMap<String, ClassEntry>();
-        superClasses = new ConcurrentHashMap<String, String>();
         lazyClasses = new ConcurrentHashMap<String, LazyClassEntry>();
         fuzzlyLazyClasses = new ArrayList<MethodDatabase.FuzzyLazyClassEntry>();
         workList = new ArrayList<File>();
@@ -341,7 +338,53 @@ public class MethodDatabase implements LoggerService {
         }
     }
     
+	private  boolean typeImplements(String type, ClassEntry ce, String itf) {
+		while (!"java/lang/Object".equals(type)) {
+			String[] itfs = ce.getInterfaces();
+			for (int i = 0; i < itfs.length; ++i) {
+				if (itfs[i].equals(itf)) {
+					return true;
+				}
+			}
+			for (int i = 0; i < itfs.length; ++i) {
+				if (typeImplements(itfs[i], MethodDatabaseUtil.buildClassEntryFamily(this, itfs[i]), itf)) {
+					return true;
+				}
+			}
+			type = ce.getSuperName();
+			ce = MethodDatabaseUtil.buildClassEntryFamily(this, type);
+		}
+		return false;
+	}
+    
     public String getCommonSuperClass(String classA, String classB) {
+    	ClassEntry ace = MethodDatabaseUtil.buildClassEntryFamily(this, classA);
+    	ClassEntry bce = MethodDatabaseUtil.buildClassEntryFamily(this, classB);
+    	
+		if (ace.isInterface && bce.isInterface) {
+			if (typeImplements(classA, ace, classB)) {
+				return classB;
+			}
+			if (typeImplements(classB, bce, classA)) {
+				return classA;
+			} 
+			return "java/lang/Object";
+		}
+		
+		if (ace.isInterface) {
+			if (typeImplements(classB, bce, classA)) {
+				return classA;
+			} else {
+				return "java/lang/Object";
+			}
+		}
+		if (bce.isInterface) {
+			if (typeImplements(classA, ace, classB)) {
+				return classB;
+			} else {
+				return "java/lang/Object";
+			}
+		}
         ArrayList<String> listA = getSuperClasses(classA);
         ArrayList<String> listB = getSuperClasses(classB);
         if(listA == null || listB == null) {
@@ -537,23 +580,10 @@ public class MethodDatabase implements LoggerService {
         return null;
     }
 
-    private String extractSuperClass(String className) {
-        InputStream is = cl.getResourceAsStream(className + ".class");
-        if(is != null) {
-            try {
-                try {
-                    ClassReader r = new ClassReader(is);
-                    ExtractSuperClass esc = new ExtractSuperClass();
-                    r.accept(esc, ClassReader.SKIP_CODE|ClassReader.SKIP_DEBUG|ClassReader.SKIP_FRAMES);
-                    return esc.superClass;
-                } finally {
-                    is.close();
-                }
-            } catch(IOException ex) {
-                error(className, ex);
-            }
-        }
-        return null;
+    
+    public boolean isInterface(String className) {
+    	ClassEntry ce = MethodDatabaseUtil.buildClassEntryFamily(this, className);
+    	return ce != null && ce.isInterface;
     }
 
     private ArrayList<String> getSuperClasses(String className) {
@@ -574,30 +604,8 @@ public class MethodDatabase implements LoggerService {
     }
 
     protected String getDirectSuperClass(String className) {
-        ClassEntry entry = classes.get(className);
-        if(entry != null && entry != CLASS_NOT_FOUND) {
-            return entry.superName;
-        }
-        
-        String superClass;
-        synchronized(this) {
-            superClass = superClasses.get(className);
-        }
-        if(superClass == null) {
-            superClass = extractSuperClass(className);
-            if(superClass != null) {
-                String oldSuperClass;
-                synchronized (this) {
-                    oldSuperClass = superClasses.put(className, superClass);
-                }
-                if(oldSuperClass != null) {
-                    if(!oldSuperClass.equals(superClass)) {
-                    	warn("Duplicate super class entry with different value: %s vs %s", oldSuperClass, superClass);
-                    }
-                }
-            }
-        }
-        return superClass;
+    	ClassEntry ce = MethodDatabaseUtil.buildClassEntryFamily(this, className);
+    	return ce == null ? "java/lang/Object" : ce.superName;
     }
     
     public boolean shouldIgnore(String className) {
@@ -629,7 +637,7 @@ public class MethodDatabase implements LoggerService {
         return l.toArray(new String[l.size()]);
     }
     
-    private static final ClassEntry CLASS_NOT_FOUND = new ClassEntry("<class not found>", new String[0]);
+    private static final ClassEntry CLASS_NOT_FOUND = new ClassEntry("<class not found>", new String[0], false);
 
     
     public static final class LazyClassEntry {
@@ -672,14 +680,20 @@ public class MethodDatabase implements LoggerService {
 
     	
         private final ConcurrentHashMap<String, Integer> methods;
+        private final boolean isInterface;
         private final String superName;
         private final String[] interfaces;
 
-        public ClassEntry(String superName, String[] interfaces) {
+        public ClassEntry(String superName, String[] interfaces, boolean isInterface) {
             this.superName = superName;
             this.interfaces = interfaces;
+            this.isInterface = isInterface;
             this.methods = new ConcurrentHashMap<String, Integer>();
         }
+        
+        public boolean isInterface() {
+			return isInterface;
+		}
         
         public String[] getInterfaces() {
 			return interfaces;

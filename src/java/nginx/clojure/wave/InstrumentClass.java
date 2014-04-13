@@ -88,7 +88,7 @@ public class InstrumentClass extends ClassVisitor {
     public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
     	String method = ClassEntry.key(name, desc);
     	Integer suspendType = db.checkMethodSuspendType(className, method, true);
-        if (db.meetTraceTargetClassMethod(className, method)) {
+        if (db.isDebug() && db.meetTraceTargetClassMethod(className, method)) {
         	db.info("meet traced method %s.%s, suspend type = %s", className, method, MethodDatabase.SUSPEND_TYPE_STRS[suspendType]);
         }
         if((suspendType == MethodDatabase.SUSPEND_NORMAL 

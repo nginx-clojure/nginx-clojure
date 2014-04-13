@@ -11,11 +11,14 @@
         [compojure.core]
         )
   (:require [compojure.route :as route]
-            [clj-http.client :as client])
+            [clj-http.client :as client]
+            [clojure.java.jdbc :as jdbc])
   (:import [ring.middleware.session.memory.MemoryStore]
            [nginx.clojure.net SimpleHandler4TestHttpClientGetMethod]
            [nginx.clojure Coroutine]
            [nginx.clojure.logger TinyLogService]))
+
+
 
 (def tlog (TinyLogService/createDefaultTinyLogService))
 ;
@@ -35,11 +38,18 @@
   {:status 200, :headers {"content-type" "text/plain"}, :body "Simple Response\n"})
 
 
+(def db-spec 
+  {:classname "com.mysql.jdbc.Driver"
+   :subprotocol "mysql"
+   :subname "//mysql-0:3306/nginx-clojure"
+   :user "nginxclojure"
+   :password "111111"})
+
 (defroutes coroutine-socket-test-handler
   (GET "/simple-clj-http-test" [] 
        (let [{:keys [status, body]} (client/get "http://cn.bing.com" {:socket-timeout 5000})]
          {:status status, :body body}))
-  (GET "/simple-httpclientget" [req] ((SimpleHandler4TestHttpClientGetMethod.) req))
+  (GET "/simple-httpclientget" [:as req] ((SimpleHandler4TestHttpClientGetMethod.) req))
   (GET "/simple" [] 
        (let [{:keys [status,headers, body]} (do-simple-selfresume true)]
          {:status status, :headers headers :body body})
@@ -52,7 +62,21 @@
   (GET "/simple2" [] 
        (let [{:keys [status,headers, body]} (do-simple-selfresume false)]
          {:status status, :headers headers :body body})
-       ))
+       )
+  (GET "/mysql-create" []
+       (jdbc/db-do-commands db-spec
+                     (jdbc/create-table-ddl :language
+                                            [:name "varchar(32)"]
+                                            [:rank "varchar(32)"]))
+       {:status 200, :headers {"content-type" "text/plain"}, :body "created!"})
+  (PUT "/mysql-insert" [name rank]
+       (jdbc/insert! db-spec :language {:name name :rank rank})
+       {:status 200, :headers {"content-type" "text/plain"}, :body "inserted!"})
+  (GET "/mysql-query/:name" [name]
+       (let [rows (jdbc/query db-spec ["select * from language where name = ?" name])]
+         {:status 200, :headers {"content-type" "text/plain"}, :body (pr-str rows) })))
+
+(def coroutine-socket-test-handler (wrap-params coroutine-socket-test-handler))
 
 (defn simple-handler [req]
   (coroutine-socket-test-handler {:uri "/simple2", :scheme :http, :request-method :get, :headers {}}))

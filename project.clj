@@ -31,6 +31,8 @@
                                   [compojure "1.1.6"]
                                   [clj-http "0.7.8"]
                                   [junit/junit "4.11"]
+                                  [org.clojure/java.jdbc "0.3.3"]
+                                  [mysql/mysql-connector-java "5.1.30"]
                                   ]}
              :coroutine-test {:jvm-opts ["-javaagent:target/nginx-clojure-0.2.0.jar"] 
                               :dependencies [[junit/junit "4.11"]]}

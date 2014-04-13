@@ -95,7 +95,7 @@ public class InstrumentMethod {
         this.mn = mn;
         
         try {
-            Analyzer a = new TypeAnalyzer(db);
+            Analyzer a = MethodDatabaseUtil.buildAnalyzer(db);
             this.frames = a.analyze(className, mn);
             this.lvarStack = mn.maxLocals;
             this.firstLocal = ((mn.access & Opcodes.ACC_STATIC) == Opcodes.ACC_STATIC) ? 0 : 1;
@@ -147,6 +147,9 @@ public class InstrumentMethod {
     public void accept(MethodVisitor mv) {
         db.trace("Instrumenting method %s.%s%s", className, mn.name, mn.desc);
         
+        if (db.isDebug() && db.meetTraceTargetClassMethod(className, mn.name + mn.desc)) {
+        	db.info("Instrumenting meet traced method %s.%s%s", className, mn.name, mn.desc);
+        }
         mv.visitCode();
         
         Label lMethodStart = new Label();
@@ -377,9 +380,13 @@ public class InstrumentMethod {
             case Opcodes.MONITOREXIT:
                 if(!db.isAllowMonitors()) {
                     throw new UnableToInstrumentException("synchronisation", className, mn.name, mn.desc);
-                } else if(!warnedAboutMonitors) {
+                } else  {
                     warnedAboutMonitors = true;
-                    db.warn("Method %s#%s%s contains synchronisation", className, mn.name, mn.desc);
+                    if (className.startsWith("com/mysql/")) {
+                    	 db.warn("Method %s#%s%s contains synchronisation, we'll ignore it", className, mn.name, mn.desc);
+                         mv.visitInsn(Opcodes.POP);
+                         continue;
+                    }
                 }
                 break;
                 
