@@ -94,6 +94,14 @@ public class JavaAgent {
 	public static MethodDatabase db;
 	
     public static void premain(String agentArguments, Instrumentation instrumentation) {
+    	ClassFileTransformer cft = buildClassFileTransformer(agentArguments);
+    	if (cft != null) {
+    		instrumentation.addTransformer(cft);
+    	}
+    }
+    
+    public static ClassFileTransformer buildClassFileTransformer(String agentArguments) {
+
         MethodDatabase db = JavaAgent.db = new MethodDatabase(Thread.currentThread().getContextClassLoader());
         boolean checkArg = false;
         boolean runTool = false;
@@ -133,7 +141,7 @@ public class JavaAgent {
                     case 'n':
                     	TinyLogService.createDefaultTinyLogService().info("nginx clojure will do nothing about class waving!");
                     	//do nothing!!
-                    	return;
+                    	return null;
                     default:
                         throw new IllegalStateException("Usage: nvdmcbtap (do Nothing, Verbose, Debug, allow Monitors, Check class, allow Blocking, run configuration generation Tool,  Append result, dumP waved class)");
                 }
@@ -177,14 +185,17 @@ public class JavaAgent {
         
         Stack.setDb(db);
         
+        MethodDatabaseUtil.buildClassEntryFamily(db, "nginx/clojure/wave/MethodDatabaseUtil");
+        
         if (runTool) {
         	SuspendMethodTracer.db = db;
         	SuspendMethodTracer.quiteFlags.set(false);
-        	instrumentation.addTransformer(new CoroutineConfigurationToolWaver(db, append));
+        	return new CoroutineConfigurationToolWaver(db, append);
         }else {
-        	instrumentation.addTransformer(new CoroutineWaver(db, checkArg));
+        	return new CoroutineWaver(db, checkArg);
         }
         
+    
     }
 
     static byte[] instrumentClass(MethodDatabase db, byte[] data, boolean check) {

@@ -14,13 +14,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import nginx.clojure.asm.ClassReader;
+import nginx.clojure.asm.tree.analysis.Analyzer;
 import nginx.clojure.wave.MethodDatabase.ClassEntry;
 import nginx.clojure.wave.MethodDatabase.FuzzyLazyClassEntry;
 import nginx.clojure.wave.MethodDatabase.LazyClassEntry;
 
 public class MethodDatabaseUtil {
 
-	public final static Pattern FUZZY_CLASS_PATTERN = Pattern.compile("\\$fn__(\\d+)");
+	public final static Pattern FUZZY_CLASS_PATTERN = Pattern.compile("(\\d+)");
 
 	public MethodDatabaseUtil() {
 	}
@@ -183,6 +184,13 @@ public class MethodDatabaseUtil {
 			return buildClassEntryFamily(db, civ);
 		}
 		return ce;
+	}
+	
+	public static Analyzer buildAnalyzer(MethodDatabase db) {
+		 return new TypeAnalyzer(new TypeInterpreter(db));
+//		SimpleVerifier sv = new TypeInterpreter(db);//new SimpleVerifier();
+//		sv.setClassLoader(Thread.currentThread().getContextClassLoader());
+//		return new TypeAnalyzer(sv);
 	}
 	
 	public static void mergeMethodsSuspendTypeFromSuper(ClassEntry ce, ClassEntry sce) {
