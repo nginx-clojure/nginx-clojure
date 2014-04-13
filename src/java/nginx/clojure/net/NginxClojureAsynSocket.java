@@ -62,6 +62,10 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 		this(new ClojureFunctionHandler(f));
 	}
 	
+	public int available() {
+		return (int)available(s);
+	}
+	
 	public boolean isClosed() {
 		return s == 0;
 	}
@@ -244,6 +248,13 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	/**
 	 * 
 	 * @param s native socket handle
+	 * @return available bytes
+	 */
+	private static native long available(long s);
+	
+	/**
+	 * 
+	 * @param s native socket handle
 	 * @param buf if buf is null, off is a native buffer address
 	 * @param off offest of  buf, if buf is not null, offset must include Java Object Base Offset
 	 * @param size the number of bytes returned at most
@@ -320,4 +331,5 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 		}
 		
 	}
+
 }

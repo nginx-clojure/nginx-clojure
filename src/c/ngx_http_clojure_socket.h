@@ -147,6 +147,8 @@ struct ngx_http_clojure_socket_upstream_s {
 
 ngx_http_clojure_socket_upstream_t *ngx_http_clojure_socket_upstream_create(size_t pool_size, ngx_log_t *log);
 
+int ngx_http_clojure_socket_upstream_available(ngx_http_clojure_socket_upstream_t *u);
+
 void ngx_http_clojure_socket_upstream_connect(ngx_http_clojure_socket_upstream_t *u, struct sockaddr *addr, socklen_t len);
 
 void ngx_http_clojure_socket_upstream_connect_by_url(ngx_http_clojure_socket_upstream_t *u, ngx_url_t *url);

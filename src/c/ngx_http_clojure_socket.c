@@ -228,6 +228,16 @@ static void ngx_http_clojure_socket_upstream_write_handler(ngx_event_t *ev) {
 
 }
 
+int ngx_http_clojure_socket_upstream_available(ngx_http_clojure_socket_upstream_t *u) {
+	int ba = 0;
+#if defined(_WIN32) || defined(WIN32)
+	ioctlsocket(u->peer.connection->fd, FIONREAD, &ba);
+#else
+	ioctl(u->peer.connection->fd, FIONREAD, &ba);
+#endif
+	return ba;
+}
+
 void ngx_http_clojure_socket_upstream_connect_by_url(ngx_http_clojure_socket_upstream_t *u, ngx_url_t *url) {
 	//TODO:  host name resolve by event driven
 	if (url->addrs == NULL) {
@@ -346,6 +356,7 @@ int ngx_http_clojure_socket_upstream_shutdown(ngx_http_clojure_socket_upstream_t
 	return NGX_HTTP_CLOJURE_SOCKET_OK;
 }
 
+
 static void JNICALL jni_ngx_http_clojure_socket_read_handler(ngx_http_clojure_socket_upstream_t *u, ngx_int_t sc) {
 	(*jvm_env)->CallVoidMethod(jvm_env, (jobject)u->context, nc_socket_handler_read_mid, (uintptr_t)u, (jlong)sc);
 	exception_handle(0 == 0, jvm_env, return);
@@ -379,6 +390,11 @@ static jlong JNICALL jni_ngx_http_clojure_socket_create(JNIEnv *env, jclass cls,
 	exception_handle(gh == NULL, env, return 0);
 	ngx_http_clojure_socket_upstream_set_context(u, gh);
 	return (uintptr_t)u;
+}
+
+static jlong JNICALL jni_ngx_http_clojure_socket_available(JNIEnv *env, jclass cls, jlong s) {
+	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)s;
+	return (jlong)ngx_http_clojure_socket_upstream_available(u);
 }
 
 static jlong JNICALL jni_ngx_http_clojure_socket_connect_url(JNIEnv *env, jclass cls, jlong s, jobject jurl, jlong off, jlong len) {
@@ -468,6 +484,7 @@ int ngx_http_clojure_init_socket_util() {
 	JNIEnv *env;
 	JNINativeMethod nms[] = {
 			{"create", "(Lnginx/clojure/net/NginxClojureSocketRawHandler;)J", jni_ngx_http_clojure_socket_create},
+			{"available","(J)J", jni_ngx_http_clojure_socket_available},
 			{"setTimeout", "(JJJJ)V", jni_ngx_http_clojure_socket_set_timeout},
 			{"getReadTimeout", "(J)J", jni_ngx_http_clojure_socket_get_read_timeout},
 			{"getWriteTimeout", "(J)J", jni_ngx_http_clojure_socket_get_write_timeout},

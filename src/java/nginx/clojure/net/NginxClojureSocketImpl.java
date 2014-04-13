@@ -194,7 +194,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 
 	@Override
 	protected int available() throws IOException {
-		return 0;
+		return as.available();
 	}
 
 	@Override
@@ -282,6 +282,12 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		}
 		
 		@Override
+		public int available() throws IOException {
+			checkClosed();
+			return s.available();
+		}
+		
+		@Override
 		public int read() throws IOException {
 			if ( read(oba, 0, 1) == 1) {
 				return oba[0];
@@ -318,7 +324,9 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 						throw new SocketTimeoutException("nginx clojure socket read timeout!");
 					}
 					s.yieldFlag = YIELD_READ;
-					log.debug("yield read");
+					if (log.isDebugEnabled()) {
+						log.debug("yield read", new Exception("DEBUG USAGE--yield"));
+					}
 					Coroutine.yield();
 				}else if (rc < 0) {
 					if (c > 0) {
