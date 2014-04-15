@@ -4,8 +4,6 @@
  */
 package nginx.clojure.wave;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -28,9 +26,6 @@ import nginx.clojure.asm.tree.analysis.AnalyzerException;
 import nginx.clojure.asm.tree.analysis.BasicValue;
 import nginx.clojure.asm.tree.analysis.Frame;
 import nginx.clojure.asm.tree.analysis.Value;
-import nginx.clojure.asm.util.Printer;
-import nginx.clojure.asm.util.Textifier;
-import nginx.clojure.asm.util.TraceMethodVisitor;
 import nginx.clojure.wave.MethodDatabase.ClassEntry;
 
 
@@ -70,18 +65,7 @@ public class InstrumentConstructorMethod {
 		}
     }
     
-    
 
-    //for debug usage
-    public static String insnToString(AbstractInsnNode insn){
-        Printer printer = new Textifier();
-        TraceMethodVisitor mp = new TraceMethodVisitor(printer);
-        insn.accept(mp);
-        StringWriter sw = new StringWriter();
-        printer.print(new PrintWriter(sw));
-        printer.getText().clear();
-        return sw.toString();
-    }
     
     public void trySplitIntoTwoNewMethods(InstrumentClass cv) throws AnalyzerException {
     	int numIns = mn.instructions.size();
@@ -90,7 +74,7 @@ public class InstrumentConstructorMethod {
     	for(int i = 0 ; i < numIns ; i++) {
     		AbstractInsnNode insn = mn.instructions.get(i);
     		if (db.meetTraceTargetClassMethod(className, mn.name)) {
-    			db.debug(insnToString(insn));
+    			db.debug(InstrumentClass.insnToString(insn));
     		}
 //    		System.out.println(insnToString(insn));
     		if (insn instanceof MethodInsnNode) {

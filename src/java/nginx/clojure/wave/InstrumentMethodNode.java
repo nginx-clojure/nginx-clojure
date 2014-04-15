@@ -22,13 +22,7 @@ public class InstrumentMethodNode extends MethodNode {
 
 	public InstrumentMethodNode(MethodDatabase db, int access, String name, String desc,
 			String signature, String[] exceptions) {
-		super(access, name, desc, signature, exceptions);
-		this.db = db;
-	}
-
-	public InstrumentMethodNode(MethodDatabase db, int api, int access, String name, String desc,
-			String signature, String[] exceptions) {
-		super(api, access, name, desc, signature, exceptions);
+		super(Opcodes.ASM4, access, name, desc, signature, exceptions);
 		this.db = db;
 	}
 

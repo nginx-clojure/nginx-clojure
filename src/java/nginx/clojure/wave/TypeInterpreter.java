@@ -178,7 +178,8 @@ public class TypeInterpreter extends SimpleVerifier {
 
 		try {
 			int us = u.getSort();
-			switch (t.getSort()) {
+			int ts = t.getSort();
+			switch (ts) {
 			case Type.BOOLEAN:
 				return us == Type.BOOLEAN;
 			case Type.BYTE:
@@ -200,22 +201,42 @@ public class TypeInterpreter extends SimpleVerifier {
 				return us == Type.BYTE || us == Type.CHAR
 				|| us == Type.INT || us == Type.LONG;
 			}
-
-			if (t.getInternalName() != null && t.getInternalName().equals("java/lang/Object")) {
+			
+			switch (us) {
+			case Type.BOOLEAN:
+			case Type.BYTE:
+			case Type.CHAR:
+			case Type.SHORT:
+			case Type.DOUBLE:
+			case Type.FLOAT:
+			case Type.INT:
+			case Type.LONG:
+				return false;
+			}
+			
+			String tn = t.getInternalName();
+			
+			if (tn != null  && tn.equals("java/lang/Object")) {
 				return true;
 			}
 			
-			if (t.getSort() == Type.ARRAY) {
-				// System.out.println("ARRAY isAssignableFrom: " +
-				// t.getInternalName() + "/" + u.getInternalName());
-				return us == Type.ARRAY 
-						&& isAssignableFrom(t.getElementType(),
-								u.getElementType());
+			if (us == Type.ARRAY) {
+				if ( ts == Type.ARRAY ) {
+					if (t.getDimensions() == u.getDimensions() && isAssignableFrom(t.getElementType(), u.getElementType())) {
+						return true;
+					}else if (t.getDimensions() < u.getDimensions()) {
+						Type ti = t.getElementType();
+						String tin = ti.getInternalName();
+						if (ti.getSort() == Type.OBJECT && ("java/lang/Object".equals(tin) || ("java/lang/Cloneable".equals(tin) || "java/io/Serializable".equals(tin) ))) {
+							return true;
+						}
+					}
+					return false;
+				}else if (ts == Type.OBJECT && ("java/lang/Cloneable".equals(tn) || "java/io/Serializable".equals(tn) )){
+					return true;
+				}
 			}
 			
-			if (u.getSort() == Type.ARRAY) {
-				return false;
-			}
 			// System.out.println("isAssignableFrom: " + t.getInternalName() +
 			// "/" + u.getInternalName());
 			boolean b = t.getInternalName().equals(u.getInternalName())

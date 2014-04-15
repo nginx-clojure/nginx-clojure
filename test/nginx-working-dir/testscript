@@ -338,6 +338,10 @@ curl -v "http://localhost:8080/httpclientget"
 curl -v "http://localhost:8080/simple-httpclientget"
 curl -v "http://localhost:8080/coroutineSocketAndCompojure/simple-httpclientget"
 curl -v "http://localhost:8080/coroutineSocketAndCompojure/simple-clj-http-test"
-
+curl -v "http://localhost:8080/coroutineSocketAndCompojure/mysql-create"
+curl -v -X PUT -d name=java -d rank=5  "http://localhost:8080/coroutineSocketAndCompojure/mysql-insert"
+curl -v -X PUT -d name=c -d rank=5  "http://localhost:8080/coroutineSocketAndCompojure/mysql-insert"
+curl -v -X PUT -d name=clojure -d rank=5  "http://localhost:8080/coroutineSocketAndCompojure/mysql-insert"
+curl -v "http://localhost:8080/coroutineSocketAndCompojure/mysql-query/java"
 
 

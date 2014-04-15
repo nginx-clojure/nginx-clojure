@@ -16,7 +16,7 @@
 (defn do-simple-response []
   (println "ct enter do-simple-response")
   (println "ct before yield")
-  (.printStackTrace (Exception. "ct debug stack trace"))
+;  (.printStackTrace (Exception. "ct debug stack trace"))
   (Coroutine/yield)
   (println "ct after yield")
   {:status 200, :headers {"content-type" "text/plain"}, :body "Simple Response\n"})
@@ -24,7 +24,7 @@
 (defn do-simple-selfresume []
   (println "ct enter do-simple-response")
   (println "ct before yield")
-  (.printStackTrace (Exception. "debug stack trace"))
+;  (.printStackTrace (Exception. "debug stack trace"))
   (let [cr (Coroutine/getActiveCoroutine)]
     (future (java.lang.Thread/sleep 3000) (println "ct before resume") (.resume cr)))
   (Coroutine/yield)

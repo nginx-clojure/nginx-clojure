@@ -29,7 +29,7 @@
 (defn do-simple-selfresume [selfresume]
   (println "enter do-simple-response")
   (println "before yield")
-  (.printStackTrace (Exception. "debug stack trace"))
+;  (.printStackTrace (Exception. "debug stack trace"))
   (if selfresume
     (let [cr (Coroutine/getActiveCoroutine)]
      (future (java.lang.Thread/sleep 3000) (println "before resume") (try  (.resume cr) (catch Throwable e (.printStackTrace e))))))

@@ -77,6 +77,7 @@ import nginx.clojure.asm.ClassVisitor;
 import nginx.clojure.asm.ClassWriter;
 import nginx.clojure.asm.MethodVisitor;
 import nginx.clojure.asm.Opcodes;
+import nginx.clojure.asm.commons.JSRInlinerAdapter;
 import nginx.clojure.asm.util.CheckClassAdapter;
 import nginx.clojure.asm.util.TraceClassVisitor;
 import nginx.clojure.logger.TinyLogService;
@@ -104,7 +105,7 @@ public class JavaAgent {
 
         MethodDatabase db = JavaAgent.db = new MethodDatabase(Thread.currentThread().getContextClassLoader());
         boolean checkArg = false;
-        boolean runTool = false;
+//        boolean runTool = false;
         boolean append = false;
 
         if(agentArguments != null) {
@@ -130,7 +131,7 @@ public class JavaAgent {
                         db.setAllowBlocking(true);
                         break;
                     case 't':
-                    	runTool = true;
+                    	db.setRunTool(true);
                     	break;
                     case 'a':
                     	append = true;
@@ -187,7 +188,7 @@ public class JavaAgent {
         
         MethodDatabaseUtil.buildClassEntryFamily(db, "nginx/clojure/wave/MethodDatabaseUtil");
         
-        if (runTool) {
+        if (db.isRunTool()) {
         	SuspendMethodTracer.db = db;
         	SuspendMethodTracer.quiteFlags.set(false);
         	return new CoroutineConfigurationToolWaver(db, append);
@@ -237,6 +238,9 @@ public class JavaAgent {
         public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined,
                 ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
 
+        	if (className.startsWith("java/util/LinkedHashMap")) {
+        		return null;
+        	}
         	if (db.meetTraceTargetClass(className)) {
         		db.info("meet traced class %s", className);
         	}
@@ -315,7 +319,7 @@ public class JavaAgent {
 			try {
 				
 				ClassReader cr = new ClassReader(classfileBuffer);
-				ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_MAXS) {
+				ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_FRAMES) {
 					@Override
 					protected String getCommonSuperClass(String type1, String type2) {
 						return db.getCommonSuperClass(type1, type2);
@@ -370,7 +374,7 @@ public class JavaAgent {
 							db.debug("skip native or abstract method: %s.%s%s", className, name, desc);
 							return mv;
 						}
-						return new SuspendMethodTracerAdvice(db, className, mv, access, name, desc);
+						return new JSRInlinerAdapter(new SuspendMethodTracerAdvice(db, className, mv, access, name, desc), access, name, desc, signature, exceptions);
 					}
 				};
 

@@ -2,6 +2,7 @@ package nginx.clojure;
 
 import static org.junit.Assert.*;
 
+import java.io.File;
 import java.util.ArrayList;
 
 import org.junit.After;
@@ -18,6 +19,11 @@ public class ClojureFnTest {
 	
 	@Before
 	public void setUp() throws Exception {
+		String classpath = System.getProperty("java.class.path");
+		String[] cps = classpath.split(File.pathSeparator);
+		for (String cp : cps) {
+			System.out.println(cp);
+		}
 		messages = new ArrayList<String>();
 	}
 

@@ -301,6 +301,9 @@ public class MethodDatabaseUtil {
 				ClassEntry sce = db.getClasses().get(itf);
 				if (sce == null) {
 					CheckInstrumentationVisitor sciv = db.checkClass(itf);
+					if (sciv == null) {
+						return null;
+					}
 					sce = buildClassEntryFamily(db, sciv);
 					db.recordSuspendableMethods(itf, sce);
 				}

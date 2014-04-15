@@ -29,6 +29,8 @@
  */
 package nginx.clojure.wave;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 
 import nginx.clojure.asm.AnnotationVisitor;
@@ -37,8 +39,12 @@ import nginx.clojure.asm.MethodVisitor;
 import nginx.clojure.asm.Opcodes;
 import nginx.clojure.asm.Type;
 import nginx.clojure.asm.commons.JSRInlinerAdapter;
+import nginx.clojure.asm.tree.AbstractInsnNode;
 import nginx.clojure.asm.tree.MethodNode;
 import nginx.clojure.asm.tree.analysis.AnalyzerException;
+import nginx.clojure.asm.util.Printer;
+import nginx.clojure.asm.util.Textifier;
+import nginx.clojure.asm.util.TraceMethodVisitor;
 import nginx.clojure.wave.MethodDatabase.ClassEntry;
 
 /**
@@ -88,7 +94,7 @@ public class InstrumentClass extends ClassVisitor {
     public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
     	String method = ClassEntry.key(name, desc);
     	Integer suspendType = db.checkMethodSuspendType(className, method, true);
-        if (db.isDebug() && db.meetTraceTargetClassMethod(className, method)) {
+        if (db.meetTraceTargetClassMethod(className, method)) {
         	db.info("meet traced method %s.%s, suspend type = %s", className, method, MethodDatabase.SUSPEND_TYPE_STRS[suspendType]);
         }
         if((suspendType == MethodDatabase.SUSPEND_NORMAL 
@@ -104,9 +110,22 @@ public class InstrumentClass extends ClassVisitor {
                 methods = new ArrayList<MethodNode>();
             }
             
-            MethodNode mn = name.charAt(0) == '<' ? new MethodNode(access, name, desc, signature, exceptions) : new InstrumentMethodNode(db, access, name, desc, signature, exceptions);
+            MethodNode mn = null;
+            MethodVisitor mv = null;
+            if (name.charAt(0) == '<') {
+            	mv = mn = new MethodNode(access, name, desc, signature, exceptions);
+            }else {
+            	if (db.meetTraceTargetClassMethod(className, method)) {
+            		Printer tp = new Textifier();
+            		mn = new TracableMethodNode(db, access, name, desc, signature, exceptions, tp, new PrintWriter(System.out));
+            		mv = new TraceMethodVisitor(mn, tp);
+            	}else {
+            		mv = mn = new InstrumentMethodNode(db, access, name, desc, signature, exceptions);
+            	}
+            }
+            
             methods.add(mn);
-            return mn;
+            return new JSRInlinerAdapter(mv, access, name, desc, signature, exceptions);
         }
         return super.visitMethod(access, name, desc, signature, exceptions);
     }
@@ -138,6 +157,10 @@ public class InstrumentClass extends ClassVisitor {
                     MethodVisitor outMV = makeOutMV(mn);
                     
                     try {
+                    	if (db.meetTraceTargetClassMethod(className, ClassEntry.key(mn.name, mn.desc))) {
+                        	db.info("On waving: meet traced method %s.%s%s", className, mn.name, mn.desc);
+                        }
+                    	
                     	if (mn.name.charAt(0) == '<' && mn.name.charAt(1) == 'i') {
                     		mn.accept(outMV);
                         	InstrumentConstructorMethod icm = new InstrumentConstructorMethod(db, className, mn);
@@ -175,5 +198,25 @@ public class InstrumentClass extends ClassVisitor {
     
     private static boolean checkAccess(int access) {
         return (access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) == 0;
+    }
+    
+    //for debug usage
+    public static String insnToString(AbstractInsnNode insn){
+        Printer printer = new Textifier();
+        TraceMethodVisitor mp = new TraceMethodVisitor(printer);
+        insn.accept(mp);
+        StringWriter sw = new StringWriter();
+        printer.print(new PrintWriter(sw));
+        printer.getText().clear();
+        return sw.toString();
+    }
+    
+    public static void methodToString(MethodNode mn) {
+    	Printer printer = new Textifier();
+        TraceMethodVisitor mp = new TraceMethodVisitor(printer);
+        mn.accept(mp);
+        PrintWriter pw = new PrintWriter(System.out);
+        printer.print(pw);
+        pw.flush();
     }
 }

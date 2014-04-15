@@ -311,6 +311,9 @@ public class InstrumentMethod {
             idx = mn.instructions.indexOf(l);
         }
         
+        if (idx == mn.instructions.size() -1) {
+        	return idx;
+        }
         // search for the "real" instruction
         for(;;) {
             int type = mn.instructions.get(idx).getType();
@@ -382,8 +385,8 @@ public class InstrumentMethod {
                     throw new UnableToInstrumentException("synchronisation", className, mn.name, mn.desc);
                 } else  {
                     warnedAboutMonitors = true;
-                    if (className.startsWith("com/mysql/")) {
-                    	 db.warn("Method %s#%s%s contains synchronisation, we'll ignore it", className, mn.name, mn.desc);
+                    if (true) {
+                    	 db.warn("Method %s#%s%s contains synchronisation, we'll clear it", className, mn.name, mn.desc);
                          mv.visitInsn(Opcodes.POP);
                          continue;
                     }

@@ -220,5 +220,69 @@ public class ConstructorTest {
 		
 		
 	}
+	
+	public static class D {
+		public ArrayList<Integer> cal(int n) throws SuspendExecution {
+			return realCal(n);
+		}
+
+		public ArrayList<Integer> realCal(int n) throws SuspendExecution {
+			ArrayList<Integer> result = new ArrayList<Integer>();
+			for (int i = 0; i < n; i++) {
+				if (Coroutine.getActiveCoroutine() != null) {
+					Coroutine.yield();
+				}
+				result.add(i);
+			}
+			return result;
+		}
+	}
+	
+	public static class C {
+		private ArrayList<Integer> result;
+		
+		public C() {
+		}
+		
+		public void doCal(int n)  throws SuspendExecution {
+			D d = new D();
+			this.result = d.cal(n);
+		}
+		
+		public ArrayList<Integer> getResult() {
+			return result;
+		}
+	}
+	
+	@Test
+	public void testFiledDirectAssignFromSuspendableMethod() {
+		
+		final C c = new C();
+		
+		Coroutine co = new Coroutine(new Runnable() {
+			
+			@Override
+			public void run() throws SuspendExecution {
+				c.doCal(4);
+				System.out.println(c.getResult());
+			}
+		});
+		co.resume();
+		assertEquals(null, c.result);
+		co.resume();
+//		assertEquals(1, c.result.size());
+//		assertEquals((Integer)0, c.result.get(0));
+		co.resume();
+//		assertEquals(2, c.result.size());
+//		assertEquals((Integer)1, c.result.get(1));
+		co.resume();
+//		assertEquals(3, c.result.size());
+//		assertEquals((Integer)2, c.result.get(2));
+//		assertTrue(SuspendableConstructorUtilStack.getStack().empty());
+		co.resume();
+		assertEquals(4, c.result.size());
+		assertEquals((Integer)3, c.result.get(3));
+		assertTrue(SuspendableConstructorUtilStack.getStack().empty());
+	}
 
 } 

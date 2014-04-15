@@ -87,5 +87,7 @@ filter:org/eclipse/jdt/
 filter:org/junit
 filter:org/objectweb/asm/
 filter:sun/security/ec/
+filter:com/sun/source/
+filter:com/sun/tools/javac/
 
 
