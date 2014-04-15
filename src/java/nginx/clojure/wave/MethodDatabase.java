@@ -100,6 +100,7 @@ public class MethodDatabase implements LoggerService {
     
     private final ArrayList<File> workList;
     private final ArrayList<String> filters;
+    private ArrayList<String> userDefinedWaveConfigFiles = new ArrayList<String>();
     
     private static LoggerService log;
     private boolean verbose;
@@ -108,6 +109,7 @@ public class MethodDatabase implements LoggerService {
     private boolean allowMonitors;
     private boolean allowBlocking;
     private boolean allowOutofCoroutine = true;
+    private boolean runTool = false;
     private Pattern traceClassPattern = null;
     private Pattern traceClassMethodPattern = null;
     
@@ -199,6 +201,14 @@ public class MethodDatabase implements LoggerService {
         this.verbose = verbose;
         
     }
+    
+    public void setRunTool(boolean runTool) {
+		this.runTool = runTool;
+	}
+    
+    public boolean isRunTool() {
+		return runTool;
+	}
 
     public boolean isDump() {
 		return dump;
@@ -360,7 +370,9 @@ public class MethodDatabase implements LoggerService {
     public String getCommonSuperClass(String classA, String classB) {
     	ClassEntry ace = MethodDatabaseUtil.buildClassEntryFamily(this, classA);
     	ClassEntry bce = MethodDatabaseUtil.buildClassEntryFamily(this, classB);
-    	
+    	if (ace == null || bce == null) {
+    		return "java/lang/Object"; 
+    	}
 		if (ace.isInterface && bce.isInterface) {
 			if (typeImplements(classA, ace, classB)) {
 				return classB;
@@ -636,6 +648,10 @@ public class MethodDatabase implements LoggerService {
         }
         return l.toArray(new String[l.size()]);
     }
+    
+    public ArrayList<String> getUserDefinedWaveConfigFiles() {
+		return userDefinedWaveConfigFiles;
+	}
     
     private static final ClassEntry CLASS_NOT_FOUND = new ClassEntry("<class not found>", new String[0], false);
 

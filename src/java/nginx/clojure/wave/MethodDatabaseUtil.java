@@ -32,6 +32,7 @@ public class MethodDatabaseUtil {
 		try {
 			in = Thread.currentThread().getContextClassLoader().getResourceAsStream(resource);
 			BufferedReader r = new BufferedReader(new InputStreamReader(in, MethodDatabase.UTF_8));
+			db.getUserDefinedWaveConfigFiles().add(resource);
 			String l = null;
 			ClassEntry ce = null;
 			LazyClassEntry lce = null;
@@ -103,7 +104,7 @@ public class MethodDatabaseUtil {
 							st = ost;
 						}
 						if (db.meetTraceTargetClassMethod(clz, m)) {
-							db.info("meet traced method %s.%s, suspend type = ", clz, m, MethodDatabase.SUSPEND_TYPE_STRS[st]);
+							db.info("meet traced method %s.%s, suspend type = %s", clz, m, MethodDatabase.SUSPEND_TYPE_STRS[st]);
 						}
 						continue;
 					}else if (flce != null) {
@@ -115,7 +116,7 @@ public class MethodDatabaseUtil {
 							st = ost;
 						}
 						if (db.meetTraceTargetClassMethod(clz, m)) {
-							db.info("meet traced method %s.%s, suspend type = ", clz, m, MethodDatabase.SUSPEND_TYPE_STRS[st]);
+							db.info("meet traced method %s.%s, suspend type = %s", clz, m, MethodDatabase.SUSPEND_TYPE_STRS[st]);
 						}
 						continue;
 					}
@@ -142,7 +143,7 @@ public class MethodDatabaseUtil {
 							st = ost;
 						}
 						if (db.meetTraceTargetClassMethod(clz, m)) {
-							db.info("meet traced method %s.%s, suspend type = ", clz, m, MethodDatabase.SUSPEND_TYPE_STRS[st]);
+							db.info("meet traced method %s.%s, suspend type = %s", clz, m, MethodDatabase.SUSPEND_TYPE_STRS[st]);
 						}
 					}
 				}
