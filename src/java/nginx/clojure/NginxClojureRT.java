@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import nginx.clojure.logger.LoggerService;
 import nginx.clojure.logger.TinyLogService;
 import nginx.clojure.net.NginxClojureSocketFactory;
+import nginx.clojure.wave.JavaAgent;
 import sun.misc.Unsafe;
 import clojure.lang.IFn;
 import clojure.lang.ISeq;
@@ -153,8 +154,8 @@ public class NginxClojureRT {
 			try {
 				response = (Map) handler.invoke(request);
 			}catch(Throwable e) {
-				log.error("in coroutine run handler error", e);
-				completeAsyncResponse(request.r, 500);
+				completeAsyncResponse(request.r, buildUnhandledExceptionResponse(e));
+				return;
 			}
 			
 			if (Coroutine.getActiveCoroutine().getResumeCounter() != 1) {
@@ -194,6 +195,12 @@ public class NginxClojureRT {
 	}
 	
 	public static void initWorkers(int n) {
+		
+		if (JavaAgent.db.isRunTool()) {
+			n = -1;
+			coroutineEnabled = false;
+		}
+		
 		if (n == 0) {
 			coroutineEnabled = true;
 			try {
@@ -231,15 +238,13 @@ public class NginxClojureRT {
 		}
 		initUnsafe();
 		
-		//hack jdbc
+		//hack mysql jdbc driver to keep from creating connections by reflective invoking the constructor
 		try {
 			Class mysqljdbcUtilClz = Thread.currentThread().getContextClassLoader().loadClass("com.mysql.jdbc.Util");
 			Field  isJdbc4Field = mysqljdbcUtilClz.getDeclaredField("isJdbc4");
 			isJdbc4Field.setAccessible(true);
 			isJdbc4Field.set(null, false);
 		} catch (Throwable e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
 	    
 		NGINX_MAIN_THREAD = Thread.currentThread();
@@ -590,13 +595,7 @@ public class NginxClojureRT {
 				return resp;
 			}
 		}catch(Throwable e){
-			//log to nginx error log file
-			log.error("server unhandled exception!", e);
-			StringWriter sw = new StringWriter();
-			PrintWriter pw = new PrintWriter(sw);
-			e.printStackTrace(pw);
-			pw.close();
-			return new PersistentArrayMap(new Object[] {STATUS, 500, BODY, sw.toString(), HEADERS, new PersistentArrayMap(new Object[] {CONTENT_TYPE.getName(), "text/plain"})});
+			return buildUnhandledExceptionResponse(e);
 		}finally {
 			int bodyIdx = req.index(BODY);
 			if (req.array[bodyIdx] instanceof Closeable) {
@@ -607,6 +606,15 @@ public class NginxClojureRT {
 				}
 			}
 		}
+	}
+
+	public static Map buildUnhandledExceptionResponse(Throwable e) {
+		log.error("server unhandled exception!", e);
+		StringWriter sw = new StringWriter();
+		PrintWriter pw = new PrintWriter(sw);
+		e.printStackTrace(pw);
+		pw.close();
+		return new PersistentArrayMap(new Object[] {STATUS, 500, BODY, sw.toString(), HEADERS, new PersistentArrayMap(new Object[] {CONTENT_TYPE.getName(), "text/plain"})});
 	}
 	
 	public static int handleResponse(long r) {
