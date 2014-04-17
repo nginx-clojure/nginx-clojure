@@ -47,8 +47,8 @@
 
 (defroutes coroutine-socket-test-handler
   (GET "/simple-clj-http-test" [] 
-       (let [{:keys [status, body]} (client/get "http://cn.bing.com" {:socket-timeout 5000})]
-         {:status status, :body body}))
+       (let [{:keys [status, headers, body]} (client/get "http://192.168.2.12/ctest/medium.html" {:socket-timeout 50000})]
+         {:status status,  :headers (dissoc headers "transfer-encoding" "server"), :body body}))
   (GET "/simple-httpclientget" [:as req] ((SimpleHandler4TestHttpClientGetMethod.) req))
   (GET "/simple" [] 
        (let [{:keys [status,headers, body]} (do-simple-selfresume true)]
@@ -69,6 +69,10 @@
                                             [:name "varchar(32)"]
                                             [:rank "varchar(32)"]))
        {:status 200, :headers {"content-type" "text/plain"}, :body "created!"})
+  (GET "/mysql-drop" []
+       (jdbc/db-do-commands db-spec
+                            (jdbc/drop-table-ddl :language))
+       {:status 200, :headers {"content-type" "text/plain"}, :body "dropped!"})
   (PUT "/mysql-insert" [name rank]
        (jdbc/insert! db-spec :language {:name name :rank rank})
        {:status 200, :headers {"content-type" "text/plain"}, :body "inserted!"})

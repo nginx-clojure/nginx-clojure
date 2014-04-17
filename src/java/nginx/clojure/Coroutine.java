@@ -68,6 +68,7 @@ public class Coroutine implements Runnable, Serializable {
     
     private final Runnable proto;
     private final Stack stack;
+    private final SuspendableConstructorUtilStack cstack;
     private State state;
     private int resumeCounter = 0;
     
@@ -114,6 +115,7 @@ public class Coroutine implements Runnable, Serializable {
     public Coroutine(Runnable proto, int stackSize) {
         this.proto = proto;
         this.stack = new Stack(this, stackSize);
+        this.cstack = new SuspendableConstructorUtilStack(stackSize);
         this.state = State.NEW;
         
         if(proto == null) {
@@ -184,9 +186,11 @@ public class Coroutine implements Runnable, Serializable {
 		resumeCounter++;
         State result = State.FINISHED;
         Stack oldStack = Stack.getStack();
+        SuspendableConstructorUtilStack oldCStack = SuspendableConstructorUtilStack.getStack();
         try {
             state = State.RUNNING;
             Stack.setStack(stack);
+            SuspendableConstructorUtilStack.setStack(cstack);
             try {
             	if (proto instanceof IFn) {
             		((IFn)proto).invoke();
@@ -201,6 +205,7 @@ public class Coroutine implements Runnable, Serializable {
             }
         } finally {
             Stack.setStack(oldStack);
+            SuspendableConstructorUtilStack.setStack(oldCStack);
             state = result;
         }
 	}
@@ -248,6 +253,14 @@ public class Coroutine implements Runnable, Serializable {
     public int getResumeCounter() {
 		return resumeCounter;
 	}
+    
+    public Stack getStack() {
+    	return stack; 
+    }
+    
+    public SuspendableConstructorUtilStack getCStack() {
+    	return cstack; 
+    }
     
     @SuppressWarnings("unchecked")
     private boolean isInstrumented(Runnable proto) {

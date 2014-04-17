@@ -343,5 +343,14 @@ curl -v -X PUT -d name=java -d rank=5  "http://localhost:8080/coroutineSocketAnd
 curl -v -X PUT -d name=c -d rank=5  "http://localhost:8080/coroutineSocketAndCompojure/mysql-insert"
 curl -v -X PUT -d name=clojure -d rank=5  "http://localhost:8080/coroutineSocketAndCompojure/mysql-insert"
 curl -v "http://localhost:8080/coroutineSocketAndCompojure/mysql-query/java"
+curl -v "http://localhost:8080/coroutineSocketAndCompojure/mysql-drop"
+
+performance testing:
+
+#native nginx proxy pass
+ab -n 10000 -c 200 http://localhost:8080/proxytest/medium.html
+#nginx clojure coroutine socket + http client
+
+
 
 

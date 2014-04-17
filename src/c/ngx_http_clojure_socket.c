@@ -72,18 +72,16 @@ static ngx_int_t ngx_http_clojure_socket_upstream_test_connect(ngx_connection_t 
 	return NGX_OK;
 }
 
-static void ngx_http_clojure_socket_upstream_finalize(ngx_http_clojure_socket_upstream_t *u, ngx_int_t sc) {
+static void ngx_http_clojure_socket_upstream_close_connection(ngx_http_clojure_socket_upstream_t *u) {
 
-	ngx_log_debug1(NGX_LOG_DEBUG_HTTP, u->pool->log, 0,
-	                   "finalize clojure_socket_upstream: %i", sc);
+	if (u->peer.connection == NULL) {
+		ngx_log_error(NGX_LOG_ALERT, u->pool->log, 0, "connection already closed");
+		return;
+	}
 
 	if (u->resolved && u->resolved->ctx) {
 		ngx_resolve_name_done(u->resolved->ctx);
 		u->resolved->ctx = NULL;
-	}
-
-	if (u->socket_upstream_finalize) {
-		u->socket_upstream_finalize(u, sc);
 	}
 
 
@@ -106,6 +104,18 @@ static void ngx_http_clojure_socket_upstream_finalize(ngx_http_clojure_socket_up
     }
 
     u->peer.connection = NULL;
+}
+
+static void ngx_http_clojure_socket_upstream_finalize(ngx_http_clojure_socket_upstream_t *u, ngx_int_t sc) {
+
+	ngx_log_debug1(NGX_LOG_DEBUG_HTTP, u->pool->log, 0,
+	                   "finalize clojure_socket_upstream: %i", sc);
+
+	if (u->socket_upstream_finalize) {
+		u->socket_upstream_finalize(u, sc);
+	}
+
+	ngx_http_clojure_socket_upstream_close_connection(u);
 
     ngx_destroy_pool(u->pool);
 
@@ -147,6 +157,11 @@ static void ngx_http_clojure_socket_upstream_handler(ngx_event_t *ev) {
 	c = ev->data;
 	u = c->data;
 
+	if (c->fd == -1) {
+		ngx_log_error(NGX_LOG_ERR, ngx_http_clojure_global_cycle->log, 0, "ngx clojure maybe meet nginx bug: event on closed socket u=%p, c=%p", u, c);
+		return;
+	}
+
 	if (!u->connect_event_sent) {
 		if (ev->timedout) {
 			ngx_http_clojure_socket_upstream_connect_handler(u, NGX_HTTP_CLOJURE_SOCKET_ERR_CONNECT_TIMEOUT);
@@ -159,6 +174,10 @@ static void ngx_http_clojure_socket_upstream_handler(ngx_event_t *ev) {
 
 		if (ngx_http_clojure_socket_upstream_test_connect(c) == NGX_OK) {
 			ngx_http_clojure_socket_upstream_connect_handler(u, NGX_HTTP_CLOJURE_SOCKET_OK);
+			/*connection may be closed by above code*/
+			if (c->fd == -1) {
+				return;
+			}
 		}else {
 			ngx_http_clojure_socket_upstream_connect_handler(u, NGX_HTTP_CLOJURE_SOCKET_ERR_CONNECT);
 			return;
@@ -180,10 +199,6 @@ static void ngx_http_clojure_socket_upstream_connect_handler(ngx_http_clojure_so
 	if (!u->connect_event_sent) {
 		u->connect_event_handler(u, sc);
 		u->connect_event_sent = 1;
-
-		if (sc != NGX_HTTP_CLOJURE_SOCKET_OK) {
-			ngx_http_clojure_socket_upstream_finalize(u, NGX_HTTP_CLOJURE_SOCKET_ERR_CONNECT);
-		}
 	}
 
 }
@@ -214,6 +229,7 @@ static void ngx_http_clojure_socket_upstream_write_handler(ngx_event_t *ev) {
 
 	c = ev->data;
 	u = c->data;
+
 
 	if (ev->timedout) {
 		u->write_event_handler(u, NGX_HTTP_CLOJURE_SOCKET_ERR_WRITE_TIMEOUT);
@@ -262,6 +278,10 @@ static void ngx_http_clojure_socket_upstream_connect_1(ngx_http_clojure_socket_u
 		}
 	}*/
 
+	if (u->peer.connection) {
+		ngx_http_clojure_socket_upstream_close_connection(u);
+	}
+
 	pc->sockaddr = u->resolved->sockaddr;
 	pc->socklen = u->resolved->socklen;
 	/*TODO:keepalive peer*/
@@ -289,7 +309,9 @@ static void ngx_http_clojure_socket_upstream_connect_1(ngx_http_clojure_socket_u
 
 
 	if (rc == NGX_AGAIN) {
-		ngx_add_timer(c->write, u->connect_timeout ? u->connect_timeout : 30000);
+		if (u->connect_timeout > 0) {
+			ngx_add_timer(c->write, u->connect_timeout);
+		}
 		return;
 	}
 
@@ -322,8 +344,8 @@ int ngx_http_clojure_socket_upstream_write(ngx_http_clojure_socket_upstream_t *u
 	ngx_connection_t  *c = u->peer.connection;
 	ngx_int_t rc = ngx_send(c, buf, size);
 	if (rc == 0 || rc == NGX_AGAIN) {
-		if (u->read_timeout > 0) {
-			ngx_add_timer(c->write, u->read_timeout);
+		if (u->write_timeout > 0) {
+			ngx_add_timer(c->write, u->write_timeout);
 		}
 		rc = NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN;
 	}else if (rc < 0) {

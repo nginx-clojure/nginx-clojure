@@ -23,7 +23,8 @@ public class SimpleHandler4TestHttpClientGetMethod extends AFn {
 	@Override
 	public Object invoke(Object r) {
 		CloseableHttpClient httpclient = HttpClients.createDefault();
-		HttpGet httpget = new HttpGet("http://cn.bing.com/");
+//		HttpGet httpget = new HttpGet("http://cn.bing.com/");
+		HttpGet httpget = new HttpGet("http://192.168.2.12/ctest/medium.html");
 		CloseableHttpResponse response = null;
 		try {
 			response = httpclient.execute(httpget);

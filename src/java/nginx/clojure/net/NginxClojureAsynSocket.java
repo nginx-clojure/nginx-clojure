@@ -36,6 +36,20 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	public static final long NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_SOFT_WRITE = NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_WRITE | NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_SOFT_FLAG;
 	public static final long NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_SOFT_BOTH = NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_BOTH | NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_SOFT_FLAG;
 
+	public static final String[] NGX_HTTP_CLOJURE_SOCKET_ERROR_STRS = {
+		"socket general error" , //NGX_HTTP_CLOJURE_SOCKET_ERR,
+		"socket resolve error" ,//NGX_HTTP_CLOJURE_SOCKET_ERR_RESOLVE
+		"socket connect error" , //NGX_HTTP_CLOJURE_SOCKET_ERR_CONNECT
+		"socket connect timeout", //NGX_HTTP_CLOJURE_SOCKET_ERR_CONNECT_TIMEOUT
+		"socket timeout", //NGX_HTTP_CLOJURE_SOCKET_ERR_TIMEOUT
+		"socket read error", //NGX_HTTP_CLOJURE_SOCKET_ERR_READ
+		"socket read timeout", //NGX_HTTP_CLOJURE_SOCKET_ERR_READ_TIMEOUT
+		"socket write error" , //NGX_HTTP_CLOJURE_SOCKET_ERR_WRITE
+		"socket write timeout" , //NGX_HTTP_CLOJURE_SOCKET_ERR_WRITE_TIMEOUT
+		"socket reset", //NGX_HTTP_CLOJURE_SOCKET_ERR_RESET
+		"socket out of memory" , //NGX_HTTP_CLOJURE_SOCKET_ERR_OUTOFMEMORY
+		"socket try again"     , //NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN
+	};
 	
 	protected long s;
 	
@@ -44,6 +58,8 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	protected NginxClojureSocketHandler handler;
 	
 	protected Object context;
+	
+	protected String url;
 	
 	
 	public NginxClojureAsynSocket() {
@@ -84,6 +100,16 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 		if (s == 0) {
 			throw new RuntimeException("socket has been closed!");
 		}
+	}
+	
+	public final String errorCodeToString(long sc) {
+		return NGX_HTTP_CLOJURE_SOCKET_ERROR_STRS[(int)(NGX_HTTP_CLOJURE_SOCKET_ERR - sc)];
+	}
+	
+	public final String buildError(long sc) {
+		StringBuilder err = new StringBuilder(errorCodeToString(sc));
+		err.append(" On Server ").append(url);
+		return err.toString();
 	}
 	
 	/**
@@ -144,6 +170,7 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	}
 	
 	public long connect(String url) {
+		this.url = url;
 		byte[] urlba = url.getBytes(Constants.DEFAULT_ENCODING);
 		return connect(s, urlba, Constants.BYTE_ARRAY_OFFSET, urlba.length);
 	}

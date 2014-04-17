@@ -7,8 +7,10 @@ package nginx.clojure.net;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.Field;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.SocketImpl;
@@ -20,12 +22,27 @@ import nginx.clojure.Coroutine.State;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.logger.LoggerService;
 
-//TODO: check java.net.Socket and remove some safe check code which have been done in java.net.Socket
 public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSocketHandler {
 	
 	final static int YIELD_CONNECT = 1;
 	final static int YIELD_READ = 2;
 	final static int YIELD_WRITE = 3;
+	
+	final static long SOCKET_FIELD_OFFSET_OF_SOCKETIMPL;
+	
+	static {
+		Field socketField = null;
+		try {
+			socketField = SocketImpl.class.getDeclaredField("socket");
+		} catch (Throwable e) {
+		} 
+		if (socketField != null) {
+			SOCKET_FIELD_OFFSET_OF_SOCKETIMPL = NginxClojureRT.UNSAFE.objectFieldOffset(socketField);
+		}else {
+			SOCKET_FIELD_OFFSET_OF_SOCKETIMPL = 0;
+		}
+	}
+	
 	protected static LoggerService log;
 	
 	protected NginxClojureAsynSocket as;
@@ -36,6 +53,9 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 	protected SocketOutputStream outputStream;
 
 	public NginxClojureSocketImpl() {
+		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
+			throw new IllegalAccessError("close method of coroutine based sockets can only be called in main thread");
+		}
 		coroutine = Coroutine.getActiveCoroutine();
 		if (log == null) {
 			log = NginxClojureRT.getLog();
@@ -43,9 +63,18 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 	}
 	
 
+	protected Socket fetchSocket()  {
+		if (SOCKET_FIELD_OFFSET_OF_SOCKETIMPL != 0) {
+			log.debug("we'll get socket field object from NginxClojureSocketImpl");
+			return (Socket) NginxClojureRT.UNSAFE.getObject(this, SOCKET_FIELD_OFFSET_OF_SOCKETIMPL);
+		}
+		return null;
+	}
+	
 	@Override
 	public void setOption(int optID, Object v) throws SocketException {
-		checkCreatedAndNotClosed();
+		//now java.net.socket has done safe close check so we can ignore it
+		//checkCreatedAndNotClosed();
 		NginxClojureRT.getLog().debug("set socket options: %d, val: %s" , optID, v+"");
 		switch (optID) {
 		case SO_TIMEOUT:
@@ -85,6 +114,9 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
         }
 	}
 
+	public boolean isClosed() {
+		return as == null || as.isClosed();
+	}
 
 	public void checkCreatedAndNotClosed() throws SocketException {
 		if (as == null) {
@@ -97,7 +129,8 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 
 	@Override
 	public Object getOption(int optID) throws SocketException {
-		checkCreatedAndNotClosed();
+		//now java.net.socket has done safe close check so we can ignore it
+		//checkCreatedAndNotClosed();
 		switch (optID) {
 		case SO_TIMEOUT:
            return Integer.valueOf((int)as.getReadTimeout());
@@ -107,6 +140,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		return null;
 	}
 
+	
 	@Override
 	protected void create(boolean stream) throws IOException {
 		if (!stream) {
@@ -117,7 +151,8 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 
 	@Override
 	protected void connect(String host, int port) throws IOException {
-		checkCreatedAndNotClosed();
+		//now java.net.socket has done safe close check so we can ignore it
+		//checkCreatedAndNotClosed();
 		if (log.isDebugEnabled()) {
 			log.debug("connecting to %s:%d", host, port);
 		}
@@ -128,9 +163,12 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 				log.debug("show connect stack trace for debug", new Exception("DEBUG USAGE"));
 			}
 			if (status == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_CONNECT_TIMEOUT) {
-				throw new SocketTimeoutException("nginx clojure socket connect timeout!");
+				throw new SocketTimeoutException(as.buildError(status));
 			}
 			Coroutine.yield();
+			if (status != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
+				throw new SocketException(as.buildError(status));
+			}
 		}
 	}
 
@@ -141,7 +179,8 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 
 	@Override
 	protected void connect(SocketAddress address, int timeout) throws IOException {
-		checkCreatedAndNotClosed();
+		//now java.net.socket has done safe close check so we can ignore it
+		//checkCreatedAndNotClosed();
 		as.setConnectTimeout(timeout);
 		if (address == null || !(address instanceof InetSocketAddress))
 			throw new IllegalArgumentException("unsupported address type");
@@ -173,10 +212,11 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		if (inputStream != null) {
 			return inputStream;
 		}
-		if (as == null) {
-			throw new SocketException("Socket not created!");
-		}
-		as.checkConnected();
+        //now java.net.socket has done safe close check so we can ignore it
+//		if (as == null) {
+//			throw new SocketException("Socket not created!");
+//		}
+//		as.checkConnected();
 		return inputStream = new SocketInputStream(this);
 	}
 
@@ -185,10 +225,11 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		if (outputStream != null) {
 			return outputStream;
 		}
-		if (as == null) {
-			throw new SocketException("Socket not created!");
-		}
-		as.checkConnected();
+		//now java.net.socket has done safe close check so we can ignore it
+//		if (as == null) {
+//			throw new SocketException("Socket not created!");
+//		}
+//		as.checkConnected();
 		return outputStream = new SocketOutputStream(this);
 	}
 
@@ -199,19 +240,35 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 
 	@Override
 	protected void close() throws IOException {
-		checkCreatedAndNotClosed();
-		as.close();
-		yieldFlag = 0;
+//		checkCreatedAndNotClosed();
+		if (!isClosed()) {
+			if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
+				throw new IllegalAccessError("close method of coroutine based sockets can only be called in main thread");
+			}
+			if (inputStream != null) {
+				inputStream.closed = true;
+				inputStream = null;
+			}
+			if (outputStream != null) {
+				outputStream.closed = true;
+				outputStream = null;
+			}
+			as.close();
+			as = null;
+			yieldFlag = 0;
+		}
 	}
 
 	@Override
 	protected void shutdownInput() throws IOException {
-		inputStream.close();
+		//make the same behavior with Java build-in socket implementation
+		as.shutdown(NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_READ);
 	}
 	
 	@Override
 	protected void shutdownOutput() throws IOException {
-		outputStream.close();
+        //make the same behavior with Java build-in socket implementation
+		as.shutdown(NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_WRITE);
 	}
 	
 	@Override
@@ -273,6 +330,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 	protected static class SocketInputStream extends InputStream {
 
 		NginxClojureSocketImpl s;
+		//in coroutine thread safe is not necessary, so we just make it work
 		byte[] oba = new byte[1];
 		boolean closed;
 		boolean eof;
@@ -321,19 +379,22 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 						return (int)c;
 					}
 					if (s.status == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_READ_TIMEOUT) {
-						throw new SocketTimeoutException("nginx clojure socket read timeout!");
+						throw new SocketTimeoutException(s.as.buildError(s.status));
 					}
 					s.yieldFlag = YIELD_READ;
 					if (log.isDebugEnabled()) {
 						log.debug("yield read", new Exception("DEBUG USAGE--yield"));
 					}
 					Coroutine.yield();
+					if (s.status != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
+						throw new SocketException(s.as.buildError(s.status));
+					}
 				}else if (rc < 0) {
 					if (c > 0) {
 						log.warn("meet error %d, but we have read some data (len=%d), just return it", rc, c);
 						break;
 					}
-					throw new SocketException("socket read error :" + rc);
+					throw new SocketException(s.as.buildError(rc));
 				}else {
 					c += rc;
 				}
@@ -352,9 +413,18 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		@Override
 		public void close() throws IOException {
 			log.debug("close input");
-			checkClosed();
+//			checkClosed();
+			if (closed) {
+				return;
+			}
 			closed = true;
-			s.as.shutdown(NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_READ);
+			Socket fs = s.fetchSocket();
+			if (fs != null) {
+				fs.close();
+			}else {
+				s.close();
+			}
+			s = null;
 		}
 	}
 	
@@ -395,13 +465,16 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 					return;
 				}else if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
 					if (s.status == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_WRITE_TIMEOUT) {
-						throw new SocketTimeoutException("nginx clojure socket write timeout!");
+						throw new SocketTimeoutException(s.as.buildError(s.status));
 					}
 					s.yieldFlag = YIELD_WRITE;
 					log.debug("yield write");
 					Coroutine.yield();
+					if (s.status != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
+						throw new SocketException(s.as.buildError(s.status));
+					}
 				}else if (rc < 0) {
-					throw new SocketException("socket read error :" + rc);
+					throw new SocketException(s.as.buildError(rc));
 				}else {
 					c += rc;
 				}
@@ -417,10 +490,20 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		
 		@Override
 		public void close() throws IOException {
-			checkClosed();
 			log.debug("close output");
+//			checkClosed();
+			if (closed) {
+				return;
+			}
+			
 			closed = true;
-			s.as.shutdown(NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_WRITE);
+			Socket fs = s.fetchSocket();
+			if (fs != null) {
+				fs.close();
+			}else {
+				s.close();
+			}
+			s = null;
 		}
 	}
 }
