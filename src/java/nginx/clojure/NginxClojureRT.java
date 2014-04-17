@@ -49,7 +49,8 @@ public class NginxClojureRT {
 	
 	public static Thread NGINX_MAIN_THREAD;
 	
-	protected static Unsafe UNSAFE = null;
+	/*use it carefully!!*/
+	public static Unsafe UNSAFE = null;
 	
 	private static List<IFn>  HANDLERS = new ArrayList<IFn>();
 	

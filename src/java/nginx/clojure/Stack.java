@@ -101,7 +101,7 @@ public final class Stack implements Serializable {
         method[methodIdx+1] = dataTOS;
         
         if (db != null && db.isDebug()) {
-          db.debug("th#%d: pushMethodAndReserveSpace  entry=%d, numSlots=%d, sp=%d, dtos=%d,  nr(tos)=%d, %s", Thread.currentThread().getId(), entry, numSlots, curMethodSP, dataTOS, methodIdx, Thread.currentThread().getStackTrace()[2]);
+          db.debug("th#%d: pushMethodAndReserveSpace  entry=%d, numSlots=%d, sp=%d, dtos=%d,  nr(tos)=%d, %s stack=%s", Thread.currentThread().getId(), entry, numSlots, curMethodSP, dataTOS, methodIdx, Thread.currentThread().getStackTrace()[2], stackToString());
         }
         
         if(dataTOS > dataObject.length) {
@@ -116,19 +116,43 @@ public final class Stack implements Serializable {
      */
     public final void popMethod() {
 
+    	if (db != null && db.isDebug()) {
+    		db.debug("th#%d: popMethod sp=%d, tos=%d, stack=%s", Thread.currentThread().getId(), curMethodSP, methodTOS, stackToString());
+    	}
+    	
         int idx = methodTOS;
-        method[idx] = 0;
+        
         int oldSP = curMethodSP;
         int newSP = method[idx-1];
         curMethodSP = newSP;
         methodTOS = idx-2;
-        for(int i=newSP ; i<oldSP ; i++) {
-            dataObject[i] = null;
+        
+        
+        if (newSP == oldSP) { //after invoke a suspendable method which didn't cause suspend. eg. interfaces mark suspendable
+        	//TODO: exact end position
+        	for(int i = oldSP ; i < dataObject.length ; i++) {
+                dataObject[i] = null;
+            }
+        }else {
+            for(int i = newSP ; i < oldSP ; i++) {
+                dataObject[i] = null;
+            }
         }
         
+        method[idx] = 0;
+        
     	if (db != null && db.isDebug()) {
-    		db.debug("th#%d: popMethod sp=%d, tos=%d %s", Thread.currentThread().getId(), curMethodSP, methodTOS, Thread.currentThread().getStackTrace()[2]);
+    		db.debug("th#%d: popMethod sp=%d, tos=%d %s, stack=%s", Thread.currentThread().getId(), curMethodSP, methodTOS, Thread.currentThread().getStackTrace()[2], stackToString());
     	}
+    }
+    
+    private String stackToString() {
+    	StringBuilder s = new StringBuilder("{");
+    	for (int i = 0; i <= methodTOS; i++) {
+    		s.append(i).append(":").append(method[i]).append(",");
+    	}
+    	s.append("}");
+    	return s.toString();
     }
     
     /**
@@ -137,14 +161,16 @@ public final class Stack implements Serializable {
      */
     public final int nextMethodEntry() {
     	if (methodTOS > 0 && (methodTOS + 1 == method.length || method[methodTOS + 1] == 0)) {
-    		db.debug("th#%d:nextMethodEntry tos=%d return -1, we meet a broken suspend methods path because of unwaved methods mingled in the path, %s", Thread.currentThread().getId(), methodTOS, Thread.currentThread().getStackTrace()[2]);
+    		if (db != null && db.isDebug()) {
+        		db.debug("th#%d:nextMethodEntry tos=%d return -1, we meet a broken suspend methods path because of unwaved methods mingled in the path, %s", Thread.currentThread().getId(), methodTOS, Thread.currentThread().getStackTrace()[2]);
+    		}
     		return -1;
     	}
         int idx = methodTOS;
         curMethodSP = method[++idx];
         methodTOS = ++idx;
     	if (db != null && db.isDebug()) {
-    		db.debug("th#%d: nextMethodEntry entry=%d, sp=%d, tos=%d, %s",Thread.currentThread().getId(), method[idx], curMethodSP, methodTOS , Thread.currentThread().getStackTrace()[2]);
+    		db.debug("th#%d: nextMethodEntry entry=%d, sp=%d, tos=%d, %s, stack=%s",Thread.currentThread().getId(), method[idx], curMethodSP, methodTOS , Thread.currentThread().getStackTrace()[2], stackToString());
     	}
         return method[idx];
     }
@@ -217,4 +243,16 @@ public final class Stack implements Serializable {
     public static void setDb(MethodDatabase db) {
 		Stack.db = db;
 	}
+    
+    /**
+     * for junit test to check all objects are null now.
+     */
+    public boolean allObjsAreNull() {
+    	for (Object o : dataObject) {
+    		if (o != null) {
+    			return false;
+    		}
+    	}
+    	return true;
+    }
 }

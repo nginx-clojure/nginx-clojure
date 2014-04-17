@@ -89,7 +89,8 @@ public class ConstructorTest {
 		co.resume();
 		assertEquals(3, result.size());
 		assertEquals((Integer)2, result.get(2));
-		assertTrue(SuspendableConstructorUtilStack.getStack().empty());
+		assertTrue(co.getCStack().empty());
+		assertTrue(co.getStack().allObjsAreNull());
 	}
 	
 	@Test
@@ -119,7 +120,8 @@ public class ConstructorTest {
 		co.resume();
 		assertEquals(4, result.size());
 		assertEquals((Integer)3, result.get(3));
-		assertTrue(SuspendableConstructorUtilStack.getStack().empty());
+		assertTrue(co.getCStack().empty());
+		assertTrue(co.getStack().allObjsAreNull());
 		
 		}
 		
@@ -150,6 +152,7 @@ public class ConstructorTest {
 			assertEquals(4, result.size());
 			assertEquals((Integer)3, result.get(3));
 			assertTrue(SuspendableConstructorUtilStack.getStack().empty());
+			assertTrue(co.getStack().allObjsAreNull());
 		}
 	}
 	
@@ -218,7 +221,7 @@ public class ConstructorTest {
 		assertEquals(4, result.size());
 		assertEquals((Integer)3, result.get(3));
 		
-		
+		assertTrue(co.getStack().allObjsAreNull());
 	}
 	
 	public static class D {
@@ -282,7 +285,8 @@ public class ConstructorTest {
 		co.resume();
 		assertEquals(4, c.result.size());
 		assertEquals((Integer)3, c.result.get(3));
-		assertTrue(SuspendableConstructorUtilStack.getStack().empty());
+		assertTrue(co.getCStack().empty());
+		assertTrue(co.getStack().allObjsAreNull());
 	}
 
 } 

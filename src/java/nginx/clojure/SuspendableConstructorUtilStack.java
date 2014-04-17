@@ -20,7 +20,7 @@ public final class SuspendableConstructorUtilStack implements Serializable {
     private long[] dataLong;
     private Object[] dataObject;
     
-    private int sp;
+    private int sp = -1;
     private int top = 0;
     private int refs = 0;
     private int desp = 0;
@@ -39,6 +39,10 @@ public final class SuspendableConstructorUtilStack implements Serializable {
     		cstacks.set(cs = new SuspendableConstructorUtilStack(3));
     	}
     	return cs;
+    }
+    
+    public static void setStack(SuspendableConstructorUtilStack cs) {
+    	cstacks.set(cs);
     }
     
     public final boolean empty() {
@@ -96,6 +100,9 @@ public final class SuspendableConstructorUtilStack implements Serializable {
     public final void release(int c) {
     	desp += c;
     	if (--refs == 0) {
+    		for (int i = 0; i < top; i++) {
+    			dataObject[i] = null;
+    		}
     		sp = -1;
     		top = 0;
     		desp = 0;

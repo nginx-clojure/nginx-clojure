@@ -1,5 +1,7 @@
 package nginx.clojure;
 
+import static org.junit.Assert.assertTrue;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -49,6 +51,7 @@ public class CompojureHandlerTest {
 			Assert.assertEquals(3, resp.size());
 			Assert.assertEquals("Simple Response\n", resp.get(RT.keyword(null, "body")));
 			Assert.assertEquals(Coroutine.State.FINISHED, cr.getState());
+			assertTrue(cr.getStack().allObjsAreNull());
 //			Stack st = Stack.getStack();
 //			System.out.println(st.curMethodSP);
 		}
@@ -73,6 +76,7 @@ public class CompojureHandlerTest {
 		cr.resume();
 		Assert.assertEquals(3, resp.size());
 		Assert.assertEquals("Simple Response\n", resp.get(RT.keyword(null, "body")));
+		assertTrue(cr.getStack().allObjsAreNull());
 	}
 	
 	public static final class MyRunner implements Runnable {
@@ -120,6 +124,7 @@ public class CompojureHandlerTest {
 		}
 		Assert.assertEquals(3, myrunner.response.size());
 		Assert.assertEquals("Simple Response\n", myrunner.response.get(RT.keyword(null, "body")));
+		assertTrue(cr.getStack().allObjsAreNull());
 	}
 
 	@Test
@@ -156,6 +161,7 @@ public class CompojureHandlerTest {
 		}
 		Assert.assertEquals(3, myrunner.response.size());
 		Assert.assertEquals("Simple Response\n", myrunner.response.get(RT.keyword(null, "body")));
+		assertTrue(cr.getStack().allObjsAreNull());
 	}
 	
 	@Test
@@ -232,6 +238,7 @@ public class CompojureHandlerTest {
 		}
 		Assert.assertEquals(3, myrunner.response.size());
 		Assert.assertEquals("Simple Response\n", myrunner.response.get(RT.keyword(null, "body")));
+		assertTrue(cr.getStack().allObjsAreNull());
 	}
 	
 	
@@ -269,6 +276,7 @@ public class CompojureHandlerTest {
 		}
 		Assert.assertEquals(3, myrunner.response.size());
 		Assert.assertEquals("Simple Response\n", myrunner.response.get(RT.keyword(null, "body")));
+		assertTrue(cr.getStack().allObjsAreNull());
 	}
 	
 	
@@ -301,6 +309,7 @@ public class CompojureHandlerTest {
 		cr.resume();
 		Assert.assertEquals(3, myrunner.response.size());
 		Assert.assertEquals("Simple Response\n", myrunner.response.get(RT.keyword(null, "body")));
+		assertTrue(cr.getStack().allObjsAreNull());
 	}
 	
 	
@@ -353,5 +362,6 @@ public class CompojureHandlerTest {
 		}
 		Assert.assertEquals(3, myrunner.response.size());
 		Assert.assertEquals("Simple Response\n", myrunner.response.get(RT.keyword(null, "body")));
+		assertTrue(cr.getStack().allObjsAreNull());
 	}
 }

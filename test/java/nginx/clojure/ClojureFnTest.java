@@ -1,8 +1,8 @@
 package nginx.clojure;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
-import java.io.File;
 import java.util.ArrayList;
 
 import org.junit.After;
@@ -19,11 +19,11 @@ public class ClojureFnTest {
 	
 	@Before
 	public void setUp() throws Exception {
-		String classpath = System.getProperty("java.class.path");
-		String[] cps = classpath.split(File.pathSeparator);
-		for (String cp : cps) {
-			System.out.println(cp);
-		}
+//		String classpath = System.getProperty("java.class.path");
+//		String[] cps = classpath.split(File.pathSeparator);
+//		for (String cp : cps) {
+//			System.out.println(cp);
+//		}
 		messages = new ArrayList<String>();
 	}
 
@@ -83,7 +83,7 @@ public class ClojureFnTest {
 		long tid = Thread.currentThread().getId();
 		//the same thread with caller: good!
 		assertEquals("threadId:"+tid, messages.get(7));
-		
+		assertTrue(cr.getStack().allObjsAreNull());
 	}
 	
 
@@ -100,6 +100,7 @@ public class ClojureFnTest {
 				cr.resume();
 			}
 			assertEquals(25L, (Number)ma.get(0));
+			assertTrue(cr.getStack().allObjsAreNull());
 		}
 	}
 }
