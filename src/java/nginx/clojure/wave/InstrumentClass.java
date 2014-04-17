@@ -117,7 +117,7 @@ public class InstrumentClass extends ClassVisitor {
             }else {
             	if (db.meetTraceTargetClassMethod(className, method)) {
             		Printer tp = new Textifier();
-            		mn = new TracableMethodNode(db, access, name, desc, signature, exceptions, tp, new PrintWriter(System.out));
+            		mn = new TracableMethodNode("Orginal: " + className + "." + method,  db, access, name, desc, signature, exceptions, tp, new PrintWriter(System.out));
             		mv = new TraceMethodVisitor(mn, tp);
             	}else {
             		mv = mn = new InstrumentMethodNode(db, access, name, desc, signature, exceptions);
@@ -129,15 +129,6 @@ public class InstrumentClass extends ClassVisitor {
         }
         return super.visitMethod(access, name, desc, signature, exceptions);
     }
-
-
-    
-    public   MethodVisitor getConstructorFacadeRest(MethodNode mn) {
-    	String[] exps = MethodDatabase.toStringArray(mn.exceptions);
-    	return new JSRInlinerAdapter(super.visitMethod(mn.access, "_init_s_", mn.desc, mn.signature, exps), mn.access, "_init_s_", mn.desc, mn.signature, exps);
-    }
-    
-    
     
     @Override
     public void visitEnd() {
@@ -189,7 +180,14 @@ public class InstrumentClass extends ClassVisitor {
 
     protected MethodVisitor makeOutMV(MethodNode mn) {
     	String[] exps = MethodDatabase.toStringArray(mn.exceptions);
-    	return new JSRInlinerAdapter(super.visitMethod(mn.access, mn.name, mn.desc, mn.signature, exps), mn.access, mn.name, mn.desc, mn.signature, exps);
+    	String mk = ClassEntry.key(mn.name, mn.desc);
+    	MethodVisitor mv = super.visitMethod(mn.access, mn.name, mn.desc, mn.signature, exps);
+    	if (db.meetTraceTargetClassMethod(className, mk)) {
+    		Printer tp = new Textifier();
+    		TracableMethodVisitor tmv = new TracableMethodVisitor("Waved: " + className + "." + mk,  mv, mn.access, mn.name, mn.desc, mn.signature, exps, tp, new PrintWriter(System.out));
+    		mv = new TraceMethodVisitor(tmv, tp);
+    	}
+    	return new JSRInlinerAdapter(mv, mn.access, mn.name, mn.desc, mn.signature, exps);
     }
 
     protected MethodVisitor makeOutMV(int access, String name, String desc, String signature, String[] exceptions) {

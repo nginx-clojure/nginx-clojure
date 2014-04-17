@@ -86,6 +86,7 @@ public class MethodDatabase implements LoggerService {
 		SUSPEND_SKIP_STR
 	};
 	
+	
 	public static final String EXCEPTION_NAME = Type.getInternalName(SuspendExecution.class);
 	public static final String EXCEPTION_DESC = Type.getDescriptor(SuspendExecution.class);
 	
@@ -608,8 +609,7 @@ public class MethodDatabase implements LoggerService {
 
             String superClass = getDirectSuperClass(className);
             if(superClass == null) {
-            	warn("Can't determine super class of %s", className);
-                return null;
+                return result;
             }
             className = superClass;
         }

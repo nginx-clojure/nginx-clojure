@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import nginx.clojure.SuspendableConstructorUtilStack;
+import nginx.clojure.asm.Label;
 import nginx.clojure.asm.MethodVisitor;
 import nginx.clojure.asm.Opcodes;
 import nginx.clojure.asm.Type;
@@ -109,15 +110,31 @@ public class InstrumentConstructorMethod {
 		String[] expss = MethodDatabase.toStringArray(exps);
 		MethodNode mv = new MethodNode(Opcodes.ACC_PUBLIC, buildInitHelpMethodName(mn.desc), "()V", null, expss);
 		
-		if (invokedInitInsn != null) {
-			if (db.checkMethodSuspendType(invokedInitInsn.owner, ClassEntry.key(invokedInitInsn.name, invokedInitInsn.desc), false) == MethodDatabase.SUSPEND_NORMAL) {
-				mv.visitVarInsn(Opcodes.ALOAD, 0);
-				mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, invokedInitInsn.owner, "inch_" + getMD5(invokedInitInsn.desc), "()V");
-			}
+		Label invokedInitInsnStart = null;
+		Label invokedInitInsnEnd = null;
+		Label invokedInitInsnCatchAll = null;
+		boolean needWaveInvokedInitInsn = invokedInitInsn != null 
+				&& db.checkMethodSuspendType(invokedInitInsn.owner, ClassEntry.key(invokedInitInsn.name, invokedInitInsn.desc), false) == MethodDatabase.SUSPEND_NORMAL;
+		if (needWaveInvokedInitInsn) {
+			invokedInitInsnStart = new Label();
+			invokedInitInsnEnd = new Label();
+			invokedInitInsnCatchAll = new Label();
+			mv.visitTryCatchBlock(invokedInitInsnStart, invokedInitInsnEnd, invokedInitInsnCatchAll, null);
 		}
+		
+		for(TryCatchBlockNode tcb : mn.tryCatchBlocks) {
+            tcb.accept(mv);
+        }
 		
 		mv.visitMethodInsn(Opcodes.INVOKESTATIC, CSTACK_NAME, "getStack", "()L"+CSTACK_NAME+";");
 		mv.visitVarInsn(Opcodes.ASTORE, lvarCStack);
+		
+		if (needWaveInvokedInitInsn) {
+			mv.visitLabel(invokedInitInsnStart);
+			mv.visitVarInsn(Opcodes.ALOAD, 0);
+			mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, invokedInitInsn.owner, "inch_" + getMD5(invokedInitInsn.desc), "()V");
+			mv.visitLabel(invokedInitInsnEnd);
+		}
 		
 		for(int i=firstLocal ; i<f.getLocals() ; i++) {
 		    BasicValue v = (BasicValue) f.getLocal(i);
@@ -148,6 +165,7 @@ public class InstrumentConstructorMethod {
 		mv.visitVarInsn(Opcodes.ALOAD,lvarCStack);
 		emitConst(mv, fi.numSlots);
 		mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "release", "(I)V");
+		
 		int maxStack = mn.maxStack;
 		for (int i = splitPos; i < numIns; i++) {
 			AbstractInsnNode insn = mn.instructions.get(i);
@@ -166,9 +184,13 @@ public class InstrumentConstructorMethod {
 			insn.accept(mv);
 		}
 		
-		for(TryCatchBlockNode tcb : mn.tryCatchBlocks) {
-            tcb.accept(mv);
-        }
+		if (needWaveInvokedInitInsn) {
+			mv.visitLabel(invokedInitInsnCatchAll);
+			mv.visitVarInsn(Opcodes.ALOAD,lvarCStack);
+			emitConst(mv, fi.numSlots);
+			mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "release", "(I)V");
+			mv.visitInsn(Opcodes.ATHROW);
+		}
 
 		if(mn.localVariables != null && !mn.localVariables.isEmpty()) {
 			for (int i = 0; i < f.getLocals(); i++) {
