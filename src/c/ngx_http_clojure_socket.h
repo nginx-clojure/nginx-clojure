@@ -52,6 +52,9 @@ struct ngx_http_clojure_socket_upstream_s {
 	ngx_msec_t write_timeout;
 	ngx_msec_t read_timeout;
 
+	int tcp_nodelay;
+	int so_keepalive;
+
 	/*TCP SO_SNDLOWAT option*/
 	size_t send_lowat;
 
@@ -148,6 +151,10 @@ struct ngx_http_clojure_socket_upstream_s {
 ngx_http_clojure_socket_upstream_t *ngx_http_clojure_socket_upstream_create(size_t pool_size, ngx_log_t *log);
 
 int ngx_http_clojure_socket_upstream_available(ngx_http_clojure_socket_upstream_t *u);
+
+int ngx_http_clojure_socket_upstream_set_tcp_nodelay(ngx_http_clojure_socket_upstream_t *u, int tcp_nodelay);
+
+int ngx_http_clojure_socket_upstream_set_so_keepalive(ngx_http_clojure_socket_upstream_t *u, int so_keepalive);
 
 void ngx_http_clojure_socket_upstream_connect(ngx_http_clojure_socket_upstream_t *u, struct sockaddr *addr, socklen_t len);
 

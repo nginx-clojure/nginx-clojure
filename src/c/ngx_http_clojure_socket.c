@@ -6,6 +6,7 @@
 #include "ngx_http_clojure_socket.h"
 #include "ngx_http_clojure_jvm.h"
 
+
 //static JavaVM *jvm = NULL;
 static JNIEnv *jvm_env = NULL;
 static jclass nc_socket_class;
@@ -22,7 +23,8 @@ static void ngx_http_clojure_socket_upstream_empty_handler(ngx_http_clojure_sock
 static void ngx_http_clojure_socket_upstream_connect_handler(ngx_http_clojure_socket_upstream_t *u, ngx_int_t sc);
 static ngx_int_t ngx_http_clojure_socket_upstream_test_connect(ngx_connection_t *c);
 static void ngx_http_clojure_socket_upstream_finalize(ngx_http_clojure_socket_upstream_t *u, ngx_int_t sc);
-static void ngx_http_clojure_socket_upstream_connect_1(ngx_http_clojure_socket_upstream_t *u);
+static void ngx_http_clojure_socket_upstream_connect_inner(ngx_http_clojure_socket_upstream_t *u);
+static void ngx_http_clojure_socket_upstream_close_connection(ngx_http_clojure_socket_upstream_t *u);
 
 
 static ngx_int_t ngx_http_clojure_socket_upstream_test_connect(ngx_connection_t *c) {
@@ -132,6 +134,8 @@ ngx_http_clojure_socket_upstream_t *ngx_http_clojure_socket_upstream_create(size
 		ngx_destroy_pool(pool);
 		return NULL;
 	}
+
+	u->tcp_nodelay = 1;
 
 	u->pool = pool;
 
@@ -254,6 +258,42 @@ int ngx_http_clojure_socket_upstream_available(ngx_http_clojure_socket_upstream_
 	return ba;
 }
 
+int ngx_http_clojure_socket_upstream_set_tcp_nodelay(ngx_http_clojure_socket_upstream_t *u, int tcp_nodelay) {
+	if (u->tcp_nodelay == tcp_nodelay) {
+		return NGX_HTTP_CLOJURE_SOCKET_OK;
+	}
+
+	if (u->peer.connection && u->peer.connection->fd != -1) {
+
+		if (u->peer.connection->tcp_nodelay == NGX_TCP_NODELAY_DISABLED) {
+			return NGX_HTTP_CLOJURE_SOCKET_ERR;
+		}
+
+		if (setsockopt(u->peer.connection->fd, IPPROTO_TCP, TCP_NODELAY, (const void *) &tcp_nodelay, sizeof(int)) == -1) {
+			return NGX_HTTP_CLOJURE_SOCKET_ERR;
+		}
+	}
+
+	u->tcp_nodelay = tcp_nodelay;
+	return NGX_HTTP_CLOJURE_SOCKET_OK;
+}
+
+int ngx_http_clojure_socket_upstream_set_so_keepalive(ngx_http_clojure_socket_upstream_t *u, int so_keepalive) {
+	if (u->so_keepalive == so_keepalive) {
+		return NGX_HTTP_CLOJURE_SOCKET_OK;
+	}
+
+	if (u->peer.connection && u->peer.connection->fd != -1) {
+		if (setsockopt(u->peer.connection->fd, SOL_SOCKET, SO_KEEPALIVE, (const void *) &so_keepalive, sizeof(int)) == -1) {
+			return NGX_HTTP_CLOJURE_SOCKET_ERR;
+		}
+	}
+
+	u->so_keepalive = so_keepalive;
+	return NGX_HTTP_CLOJURE_SOCKET_OK;
+}
+
+
 void ngx_http_clojure_socket_upstream_connect_by_url(ngx_http_clojure_socket_upstream_t *u, ngx_url_t *url) {
 	//TODO:  host name resolve by event driven
 	if (url->addrs == NULL) {
@@ -266,7 +306,7 @@ void ngx_http_clojure_socket_upstream_connect_by_url(ngx_http_clojure_socket_ups
 	ngx_http_clojure_socket_upstream_connect(u, (struct sockaddr *)url->sockaddr, url->socklen);
 }
 
-static void ngx_http_clojure_socket_upstream_connect_1(ngx_http_clojure_socket_upstream_t *u) {
+static void ngx_http_clojure_socket_upstream_connect_inner(ngx_http_clojure_socket_upstream_t *u) {
 	ngx_int_t rc;
 	ngx_connection_t  *c;
 	ngx_peer_connection_t *pc = &u->peer;
@@ -305,6 +345,12 @@ static void ngx_http_clojure_socket_upstream_connect_1(ngx_http_clojure_socket_u
 	c = u->peer.connection;
 	c->data = u;
 
+	if (c->tcp_nodelay != NGX_TCP_NODELAY_DISABLED && u->tcp_nodelay) {
+		if (setsockopt(u->peer.connection->fd, IPPROTO_TCP, TCP_NODELAY, (const void *) &u->tcp_nodelay, sizeof(int)) == -1) {
+			u->tcp_nodelay = 0;
+		}
+	}
+
 	c->write->handler = c->read->handler = ngx_http_clojure_socket_upstream_handler;
 
 
@@ -323,7 +369,7 @@ void ngx_http_clojure_socket_upstream_connect(ngx_http_clojure_socket_upstream_t
 	u->resolved->sockaddr = addr;
 	u->resolved->socklen = len;
 	u->resolved->naddrs = 1;
-	ngx_http_clojure_socket_upstream_connect_1(u);
+	ngx_http_clojure_socket_upstream_connect_inner(u);
 }
 
 int ngx_http_clojure_socket_upstream_read(ngx_http_clojure_socket_upstream_t *u, void *buf, size_t size) {
@@ -397,7 +443,6 @@ static void JNICALL jni_ngx_http_clojure_socket_connect_handler(ngx_http_clojure
 static void JNICALL jni_ngx_http_clojure_socket_release_handler(ngx_http_clojure_socket_upstream_t *u, ngx_int_t sc) {
 	(*jvm_env)->CallVoidMethod(jvm_env, (jobject)u->context, nc_socket_handler_release_mid, (uintptr_t)u, (jlong)sc);
 	exception_handle(0 == 0, jvm_env, (*jvm_env)->DeleteGlobalRef(jvm_env, (jobject)u->context));
-	(*jvm_env)->DeleteGlobalRef(jvm_env, (jobject)u->context);
 }
 
 static jlong JNICALL jni_ngx_http_clojure_socket_create(JNIEnv *env, jclass cls, jobject handler) {
@@ -418,6 +463,27 @@ static jlong JNICALL jni_ngx_http_clojure_socket_available(JNIEnv *env, jclass c
 	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)s;
 	return (jlong)ngx_http_clojure_socket_upstream_available(u);
 }
+
+static jlong jni_ngx_http_clojure_socket_set_tcp_nodelay(JNIEnv *env, jclass cls, jlong s, jlong tcp_nodelay) {
+	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)s;
+	return (jlong)ngx_http_clojure_socket_upstream_set_tcp_nodelay(u, (int)tcp_nodelay);
+}
+
+static jlong jni_ngx_http_clojure_socket_get_tcp_nodelay(JNIEnv *env, jclass cls, jlong s) {
+	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)s;
+	return (jlong)u->tcp_nodelay;
+}
+
+static jlong jni_ngx_http_clojure_socket_set_so_keepalive(JNIEnv *env, jclass cls, jlong s, jlong so_keepalive) {
+	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)s;
+	return (jlong)ngx_http_clojure_socket_upstream_set_so_keepalive(u, (int)so_keepalive);
+}
+
+static jlong jni_ngx_http_clojure_socket_get_so_keepalive(JNIEnv *env, jclass cls, jlong s) {
+	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)s;
+	return (jlong)u->so_keepalive;
+}
+
 
 static jlong JNICALL jni_ngx_http_clojure_socket_connect_url(JNIEnv *env, jclass cls, jlong s, jobject jurl, jlong off, jlong len) {
 	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)s;
@@ -507,6 +573,10 @@ int ngx_http_clojure_init_socket_util() {
 	JNINativeMethod nms[] = {
 			{"create", "(Lnginx/clojure/net/NginxClojureSocketRawHandler;)J", jni_ngx_http_clojure_socket_create},
 			{"available","(J)J", jni_ngx_http_clojure_socket_available},
+			{"setTcpNoDelay", "(JJ)J", jni_ngx_http_clojure_socket_set_tcp_nodelay},
+			{"getTcpNoDelay", "(J)J", jni_ngx_http_clojure_socket_get_tcp_nodelay},
+			{"setSoKeepAlive", "(JJ)J", jni_ngx_http_clojure_socket_set_so_keepalive},
+			{"getSoKeepAlive", "(J)J", jni_ngx_http_clojure_socket_get_so_keepalive},
 			{"setTimeout", "(JJJJ)V", jni_ngx_http_clojure_socket_set_timeout},
 			{"getReadTimeout", "(J)J", jni_ngx_http_clojure_socket_get_read_timeout},
 			{"getWriteTimeout", "(J)J", jni_ngx_http_clojure_socket_get_write_timeout},

@@ -82,6 +82,22 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 		return (int)available(s);
 	}
 	
+	public long setTcpNoDelay(long tcpNoDelay) {
+		return setTcpNoDelay(s, tcpNoDelay);
+	}
+	
+	public long getTcpNoDelay() {
+		return getTcpNoDelay(s);
+	}
+	
+	public long setSoKeepAlive(long soKeepAlive) {
+		return setSoKeepAlive(s, soKeepAlive);
+	}
+	
+	public long getSoKeepAlive() {
+		return getSoKeepAlive(s);
+	}
+	
 	public boolean isClosed() {
 		return s == 0;
 	}
@@ -304,6 +320,14 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	private static native long write(long s, Object buf, long off, long size);
 	
 	private static native void setTimeout(long s, long ctimeout, long rtimeout, long wtimeout);
+	
+	private static native long  setTcpNoDelay(long s, long tcpNoDelay);
+	
+	private static native long  getTcpNoDelay(long s);
+	
+	private static native long  setSoKeepAlive(long s, long soKeepAlive);
+	
+	private static native long  getSoKeepAlive(long s);
 	
 	private static native long getReadTimeout(long s);
 	

@@ -8,8 +8,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
+import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.NoRouteToHostException;
+import java.net.PortUnreachableException;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
@@ -99,14 +102,19 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 			}
 			as.setReceiveBufferSize(((Integer) v).intValue());
 			return;
+		case TCP_NODELAY:
+			as.setTcpNoDelay(((Boolean)v).booleanValue() ? 1 : 0);
+			return;
+		case SO_KEEPALIVE:
+			as.setSoKeepAlive(((Boolean)v).booleanValue() ? 1 : 0);
+			return;
+		case SO_REUSEADDR:
+			break;
 		case SO_LINGER:
 		case IP_TOS:
 		case SO_BINDADDR:
-		case TCP_NODELAY:
         case SO_SNDBUF:
-        case SO_KEEPALIVE:
         case SO_OOBINLINE:
-        case SO_REUSEADDR:
         	NginxClojureRT.getLog().warn("not supported socket options: %d, val: %s just ignored" , optID, v+"");
         	break;
         default:
@@ -136,6 +144,10 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
            return Integer.valueOf((int)as.getReadTimeout());
 		case SO_RCVBUF:
 			return Integer.valueOf((int)as.getReceiveBufferSize());
+		case TCP_NODELAY:
+			return Boolean.valueOf(as.getTcpNoDelay() == 1);
+		case SO_KEEPALIVE:
+			return Boolean.valueOf(as.getSoKeepAlive() == 1);
 		}
 		return null;
 	}
@@ -147,6 +159,14 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 			throw new UnsupportedOperationException("stream = false not supported!");
 		}
 		as = new NginxClojureAsynSocket(this);
+		/*
+		 * Although the default SO_TIMEOUT in java socket is 0, when SO_TIMEOUT = 0 a blocked Java Socket will call socket API connect
+		 * which will use a default timeout from system configuration. So to keep the same behavior with java build-in
+		 * Socket implementation, we should give a similar connect timeout.
+		 * e.g. On Linux the connection retries is in file /proc/sys/net/ipv4/tcp_syn_retries, on most case the value is 5 
+		 * Linux tcp man page says it corresponds to approximately 180 seconds but my test result is about 127s
+		 */
+		as.setConnectTimeout(120000);
 	}
 
 	@Override
@@ -162,12 +182,16 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 			if (log.isDebugEnabled()) {
 				log.debug("show connect stack trace for debug", new Exception("DEBUG USAGE"));
 			}
-			if (status == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_CONNECT_TIMEOUT) {
-				throw new SocketTimeoutException(as.buildError(status));
+			if (status == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_RESOLVE) {
+				throw new NoRouteToHostException(as.buildError(status));
+			}else if (status == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_CONNECT) {
+				throw new PortUnreachableException(as.buildError(status));
+			}else if (status != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
+				throw new ConnectException(as.buildError(status));
 			}
 			Coroutine.yield();
 			if (status != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
-				throw new SocketException(as.buildError(status));
+				throw new ConnectException(as.buildError(status));
 			}
 		}
 	}
@@ -181,7 +205,9 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 	protected void connect(SocketAddress address, int timeout) throws IOException {
 		//now java.net.socket has done safe close check so we can ignore it
 		//checkCreatedAndNotClosed();
-		as.setConnectTimeout(timeout);
+		if (timeout > 0) { //see code comment in create method, we shouldn't overwrite the value.
+			as.setConnectTimeout(timeout);
+		}
 		if (address == null || !(address instanceof InetSocketAddress))
 			throw new IllegalArgumentException("unsupported address type");
 		InetSocketAddress addr = (InetSocketAddress) address;
