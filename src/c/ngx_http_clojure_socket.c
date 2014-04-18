@@ -351,6 +351,12 @@ static void ngx_http_clojure_socket_upstream_connect_inner(ngx_http_clojure_sock
 		}
 	}
 
+	if (u->so_keepalive) {
+		if (setsockopt(u->peer.connection->fd, SOL_SOCKET, SO_KEEPALIVE, (const void *) &u->so_keepalive, sizeof(int)) == -1) {
+			u->so_keepalive = 0;
+		}
+	}
+
 	c->write->handler = c->read->handler = ngx_http_clojure_socket_upstream_handler;
 
 

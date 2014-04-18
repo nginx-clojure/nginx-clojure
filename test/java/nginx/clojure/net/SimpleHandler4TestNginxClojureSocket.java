@@ -29,7 +29,10 @@ public class SimpleHandler4TestNginxClojureSocket extends AFn {
 		try {
 			InetSocketAddress inetSocketAddress = new InetSocketAddress("cn.bing.com", 80);
 			socket.setSoTimeout(5000);
+			socket.setTcpNoDelay(true);
+			socket.setKeepAlive(true);
 			socket.connect(inetSocketAddress);
+			log.info("socket keepalive = %s, tcpnodelay = %s", socket.getKeepAlive()+"", socket.getTcpNoDelay()+"");
 			log.info("fininsh connect");
 			OutputStream out = socket.getOutputStream();
 //			out.write("GET / HTTP/1.1\r\nUser-Agent: nginx-clojure/0.2.0\r\nHost: cn.bing.com\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes());
