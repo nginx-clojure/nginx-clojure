@@ -90,15 +90,24 @@ public final class Stack implements Serializable {
     	
         final int methodIdx = methodTOS;
         
+        
         if(method.length - methodIdx < 2) {
             growMethodStack();
         }
         
+        int oldDataTos = method[methodIdx+1];
         curMethodSP = method[methodIdx-1];
         int dataTOS = curMethodSP + numSlots;
         
         method[methodIdx] = entry;
         method[methodIdx+1] = dataTOS;
+        
+        //maybe in the same method the previous suspendable invoke finished
+        if (oldDataTos > dataTOS) {
+        	for (int i = dataTOS; i < oldDataTos; i++) {
+        		dataObject[i] = null;
+        	}
+        }
         
         if (db != null && db.isDebug()) {
           db.debug("th#%d: pushMethodAndReserveSpace  entry=%d, numSlots=%d, sp=%d, dtos=%d,  nr(tos)=%d, %s stack=%s", Thread.currentThread().getId(), entry, numSlots, curMethodSP, dataTOS, methodIdx, Thread.currentThread().getStackTrace()[2], stackToString());
@@ -117,7 +126,7 @@ public final class Stack implements Serializable {
     public final void popMethod() {
 
     	if (db != null && db.isDebug()) {
-    		db.debug("th#%d: popMethod sp=%d, tos=%d, stack=%s", Thread.currentThread().getId(), curMethodSP, methodTOS, stackToString());
+    		db.debug("th#%d: before popMethod sp=%d, tos=%d, stack=%s", Thread.currentThread().getId(), curMethodSP, methodTOS, stackToString());
     	}
     	
         int idx = methodTOS;
@@ -126,18 +135,14 @@ public final class Stack implements Serializable {
         int newSP = method[idx-1];
         curMethodSP = newSP;
         methodTOS = idx-2;
-        
-        
-        if (newSP == oldSP) { //after invoke a suspendable method which didn't cause suspend. eg. interfaces mark suspendable
-        	//TODO: exact end position
-        	for(int i = oldSP ; i < dataObject.length ; i++) {
-                dataObject[i] = null;
-            }
-        }else {
-            for(int i = newSP ; i < oldSP ; i++) {
-                dataObject[i] = null;
-            }
+
+        if (newSP == oldSP && idx < method.length -1) {
+        	oldSP = method[idx + 1];
         }
+        
+        for (int i = newSP; i < oldSP; i++) {
+			dataObject[i] = null;
+		}
         
         method[idx] = 0;
         
@@ -248,11 +253,20 @@ public final class Stack implements Serializable {
      * for junit test to check all objects are null now.
      */
     public boolean allObjsAreNull() {
-    	for (Object o : dataObject) {
-    		if (o != null) {
-    			return false;
-    		}
+    	if (dataObject != null) {
+        	for (Object o : dataObject) {
+        		if (o != null) {
+        			return false;
+        		}
+        	}
     	}
     	return true;
+    }
+    
+    //TODO: reuse it
+    protected void release() {
+    	method = null;
+    	dataLong = null;
+    	dataObject = null;
     }
 }

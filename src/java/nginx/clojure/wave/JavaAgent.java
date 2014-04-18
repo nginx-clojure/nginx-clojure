@@ -142,6 +142,7 @@ public class JavaAgent {
                     case 'n':
                     	TinyLogService.createDefaultTinyLogService().info("nginx clojure will do nothing about class waving!");
                     	//do nothing!!
+                    	db.setDoNothing(true);
                     	return null;
                     default:
                         throw new IllegalStateException("Usage: nvdmcbtap (do Nothing, Verbose, Debug, allow Monitors, Check class, allow Blocking, run configuration generation Tool,  Append result, dumP waved class)");
@@ -149,7 +150,7 @@ public class JavaAgent {
             }
         }
 
-       db.setLog(TinyLogService.createDefaultTinyLogService());
+        MethodDatabase.getLog();
         
 		if (System.getProperty("nginx.clojure.wave.dumpdir") != null) {
 			db.setDumpDir(System.getProperty("nginx.clojure.wave.dumpdir"));

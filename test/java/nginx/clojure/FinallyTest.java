@@ -71,6 +71,7 @@ public class FinallyTest  implements Runnable {
             co.run();
             results.add("H");
             co.run();
+            assertTrue(co.getStack().allObjsAreNull());
         } finally {
             System.out.println(results);
         }

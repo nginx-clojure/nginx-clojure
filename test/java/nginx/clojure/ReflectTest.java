@@ -1,6 +1,7 @@
 package nginx.clojure;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -60,6 +61,7 @@ public class ReflectTest {
 		assertEquals(2, ma.size());
 		assertEquals("just", ma.get(1));
 		assertEquals(Coroutine.State.FINISHED, co.getState());
+		assertTrue(co.getStack().allObjsAreNull());
 	}
 
 }

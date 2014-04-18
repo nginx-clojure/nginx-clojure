@@ -44,6 +44,7 @@ import nginx.clojure.asm.ClassReader;
 import nginx.clojure.asm.Type;
 import nginx.clojure.logger.LoggerService;
 import nginx.clojure.logger.TinyLogService;
+import nginx.clojure.logger.TinyLogService.MsgType;
 
 /**
  * <p>Collects information about classes and their suspendable methods.</p>
@@ -53,6 +54,8 @@ import nginx.clojure.logger.TinyLogService;
  * @author Zhang,Yuexiang (xfeep)
  */
 public class MethodDatabase implements LoggerService {
+	
+	public static final String NGINX_CLOJURE_LOG_WAVE_LEVEL = "nginx.clojure.logger.wave.level";
 	
 	public static final String SUSPEND_BLOCKING_STR = "blocking";
 //	public static final String SUSPEND_IGNORE_STR = "ignore";
@@ -110,6 +113,7 @@ public class MethodDatabase implements LoggerService {
     private boolean allowMonitors;
     private boolean allowBlocking;
     private boolean allowOutofCoroutine = true;
+    private boolean doNothing = false;
     private boolean runTool = false;
     private Pattern traceClassPattern = null;
     private Pattern traceClassMethodPattern = null;
@@ -185,7 +189,7 @@ public class MethodDatabase implements LoggerService {
     
     public static LoggerService getLog() {
         if (log == null) {
-        	log = new TinyLogService(TinyLogService.getSystemPropertyOrDefaultLevel(), System.err, System.err);
+        	log = new TinyLogService(TinyLogService.getSystemPropertyOrDefaultLevel(NGINX_CLOJURE_LOG_WAVE_LEVEL, MsgType.error), System.err, System.err);
         }
         return log;
     }
@@ -211,6 +215,14 @@ public class MethodDatabase implements LoggerService {
 		return runTool;
 	}
 
+    public void setDoNothing(boolean doNothing) {
+		this.doNothing = doNothing;
+	}
+    
+    public boolean isDoNothing() {
+		return doNothing;
+	}
+    
     public boolean isDump() {
 		return dump;
 	}

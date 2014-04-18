@@ -53,6 +53,7 @@ public class ProxyTest {
 		assertEquals(2, ma.size());
 		assertEquals("just", ma.get(1));
 		assertEquals(Coroutine.State.FINISHED, co.getState());
+		assertTrue(co.getStack().allObjsAreNull());
 	}
 
 }

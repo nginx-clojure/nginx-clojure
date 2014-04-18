@@ -28,6 +28,8 @@
  */
 package nginx.clojure;
 
+import static org.junit.Assert.assertTrue;
+
 import org.junit.Test;
 
 /**
@@ -46,6 +48,7 @@ public class SuspendTest implements Runnable {
             System.out.println("State="+co.getState());
             co.run();
         }
+        assertTrue(co.getStack().allObjsAreNull());
         System.out.println("State="+co.getState());
     }
     

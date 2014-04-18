@@ -83,6 +83,7 @@ public class ClojureFnTest {
 		long tid = Thread.currentThread().getId();
 		//the same thread with caller: good!
 		assertEquals("threadId:"+tid, messages.get(7));
+		assertEquals(Coroutine.State.FINISHED, cr.getState());
 		assertTrue(cr.getStack().allObjsAreNull());
 	}
 	
@@ -100,6 +101,7 @@ public class ClojureFnTest {
 				cr.resume();
 			}
 			assertEquals(25L, (Number)ma.get(0));
+			assertEquals(Coroutine.State.FINISHED, cr.getState());
 			assertTrue(cr.getStack().allObjsAreNull());
 		}
 	}

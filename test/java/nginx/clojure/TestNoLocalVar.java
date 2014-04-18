@@ -64,6 +64,7 @@ public class TestNoLocalVar {
 		assertEquals(11, (int)ints.get(0));
 		assertEquals(32, (int)ints.get(1));
 		assertEquals(11+32, (int)ints.get(2));
+		assertTrue(co.getStack().allObjsAreNull());
 	}
 
 }

@@ -49,7 +49,7 @@ public class Coroutine implements Runnable, Serializable {
      * Default stack size for the data stack.
      * @see #Coroutine(de.matthiasmann.continuations.CoroutineProto, int) 
      */
-    public static final int DEFAULT_STACK_SIZE = 16;
+    public static final int DEFAULT_STACK_SIZE = 256;
     
     private static final long serialVersionUID = 2783452871536981L;
     
@@ -115,7 +115,7 @@ public class Coroutine implements Runnable, Serializable {
     public Coroutine(Runnable proto, int stackSize) {
         this.proto = proto;
         this.stack = new Stack(this, stackSize);
-        this.cstack = new SuspendableConstructorUtilStack(stackSize);
+        this.cstack = new SuspendableConstructorUtilStack(stackSize/8);
         this.state = State.NEW;
         
         if(proto == null) {
@@ -204,6 +204,11 @@ public class Coroutine implements Runnable, Serializable {
                 stack.resumeStack();
             }
         } finally {
+        	if (result == State.FINISHED) {
+        		//for reduce memory leak probability
+        		//TODO: use stack
+        		stack.release();
+        	}
             Stack.setStack(oldStack);
             SuspendableConstructorUtilStack.setStack(oldCStack);
             state = result;

@@ -27,6 +27,7 @@ public class ArrayTest extends TestCase  {
 		});
         co.run();
         assertEquals(42, l1.i);
+        assertTrue(co.getStack().allObjsAreNull());
     }
     
     public void coExecute() throws SuspendExecution {

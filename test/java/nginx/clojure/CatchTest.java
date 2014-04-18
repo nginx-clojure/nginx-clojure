@@ -29,6 +29,7 @@
 package nginx.clojure;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -88,6 +89,7 @@ public class CatchTest  implements Runnable {
             results.add("G");
             co.run();
             results.add("I");
+            assertTrue(co.getStack().allObjsAreNull());
         } finally {
             System.out.println(results);
         }
