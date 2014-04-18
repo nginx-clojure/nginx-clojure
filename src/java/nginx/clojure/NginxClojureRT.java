@@ -197,13 +197,36 @@ public class NginxClojureRT {
 	
 	public static void initWorkers(int n) {
 		
-		if (JavaAgent.db.isRunTool()) {
-			n = -1;
-			coroutineEnabled = false;
+		if (JavaAgent.db != null) {
+			if (JavaAgent.db.isDoNothing()) {
+				coroutineEnabled = false;
+				log.warn("java agent disabled so we turn off coroutine support!");
+				if (n == 0) {
+					n = -1;
+				}
+			}else if (JavaAgent.db.isRunTool()) {
+				coroutineEnabled = false;
+				log.warn("we just run for generatation of coroutine waving configuration NOT for general cases!!!");
+				if (n > 0) {
+					log.warn("the thread pool disabled, jvm_workers turn to be unset.");
+				}
+				n = -1;
+			}else {
+				log.info("java agent configured so we turn on coroutine support!");
+				if (n > 0) {
+					log.warn("found jvm_workers = %d, and not = 0 we just ignored!", n);
+				}
+				n = 0;
+			}
 		}
 		
 		if (n == 0) {
-			coroutineEnabled = true;
+			if (JavaAgent.db == null) {
+				log.warn("java agent NOT configured so we turn off coroutine support!");
+				coroutineEnabled = false;
+			}else {
+				coroutineEnabled = true;
+			}
 			try {
 				Socket.setSocketImplFactory(new NginxClojureSocketFactory());
 			} catch (IOException e) {
@@ -214,6 +237,7 @@ public class NginxClojureRT {
 		if (n < 0) {
 			return;
 		}
+		
 		eventDispather = Executors.newSingleThreadExecutor(new ThreadFactory() {
 			@Override
 			public Thread newThread(Runnable r) {
@@ -552,6 +576,16 @@ public class NginxClojureRT {
 	
 	public static int eval(final int codeId, final long r) {
 		
+		if (r == 0) { //by worker init process
+			LazyRequestMap fakeReq = new LazyRequestMap(codeId, r, new Object[0]);
+			Map resp = handleRequest(fakeReq);
+			if (resp != null && ((Integer)resp.get(STATUS)) != 200) {
+				log.error("initialize error %s", resp.get(BODY));
+				return 500;
+			}
+			return 200;
+		}
+		
 		final LazyRequestMap req = new LazyRequestMap(codeId, r);
 		
 		if (workers == null) {
@@ -599,7 +633,7 @@ public class NginxClojureRT {
 			return buildUnhandledExceptionResponse(e);
 		}finally {
 			int bodyIdx = req.index(BODY);
-			if (req.array[bodyIdx] instanceof Closeable) {
+			if (bodyIdx > 0 && req.array[bodyIdx] instanceof Closeable) {
 				try {
 					((Closeable)req.array[bodyIdx]).close();
 				} catch (Throwable e) {

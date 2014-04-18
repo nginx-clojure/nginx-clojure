@@ -38,7 +38,7 @@ typedef struct {
 static ngx_command_t ngx_http_clojure_commands[] = {
 	{
 		ngx_string("clojure"),
-		NGX_HTTP_LOC_CONF|NGX_CONF_NOARGS,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_LOC_CONF|NGX_CONF_NOARGS,
 		ngx_http_clojure,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		0,
@@ -70,7 +70,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("clojure_code"),
-		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_conf_set_str_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, clojure_code),
@@ -160,17 +160,13 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  
 			return NGX_HTTP_INTERNAL_SERVER_ERROR;
 		}
     }
-
-    if (ngx_http_clojure_init_clojure_script(lcf, log) != NGX_HTTP_CLOJURE_JVM_OK) {
-    	return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
     return NGX_HTTP_CLOJURE_JVM_OK;
 }
 
 static ngx_int_t ngx_http_clojure_init_socket(ngx_http_clojure_loc_conf_t  *lcf, ngx_log_t *log) {
 	if (ngx_http_clojure_init_socket_util() != NGX_HTTP_CLOJURE_JVM_OK) {
 		ngx_log_error(NGX_LOG_ERR, log, 0, "can not initialize jvm socket util");
+		return NGX_HTTP_CLOJURE_JVM_ERR;
 	}
 	return NGX_HTTP_CLOJURE_JVM_OK;
 }
@@ -204,6 +200,17 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
     }
 
     rc = ngx_http_clojure_init_socket(mcf, cycle->log);
+    if (rc != NGX_HTTP_CLOJURE_JVM_OK) {
+    	return rc;
+    }
+
+    if (ngx_http_clojure_init_clojure_script(mcf, cycle->log) != NGX_HTTP_CLOJURE_JVM_OK) {
+    	return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    if (mcf->clojure_code_id >= 0) {
+    	rc = ngx_http_clojure_eval(mcf->clojure_code_id, 0);
+    }
     return rc;
 }
 

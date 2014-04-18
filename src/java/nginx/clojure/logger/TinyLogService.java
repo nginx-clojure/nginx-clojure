@@ -34,6 +34,18 @@ public class TinyLogService implements LoggerService {
 		return new TinyLogService(TinyLogService.getSystemPropertyOrDefaultLevel(), System.err, System.err);
 	}
 	
+	public static MsgType getSystemPropertyOrDefaultLevel(String p, MsgType t) {
+		String l = System.getProperty(p);
+		if (l != null){
+			try{
+				return MsgType.valueOf(l);
+			}catch (Exception e) {
+				e.printStackTrace();
+			}	
+		}
+		return t == null ? MsgType.info : t;
+	}
+	
 	public static MsgType getSystemPropertyOrDefaultLevel() {
 		String l = System.getProperty(NGINX_CLOJURE_LOG_LEVEL);
 		if (l != null){
