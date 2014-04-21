@@ -579,7 +579,7 @@ public class NginxClojureRT {
 		if (r == 0) { //by worker init process
 			LazyRequestMap fakeReq = new LazyRequestMap(codeId, r, new Object[0]);
 			Map resp = handleRequest(fakeReq);
-			if (resp != null && ((Integer)resp.get(STATUS)) != 200) {
+			if (resp != null && resp != ASYNC_TAG && fetchResponseStatus(resp, 200) != 200) {
 				log.error("initialize error %s", resp.get(BODY));
 				return 500;
 			}
@@ -832,6 +832,19 @@ public class NginxClojureRT {
 		return name == null ? null : name.toLowerCase();
 	}
 	
+	public static int fetchResponseStatus(final Map resp, int defaultStatus) {
+		int status = defaultStatus;
+		Object statusObj = resp.get(STATUS);
+		if (statusObj != null) {
+			if (statusObj instanceof Number){
+				status = ((Number)statusObj).intValue();
+			}else {
+				status = Integer.parseInt(statusObj.toString());
+			}
+		}
+		return status;
+	}
+	
 	public static long buildOutputChain(long r, final Map resp) {
 
 		if (resp == null) {
@@ -840,14 +853,7 @@ public class NginxClojureRT {
 		try {
 			long pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
 			Object statusObj = resp.get(STATUS);
-			int status = 200;
-			if (statusObj != null) {
-				if (statusObj instanceof Number){
-					status = ((Number)statusObj).intValue();
-				}else {
-					status = Integer.parseInt(statusObj.toString());
-				}
-			}
+			int status = fetchResponseStatus(resp, 200);
 			long headers_out = r + NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
 			
 			Map<Object, Object> headers = (Map<Object, Object>) resp.get(HEADERS);
@@ -961,11 +967,17 @@ public class NginxClojureRT {
 	}
 
 	public static void completeAsyncResponse(long r, final Map resp) {
+		if (r == 0) {
+			return;
+		}
 		int rc = handleResponse(r, resp);
 		ngx_http_finalize_request(r, rc);
 	}
 	
 	public static void completeAsyncResponse(long r, int rc) {
+		if (r == 0) {
+			return;
+		}
 		ngx_http_finalize_request(r, rc);
 	}
 	

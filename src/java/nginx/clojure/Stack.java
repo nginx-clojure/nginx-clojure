@@ -76,7 +76,10 @@ public final class Stack implements Serializable {
         return tls.get();
     }
     
-    static void setStack(Stack s) {
+    /**
+     * For inner usage, Don't call it.
+     */
+    public static void setStack(Stack s) {
         tls.set(s);
     }
     

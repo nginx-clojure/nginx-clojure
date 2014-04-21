@@ -13,7 +13,7 @@
   :global-vars {*warn-on-reflection* true
                 *assert* false}
   :java-source-paths ["src/java"]
-  :javac-options ["-target" "1.6" "-source" "1.6" "-Xlint:-options" "-g"]
+  :javac-options ["-target" "1.6" "-source" "1.6" "-g" "-nowarn"]
   ;; Directory in which to place AOT-compiled files. Including %s will
   ;; splice the :target-path into this value.
   :compile-path "target/classes"
@@ -46,7 +46,7 @@
                                   [clj-http "0.7.8"]
                                   [junit/junit "4.11"]
                                   [org.clojure/java.jdbc "0.3.3"]
-                                  [mysql/mysql-connector-java "5.1.30"]
+                                  ;[mysql/mysql-connector-java "5.1.30"]
                                   ]
                         }
              :1.4 {:dependencies [[org.clojure/clojure "1.4.0"]]}

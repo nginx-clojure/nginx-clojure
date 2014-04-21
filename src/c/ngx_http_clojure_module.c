@@ -196,22 +196,26 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 
     rc = ngx_http_clojure_init_jvm_and_mem(mcf, cycle->log);
     if (rc != NGX_HTTP_CLOJURE_JVM_OK){
-    	return rc;
+    	return NGX_ERROR;
     }
 
     rc = ngx_http_clojure_init_socket(mcf, cycle->log);
     if (rc != NGX_HTTP_CLOJURE_JVM_OK) {
-    	return rc;
+    	return NGX_ERROR;
     }
 
     if (ngx_http_clojure_init_clojure_script(mcf, cycle->log) != NGX_HTTP_CLOJURE_JVM_OK) {
-    	return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    	return NGX_ERROR;
     }
 
     if (mcf->clojure_code_id >= 0) {
     	rc = ngx_http_clojure_eval(mcf->clojure_code_id, 0);
     }
-    return rc;
+
+    if (rc > 300) {
+    	return NGX_ERROR;
+    }
+    return NGX_OK;
 }
 
 static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
