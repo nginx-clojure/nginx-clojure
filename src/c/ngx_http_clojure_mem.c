@@ -66,41 +66,41 @@ static  ngx_str_t  ngx_http_clojure_core_variables_names[] = {
 };
 
 static jlong JNICALL jni_ngx_palloc (JNIEnv *env, jclass cls, jlong pool, jlong size) {
-	return (uintptr_t)ngx_palloc((ngx_pool_t *)pool, (size_t)size);
+	return (uintptr_t)ngx_palloc((ngx_pool_t *)(uintptr_t)pool, (size_t)size);
 }
 
 static jlong JNICALL jni_ngx_pcalloc (JNIEnv *env, jclass cls, jlong pool, jlong size) {
-	return (uintptr_t)ngx_pcalloc((ngx_pool_t *)pool, (size_t)size);
+	return (uintptr_t)ngx_pcalloc((ngx_pool_t *)(uintptr_t)pool, (size_t)size);
 }
 
 static jlong JNICALL jni_ngx_array_create(JNIEnv *env, jclass cls, jlong pool, jlong n, jlong size) {
-	return (uintptr_t)ngx_array_create((ngx_pool_t *)pool, (ngx_uint_t)n, (size_t)size);
+	return (uintptr_t)ngx_array_create((ngx_pool_t *)(uintptr_t)pool, (ngx_uint_t)n, (size_t)size);
 }
 
 static jlong JNICALL jni_ngx_array_init(JNIEnv *env, jclass cls, jlong array, jlong pool, jlong n, jlong size) {
-	return (jlong)ngx_array_init((ngx_array_t *)array, (ngx_pool_t *)pool, (ngx_uint_t)n, (size_t)size);
+	return (jlong)ngx_array_init((ngx_array_t *)(uintptr_t)array, (ngx_pool_t *)(uintptr_t)pool, (ngx_uint_t)n, (size_t)size);
 }
 
 static jlong JNICALL jni_ngx_array_push_n(JNIEnv *env, jclass cls, jlong array, jlong n) {
-	return (uintptr_t)ngx_array_push_n((ngx_array_t *)array,  (ngx_uint_t)n);
+	return (uintptr_t)ngx_array_push_n((ngx_array_t *)(uintptr_t)array,  (ngx_uint_t)n);
 }
 
 
 static jlong JNICALL jni_ngx_list_create(JNIEnv *env, jclass cls, jlong pool, jlong n, jlong size) {
-	return (uintptr_t)ngx_list_create((ngx_pool_t *)pool, (ngx_uint_t)n, (size_t)size);
+	return (uintptr_t)ngx_list_create((ngx_pool_t *)(uintptr_t)pool, (ngx_uint_t)n, (size_t)size);
 }
 
 static jlong JNICALL jni_ngx_list_init(JNIEnv *env, jclass cls, jlong list, jlong pool, jlong n, jlong size) {
-	return (jlong)ngx_list_init((ngx_list_t *)list, (ngx_pool_t *)pool, (ngx_uint_t)n, (size_t)size);
+	return (jlong)ngx_list_init((ngx_list_t *)(uintptr_t)list, (ngx_pool_t *)(uintptr_t)pool, (ngx_uint_t)n, (size_t)size);
 }
 
 static jlong JNICALL jni_ngx_list_push(JNIEnv *env, jclass cls, jlong list) {
-	return (uintptr_t)ngx_list_push((ngx_list_t *)list);
+	return (uintptr_t)ngx_list_push((ngx_list_t *)(uintptr_t)list);
 }
 
 
 static jlong JNICALL jni_ngx_create_temp_buf (JNIEnv *env, jclass cls, jlong r, jlong size) {
-	ngx_http_request_t *req = (ngx_http_request_t *) r;
+	ngx_http_request_t *req = (ngx_http_request_t *)(uintptr_t) r;
 
 	if (req->headers_out.content_length_n < 0 ) {
 		req->headers_out.content_length_n = size;
@@ -120,7 +120,7 @@ static jlong JNICALL jni_ngx_create_temp_buf (JNIEnv *env, jclass cls, jlong r, 
 
 
 static jlong JNICALL jni_ngx_create_file_buf (JNIEnv *env, jclass cls, jlong r, jlong file, jlong name_len, jint last_buf) {
-	ngx_http_request_t *req = (ngx_http_request_t *) r;
+	ngx_http_request_t *req = (ngx_http_request_t *) (uintptr_t)r;
 	ngx_buf_t *b;
 	ngx_str_t path; // = {(ngx_int_t)name_len, (u_char *)file};
 	ngx_open_file_info_t of;
@@ -129,7 +129,7 @@ static jlong JNICALL jni_ngx_create_file_buf (JNIEnv *env, jclass cls, jlong r, 
 	ngx_log_t *log = req->connection->log;
 
 	/*make VS 2010 happy*/
-	path.data = (u_char *)file;
+	path.data = (u_char *)(uintptr_t)file;
 	path.len = (ngx_int_t)name_len;
 
 	/*just like http_static module */
@@ -232,11 +232,11 @@ static jlong JNICALL jni_ngx_create_file_buf (JNIEnv *env, jclass cls, jlong r, 
 }
 
 static jlong JNICALL jni_ngx_http_set_content_type(JNIEnv *env, jclass cls, jlong r) {
-	return ngx_http_set_content_type((ngx_http_request_t *)r);
+	return ngx_http_set_content_type((ngx_http_request_t *)(uintptr_t)r);
 }
 
 static jlong JNICALL jni_ngx_http_send_header (JNIEnv *env, jclass cls, jlong r) {
-	ngx_http_request_t *req = (ngx_http_request_t *) r;
+	ngx_http_request_t *req = (ngx_http_request_t *)(uintptr_t) r;
 	if (req->headers_out.last_modified_time == -2) {
 		req->headers_out.last_modified_time = -1;
 	}
@@ -244,15 +244,15 @@ static jlong JNICALL jni_ngx_http_send_header (JNIEnv *env, jclass cls, jlong r)
 }
 
 static jlong JNICALL jni_ngx_http_output_filter (JNIEnv *env, jclass cls, jlong r, jlong chain) {
-	return ngx_http_output_filter((ngx_http_request_t *)r, (ngx_chain_t *)chain);
+	return ngx_http_output_filter((ngx_http_request_t *)(uintptr_t)r, (ngx_chain_t *)(uintptr_t)chain);
 }
 
 static void JNICALL jni_ngx_http_finalize_request (JNIEnv *env, jclass cls, jlong r , jlong rc) {
-	ngx_http_finalize_request((ngx_http_request_t *)r, (ngx_int_t)rc);
+	ngx_http_finalize_request((ngx_http_request_t *)(uintptr_t)r, (ngx_int_t)rc);
 }
 
 static jlong JNICALL jni_ngx_http_clojure_mem_init_ngx_buf(JNIEnv *env, jclass cls, jlong buf, jobject obj, jlong offset, jlong len, jint last_buf) {
-	ngx_buf_t * b = (ngx_buf_t *)buf;
+	ngx_buf_t * b = (ngx_buf_t *)(uintptr_t)buf;
 
 	if (len > 0) {
 		ngx_memcpy(b->pos, (char *)(*(uintptr_t*)obj) + offset, len);
@@ -269,7 +269,7 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_obj_addr(JNIEnv *env, jclass c
 }
 
 static jlong JNICALL jni_ngx_http_clojure_mem_get_list_size(JNIEnv *env, jclass cls, jlong l) {
-	ngx_list_t *list = (ngx_list_t *)l;
+	ngx_list_t *list = (ngx_list_t *)(uintptr_t)l;
 	ngx_list_part_t *part = &list->part;
 	jlong c = 0;
 
@@ -281,7 +281,7 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_list_size(JNIEnv *env, jclass 
 }
 
 static jlong JNICALL jni_ngx_http_clojure_mem_get_list_item(JNIEnv *env, jclass cls, jlong l, jlong i) {
-	ngx_list_t *list = (ngx_list_t *)l;
+	ngx_list_t *list = (ngx_list_t *)(uintptr_t)l;
 	ngx_list_part_t *part = &list->part;
 
 	while (part != NULL && (size_t)i > part->nelts) {
@@ -297,19 +297,19 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_list_item(JNIEnv *env, jclass 
 
 static void JNICALL jni_ngx_http_clojure_mem_copy_to_obj(JNIEnv *env, jclass cls, jlong src, jobject obj, jlong offset, jlong len) {
 	char *dst = (char *)(*(uintptr_t*)obj);
-	memcpy(dst+offset, (void *)src, len);
+	memcpy(dst+offset, (void *)(uintptr_t)src, len);
 }
 
 static void JNICALL jni_ngx_http_clojure_mem_copy_to_addr(JNIEnv *env, jclass cls, jobject src, jlong offset, jlong dest, jlong len) {
 	void *srcptr = (char *)(*(uintptr_t*)src) + offset;
-	memcpy((void*)dest, srcptr, len);
+	memcpy((void*)(uintptr_t)dest, (void*)(uintptr_t)srcptr, len);
 }
 
 /*
  * this function is slow for iterate all headers so it should be only used to get unknown headers
  */
 static jlong JNICALL jni_ngx_http_clojure_mem_get_header(JNIEnv *env, jclass cls, jlong headers_in, jlong name, jlong len) {
-    ngx_list_part_t *part = &((ngx_http_headers_in_t *) headers_in)->headers.part;
+    ngx_list_part_t *part = &((ngx_http_headers_in_t *)(uintptr_t) headers_in)->headers.part;
     ngx_table_elt_t *h = part->elts;
     ngx_uint_t i = 0;
 
@@ -324,7 +324,7 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_header(JNIEnv *env, jclass cls
             i = 0;
         }
 
-        if ((size_t)len != h[i].key.len || ngx_strcasecmp((u_char *)name, h[i].key.data) != 0) {
+        if ((size_t)len != h[i].key.len || ngx_strcasecmp((u_char *)(uintptr_t)name, h[i].key.data) != 0) {
             continue;
         }
         return (uintptr_t)&h[i];
@@ -333,18 +333,18 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_header(JNIEnv *env, jclass cls
 }
 
 static jlong JNICALL jni_ngx_http_clojure_mem_get_variable(JNIEnv *env, jclass cls,  jlong r, jlong nname, jlong varlenPtr) {
-	ngx_http_request_t *req = (ngx_http_request_t *) r;
-	ngx_str_t *name = (ngx_str_t *)nname;
+	ngx_http_request_t *req = (ngx_http_request_t *)(uintptr_t) r;
+	ngx_str_t *name = (ngx_str_t *)(uintptr_t)nname;
 	ngx_http_variable_value_t *vp = ngx_http_get_variable(req, name, ngx_hash_key(name->data, name->len));
 	if (vp->not_found) {
 		return 0;
 	}
-	*((u_int *)varlenPtr) = vp->len;
+	*((u_int *)(uintptr_t)varlenPtr) = vp->len;
 	return (uintptr_t)vp;
 }
 
 static void JNICALL jni_ngx_http_clojure_mem_inc_req_count(JNIEnv *env, jclass cls, jlong r) {
-	ngx_http_request_t *req = (ngx_http_request_t *) r;
+	ngx_http_request_t *req = (ngx_http_request_t *)(uintptr_t) r;
 	req->main->count ++;
 }
 
@@ -506,7 +506,7 @@ static void JNICALL jni_ngx_http_clojure_mem_post_write_event(JNIEnv *env, jclas
 	//sizeof(jlong) is zero on win32 vc2010, so we have to use const 8
 	int wc = ngx_http_clojure_pipe_write(nc_jvm_worker_pipe_fds[1], &r, 8);
 	if (wc != 8 && r != 0) {
-		ngx_log_error(NGX_LOG_ERR, ((ngx_http_request_t *)r)->connection->log, 0, "jni_ngx_http_clojure_mem_post_write_event write count : %zu < %zu", wc, 8);
+		ngx_log_error(NGX_LOG_ERR, ((ngx_http_request_t *)(uintptr_t)r)->connection->log, 0, "jni_ngx_http_clojure_mem_post_write_event write count : %zu < %zu", wc, 8);
 	}
 	log_debug2(ngx_http_clojure_global_cycle->log, "ngx clojure: ngx clojure post event %" PRIu64 ", size:%d", r, 8);
 }
@@ -787,7 +787,7 @@ int ngx_http_clojure_init_memory_util(ngx_int_t workers, ngx_log_t *log) {
 
 int ngx_http_clojure_register_script(u_char **script, size_t len, ngx_int_t *cid) {
 	JNIEnv *env = jvm_env;
-	*cid = (int)(*env)->CallStaticIntMethod(env, nc_rt_class, nc_rt_register_code_mid, (jlong)script, (jlong)len);
+	*cid = (int)(*env)->CallStaticIntMethod(env, nc_rt_class, nc_rt_register_code_mid, (jlong)(uintptr_t)script, (jlong)len);
 	if ((*env)->ExceptionOccurred(env)) {
 		*cid = -1;
 		(*env)->ExceptionDescribe(env);
@@ -801,7 +801,7 @@ int ngx_http_clojure_eval(int cid, void *r) {
 	JNIEnv *env = jvm_env;
 	int rc;
 	log_debug1(ngx_http_clojure_global_cycle->log, "ngx clojure eval request: %ul", (uintptr_t)r);
-	log_debug2(ngx_http_clojure_global_cycle->log, "ngx clojure eval request to jlong: %" PRIu64 ", size: %d", (jlong)r, 8);
+	log_debug2(ngx_http_clojure_global_cycle->log, "ngx clojure eval request to jlong: %" PRIu64 ", size: %d", (jlong)(uintptr_t)r, 8);
 	rc = (*env)->CallStaticIntMethod(env, nc_rt_class,  nc_rt_eval_mid, (jint)cid, (uintptr_t)r);
 	exception_handle(1, env, return 500);
 	return rc;

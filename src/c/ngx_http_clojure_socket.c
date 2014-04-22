@@ -466,33 +466,33 @@ static jlong JNICALL jni_ngx_http_clojure_socket_create(JNIEnv *env, jclass cls,
 }
 
 static jlong JNICALL jni_ngx_http_clojure_socket_available(JNIEnv *env, jclass cls, jlong s) {
-	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)s;
+	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)(uintptr_t)s;
 	return (jlong)ngx_http_clojure_socket_upstream_available(u);
 }
 
 static jlong jni_ngx_http_clojure_socket_set_tcp_nodelay(JNIEnv *env, jclass cls, jlong s, jlong tcp_nodelay) {
-	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)s;
+	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)(uintptr_t)s;
 	return (jlong)ngx_http_clojure_socket_upstream_set_tcp_nodelay(u, (int)tcp_nodelay);
 }
 
 static jlong jni_ngx_http_clojure_socket_get_tcp_nodelay(JNIEnv *env, jclass cls, jlong s) {
-	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)s;
+	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)(uintptr_t)s;
 	return (jlong)u->tcp_nodelay;
 }
 
 static jlong jni_ngx_http_clojure_socket_set_so_keepalive(JNIEnv *env, jclass cls, jlong s, jlong so_keepalive) {
-	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)s;
+	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)(uintptr_t)s;
 	return (jlong)ngx_http_clojure_socket_upstream_set_so_keepalive(u, (int)so_keepalive);
 }
 
 static jlong jni_ngx_http_clojure_socket_get_so_keepalive(JNIEnv *env, jclass cls, jlong s) {
-	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)s;
+	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)(uintptr_t)s;
 	return (jlong)u->so_keepalive;
 }
 
 
 static jlong JNICALL jni_ngx_http_clojure_socket_connect_url(JNIEnv *env, jclass cls, jlong s, jobject jurl, jlong off, jlong len) {
-	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)s;
+	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)(uintptr_t)s;
 	ngx_url_t *url = ngx_pcalloc(u->pool, sizeof(ngx_url_t));
 	if (url == NULL){
 		return NGX_HTTP_CLOJURE_SOCKET_ERR_OUTOFMEMORY;
@@ -508,7 +508,7 @@ static jlong JNICALL jni_ngx_http_clojure_socket_connect_url(JNIEnv *env, jclass
 }
 
 static void jni_ngx_http_clojure_socket_set_timeout(JNIEnv *env, jclass cls, jlong s, jlong ctimeout, jlong rtimeout, jlong wtimeout) {
-	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)s;
+	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)(uintptr_t)s;
 	if (ctimeout >= 0) {
 		ngx_http_clojure_socket_upstream_set_connect_timeout(u, ctimeout);
 	}
@@ -521,45 +521,45 @@ static void jni_ngx_http_clojure_socket_set_timeout(JNIEnv *env, jclass cls, jlo
 }
 
 static jlong jni_ngx_http_clojure_socket_get_connect_timeout(JNIEnv *env, jclass cls, jlong s) {
-	return ((ngx_http_clojure_socket_upstream_t *)s)->connect_timeout;
+	return ((ngx_http_clojure_socket_upstream_t *)(uintptr_t)s)->connect_timeout;
 }
 
 static jlong jni_ngx_http_clojure_socket_get_read_timeout(JNIEnv *env, jclass cls, jlong s) {
-	return ((ngx_http_clojure_socket_upstream_t *)s)->read_timeout;
+	return ((ngx_http_clojure_socket_upstream_t *)(uintptr_t)s)->read_timeout;
 }
 
 static jlong jni_ngx_http_clojure_socket_get_write_timeout(JNIEnv *env, jclass cls, jlong s) {
-	return ((ngx_http_clojure_socket_upstream_t *)s)->write_timeout;
+	return ((ngx_http_clojure_socket_upstream_t *)(uintptr_t)s)->write_timeout;
 }
 
 static void jni_ngx_http_clojure_socket_set_receive_buf(JNIEnv *env, jclass cls, jlong s, jlong size) {
-	((ngx_http_clojure_socket_upstream_t *)s)->buffer_size = (size_t)size;
+	((ngx_http_clojure_socket_upstream_t *)(uintptr_t)s)->buffer_size = (size_t)size;
 }
 
 static jlong jni_ngx_http_clojure_socket_get_receive_buf(JNIEnv *env, jclass cls, jlong s) {
-	return (jlong)((ngx_http_clojure_socket_upstream_t *)s)->buffer_size;
+	return (jlong)((ngx_http_clojure_socket_upstream_t *)(uintptr_t)s)->buffer_size;
 }
 
 static jlong JNICALL jni_ngx_http_clojure_socket_read(JNIEnv *env, jclass cls, jlong s, jobject buf, jlong off, jlong len) {
 	char *dst = (char *)(*(uintptr_t*)buf) + off;
-	return ngx_http_clojure_socket_upstream_read((ngx_http_clojure_socket_upstream_t *)s, dst, len);
+	return ngx_http_clojure_socket_upstream_read((ngx_http_clojure_socket_upstream_t *)(uintptr_t)s, dst, len);
 }
 
 static jlong JNICALL jni_ngx_http_clojure_socket_write(JNIEnv *env, jclass cls, jlong s, jobject buf, jlong off, jlong len) {
-	char *src = (char *)(*(uintptr_t*)buf) + off;
-	return ngx_http_clojure_socket_upstream_write((ngx_http_clojure_socket_upstream_t *)s, src, len);
+	char *src = (char *)(*(uintptr_t*)(uintptr_t)buf) + off;
+	return ngx_http_clojure_socket_upstream_write((ngx_http_clojure_socket_upstream_t *)(uintptr_t)s, src, len);
 }
 
 static void JNICALL jni_ngx_http_clojure_socket_close(JNIEnv *env, jclass cls, jlong u) {
-	ngx_http_clojure_socket_upstream_close((ngx_http_clojure_socket_upstream_t *)u);
+	ngx_http_clojure_socket_upstream_close((ngx_http_clojure_socket_upstream_t *)(uintptr_t)u);
 }
 
 static jlong JNICALL jni_ngx_http_clojure_socket_shutdown(JNIEnv *env, jclass cls, jlong s, jlong how) {
-	return ngx_http_clojure_socket_upstream_shutdown((ngx_http_clojure_socket_upstream_t *)s, (int)how);
+	return ngx_http_clojure_socket_upstream_shutdown((ngx_http_clojure_socket_upstream_t *)(uintptr_t)s, (int)how);
 }
 
 static jlong JNICALL jni_ngx_http_clojure_socket_cancel_soft_shutdown(JNIEnv *env, jclass cls, jlong s, jlong how) {
-	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)s;
+	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)(uintptr_t)s;
 	if (!(how & NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_SOFT_FLAG)) {
 		return NGX_HTTP_CLOJURE_SOCKET_ERR;
 	}
