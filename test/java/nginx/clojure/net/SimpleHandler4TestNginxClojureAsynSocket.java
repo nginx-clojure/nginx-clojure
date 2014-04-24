@@ -40,8 +40,9 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 //		tell server we won't keep-alive, we have two choices :
 //		(1) http header  "Connection" = close
 //      (2) after send all request, call s.shutdown(NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_WRITE);
-//      here we will use choice (2)
-		ctx.req = "GET / HTTP/1.1\r\nUser-Agent: nginx-clojure/0.2.0\r\nHost: cn.bing.com\r\nAccept: */*\r\n\r\n".getBytes();
+//      here we will use choice (1)
+//		http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt
+		ctx.req = "GET /apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\nUser-Agent: curl/7.32.0\r\nHost: mirror.bit.edu.cn\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes();
 		ctx.buf = new byte[1024];
 		ctx.resp = new ByteArrayOutputStream();
 		ctx.clientRequest = req.nativeRequest();
@@ -78,7 +79,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 						log.info("write %d, total %d", n, ctx.wc);
 						if (ctx.wc == ctx.req.length) {
 							ctx.reqSent = true;
-							s.shutdown(NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_WRITE);
+//							s.shutdown(NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_WRITE);
 							log.info("fininsh write total write: %d", ctx.wc);
 							return;
 						}
@@ -142,7 +143,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 				log.info("connected now!");
 			}
 		});
-		asynSocket.connect("cn.bing.com:80");
+		asynSocket.connect("mirror.bit.edu.cn:80");
 		//tell nginx clojure our work isn't done.
 		return NginxClojureRT.ASYNC_TAG;
 	}

@@ -92,6 +92,10 @@ import nginx.clojure.wave.MethodDatabase.ClassEntry;
  */
 public class JavaAgent {
 	
+	public static final String NGINX_CLOJURE_WAVE_UDFS = "nginx.clojure.wave.udfs";
+	public static final String NGINX_CLOJURE_WAVE_TRACE_CLASSMETHODPATTERN = "nginx.clojure.wave.trace.classmethodpattern";
+	public static final String NGINX_CLOJURE_WAVE_TRACE_CLASSPATTERN = "nginx.clojure.wave.trace.classpattern";
+	public static final String NGINX_CLOJURE_WAVE_DUMPDIR = "nginx.clojure.wave.dumpdir";
 	public static MethodDatabase db;
 	
     public static void premain(String agentArguments, Instrumentation instrumentation) {
@@ -136,6 +140,9 @@ public class JavaAgent {
                     case 'a':
                     	append = true;
                     	break;
+                    case 'h':
+                    	db.setHookDumpWaveCfg(true);
+                    	break;
                     case 'p' :
                     	db.setDump(true);
                     	break;
@@ -152,18 +159,18 @@ public class JavaAgent {
 
         MethodDatabase.getLog();
         
-		if (System.getProperty("nginx.clojure.wave.dumpdir") != null) {
-			db.setDumpDir(System.getProperty("nginx.clojure.wave.dumpdir"));
+		if (System.getProperty(NGINX_CLOJURE_WAVE_DUMPDIR) != null) {
+			db.setDumpDir(System.getProperty(NGINX_CLOJURE_WAVE_DUMPDIR));
 		} else {
 			db.setDumpDir(System.getProperty("java.io.tmpdir") + "/nginx-clojure-wave-dump");
 		}
         
-        if (System.getProperty("nginx.clojure.wave.trace.classpattern") != null) {
-        	db.setTraceClassPattern(Pattern.compile(System.getProperty("nginx.clojure.wave.trace.classpattern")));
+        if (System.getProperty(NGINX_CLOJURE_WAVE_TRACE_CLASSPATTERN) != null) {
+        	db.setTraceClassPattern(Pattern.compile(System.getProperty(NGINX_CLOJURE_WAVE_TRACE_CLASSPATTERN)));
         }
         
-        if (System.getProperty("nginx.clojure.wave.trace.classmethodpattern") != null) {
-        	db.setTraceClassMethodPattern(Pattern.compile(System.getProperty("nginx.clojure.wave.trace.classmethodpattern")));
+        if (System.getProperty(NGINX_CLOJURE_WAVE_TRACE_CLASSMETHODPATTERN) != null) {
+        	db.setTraceClassMethodPattern(Pattern.compile(System.getProperty(NGINX_CLOJURE_WAVE_TRACE_CLASSMETHODPATTERN)));
         }
         
         //load system configurations for method database
@@ -173,7 +180,7 @@ public class JavaAgent {
 		} catch (IOException e) {
 			db.error("can not load nginx/clojure/wave/coroutine-method-db.txt", e);
 		}
-        String udfs = System.getProperty("nginx.clojure.wave.udfs");
+        String udfs = System.getProperty(NGINX_CLOJURE_WAVE_UDFS);
 		if (udfs != null) {
 			for (String udf : udfs.split(",|;")) {
 				try {
@@ -281,21 +288,23 @@ public class JavaAgent {
     	public CoroutineConfigurationToolWaver(MethodDatabase db, boolean append) {
     		this.db = db;
     		this.append = append;
-    		Runtime.getRuntime().addShutdownHook(new Thread() {
-    			@Override
-    			public void run() {
-    				String file = System.getProperty("nginx.clojure.wave.CfgToolOutFile");
-    				if (file == null) {
-    					file = "nginx.clojure.wave.cfgtooloutfile";
-    					CoroutineConfigurationToolWaver.this.db.warn("system property 'nginx.clojure.wave.CfgToolOutFile' not found, use '%s' as file path", file);
-    				}
-    				try {
-						SuspendMethodTracer.dump(file, CoroutineConfigurationToolWaver.this.append);
-					} catch (Throwable e) {
-						CoroutineConfigurationToolWaver.this.db.error("dump error!", e);
-					}
-    			}
-    		});
+    		if (db.isHookDumpWaveCfg()) {
+        		Runtime.getRuntime().addShutdownHook(new Thread() {
+        			@Override
+        			public void run() {
+        				String file = System.getProperty("nginx.clojure.wave.CfgToolOutFile");
+        				if (file == null) {
+        					file = "nginx.clojure.wave.cfgtooloutfile";
+        					CoroutineConfigurationToolWaver.this.db.warn("system property 'nginx.clojure.wave.CfgToolOutFile' not found, use '%s' as file path", file);
+        				}
+        				try {
+    						SuspendMethodTracer.dump(file, CoroutineConfigurationToolWaver.this.append);
+    					} catch (Throwable e) {
+    						CoroutineConfigurationToolWaver.this.db.error("dump error!", e);
+    					}
+        			}
+        		});
+    		}
 		}
 //      filter:org/objectweb/asm/    	
 //    	filter:nginx/clojure/asm/

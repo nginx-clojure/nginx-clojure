@@ -155,8 +155,7 @@ public class NginxClojureRT {
 			try {
 				response = (Map) handler.invoke(request);
 			}catch(Throwable e) {
-				completeAsyncResponse(request.r, buildUnhandledExceptionResponse(e));
-				return;
+				response = buildUnhandledExceptionResponse(e);
 			}
 			
 			if (Coroutine.getActiveCoroutine().getResumeCounter() != 1) {
@@ -256,11 +255,7 @@ public class NginxClojureRT {
 	}
 	
 	public static synchronized void initMemIndex(long idxpt) {
-		if (log == null) {
-			//TODO: use nginx log 
-			//standard error stream is redirect to the nginx error log file, so we just use System.err as output stream.
-			log = TinyLogService.createDefaultTinyLogService();
-		}
+		getLog();
 		initUnsafe();
 		
 		//hack mysql jdbc driver to keep from creating connections by reflective invoking the constructor
@@ -982,6 +977,11 @@ public class NginxClojureRT {
 	}
 	
 	public static LoggerService getLog() {
+		//be friendly to junit test
+		if (log == null) {
+			//standard error stream is redirect to the nginx error log file, so we just use System.err as output stream.
+			log = TinyLogService.createDefaultTinyLogService();
+		}
 		return log;
 	}
 

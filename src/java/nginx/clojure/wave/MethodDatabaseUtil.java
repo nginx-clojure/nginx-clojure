@@ -31,6 +31,9 @@ public class MethodDatabaseUtil {
 		InputStream in = null;
 		try {
 			in = Thread.currentThread().getContextClassLoader().getResourceAsStream(resource);
+			if (in == null) {
+				throw new IOException("can not load resource [" + resource + "] from classpath");
+			}
 			BufferedReader r = new BufferedReader(new InputStreamReader(in, MethodDatabase.UTF_8));
 			db.getUserDefinedWaveConfigFiles().add(resource);
 			String l = null;

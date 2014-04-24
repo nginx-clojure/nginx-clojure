@@ -47,7 +47,7 @@
 
 (defroutes coroutine-socket-test-handler
   (GET "/simple-clj-http-test" [] 
-       (let [{:keys [status, headers, body]} (client/get "http://192.168.2.12/ctest/medium.html" {:socket-timeout 50000})]
+       (let [{:keys [status, headers, body]} (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt" {:socket-timeout 50000})]
          {:status status,  :headers (dissoc headers "transfer-encoding" "server"), :body body}))
   (GET "/simple-httpclientget" [:as req] ((SimpleHandler4TestHttpClientGetMethod.) req))
   (GET "/simple" [] 

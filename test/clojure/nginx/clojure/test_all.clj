@@ -315,6 +315,113 @@
              (is (= "<h1>Page not found</h1>" b))))    
   )
 
+(deftest test-asyncsocket
+    (let [
+        ;r1 (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
+        ;b1 (r1 :body)
+        abc ""
+        ]
+      (testing "asyncsocket --simple example"
+           (let [r (client/get (str "http://" *host* ":" *port* "/asyncsocket") {:throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)
+                 bb (subs b (.indexOf b "\r\n\r\n"))
+                 sf (nginx.clojure.net.SimpleHandler4TestNginxClojureSocket.)
+                 r1 (sf {})
+                 b1 (slurp (r1 :body))
+                 b1b (subs b1 (.indexOf b1 "\r\n\r\n"))]
+             (debug-println "=================coroutine based socket simple example =============================")
+             (is (= 200 (:status r)))
+             (is (= (.length bb) (.length b1b)))
+             (is (= bb b1b))))
+    )
+  
+  )
+;(comment 
+(deftest test-coroutine
+  (let [r1 (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
+        b1 (r1 :body)]
+      (testing "coroutine based socket--simple example"
+           (let [r (client/get (str "http://" *host* ":" *port* "/socket") {:throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)
+                 bb (subs b (.indexOf b "\r\n\r\n"))
+                 sf (nginx.clojure.net.SimpleHandler4TestNginxClojureSocket.)
+                 r1 (sf {})
+                 b1 (slurp (r1 :body))
+                 b1b (subs b1 (.indexOf b1 "\r\n\r\n"))]
+             (debug-println "=================coroutine based socket simple example =============================")
+             (is (= 200 (:status r)))
+             (is (= (.length bb) (.length b1b)))
+             (is (= bb b1b))))
+
+     (testing "coroutine based socket--httpclient get"
+              (let [r (client/get (str "http://" *host* ":" *port* "/httpclientget") {:throw-exceptions false})
+                    h (:headers r)
+                    b (r :body)
+;                 r1 (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
+;                 b1 (r1 :body)
+                ]
+             (debug-println "=================coroutine based socket httpclient get =============================")
+             (is (= 200 (:status r)))
+             (is (= (.length b) (.length b1)))
+             (is (= b b1))))
+     
+     (testing "coroutine based socket--compojure & httpclient get"
+            (let [r (client/get (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/simple-httpclientget") {:throw-exceptions false})
+                  h (:headers r)
+                  b (r :body)
+;                 r1 (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
+;                 b1 (r1 :body)
+                ]
+             (debug-println "=================coroutine based socket compojure & httpclient get =============================")
+             (is (= 200 (:status r)))
+             (is (= (.length b) (.length b1)))
+             (is (= b b1))))  
+    ;http://localhost:8080/coroutineSocketAndCompojure/simple-clj-http-test
+     (testing "coroutine based socket--compojure & clj-http get"
+            (let [r (client/get (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/simple-clj-http-test") {:throw-exceptions false})
+                  h (:headers r)
+                  b (r :body)
+;                 r1 (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
+;                 b1 (r1 :body)
+                ]
+             (debug-println "=================coroutine based socket compojure & clj-http get =============================")
+             (is (= 200 (:status r)))
+             (is (= (.length b) (.length b1)))
+             (is (= b b1))))  
+     (testing "coroutine based socket--compojure & mysql jdbc"
+            (let [cr (client/get (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/mysql-create") {:throw-exceptions false})
+                  ir1 (client/put (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/mysql-insert") {:form-params {:name "java" :rank "5"} :throw-exceptions false})
+                  ir2 (client/put (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/mysql-insert") {:form-params {:name "clojure" :rank "4"} :throw-exceptions false})
+                  ir3 (client/put (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/mysql-insert") {:form-params {:name "c" :rank "5"} :throw-exceptions false})
+                  qr1 (client/get (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/mysql-query/java") {:throw-exceptions false })
+                  qr2 (client/get (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/mysql-query/clojure") {:throw-exceptions false})
+                  dr  (client/get (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/mysql-drop") {:throw-exceptions false})
+                  qad (client/get (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/mysql-query/java") {:throw-exceptions false})
+                ]
+             (debug-println "=================coroutine based socket compojure & mysql jdbc- created=============================")
+             (is (= 200 (:status cr)))
+             (is (= "created!" (:body cr)))
+             (is (= 200 (:status ir1)))
+             (is (= "inserted!" (:body ir1)))
+             (is (= 200 (:status ir2)))
+             (is (= "inserted!" (:body ir2)))
+             (is (= 200 (:status ir3)))
+             (is (= "inserted!" (:body ir3)))
+             (is (= 200 (:status qr1)))
+             (is (= [{:name "java" :rank "5"}]  (-> qr1 :body (edn/read-string))))
+             (is (= 200 (:status qr2)))
+             (is (= [{:name "clojure" :rank "4"}] (-> qr2 :body (edn/read-string))))
+             (is (= 200 (:status dr)))
+             (is (= "dropped!" (:body dr)))
+             (is (= 500 (:status qad)))
+             ))       
+     
+    )
+  )
+;)
+
 ;eg. (concurrent-run 10 (run-tests 'nginx.clojure.test-all))
 (defmacro concurrent-run 
   [n, form]

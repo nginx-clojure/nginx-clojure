@@ -445,6 +445,7 @@ public class SuspendMethodTracer {
 			}
 		}finally{
 			writer.close();
+			quiteFlags.set(false);
 			db.info("dumping done!");
 		}
 	}

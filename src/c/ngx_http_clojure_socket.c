@@ -7,7 +7,7 @@
 #include "ngx_http_clojure_jvm.h"
 
 
-//static JavaVM *jvm = NULL;
+/*static JavaVM *jvm = NULL;*/
 static JNIEnv *jvm_env = NULL;
 static jclass nc_socket_class;
 static jmethodID nc_socket_handler_read_mid;
@@ -125,11 +125,13 @@ static void ngx_http_clojure_socket_upstream_finalize(ngx_http_clojure_socket_up
 
 ngx_http_clojure_socket_upstream_t *ngx_http_clojure_socket_upstream_create(size_t pool_size, ngx_log_t *log) {
 	ngx_pool_t *pool = ngx_create_pool(pool_size, log);
+	ngx_http_clojure_socket_upstream_t *u;
+
 	if (pool == NULL) {
 		return NULL;
 	}
 
-	ngx_http_clojure_socket_upstream_t *u = ngx_pcalloc(pool, sizeof(ngx_http_clojure_socket_upstream_t));
+	u = ngx_pcalloc(pool, sizeof(ngx_http_clojure_socket_upstream_t));
 	if (u == NULL) {
 		ngx_destroy_pool(pool);
 		return NULL;
@@ -249,10 +251,12 @@ static void ngx_http_clojure_socket_upstream_write_handler(ngx_event_t *ev) {
 }
 
 int ngx_http_clojure_socket_upstream_available(ngx_http_clojure_socket_upstream_t *u) {
-	int ba = 0;
+
 #if defined(_WIN32) || defined(WIN32)
+	u_long ba = 0;
 	ioctlsocket(u->peer.connection->fd, FIONREAD, &ba);
 #else
+	int ba = 0;
 	ioctl(u->peer.connection->fd, FIONREAD, &ba);
 #endif
 	return ba;
@@ -295,7 +299,7 @@ int ngx_http_clojure_socket_upstream_set_so_keepalive(ngx_http_clojure_socket_up
 
 
 void ngx_http_clojure_socket_upstream_connect_by_url(ngx_http_clojure_socket_upstream_t *u, ngx_url_t *url) {
-	//TODO:  host name resolve by event driven
+	/*TODO:  host name resolve by event driven*/
 	if (url->addrs == NULL) {
 		if (ngx_parse_url(u->pool, url) != NGX_OK ) {
 			ngx_http_clojure_socket_upstream_connect_handler(u, NGX_HTTP_CLOJURE_SOCKET_ERR_RESOLVE);
@@ -431,35 +435,36 @@ int ngx_http_clojure_socket_upstream_shutdown(ngx_http_clojure_socket_upstream_t
 }
 
 
-static void JNICALL jni_ngx_http_clojure_socket_read_handler(ngx_http_clojure_socket_upstream_t *u, ngx_int_t sc) {
-	(*jvm_env)->CallVoidMethod(jvm_env, (jobject)u->context, nc_socket_handler_read_mid, (uintptr_t)u, (jlong)sc);
+static void  jni_ngx_http_clojure_socket_read_handler(ngx_http_clojure_socket_upstream_t *u, ngx_int_t sc) {
+	(*jvm_env)->CallVoidMethod(jvm_env, (jobject)u->context, nc_socket_handler_read_mid, (jlong)(uintptr_t)u, (jlong)sc);
 	exception_handle(0 == 0, jvm_env, return);
 }
 
-static void JNICALL jni_ngx_http_clojure_socket_write_handler(ngx_http_clojure_socket_upstream_t *u, ngx_int_t sc) {
-	(*jvm_env)->CallVoidMethod(jvm_env, (jobject)u->context, nc_socket_handler_write_mid, (uintptr_t)u, (jlong)sc);
+static void  jni_ngx_http_clojure_socket_write_handler(ngx_http_clojure_socket_upstream_t *u, ngx_int_t sc) {
+	(*jvm_env)->CallVoidMethod(jvm_env, (jobject)u->context, nc_socket_handler_write_mid, (jlong)(uintptr_t)u, (jlong)sc);
 	exception_handle(0 == 0, jvm_env, return);
 }
 
-static void JNICALL jni_ngx_http_clojure_socket_connect_handler(ngx_http_clojure_socket_upstream_t *u, ngx_int_t sc) {
-	(*jvm_env)->CallVoidMethod(jvm_env, (jobject)u->context, nc_socket_handler_connect_mid, (uintptr_t)u, (jlong)sc);
+static void  jni_ngx_http_clojure_socket_connect_handler(ngx_http_clojure_socket_upstream_t *u, ngx_int_t sc) {
+	(*jvm_env)->CallVoidMethod(jvm_env, (jobject)u->context, nc_socket_handler_connect_mid, (jlong)(uintptr_t)u, (jlong)sc);
 	exception_handle(0 == 0, jvm_env, return);
 }
 
-static void JNICALL jni_ngx_http_clojure_socket_release_handler(ngx_http_clojure_socket_upstream_t *u, ngx_int_t sc) {
-	(*jvm_env)->CallVoidMethod(jvm_env, (jobject)u->context, nc_socket_handler_release_mid, (uintptr_t)u, (jlong)sc);
+static void  jni_ngx_http_clojure_socket_release_handler(ngx_http_clojure_socket_upstream_t *u, ngx_int_t sc) {
+	(*jvm_env)->CallVoidMethod(jvm_env, (jobject)u->context, nc_socket_handler_release_mid, (jlong)(uintptr_t)u, (jlong)sc);
 	exception_handle(0 == 0, jvm_env, (*jvm_env)->DeleteGlobalRef(jvm_env, (jobject)u->context));
 }
 
 static jlong JNICALL jni_ngx_http_clojure_socket_create(JNIEnv *env, jclass cls, jobject handler) {
 	ngx_http_clojure_socket_upstream_t *u = ngx_http_clojure_socket_upstream_create(4096, ngx_http_clojure_global_cycle->log);
+	jobject gh;
 	ngx_http_clojure_socket_upstream_set_context(u, handler);
 	ngx_http_clojure_socket_upstream_set_event_handler(u,
 			jni_ngx_http_clojure_socket_read_handler,
 			jni_ngx_http_clojure_socket_write_handler,
 			jni_ngx_http_clojure_socket_connect_handler,
 			jni_ngx_http_clojure_socket_release_handler);
-	jobject gh = (*env)->NewGlobalRef(env, handler);
+	gh = (*env)->NewGlobalRef(env, handler);
 	exception_handle(gh == NULL, env, return 0);
 	ngx_http_clojure_socket_upstream_set_context(u, gh);
 	return (uintptr_t)u;

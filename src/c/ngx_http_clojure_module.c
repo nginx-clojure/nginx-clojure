@@ -194,6 +194,10 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 /*	ngx_http_core_main_conf_t *hcmcf = ngx_http_cycle_get_module_main_conf(cycle, ngx_http_core_module);*/
 	ngx_http_clojure_loc_conf_t *mcf = ctx->loc_conf[ngx_http_clojure_module.ctx_index];
 
+#if !(NGX_WIN32)
+	ngx_setproctitle("worker process");
+#endif
+
     rc = ngx_http_clojure_init_jvm_and_mem(mcf, cycle->log);
     if (rc != NGX_HTTP_CLOJURE_JVM_OK){
     	return NGX_ERROR;

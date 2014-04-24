@@ -89,7 +89,7 @@ auto/configure --with-cc=cl --builddir=objs --with-debug --prefix= \
 --http-proxy-temp-path=temp/proxy_temp \
 --http-fastcgi-temp-path=temp/fastcgi_temp \
 --http-scgi-temp-path=temp/scgi_temp --http-uwsgi-temp-path=temp/uwsgi_temp \
---with-cc-opt=-DFD_SETSIZE=1024 --with-pcre=objs/lib/pcre-8.32 \
+--with-cc-opt=-DFD_SETSIZE=4096 --with-pcre=objs/lib/pcre-8.32 \
 --with-zlib=objs/lib/zlib-1.2.8 --with-openssl=objs/lib/openssl-1.0.1e \
 --with-select_module \
 --with-http_realip_module --with-http_addition_module \
@@ -298,6 +298,10 @@ then modify objs/Makefile
 
 -lpthread -lcrypt -ldl ../pcre-8.32/.libs/libpcre.a ../openssl-1.0.1e/.openssl/lib/libssl.a ../openssl-1.0.1e/.openssl/lib/libcrypto.a -ldl ../zlib-1.2.8/libz.a /usr/lib64/libgd.a -lm -ljpeg -lpng12 -lfreetype -lfontconfig
 
+#32 bit centos
+-m64 --> m32
+/usr/lib64/libgd.a --> /usr/lib/libgd.a
+
 #macosx
 
 mkdir objs
@@ -329,6 +333,7 @@ make
 
 nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx.conf -p /home/who/git/nginx-clojure/test/nginx-working-dir/
 
+curl -v "http://localhost:8080/asyncsocket"
 
 for coroutine socket:
 

@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.Collections;
 
 import nginx.clojure.Constants;
 import nginx.clojure.NginxClojureRT;
@@ -27,22 +28,23 @@ public class SimpleHandler4TestNginxClojureSocket extends AFn {
 	public Object invoke(Object r) {
 		Socket socket = new Socket();
 		try {
-			InetSocketAddress inetSocketAddress = new InetSocketAddress("cn.bing.com", 80);
-			socket.setSoTimeout(5000);
+			//http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt
+			InetSocketAddress inetSocketAddress = new InetSocketAddress("mirror.bit.edu.cn", 80);
+			socket.setSoTimeout(50000);
 			socket.setTcpNoDelay(true);
 			socket.setKeepAlive(true);
 			socket.connect(inetSocketAddress);
-			log.info("socket keepalive = %s, tcpnodelay = %s", socket.getKeepAlive()+"", socket.getTcpNoDelay()+"");
+			log.info("addr: %s, sotimeout %s, socket keepalive = %s, tcpnodelay = %s", inetSocketAddress, socket.getSoTimeout(),  socket.getKeepAlive()+"", socket.getTcpNoDelay()+"");
 			log.info("fininsh connect");
 			OutputStream out = socket.getOutputStream();
-//			out.write("GET / HTTP/1.1\r\nUser-Agent: nginx-clojure/0.2.0\r\nHost: cn.bing.com\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes());
-			out.write("GET / HTTP/1.1\r\nUser-Agent: nginx-clojure/0.2.0\r\nHost: cn.bing.com\r\nAccept: */*\r\n\r\n".getBytes());
+//			out.write("GET /ubuntu/dists/trusty/Release HTTP/1.1\r\nUser-Agent: nginx-clojure/0.2.0\r\nHost: mirrors.163.com\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes());
+			out.write("GET /apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\nUser-Agent: curl/7.32.0\r\nHost: mirror.bit.edu.cn\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes());
 			out.flush();
 			log.info("fininsh request");
-			socket.shutdownOutput();
+//			socket.shutdownOutput();
 			InputStream in = socket.getInputStream();
 			ByteArrayOutputStream bos = new ByteArrayOutputStream();
-			byte[] buf = new byte[1024];
+			byte[] buf = new byte[4096];
 			int c = 0;
 			int total = 0;
 			while ( (c = in.read(buf)) > 0) {
@@ -72,5 +74,13 @@ public class SimpleHandler4TestNginxClojureSocket extends AFn {
 		}
 	}
 	
+	public static void main(String[] args) throws IOException {
+		SimpleHandler4TestNginxClojureSocket ss = new SimpleHandler4TestNginxClojureSocket();
+		PersistentArrayMap resp = (PersistentArrayMap) ss.invoke(Collections.EMPTY_MAP);
+		ByteArrayInputStream bi = (ByteArrayInputStream)resp.get(Constants.BODY);
+		byte[] ba = new byte[bi.available()];
+		bi.read(ba);
+		System.out.println(new String(ba));
+	}
 
 }

@@ -113,6 +113,7 @@ public class MethodDatabase implements LoggerService {
     private boolean allowMonitors;
     private boolean allowBlocking;
     private boolean allowOutofCoroutine = true;
+    private boolean hookDumpWaveCfg = false;
     private boolean doNothing = false;
     private boolean runTool = false;
     private Pattern traceClassPattern = null;
@@ -237,6 +238,14 @@ public class MethodDatabase implements LoggerService {
     
     public void setDumpDir(String dumpDir) {
 		this.dumpDir = dumpDir;
+	}
+    
+    public boolean isHookDumpWaveCfg() {
+		return hookDumpWaveCfg;
+	}
+    
+    public void setHookDumpWaveCfg(boolean hookDumpWaveCfg) {
+		this.hookDumpWaveCfg = hookDumpWaveCfg;
 	}
     
     public boolean isDebug() {
