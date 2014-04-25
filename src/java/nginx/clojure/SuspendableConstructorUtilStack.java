@@ -27,7 +27,7 @@ public final class SuspendableConstructorUtilStack implements Serializable {
     
     SuspendableConstructorUtilStack(int stackSize) {
         if(stackSize <= 0) {
-            throw new IllegalArgumentException("stackSize");
+        	stackSize = 8;
         }
         this.dataLong = new long[stackSize];
         this.dataObject = new Object[stackSize];

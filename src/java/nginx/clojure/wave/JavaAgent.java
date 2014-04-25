@@ -119,14 +119,12 @@ public class JavaAgent {
                         db.setVerbose(true);
                         break;
 
-                    case 'd':
-                        db.setDebug(true);
-                        break;
-
                     case 'm':
                         db.setAllowMonitors(true);
                         break;
-
+                    case 'd':
+                    	
+                    	break;
                     case 'c':
                         checkArg = true;
                         break;
@@ -175,7 +173,7 @@ public class JavaAgent {
         
         //load system configurations for method database
         try {
-        	db.debug("load system coroutine wave file %s", "nginx/clojure/wave/coroutine-method-db.txt");
+        	db.info("load system coroutine wave file %s", "nginx/clojure/wave/coroutine-method-db.txt");
 			MethodDatabaseUtil.load(db, "nginx/clojure/wave/coroutine-method-db.txt");
 		} catch (IOException e) {
 			db.error("can not load nginx/clojure/wave/coroutine-method-db.txt", e);
@@ -184,7 +182,7 @@ public class JavaAgent {
 		if (udfs != null) {
 			for (String udf : udfs.split(",|;")) {
 				try {
-					db.debug("load use defined coroutine wave file %s", udf);
+					db.info("load use defined coroutine wave file %s", udf);
 					MethodDatabaseUtil.load(db, udf);
 				} catch (IOException e) {
 					db.warn("can not load " + udf, e);

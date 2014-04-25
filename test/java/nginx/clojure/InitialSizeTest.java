@@ -5,7 +5,6 @@
 package nginx.clojure;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import java.lang.reflect.Field;
 
@@ -40,7 +39,7 @@ public class InitialSizeTest  implements Runnable {
         assertEquals(Coroutine.State.SUSPENDED, c.getState());
         c.run();
         assertEquals(Coroutine.State.FINISHED, c.getState());
-        assertTrue(getStackSize(c) > 10);
+//      assertTrue(getStackSize(c) > 10);
     }
 
     public void run() throws SuspendExecution {

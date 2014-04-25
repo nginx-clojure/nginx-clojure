@@ -135,29 +135,54 @@ static ngx_int_t ngx_http_clojure_init_clojure_script(ngx_http_clojure_loc_conf_
     return NGX_HTTP_CLOJURE_JVM_OK;
 }
 
+
 static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  *lcf, ngx_log_t *log) {
-    if (ngx_http_clojure_check_jvm() != NGX_HTTP_CLOJURE_JVM_OK){
+	if (ngx_http_clojure_check_jvm() != NGX_HTTP_CLOJURE_JVM_OK){
     	ngx_str_t *elts = lcf->jvm_options->elts;
-    	char * options[NGX_HTTP_CLOJURE_JVM_MAX_OPTS];
+    	char  **options;
+    	char *jvm_path;
     	int i;
     	int len = lcf->jvm_options->nelts;
-    	if (len > NGX_HTTP_CLOJURE_JVM_MAX_OPTS) {
-    		len = NGX_HTTP_CLOJURE_JVM_MAX_OPTS;
-    		ngx_log_error(NGX_LOG_WARN, log, 0, "tow many jvm_options, truncate it to %d", NGX_HTTP_CLOJURE_JVM_MAX_OPTS);
+    	int rc;
+
+    	options = malloc(len * sizeof(char *));
+    	if (!options) {
+    		ngx_log_error(NGX_LOG_ERR, log, 0, "can not malloc for jvm create options!");
+    		return NGX_HTTP_CLOJURE_JVM_ERR_MALLOC;
     	}
+
+    	jvm_path = (char *)lcf->jvm_path.data;
+
     	for (i = 0; i < len; i++){
     		options[i] = (char *)elts[i].data;
     	}
-    	if (ngx_http_clojure_init_jvm((char *)lcf->jvm_path.data, options, len) != NGX_HTTP_CLOJURE_JVM_OK) {
-    		ngx_log_error(NGX_LOG_ERR, log, 0, "can not initialize jvm");
-    		return NGX_HTTP_INTERNAL_SERVER_ERROR;
+
+    	rc = ngx_http_clojure_init_jvm(jvm_path, (char **)options, len);
+
+/*    	ngx_log_error(NGX_LOG_NOTICE, log, 0, "ngx clojure: init pipe for jvm worker, fds: %d, %d", nc_jvm_worker_pipe_fds[0], nc_jvm_worker_pipe_fds[1]);*/
+    	ngx_log_error(NGX_LOG_ERR, log, 0, "ngx clojure: init jvm rc=%d", rc);
+
+    	if (rc != NGX_HTTP_CLOJURE_JVM_OK) {
+    		switch (rc) {
+    		case NGX_HTTP_CLOJURE_JVM_ERR_LOAD_LIB :
+    			ngx_log_error(NGX_LOG_ERR, log, 0, "can not initialize jvm for load dynamic lib, maybe wrong jvm_path!");
+    			break;
+    		case NGX_HTTP_CLOJURE_JVM_ERR_MALLOC :
+    			ngx_log_error(NGX_LOG_ERR, log, 0, "can not malloc options for initializing jvm!");
+    			break;
+    		default:
+    			ngx_log_error(NGX_LOG_ERR, log, 0, "can not initialize jvm!");
+    		}
+    		free(options);
+    		return rc;
     	}
+    	free(options);
     }
 
     if (ngx_http_clojure_check_memory_util() != NGX_HTTP_CLOJURE_JVM_OK){
 		if (ngx_http_clojure_init_memory_util(lcf->jvm_workers, log) != NGX_HTTP_CLOJURE_JVM_OK) {
 			ngx_log_error(NGX_LOG_ERR, log, 0, "can not initialize jvm memory util");
-			return NGX_HTTP_INTERNAL_SERVER_ERROR;
+			return NGX_HTTP_CLOJURE_JVM_ERR_INIT_MEMIDX;
 		}
     }
     return NGX_HTTP_CLOJURE_JVM_OK;
@@ -166,7 +191,7 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  
 static ngx_int_t ngx_http_clojure_init_socket(ngx_http_clojure_loc_conf_t  *lcf, ngx_log_t *log) {
 	if (ngx_http_clojure_init_socket_util() != NGX_HTTP_CLOJURE_JVM_OK) {
 		ngx_log_error(NGX_LOG_ERR, log, 0, "can not initialize jvm socket util");
-		return NGX_HTTP_CLOJURE_JVM_ERR;
+		return NGX_HTTP_CLOJURE_JVM_ERR_INIT_SOCKETAPI;
 	}
 	return NGX_HTTP_CLOJURE_JVM_OK;
 }

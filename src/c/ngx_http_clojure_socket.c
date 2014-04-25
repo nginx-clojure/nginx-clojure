@@ -608,27 +608,32 @@ int ngx_http_clojure_init_socket_util() {
 	}
 
 	ngx_http_clojure_get_env(&jvm_env);
+
+	if (jvm_env == NULL) {
+		return NGX_HTTP_CLOJURE_JVM_ERR_INIT_SOCKETAPI;
+	}
+
 	env = jvm_env;
 	nc_socket_class = (*jvm_env)->FindClass(env, "nginx/clojure/net/NginxClojureAsynSocket");
-	exception_handle(nc_socket_class == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+	exception_handle(nc_socket_class == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR_INIT_SOCKETAPI);
 
 	nc_socket_handler_class = (*jvm_env)->FindClass(env, "nginx/clojure/net/NginxClojureSocketRawHandler");
-	exception_handle(nc_socket_handler_class == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+	exception_handle(nc_socket_handler_class == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR_INIT_SOCKETAPI);
 
 	nc_socket_handler_read_mid  = (*env)->GetMethodID(env, nc_socket_handler_class,"onRead", "(JJ)V");
-	exception_handle(nc_socket_handler_read_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+	exception_handle(nc_socket_handler_read_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR_INIT_SOCKETAPI);
 
 	nc_socket_handler_write_mid  = (*env)->GetMethodID(env, nc_socket_handler_class,"onWrite", "(JJ)V");
-	exception_handle(nc_socket_handler_write_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+	exception_handle(nc_socket_handler_write_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR_INIT_SOCKETAPI);
 
 	nc_socket_handler_connect_mid  = (*env)->GetMethodID(env, nc_socket_handler_class,"onConnect", "(JJ)V");
-	exception_handle(nc_socket_handler_connect_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+	exception_handle(nc_socket_handler_connect_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR_INIT_SOCKETAPI);
 
 	nc_socket_handler_release_mid  = (*env)->GetMethodID(env, nc_socket_handler_class,"onRelease", "(JJ)V");
-	exception_handle(nc_socket_handler_release_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+	exception_handle(nc_socket_handler_release_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR_INIT_SOCKETAPI);
 
 	(*env)->RegisterNatives(env, nc_socket_class, nms, sizeof(nms) / sizeof(JNINativeMethod));
-	exception_handle(0 == 0, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+	exception_handle(0 == 0, env, return NGX_HTTP_CLOJURE_JVM_ERR_INIT_SOCKETAPI);
 
 	return NGX_HTTP_CLOJURE_JVM_OK;
 }

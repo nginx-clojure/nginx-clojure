@@ -40,7 +40,7 @@ int ngx_http_clojure_init_jvm(char *jvm_path, char * *opts, size_t len) {
 	void *libVM;
 	void *env;
 	JavaVMInitArgs vm_args;
-	JavaVMOption options[NGX_HTTP_CLOJURE_JVM_MAX_OPTS];
+	JavaVMOption *options;
 	size_t i;
 	jni_createvm_pt jvm_creator;
 
@@ -73,6 +73,12 @@ int ngx_http_clojure_init_jvm(char *jvm_path, char * *opts, size_t len) {
 		return NGX_HTTP_CLOJURE_JVM_ERR;
 	}
 
+	options = malloc(len * sizeof(JavaVMOption));
+	if (!options) {
+		return NGX_HTTP_CLOJURE_JVM_ERR_MALLOC;
+	}
+
+
 	for (i = 0; i < len; i++){
 		options[i].extraInfo = NULL;
 		options[i].optionString = opts[i];
@@ -84,8 +90,11 @@ int ngx_http_clojure_init_jvm(char *jvm_path, char * *opts, size_t len) {
 	vm_args.nOptions = len;
 
 	if ((*jvm_creator)(&jvm, (void **)&env, (void *)&vm_args) < 0){
+		free(options);
 		return NGX_HTTP_CLOJURE_JVM_ERR;
 	}
+
+	free(options);
 	jvm_env = env;
 	Class_java_lang_String = (*jvm_env)->FindClass(jvm_env, "java/lang/String");
 	MID_String_getBytes = (*jvm_env)->GetMethodID(jvm_env, Class_java_lang_String, "getBytes", "()[B");

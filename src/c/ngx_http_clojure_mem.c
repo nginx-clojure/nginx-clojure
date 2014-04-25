@@ -760,6 +760,11 @@ int ngx_http_clojure_init_memory_util(ngx_int_t workers, ngx_log_t *log) {
 
 //	(*jvm)->AttachCurrentThread(jvm, (void**)&env, NULL);
 	ngx_http_clojure_get_env(&jvm_env);
+
+	if (jvm_env == NULL) {
+		return NGX_HTTP_CLOJURE_JVM_ERR_INIT_SOCKETAPI;
+	}
+
 	env = jvm_env;
 	nc_rt_class = (*jvm_env)->FindClass(env, "nginx/clojure/NginxClojureRT");
 	exception_handle(nc_rt_class == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);

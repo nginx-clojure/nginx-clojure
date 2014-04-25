@@ -108,7 +108,6 @@ public class MethodDatabase implements LoggerService {
     
     private static LoggerService log;
     private boolean verbose;
-    private boolean debug;
     private boolean dump;
     private boolean allowMonitors;
     private boolean allowBlocking;
@@ -249,11 +248,14 @@ public class MethodDatabase implements LoggerService {
 	}
     
     public boolean isDebug() {
-        return debug;
+        return log.isDebugEnabled();
     }
 
     public void setDebug(boolean debug) {
-        this.debug = debug;
+        if (log instanceof TinyLogService) {
+			TinyLogService tlog = (TinyLogService) log;
+			tlog.setLevel(MsgType.debug);
+		}
     }
 
     
@@ -440,21 +442,15 @@ public class MethodDatabase implements LoggerService {
     }
 
     public void debug(Object message) {
-    	if (debug) {
 			log.debug(message);
-    	}
 	}
 
 	public void debug(Object message, Throwable t) {
-		if (debug) {
 			log.debug(message, t);
-		}
 	}
 
 	public void debug(String format, Object... objects) {
-		if (debug) {
 			log.debug(format, objects);
-		}
 	}
 
 	public void error(Object message) {

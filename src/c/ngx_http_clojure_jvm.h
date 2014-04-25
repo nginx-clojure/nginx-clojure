@@ -22,12 +22,14 @@ typedef jint (*jni_createvm_pt)(JavaVM **pvm, void **penv, void *args);
 
 #endif
 
-#define NGX_HTTP_CLOJURE_JVM_MAX_OPTS 64
 
 #define NGX_HTTP_CLOJURE_JVM_OK 0
 #define NGX_HTTP_CLOJURE_JVM_ERR 1
 #define NGX_HTTP_CLOJURE_JVM_ERR_LOAD_LIB 2
 #define NGX_HTTP_CLOJURE_JVM_ERR_INIT_PIPE 3
+#define NGX_HTTP_CLOJURE_JVM_ERR_MALLOC 4
+#define NGX_HTTP_CLOJURE_JVM_ERR_INIT_MEMIDX 5
+#define NGX_HTTP_CLOJURE_JVM_ERR_INIT_SOCKETAPI 6
 
 #define exception_handle(test, env, action) \
     do { \
