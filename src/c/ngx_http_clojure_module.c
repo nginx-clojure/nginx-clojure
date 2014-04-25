@@ -25,6 +25,29 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle);
 
 static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf);
 
+/* Sadly JNI_CreateJavaVM doesn't always return error code for bad things(e.g initialized memory is too large),
+ * it just suspend and then jvm crash signal will be directly catched by nginx master which will re-initialize
+ * it again so then jvms will be created and exit repeatedly and madly.
+ * We use this memory shared variable to avoid it.*/
+static volatile ngx_atomic_int_t *ngx_http_clojure_jvm_be_mad_times;
+
+#if defined(_WIN32) || defined(WIN32)
+
+#pragma data_seg("ngx_http_clojure_shared_memory")
+volatile ngx_atomic_int_t ngx_http_clojure_jvm_be_mad_times_ins = 0;
+#pragma data_seg()
+
+#pragma comment(linker, "/Section:ngx_http_clojure_shared_memory,RWS")
+
+#else
+
+static ngx_shm_t ngx_http_clojure_shared_memory;
+
+#endif
+
+
+
+
 
 typedef struct {
     ngx_array_t *jvm_options;
@@ -208,25 +231,116 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 }
 
 static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
+
 	ngx_http_clojure_global_cycle = cycle;
+
+#if !(NGX_WIN32)
+	ngx_http_clojure_shared_memory.size = 8;
+	ngx_http_clojure_shared_memory.name.len = sizeof("nginx_clojure_shared_zone");
+	ngx_http_clojure_shared_memory.name.data = (u_char *) "nginx_clojure_shared_zone";
+	ngx_http_clojure_shared_memory.log = cycle->log;
+
+    if (ngx_shm_alloc(&ngx_http_clojure_shared_memory) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    ngx_http_clojure_jvm_be_mad_times = (ngx_atomic_int_t *) ngx_http_clojure_shared_memory.addr;
+    *ngx_http_clojure_jvm_be_mad_times = 0;
+#else
+    ngx_http_clojure_jvm_be_mad_times = &ngx_http_clojure_jvm_be_mad_times_ins;
+#endif
 	ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, NGINX_CLOJURE_VER);
+
 	return NGX_OK;
 }
+
+#if defined(_WIN32) || defined(WIN32)
+static ngx_int_t ngx_http_clojure_quit_master(ngx_cycle_t *cycle) {
+	u_long n;
+	size_t len;
+	ngx_exec_ctx_t ctx;
+	char file[MAX_PATH + 1];
+	char args[1024];
+	STARTUPINFO si;
+	PROCESS_INFORMATION pi;
+
+	n = GetModuleFileName(NULL, file, MAX_PATH);
+
+	if (n == 0) {
+		ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno, "GetModuleFileName() failed");
+		return NGX_INVALID_PID;
+	}
+
+	file[n] = '\0';
+
+	ngx_log_debug1(NGX_LOG_DEBUG_CORE, cycle->log, 0, "GetModuleFileName: \"%s\"", file);
+
+	ctx.path = file;
+	ctx.name = "worker";
+	ctx.args = GetCommandLine();
+	ctx.argv = NULL;
+	ctx.envp = NULL;
+	len = strlen(ctx.args);
+
+	if (len > 1024 - strlen("-s stop") - 1) {
+		ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno, "command line is too long for execute");
+		return NGX_ERROR;
+	}
+
+	strncpy(args, ctx.args, len);
+	strcpy(args+len, "-s stop");
+	ctx.args = args;
+
+    ngx_memzero(&si, sizeof(STARTUPINFO));
+    si.cb = sizeof(STARTUPINFO);
+
+    ngx_memzero(&pi, sizeof(PROCESS_INFORMATION));
+
+    if (CreateProcess(ctx.path, ctx.args,
+                      NULL, NULL, 0, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)
+        == 0){
+        ngx_log_error(NGX_LOG_CRIT, cycle->log, ngx_errno,
+                      "ngx_http_clojure_quit_master (\"%s\") failed", ngx_argv[0]);
+        return NGX_ERROR;
+    }
+    return NGX_OK;
+}
+#endif
 
 static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 	ngx_http_conf_ctx_t * ctx = (ngx_http_conf_ctx_t *)ngx_get_conf(cycle->conf_ctx, ngx_http_module);
 	ngx_int_t rc = 0;
 /*	ngx_http_core_main_conf_t *hcmcf = ngx_http_cycle_get_module_main_conf(cycle, ngx_http_core_module);*/
 	ngx_http_clojure_loc_conf_t *mcf = ctx->loc_conf[ngx_http_clojure_module.ctx_index];
+	ngx_core_conf_t  *ccf = (ngx_core_conf_t *) ngx_get_conf(ngx_cycle->conf_ctx, ngx_core_module);
 
 #if !(NGX_WIN32)
 	ngx_setproctitle("worker process");
+#else
+	ngx_http_clojure_jvm_be_mad_times = &ngx_http_clojure_jvm_be_mad_times_ins;
 #endif
 
+	if (ngx_atomic_fetch_add(ngx_http_clojure_jvm_be_mad_times, 1) >= ccf->worker_processes) {
+		ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "jvm may be mad for wrong options! See hs_err_pid****.log for detail! restarted %d", *ngx_http_clojure_jvm_be_mad_times);
+#if defined(_WIN32) || defined(WIN32)
+		ngx_terminate = 1;
+		ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "we try quit master now!");
+		/*We must quit otherwise we'll enter a dead repeatedly case*/
+		ngx_http_clojure_quit_master(cycle);
+#endif
+		return NGX_ERROR;
+	}
+
     rc = ngx_http_clojure_init_jvm_and_mem(mcf, cycle->log);
+
     if (rc != NGX_HTTP_CLOJURE_JVM_OK){
+    	ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "times %d", *ngx_http_clojure_jvm_be_mad_times);
     	return NGX_ERROR;
     }
+
+    /*we reset it for nginx normal restart nginx-worker when it crashed normally.*/
+    (void)ngx_atomic_fetch_add(ngx_http_clojure_jvm_be_mad_times, -1);
+
 
     rc = ngx_http_clojure_init_socket(mcf, cycle->log);
     if (rc != NGX_HTTP_CLOJURE_JVM_OK) {
