@@ -3,7 +3,7 @@
 	<name>nginx-clojure</name>
 	<comment></comment>
 	<projects>
-		<project>nginx-1.4.4</project>
+		<project>nginx-current</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

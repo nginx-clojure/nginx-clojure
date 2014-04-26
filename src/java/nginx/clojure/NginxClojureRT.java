@@ -730,7 +730,7 @@ public class NginxClojureRT {
 			
 			//empty InputStream
 			if (lastChain == 0) {
-				return -204;
+				return -NGX_HTTP_NO_CONTENT;
 			}
 			
 			return lastChain;
@@ -799,20 +799,20 @@ public class NginxClojureRT {
 					}else {
 						subTail = buildResponseItemBuf(r, pool, o, 0, chain);
 					}
-					if (subTail <= 0 && subTail != -204) {
+					if (subTail <= 0 && subTail != -NGX_HTTP_NO_CONTENT) {
 						return subTail;
 					}
-					if (lastChain != 0 && subTail != -204) {
+					if (lastChain != 0 && subTail != -NGX_HTTP_NO_CONTENT) {
 						UNSAFE.putAddress(lastChain + NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET, chain);
 					}
-					if (subTail != -204) {
+					if (subTail != -NGX_HTTP_NO_CONTENT) {
 						lastChain = subTail;
 					}
 				}
 			}
 			return lastChain;
 		}
-		return -500;
+		return -NGX_HTTP_INTERNAL_SERVER_ERROR;
 	}
 	
 	public final static String normalizeHeaderName(Object nameObj) {
@@ -843,7 +843,7 @@ public class NginxClojureRT {
 	public static long buildOutputChain(long r, final Map resp) {
 
 		if (resp == null) {
-			return -404;
+			return -NGX_HTTP_NOT_FOUND;
 		}
 		try {
 			long pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
@@ -907,44 +907,42 @@ public class NginxClojureRT {
 			if (body != null) {
 				chain = ngx_palloc(pool, NGX_HTTP_CLOJURE_CHAINT_SIZE);
 				if (chain == 0) {
-					return -500;
+					return -NGX_HTTP_INTERNAL_SERVER_ERROR;
 				}
 				long tailChain = buildResponseItemBuf(r, pool, body, 1, chain);
 				if (tailChain == 0) {
-					return -500;
+					return -NGX_HTTP_INTERNAL_SERVER_ERROR;
 				}else if (tailChain < 0 && tailChain != -204) {
 					return tailChain;
 				}
-				if (tailChain == -204) {
-					chain = -204;
+				if (tailChain == -NGX_HTTP_NO_CONTENT) {
+					chain = -NGX_HTTP_NO_CONTENT;
 				}else {
 					UNSAFE.putAddress(tailChain + NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET, 0);
 				}
 			}else {
-				chain = -204;
+				chain = -NGX_HTTP_NO_CONTENT;
+			}
+			
+			if (chain == -NGX_HTTP_NO_CONTENT) {
+				if (status == NGX_HTTP_OK) {
+					status = NGX_HTTP_NO_CONTENT;
+				}
+				//header sent yet so we return normal OK
+				return -status;
 			}
 			
 			pushNGXInt(headers_out + NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET, status);
-			
-			
-			int rc = (int)ngx_http_send_header(r);
-			if (rc == NGX_ERROR || rc > NGX_OK){
-				return rc;
-			}
-			
-			if (chain == -204) {
-				if (status == 200) {
-					//let nginx finish this request
-					return -204;
-				}
-				return -status;
+			int rc = (int) ngx_http_send_header(r);
+			if (rc == NGX_ERROR || rc > NGX_OK) {
+				return -rc;
 			}
 			
 			return chain;
 
 		}catch(Throwable e) {
 			log.error("server unhandled exception!", e);
-			return -500;
+			return -NGX_HTTP_INTERNAL_SERVER_ERROR;
 		}
 	
 	}

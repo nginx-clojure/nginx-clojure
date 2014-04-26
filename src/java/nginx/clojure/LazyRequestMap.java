@@ -292,5 +292,10 @@ public   class LazyRequestMap extends AFn  implements IPersistentMap {
 	public Object invoke(Object key) {
 		return valAt(key);
 	}
+	
+	@Override
+	public Object invoke(Object key, Object notFound) {
+		return valAt(key, notFound);
+	}
 
 }

@@ -18,7 +18,7 @@
 (defn- echo-handler [r]
   {:status 200
    :headers {"rmap" (pr-str (dissoc r :body))}
-   :body (:body r)})
+   :body "ok"})
 
 (defn session-handler [{session :session, {user "user"} :params }]
   (let [user   (or user (:user session "guest"))

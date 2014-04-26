@@ -299,7 +299,7 @@ public class Constants {
 	public static int NGX_HTTP_CLOJURE_MEM_IDX_END = 255;
 	
 	//nginx clojure java runtime required the lowest version of nginx-clojure c module
-	public static long NGINX_CLOJURE_RT_REQUIRED_LVER = 1001;
+	public static long NGINX_CLOJURE_RT_REQUIRED_LVER = 2000;
 	
 	//ngx_core.h
 	public static int  NGX_OK       =   0;
@@ -310,7 +310,7 @@ public class Constants {
 	public static int  NGX_DECLINED =  -5;
 	public static int  NGX_ABORT    =  -6;
 	
-	
+	//ngx_http_request.h
 	public static int NGX_HTTP_GET = 0x0002;
 	public static int NGX_HTTP_HEAD = 0x0004;
 	public static int NGX_HTTP_POST = 0x0008;
@@ -326,6 +326,72 @@ public class Constants {
 	public static int NGX_HTTP_UNLOCK = 0x2000;
 	public static int NGX_HTTP_PATCH = 0x4000;
 	public static int NGX_HTTP_TRACE = 0x8000;
+	
+
+	public static int NGX_HTTP_CONTINUE = 100;
+	public static int NGX_HTTP_SWITCHING_PROTOCOLS = 101;
+	public static int NGX_HTTP_PROCESSING = 102;
+
+	public static int NGX_HTTP_OK = 200;
+	public static int NGX_HTTP_CREATED = 201;
+	public static int NGX_HTTP_ACCEPTED = 202;
+	public static int NGX_HTTP_NO_CONTENT = 204;
+	public static int NGX_HTTP_PARTIAL_CONTENT = 206;
+
+	public static int NGX_HTTP_SPECIAL_RESPONSE = 300;
+	public static int NGX_HTTP_MOVED_PERMANENTLY = 301;
+	public static int NGX_HTTP_MOVED_TEMPORARILY = 302;
+	public static int NGX_HTTP_SEE_OTHER = 303;
+	public static int NGX_HTTP_NOT_MODIFIED = 304;
+	public static int NGX_HTTP_TEMPORARY_REDIRECT = 307;
+
+	public static int NGX_HTTP_BAD_REQUEST = 400;
+	public static int NGX_HTTP_UNAUTHORIZED = 401;
+	public static int NGX_HTTP_FORBIDDEN = 403;
+	public static int NGX_HTTP_NOT_FOUND = 404;
+	public static int NGX_HTTP_NOT_ALLOWED = 405;
+	public static int NGX_HTTP_REQUEST_TIME_OUT = 408;
+	public static int NGX_HTTP_CONFLICT = 409;
+	public static int NGX_HTTP_LENGTH_REQUIRED = 411;
+	public static int NGX_HTTP_PRECONDITION_FAILED = 412;
+	public static int NGX_HTTP_REQUEST_ENTITY_TOO_LARGE = 413;
+	public static int NGX_HTTP_REQUEST_URI_TOO_LARGE = 414;
+	public static int NGX_HTTP_UNSUPPORTED_MEDIA_TYPE = 415;
+	public static int NGX_HTTP_RANGE_NOT_SATISFIABLE = 416;
+
+	/* Nginx own HTTP codes */
+	/* The special code to close connection without any response */
+	public static int NGX_HTTP_CLOSE = 444;
+
+	public static int NGX_HTTP_NGINX_CODES = 494;
+
+	public static int NGX_HTTP_REQUEST_HEADER_TOO_LARGE = 494;
+
+	public static int NGX_HTTPS_CERT_ERROR = 495;
+	public static int NGX_HTTPS_NO_CERT = 496;
+
+	/*
+	 * We use the special code for the plain HTTP requests that are sent to
+	 * HTTPS port to distinguish it from 4XX in an error page redirection
+	 */
+	public static int NGX_HTTP_TO_HTTPS = 497;
+
+	/* 498 is the canceled code for the requests with invalid host name */
+
+	/*
+	 * HTTP does not define the code for the case when a client closed the
+	 * connection while we are processing its request so we introduce own code
+	 * to log such situation when a client has closed the connection before we
+	 * even try to send the HTTP header to it
+	 */
+	public static int NGX_HTTP_CLIENT_CLOSED_REQUEST = 499;
+
+	public static int NGX_HTTP_INTERNAL_SERVER_ERROR = 500;
+	public static int NGX_HTTP_NOT_IMPLEMENTED = 501;
+	public static int NGX_HTTP_BAD_GATEWAY = 502;
+	public static int NGX_HTTP_SERVICE_UNAVAILABLE = 503;
+	public static int NGX_HTTP_GATEWAY_TIME_OUT = 504;
+	public static int NGX_HTTP_INSUFFICIENT_STORAGE = 507;
 	
 
 //	public static final Keyword HEADERS = RT.keyword(null, "headers");

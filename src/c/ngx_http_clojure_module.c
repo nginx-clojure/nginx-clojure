@@ -29,12 +29,12 @@ static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf);
  * it just suspend and then jvm crash signal will be directly catched by nginx master which will re-initialize
  * it again so then jvms will be created and exit repeatedly and madly.
  * We use this memory shared variable to avoid it.*/
-static volatile ngx_atomic_int_t *ngx_http_clojure_jvm_be_mad_times;
+static ngx_atomic_t *ngx_http_clojure_jvm_be_mad_times;
 
 #if defined(_WIN32) || defined(WIN32)
 
 #pragma data_seg("ngx_http_clojure_shared_memory")
-volatile ngx_atomic_int_t ngx_http_clojure_jvm_be_mad_times_ins = 0;
+ngx_atomic_t ngx_http_clojure_jvm_be_mad_times_ins = 0;
 #pragma data_seg()
 
 #pragma comment(linker, "/Section:ngx_http_clojure_shared_memory,RWS")
@@ -182,8 +182,6 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  
 
     	rc = ngx_http_clojure_init_jvm(jvm_path, (char **)options, len);
 
-/*    	ngx_log_error(NGX_LOG_NOTICE, log, 0, "ngx clojure: init pipe for jvm worker, fds: %d, %d", nc_jvm_worker_pipe_fds[0], nc_jvm_worker_pipe_fds[1]);*/
-    	ngx_log_error(NGX_LOG_ERR, log, 0, "ngx clojure: init jvm rc=%d", rc);
 
     	if (rc != NGX_HTTP_CLOJURE_JVM_OK) {
     		switch (rc) {
@@ -244,7 +242,7 @@ static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
         return NGX_ERROR;
     }
 
-    ngx_http_clojure_jvm_be_mad_times = (ngx_atomic_int_t *) ngx_http_clojure_shared_memory.addr;
+    ngx_http_clojure_jvm_be_mad_times = (ngx_atomic_t *) ngx_http_clojure_shared_memory.addr;
     *ngx_http_clojure_jvm_be_mad_times = 0;
 #else
     ngx_http_clojure_jvm_be_mad_times = &ngx_http_clojure_jvm_be_mad_times_ins;
@@ -320,7 +318,7 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 	ngx_http_clojure_jvm_be_mad_times = &ngx_http_clojure_jvm_be_mad_times_ins;
 #endif
 
-	if (ngx_atomic_fetch_add(ngx_http_clojure_jvm_be_mad_times, 1) >= ccf->worker_processes) {
+	if ((ngx_int_t)ngx_atomic_fetch_add(ngx_http_clojure_jvm_be_mad_times, 1) >= ccf->worker_processes) {
 		ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "jvm may be mad for wrong options! See hs_err_pid****.log for detail! restarted %d", *ngx_http_clojure_jvm_be_mad_times);
 #if defined(_WIN32) || defined(WIN32)
 		ngx_terminate = 1;
@@ -334,7 +332,7 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
     rc = ngx_http_clojure_init_jvm_and_mem(mcf, cycle->log);
 
     if (rc != NGX_HTTP_CLOJURE_JVM_OK){
-    	ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "times %d", *ngx_http_clojure_jvm_be_mad_times);
+    	ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "jvm start times %d", *ngx_http_clojure_jvm_be_mad_times);
     	return NGX_ERROR;
     }
 

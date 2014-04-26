@@ -302,6 +302,50 @@ then modify objs/Makefile
 -m64 --> m32
 /usr/lib64/libgd.a --> /usr/lib/libgd.a
 
+auto/configure --prefix= \
+--sbin-path=nginx \
+--conf-path=conf/nginx.conf \
+--error-log-path=logs/error.log \
+--http-log-path=logs/access.log \
+--pid-path=logs/nginx.pid \
+--lock-path=logs/nginx.lock \
+--http-client-body-temp-path=temp/client_temp \
+--http-proxy-temp-path=temp/proxy_temp \
+--http-fastcgi-temp-path=temp/fastcgi_temp \
+--http-uwsgi-temp-path=temp/uwsgi_temp \
+--http-scgi-temp-path=temp/scgi_temp \
+--with-http_ssl_module \
+--with-pcre-jit \
+--with-debug \
+--with-http_image_filter_module \
+--with-http_realip_module \
+--with-http_addition_module \
+--with-http_sub_module \
+--with-http_dav_module \
+--with-http_flv_module \
+--with-http_mp4_module \
+--with-http_gunzip_module \
+--with-http_gzip_static_module \
+--with-http_random_index_module \
+--with-http_secure_link_module \
+--with-http_stub_status_module \
+--with-mail \
+--with-mail_ssl_module \
+--with-file-aio \
+--with-ipv6 \
+--with-openssl-opt=enable-tlsext \
+--with-pcre=../pcre-8.32 \
+--with-zlib=../zlib-1.2.8 \
+--with-openssl=../openssl-1.0.1e \
+--with-cc-opt='-O2 -g -pipe -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector --param=ssp-buffer-size=4 -m32 -mtune=generic' \
+--add-module=../nginx-clojure/src/c
+
+
+then modify objs/Makefile 
+
+-lpthread -lcrypt -ldl ../pcre-8.32/.libs/libpcre.a ../openssl-1.0.1e/.openssl/lib/libssl.a ../openssl-1.0.1e/.openssl/lib/libcrypto.a -ldl ../zlib-1.2.8/libz.a /usr/lib/libgd.a -lm -ljpeg -lpng12 -lfreetype -lfontconfig
+
+
 #macosx
 
 mkdir objs
