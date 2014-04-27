@@ -359,7 +359,9 @@ It uses event driven pattern and works with a java callback handler or clojure f
 Please check the source code and examples for more details.
 
 * source: [nginx.clojure.net.NginxClojureAsynSocket](src/java/nginx/clojure/net/NginxClojureAsynSocket.java)
-* example: [nginx.clojure.net.SimpleHandler4TestNginxClojureAsynSocket](test/java/nginx/clojure/net/SimpleHandler4TestNginxClojureAsynSocket.java)
+* example: 
+	* Java [nginx.clojure.net.SimpleHandler4TestNginxClojureAsynSocket](test/java/nginx/clojure/net/SimpleHandler4TestNginxClojureAsynSocket.java)
+	* Clojure [nginx.clojure.asyn-socket-handlers-for-test](test/clojure/nginx/clojure/asyn_socket_handlers_for_test.clj)
 
 In future we'll give more clojure style wrapper and examples. **_Pull requests are also welcome!_**
 
