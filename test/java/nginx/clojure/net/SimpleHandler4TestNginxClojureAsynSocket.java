@@ -56,6 +56,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 					s.close();
 					AsynHttpContext ctx = s.getContext();
 					NginxClojureRT.completeAsyncResponse(ctx.clientRequest, 500);
+					return;
 				}
 				AsynHttpContext ctx = s.getContext();
 				if (ctx.reqSent) {
@@ -74,6 +75,8 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 						}
 						log.error("write error : %s", n);
 						s.close();
+						NginxClojureRT.completeAsyncResponse(ctx.clientRequest, 500);
+						return;
 					}else {
 						ctx.wc += n;
 						log.info("write %d, total %d", n, ctx.wc);
@@ -94,6 +97,13 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 			
 			@Override
 			public void onRead(NginxClojureAsynSocket s, long sc) {
+				if (sc != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
+					log.error("onRead error %d", sc);
+					s.close();
+					AsynHttpContext ctx = s.getContext();
+					NginxClojureRT.completeAsyncResponse(ctx.clientRequest, 500);
+					return;
+				}
 				AsynHttpContext ctx = s.getContext();
 				if (ctx.wc != ctx.req.length) {
 					log.warn("we have not write all request!");
@@ -139,6 +149,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 					s.close();
 					AsynHttpContext ctx = s.getContext();
 					NginxClojureRT.completeAsyncResponse(ctx.clientRequest, 500);
+					return;
 				}
 				log.info("connected now!");
 			}
