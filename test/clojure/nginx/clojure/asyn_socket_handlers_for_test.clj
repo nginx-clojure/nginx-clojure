@@ -109,13 +109,14 @@
                                         "Connection: close\r\n\r\n"))
                    :buf (byte-array 4096)
                    :resp (ByteArrayOutputStream.)})
-        as (NginxClojureAsynSocket. (fn [as, type, sc]
-																		  (case type 
-																		    "connect" (connect-handler as sc)
-																		     "read"  (read-handler as sc)
-																		     "write" (write-handler as sc)
-																		     "release" (release-handler as sc))
-                                      ))]
+        as (NginxClojureAsynSocket. 
+             (fn [as, type, sc]
+								(case type 
+										"connect" (connect-handler as sc)
+											"read"  (read-handler as sc)
+											"write" (write-handler as sc)
+											"release" (release-handler as sc))
+         ))]
     (.setContext as ctx)
     (.connect as "mirror.bit.edu.cn:80")
     ;tell nginx clojure our work isn't done.
