@@ -99,6 +99,15 @@ Setting JVM path and class path within `http {` block in  nginx.conf
     #jvm_options "-Xrunjdwp:server=y,transport=dt_socket,address=8400,suspend=n";
 ````
 
+###Some Useful Tips
+
+These tips are really useful. Most of them are from real users. Thanks [Rickr Nook](https://github.com/rickr-nook) who give us some useful tips.
+
+1. When importing Swing We Must specifiy `jvm_options "-Djava.awt.headless=true"` , otherwise the nginx will hang.
+1. By adding the location of your clojure source files to the classpath,then just issue "nginx -s reload" and changes to the sources get picked up!
+1. You can remove clojure-1.5.1.jar from class path and point at your "lein uberjar" to pick up a different version of clojure. 
+1. To use Java 7 on OSX, in nginx.conf your may set `jvm_path "/Library/Java/JavaVirtualMachines/jdk1.7.0_55.jdk/Contents/Home/jre/lib/server/libjvm.dylib";`
+
 2.2 Initialization Handler for nginx worker
 -----------------
 
