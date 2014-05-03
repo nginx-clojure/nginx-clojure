@@ -974,6 +974,28 @@ public class NginxClojureRT {
 		ngx_http_finalize_request(r, rc);
 	}
 	
+
+	/**
+	 * When called in the main thread it will be handled directly otherwise it will post a event by pipe let 
+	 * main thread  get a chance to handle this response.
+	 */
+	public static void postResponseEvent(LazyRequestMap req, Map resp) {
+		if (Thread.currentThread() == NGINX_MAIN_THREAD) {
+			handleResponse(req.r, resp);
+		}else {
+			HandlerContext ctx = new HandlerContext(req, resp, buildOutputChain(req.r, resp));
+			while (REQ_RESP_MAP.putIfAbsent(ctx.request.r, ctx) != null) {
+					try {
+						Thread.sleep(0);
+					} catch (InterruptedException e) {
+						log.error("interrupted!", e);
+						return;
+					}
+			}
+			ngx_http_clojure_mem_post_write_event(req.r);
+		}
+	}
+	
 	public static LoggerService getLog() {
 		//be friendly to junit test
 		if (log == null) {
