@@ -382,8 +382,11 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		@Override
 		public int read(byte[] b, int off, int len) throws IOException {
 			checkClosed();
-			if (len == 0 || eof) {
+			if (len == 0) {
 				return 0;
+			}
+			if (eof) {
+				return -1;
 			}
 			if (off + len > b.length) {
 				throw new IndexOutOfBoundsException("buffer space is too small, off + len > b.length");
