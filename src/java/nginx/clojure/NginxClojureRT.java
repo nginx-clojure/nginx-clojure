@@ -63,6 +63,9 @@ public class NginxClojureRT {
 	
 	private static CompletionService<HandlerContext> workers;
 	
+	//only for testing, e.g. with lein-ring where no coroutine support
+	private static ExecutorService threadPoolOnlyForTestingUsage;
+	
 	private static boolean coroutineEnabled = false;
 	
 	private static LoggerService log;
@@ -117,6 +120,12 @@ public class NginxClojureRT {
 	public native static void ngx_http_clojure_mem_post_write_event(long r);
 	
 //	public native static long ngx_http_clojure_mem_get_body_tmp_file(long r);
+	
+	static {
+		//be friendly to lein ring testing
+		getLog();
+		initUnsafe();
+	}
 	
 	public static String formatVer(long ver) {
 		long f = ver / 1000000;
@@ -206,10 +215,16 @@ public class NginxClojureRT {
 			}else if (JavaAgent.db.isRunTool()) {
 				coroutineEnabled = false;
 				log.warn("we just run for generatation of coroutine waving configuration NOT for general cases!!!");
-				if (n > 0) {
-					log.warn("the thread pool disabled, jvm_workers turn to be unset.");
+/* 
+ * Because sometimes we need to access services provide by the same nginx instance, 
+ * e.g. proxyed external http service, so when turn on run tool mode we need thread 
+ * pool to make worker not blocked otherwise we can not continue the process of generatation 
+ * of coroutine waving configuration.*/				
+				if (n < 1) {
+					log.warn("enable thread pool mode for run tool mode so that %s", 
+							"worker won't be blocked when access services provide by the same nginx instance");
+					n = Runtime.getRuntime().availableProcessors() * 2;
 				}
-				n = -1;
 			}else {
 				log.info("java agent configured so we turn on coroutine support!");
 				if (n > 0) {
@@ -252,6 +267,18 @@ public class NginxClojureRT {
 		}));
 		
 		eventDispather.submit(new EventDispatherRunnable(workers));
+	}
+	
+	public static synchronized ExecutorService initThreadPoolOnlyForTestingUsage() {
+		if (threadPoolOnlyForTestingUsage == null) {
+			threadPoolOnlyForTestingUsage = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()+2, new ThreadFactory() {
+				final AtomicLong counter = new AtomicLong(0);
+				public Thread newThread(Runnable r) {
+					return new Thread(r, "nginx-clojure-only4test-thread" + counter.getAndIncrement());
+				}
+			});
+		}
+		return threadPoolOnlyForTestingUsage;
 	}
 	
 	public static synchronized void initMemIndex(long idxpt) {
@@ -1007,6 +1034,86 @@ public class NginxClojureRT {
 
 	public static void setLog(LoggerService log) {
 		NginxClojureRT.log = log;
+	}
+	
+	public static final class BatchCallRunner implements Runnable {
+		Coroutine parent;
+		int[] counter;
+		IFn handler;
+		int order;
+		Object[] results;
+
+		public BatchCallRunner(Coroutine parent, int[] counter, IFn handler,
+				int order, Object[] results) {
+			super();
+			this.parent = parent;
+			this.counter = counter;
+			this.handler = handler;
+			this.order = order;
+			this.results = results;
+		}
+
+		@Override
+		public void run() throws SuspendExecution {
+			try {
+				results[order] = handler.invoke();
+			}catch(Throwable e) {
+				log.error("error in sub coroutine", e);
+			}
+			
+			if ( --counter[0] == 0 && parent != null && parent.getState() == Coroutine.State.SUSPENDED) {
+				parent.resume();
+			}
+		}
+	}
+	
+	/**
+	 * Execute a batch of IFn instances, e.g. clojure functions, in different new coroutines so we can handle many sockets parallel 
+	 * within one request-response cycle.
+	 * When there 's no coroutine context, it will turn to use thread pool to make testing with lein-ring easy.
+	 * @param fns Runnable instances
+	 */
+	public static ISeq coBatchCall(ISeq fns) throws SuspendExecution {
+		int c = fns.count();
+		int[] counter = new int[] {c};
+		Object[] results = new Object[c];
+		Coroutine parent = Coroutine.getActiveCoroutine();
+		
+		if (parent == null && (JavaAgent.db == null || !JavaAgent.db.isRunTool())) {
+			log.warn("we are not in coroutine enabled context, so we turn to use thread for only testing usage!");
+			Future[] futures = new Future[c];
+			for (int i = 0; fns != null;  fns = fns.next(), i++) {
+				IFn fn = (IFn) fns.first();
+				BatchCallRunner bcr = new BatchCallRunner(parent, counter, fn, i, results);
+				if (threadPoolOnlyForTestingUsage == null) {
+					initThreadPoolOnlyForTestingUsage();
+				}
+				futures[i] = threadPoolOnlyForTestingUsage.submit(bcr);
+			}
+			for (Future f : futures) {
+				try {
+					f.get();
+				} catch (Throwable e) {
+					log.error("do future failed", e);
+				} 
+			}
+		}else {
+			boolean shouldYieldParent = false;
+			for (int i = 0; fns != null;  fns = fns.next()) {
+				IFn fn = (IFn) fns.first();
+				Coroutine co  = new Coroutine(new BatchCallRunner(parent, counter, fn, i++, results));
+				co.resume();
+				if (co.getState() != Coroutine.State.FINISHED) {
+					shouldYieldParent = true;
+				}
+			}
+			
+			if (parent != null && shouldYieldParent) {
+				Coroutine.yield();
+			}
+		}
+
+		return RT.seq(results);
 	}
 	
 }

@@ -360,3 +360,19 @@ lazyclass:org/apache/http/io/SessionOutputBuffer
 #mark from sub org/apache/http/impl/io/SessionOutputBufferImpl
   flush()V:just_mark
 
+fuzzyclass:clj_http/client\$eval(\d+)\$fn__(\d+)
+  invoke(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;:normal
+
+fuzzyclass:clj_http/core/proxy\$java/io/FilterInputStream\$(\d+)
+  read([B)I:normal
+
+fuzzyclass:nginx/clojure/coroutine_socket_handlers_for_test\$fn__(\d+)\$fn__(\d+)
+  invoke()Ljava/lang/Object;:normal
+
+lazyclass:org/apache/http/impl/io/IdentityInputStream
+  read([BII)I:normal
+
+lazyclass:java/io/InputStream
+#mark from sub org/apache/http/impl/io/IdentityInputStream
+  read([BII)I:just_mark
+

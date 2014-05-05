@@ -9,6 +9,7 @@
         ;sadly ring.middleware.multipart-params is dependent on servlet api so we must comment it
         ;[ring.middleware.multipart-params]
         [compojure.core]
+        [nginx.clojure.core]
         )
   (:require [compojure.route :as route]
             [clj-http.client :as client]
@@ -49,6 +50,7 @@
   (GET "/simple-clj-http-test" [] 
        (let [{:keys [status, headers, body]} (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt" {:socket-timeout 50000})]
          {:status status,  :headers (dissoc headers "transfer-encoding" "server"), :body body}))
+  (GET "/" [] {:status 200, :headers {"content-type" "text/plain"}, :body "hello"})
   (GET "/simple-httpclientget" [:as req] ((SimpleHandler4TestHttpClientGetMethod.) req))
   (GET "/simple" [] 
        (let [{:keys [status,headers, body]} (do-simple-selfresume true)]
@@ -58,6 +60,13 @@
      (let [{:keys [status,headers, body]} (do-simple-selfresume false)]
        {:status status, :headers headers :body body})
      )
+  (GET "/fetch-two-pages" []
+       (let [[r1 r2] (co-pvalues 
+                       (client/get "http://echo.jsontest.com/java/good/c/better")
+                       (client/get "http://headers.jsontest.com/"))]
+         {:status 200, 
+          :headers {"content-type" "text/plain"}, 
+          :body (str (:body r1) "\n==========================\n" (:body r2)) }))
   ;this is only call by junit test
   (GET "/simple2" [] 
        (let [{:keys [status,headers, body]} (do-simple-selfresume false)]

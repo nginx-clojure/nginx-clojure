@@ -378,6 +378,7 @@ make
 nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx.conf -p /home/who/git/nginx-clojure/test/nginx-working-dir/
 
 curl -v "http://localhost:8080/asyncsocket"
+curl -v "http://localhost:8080/cljasyncsocket"
 
 for coroutine socket:
 
@@ -393,6 +394,8 @@ curl -v -X PUT -d name=c -d rank=5  "http://localhost:8080/coroutineSocketAndCom
 curl -v -X PUT -d name=clojure -d rank=5  "http://localhost:8080/coroutineSocketAndCompojure/mysql-insert"
 curl -v "http://localhost:8080/coroutineSocketAndCompojure/mysql-query/java"
 curl -v "http://localhost:8080/coroutineSocketAndCompojure/mysql-drop"
+
+curl -v "http://localhost:8080/coroutineSocketAndCompojure/fetch-two-pages"
 
 performance testing:
 

@@ -389,7 +389,20 @@
              (debug-println "=================coroutine based socket compojure & clj-http get =============================")
              (is (= 200 (:status r)))
              (is (= (.length b) (.length b1)))
-             (is (= b b1))))  
+             (is (= b b1)))) 
+    ;http://localhost:8080/coroutineSocketAndCompojure/fetch-two-pages
+     (testing "coroutine based socket--co-pvalues & compojure & clj-http "
+            (let [r (client/get (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/fetch-two-pages") {:throw-exceptions false})
+                  h (:headers r)
+                  b (r :body)
+                 [r1, r2] (pvalues (client/get "http://echo.jsontest.com/java/good/c/better")
+                                   (client/get "http://headers.jsontest.com/"))
+                 b12 (str (:body r1) "\n==========================\n" (:body r2))
+                ]
+             (debug-println "=================coroutine based socket--co-pvalues & compojure & clj-http  =============================")
+             (is (= 200 (:status r)))
+             (is (= (.length b) (.length b12)))
+             (is (= b b12))))       
      (testing "coroutine based socket--compojure & mysql jdbc"
             (let [cr (client/get (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/mysql-create") {:throw-exceptions false})
                   ir1 (client/put (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/mysql-insert") {:form-params {:name "java" :rank "5"} :throw-exceptions false})
