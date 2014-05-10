@@ -19,7 +19,10 @@ import java.nio.charset.Charset;
 
 public  class RequestKnownNameVarFetcher implements RequestVarFetcher {
 
-	private long nameNgxStrPtr;
+	protected long nameNgxStrPtr;
+	
+	public RequestKnownNameVarFetcher() {
+	}
 	
 	public RequestKnownNameVarFetcher(String name) {
 		Long l = CORE_VARS.get(name);
@@ -34,6 +37,9 @@ public  class RequestKnownNameVarFetcher implements RequestVarFetcher {
 	@Override
 	public Object fetch(long r, Charset encoding) {
 		long varLenPtr = ngx_palloc(UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET), NGX_HTTP_CLOJURE_UINT_SIZE);
+		if (varLenPtr == 0) {
+			throw new OutOfMemoryError("nginx OutOfMemoryError");
+		}
 		long varValPtr = ngx_http_clojure_mem_get_variable(r, nameNgxStrPtr, varLenPtr);
 		if (varValPtr == 0) {
 			return null;
@@ -49,6 +55,9 @@ public  class RequestKnownNameVarFetcher implements RequestVarFetcher {
 	
 	public InputStream fetchAsStream(long r) {
 		long varLenPtr = ngx_palloc(UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET), NGX_HTTP_CLOJURE_UINT_SIZE);
+		if (varLenPtr == 0) {
+			throw new OutOfMemoryError("nginx OutOfMemoryError");
+		}
 		long varValPtr = ngx_http_clojure_mem_get_variable(r, nameNgxStrPtr, varLenPtr);
 		if (varValPtr == 0) {
 			return null;

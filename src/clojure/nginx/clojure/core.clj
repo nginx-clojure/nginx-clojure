@@ -1,5 +1,5 @@
 (ns nginx.clojure.core
-  (:import [nginx.clojure Coroutine Stack NginxClojureRT]))
+  (:import [nginx.clojure Coroutine Stack NginxClojureRT LazyRequestMap]))
 
 (defn without-coroutine 
   "wrap a handler f to a new handler which will keep away the coroutine context"
@@ -33,3 +33,14 @@
   [& fns]
   (NginxClojureRT/coBatchCall fns))
 
+(defn get-ngx-var 
+  "get nginx variable"
+  [^LazyRequestMap req name]
+  (NginxClojureRT/getNGXVariable (.nativeRequest req) name))
+
+(defn set-ngx-var! 
+  "set nginx variable"
+  [^LazyRequestMap req name, val]
+  (NginxClojureRT/setNGXVariable (.nativeRequest req) name val))
+
+(def phrase-done NginxClojureRT/PHRASE_DONE)

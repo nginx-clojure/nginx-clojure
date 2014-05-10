@@ -287,6 +287,9 @@ public class Constants {
 	public static int NGX_HTTP_CLOJURE_HEADERSO_HEADERS_IDX  = 153;
 	public static long NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET;
 
+	public static int NGINX_CLOJURE_MODULE_CTX_PHRASE_ID = 251;
+	public static long NGINX_CLOJURE_MODULE_CTX_PHRASE_ID_OFFSET;
+	
 	public static int NGINX_CLOJURE_RT_WORKERS_ID = 252;
 	public static long NGINX_CLOJURE_RT_WORKERS;
 	public static int NGINX_VER_ID = 253;
@@ -309,6 +312,18 @@ public class Constants {
 	public static int  NGX_DONE     =  -4;
 	public static int  NGX_DECLINED =  -5;
 	public static int  NGX_ABORT    =  -6;
+	
+    public static int NGX_HTTP_POST_READ_PHASE = 0;
+    public static int NGX_HTTP_SERVER_REWRITE_PHASE = 1;
+    public static int NGX_HTTP_FIND_CONFIG_PHASE =2;
+    public static int NGX_HTTP_REWRITE_PHASE = 3;
+    public static int NGX_HTTP_POST_REWRITE_PHASE = 4;
+    public static int NGX_HTTP_PREACCESS_PHASE = 5;
+    public static int NGX_HTTP_ACCESS_PHASE = 6;
+    public static int NGX_HTTP_POST_ACCESS_PHASE = 7;
+    public static int NGX_HTTP_TRY_FILES_PHASE = 8;
+    public static int NGX_HTTP_CONTENT_PHASE = 9;
+    public static int NGX_HTTP_LOG_PHASE = 10;
 	
 	//ngx_http_request.h
 	public static int NGX_HTTP_GET = 0x0002;

@@ -13,8 +13,8 @@ NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
 "
 
 #linux ubuntu
-#JNI_HEADER_1="/usr/lib/jvm/java-7-oracle/include"
-#JNI_HEADER_2="${JNI_HEADER_1}/linux"
+JNI_HEADER_1="/usr/lib/jvm/java-7-oracle/include"
+JNI_HEADER_2="${JNI_HEADER_1}/linux"
 
 #linux centos
 #JNI_HEADER_1="/usr/java/jdk1.6.0_45/include"
@@ -31,8 +31,8 @@ NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
 
 
 #macosx
-JNI_HEADER_1="/Library/Java/JavaVirtualMachines/1.6.0_65-b14-462.jdk/Contents/headers"
-JNI_HEADER_2="${JNI_HEADER_1}"
+#JNI_HEADER_1="/Library/Java/JavaVirtualMachines/1.6.0_65-b14-462.jdk/Contents/headers"
+#JNI_HEADER_2="${JNI_HEADER_1}"
 
 CFLAGS="-I \"${JNI_HEADER_1}\" \
         -I \"${JNI_HEADER_2}\" \

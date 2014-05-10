@@ -45,6 +45,10 @@ import clojure.lang.Seqable;
 public class NginxClojureRT {
 
 
+	public static final Map ASYNC_TAG = new HashMap(0);
+	
+	public static final Map PHRASE_DONE = new HashMap(0);
+	
 	public static long[] MEM_INDEX;
 	
 	public static Thread NGINX_MAIN_THREAD;
@@ -115,7 +119,13 @@ public class NginxClojureRT {
 	
 	public native static long ngx_http_clojure_mem_get_variable(long r, long name, long varlenPtr);
 	
+	public native static long ngx_http_clojure_mem_set_variable(long r, long name, long val, long vlen);
+	
 	public native static void ngx_http_clojure_mem_inc_req_count(long r);
+	
+	public native static void ngx_http_clojure_mem_continue_current_phase(long r);
+	
+	public native static long ngx_http_clojure_mem_get_module_ctx_phase(long r);
 	
 	public native static void ngx_http_clojure_mem_post_write_event(long r);
 	
@@ -307,6 +317,8 @@ public class NginxClojureRT {
 		MEM_INDEX = index;
 		NGX_HTTP_CLOJURE_UINT_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_UINT_SIZE_IDX];
 		
+		NGX_HTTP_CLOJURE_PTR_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_PTR_SIZE_IDX];
+		
 		NGX_HTTP_CLOJURE_STR_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_STR_SIZE_IDX];
 		NGX_HTTP_CLOJURE_STR_LEN_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_STR_LEN_IDX];
 		NGX_HTTP_CLOJURE_STR_DATA_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_STR_DATA_IDX];
@@ -423,7 +435,8 @@ public class NginxClojureRT {
 		NGX_HTTP_CLOJURE_HEADERSO_LAST_MODIFIED_TIME_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_LAST_MODIFIED_TIME_IDX];
 		NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_HEADERS_IDX];
 		
-		NGX_HTTP_CLOJURE_PTR_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_PTR_SIZE_IDX];
+		NGINX_CLOJURE_MODULE_CTX_PHRASE_ID_OFFSET = MEM_INDEX[NGINX_CLOJURE_MODULE_CTX_PHRASE_ID];
+
 		
 		NGINX_CLOJURE_RT_WORKERS = MEM_INDEX[NGINX_CLOJURE_RT_WORKERS_ID];
 		NGINX_CLOJURE_VER = MEM_INDEX[NGINX_CLOJURE_VER_ID];
@@ -586,15 +599,36 @@ public class NginxClojureRT {
 	
 	
 	public static final int pushString(long address, String val, Charset encoding, long pool) {
-		byte[] bytes;
-		bytes = val.getBytes(encoding);
+		byte[] bytes = val.getBytes(encoding);
 		long strAddr = ngx_palloc(pool, bytes.length);
 		UNSAFE.putAddress(address, strAddr);
 		ngx_http_clojure_mem_copy_to_addr(bytes, BYTE_ARRAY_OFFSET, strAddr, bytes.length);
 		return bytes.length;
 	}
 	
-	public static final Map ASYNC_TAG = new HashMap(1);
+	public static final String getNGXVariable(long r, String name) {
+		if (CORE_VARS.containsKey(name)) {
+			return (String) new RequestKnownNameVarFetcher(name).fetch(r, DEFAULT_ENCODING);
+		}
+		return (String) new RequestUnknownNameVarFetcher(name).fetch(r, DEFAULT_ENCODING);
+	}
+	
+	public static final int setNGXVariable(long r, String name, String val) {
+		long np = CORE_VARS.containsKey(name) ? CORE_VARS.get(name) : 0;
+		long pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
+		if (np == 0) {
+			np = ngx_palloc(pool, Constants.NGX_HTTP_CLOJURE_STR_SIZE);
+			pushNGXString(np, name, DEFAULT_ENCODING, pool);
+		}
+		byte[] bytes = val.getBytes(DEFAULT_ENCODING);
+		long strAddr = ngx_palloc(pool, bytes.length);
+		if (strAddr == 0) {
+			throw new OutOfMemoryError("nginx OutOfMemoryError");
+		}
+		ngx_http_clojure_mem_copy_to_addr(bytes, BYTE_ARRAY_OFFSET, strAddr, bytes.length);
+		return (int)ngx_http_clojure_mem_set_variable(r, np, strAddr, bytes.length);
+	}
+	
 	
 	public static int eval(final int codeId, final long r) {
 		
@@ -603,17 +637,20 @@ public class NginxClojureRT {
 			Map resp = handleRequest(fakeReq);
 			if (resp != null && resp != ASYNC_TAG && fetchResponseStatus(resp, 200) != 200) {
 				log.error("initialize error %s", resp.get(BODY));
-				return 500;
+				return NGX_HTTP_INTERNAL_SERVER_ERROR;
 			}
-			return 200;
+			return NGX_HTTP_OK;
 		}
 		
 		final LazyRequestMap req = new LazyRequestMap(codeId, r);
+		int phase = (int)ngx_http_clojure_mem_get_module_ctx_phase(r);
 		
 		if (workers == null) {
 			Map resp = handleRequest(req);
 			if (resp == ASYNC_TAG) {
-				ngx_http_clojure_mem_inc_req_count(r);
+				if (phase == -1) { //from content handler invoking 
+					ngx_http_clojure_mem_inc_req_count(r);
+				}
 				return NGX_DONE;
 			}
 			return handleResponse(r, resp);
@@ -628,7 +665,7 @@ public class NginxClojureRT {
 			public HandlerContext call() throws Exception {
 				Map resp = handleRequest(req);
 				//let output chain built before entering the main thread
-				return new HandlerContext(req, resp, buildOutputChain(r, resp));
+				return new HandlerContext(req, resp, resp == PHRASE_DONE ? 0 : buildOutputChain(r, resp));
 			}
 		});
 		return NGX_DONE;
@@ -673,19 +710,7 @@ public class NginxClojureRT {
 		pw.close();
 		return new PersistentArrayMap(new Object[] {STATUS, 500, BODY, sw.toString(), HEADERS, new PersistentArrayMap(new Object[] {CONTENT_TYPE.getName(), "text/plain"})});
 	}
-	
-	public static int handleResponse(long r) {
-//		System.out.println("handleResponse request jlong:" +r + ", jint :" + (int)r);
-//		for (Map.Entry<Long, Map> rr : REQ_RESP_MAP.entrySet()) {
-			long chain = REQ_RESP_MAP.remove(r).chain;
-			if (chain < 0) {
-				ngx_http_finalize_request(r, -chain);
-			}else {
-				ngx_http_finalize_request(r, ngx_http_output_filter(r, chain));
-			}
-//		}
-		return NGX_OK;
-	}
+
 	
 	public static long buildResponseFileBuf(File f, long r, long pool, int isLast, long chain) {
 		byte[] bytes = f.getPath().getBytes();
@@ -874,7 +899,6 @@ public class NginxClojureRT {
 		}
 		try {
 			long pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
-			Object statusObj = resp.get(STATUS);
 			int status = fetchResponseStatus(resp, 200);
 			long headers_out = r + NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
 			
@@ -974,11 +998,29 @@ public class NginxClojureRT {
 	
 	}
 	
+	public static int handleResponse(long r) {
+		HandlerContext ctx = REQ_RESP_MAP.remove(r);
+		if (ctx.response == PHRASE_DONE) {
+			ngx_http_clojure_mem_continue_current_phase(r);
+			return NGX_OK;
+		}
+		long chain = ctx.chain;
+		if (chain < 0) {
+			ngx_http_finalize_request(r, -chain);
+		} else {
+			ngx_http_finalize_request(r, ngx_http_output_filter(r, chain));
+		}
+		return NGX_OK;
+	}
 	
 	public static int handleResponse(long r, final Map resp) {
 		if (Thread.currentThread() != NGINX_MAIN_THREAD) {
 			throw new RuntimeException("handleResponse can not be called out of nginx clojure main thread!");
 		}
+		if (resp == PHRASE_DONE) {
+			return NGX_DECLINED;
+		}
+		
 		long chain = buildOutputChain(r, resp);
 		if (chain < 0) {
 			return -(int)chain;
@@ -990,6 +1032,12 @@ public class NginxClojureRT {
 		if (r == 0) {
 			return;
 		}
+		
+		if (resp == PHRASE_DONE) {
+			ngx_http_clojure_mem_continue_current_phase(r);
+			return;
+		}
+		
 		int rc = handleResponse(r, resp);
 		ngx_http_finalize_request(r, rc);
 	}

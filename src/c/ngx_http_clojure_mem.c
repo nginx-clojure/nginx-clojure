@@ -8,6 +8,8 @@
 
 //static ngx_str_t NGX_HTTP_CLOJURE_FULL_VER_STR = ngx_string(NGINX_VER " & " NGINX_CLOJURE_VER);
 
+extern ngx_module_t  ngx_http_clojure_module;
+
 static JavaVM *jvm = NULL;
 static JNIEnv *jvm_env = NULL;
 static jclass nc_rt_class;
@@ -336,11 +338,45 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_variable(JNIEnv *env, jclass c
 	ngx_http_request_t *req = (ngx_http_request_t *)(uintptr_t) r;
 	ngx_str_t *name = (ngx_str_t *)(uintptr_t)nname;
 	ngx_http_variable_value_t *vp = ngx_http_get_variable(req, name, ngx_hash_key(name->data, name->len));
-	if (vp->not_found) {
+	if (vp == NULL || vp->not_found) {
 		return 0;
 	}
 	*((u_int *)(uintptr_t)varlenPtr) = vp->len;
 	return (uintptr_t)vp;
+}
+
+static jlong JNICALL jni_ngx_http_clojure_mem_set_variable(JNIEnv *env, jclass cls,  jlong r, jlong nname, jlong val, jlong vlen) {
+	ngx_http_request_t *req = (ngx_http_request_t *) (uintptr_t) r;
+	ngx_str_t *name = (ngx_str_t *) (uintptr_t) nname;
+	ngx_http_variable_t *v;
+	ngx_http_variable_value_t *vv;
+	ngx_http_core_main_conf_t *cmcf;
+
+    cmcf = ngx_http_get_module_main_conf(req, ngx_http_core_module);
+
+    v = ngx_hash_find(&cmcf->variables_hash, ngx_hash_key(name->data, name->len), name->data, name->len);
+
+    if (v) {
+		if (!(v->flags & NGX_HTTP_VAR_CHANGEABLE)) {
+			return NGX_HTTP_CLOJURE_MEM_ERR_VAR_UNCHANGABLE;
+		}
+        if (v->flags & NGX_HTTP_VAR_INDEXED) {
+            vv = ngx_http_get_flushed_variable(req, v->index);
+            vv->len = (unsigned)vlen;
+            vv->data = (u_char *)(uintptr_t)val;
+            return NGX_OK;
+        } else {
+            vv = ngx_palloc(req->pool, sizeof(ngx_http_variable_value_t));
+            if (vv == NULL) {
+            	return NGX_HTTP_CLOJURE_MEM_ERR_MALLOC;
+            }
+            vv->len = (unsigned)vlen;
+            vv->data = (u_char *)(uintptr_t)val;
+            v->set_handler(req, vv, v->data);
+            return NGX_OK;
+        }
+    }
+    return NGX_HTTP_CLOJURE_MEM_ERR_VAR_NOT_FOUND;
 }
 
 static void JNICALL jni_ngx_http_clojure_mem_inc_req_count(JNIEnv *env, jclass cls, jlong r) {
@@ -348,6 +384,16 @@ static void JNICALL jni_ngx_http_clojure_mem_inc_req_count(JNIEnv *env, jclass c
 	req->main->count ++;
 }
 
+static void JNICALL jni_ngx_http_clojure_mem_continue_current_phase(JNIEnv *env, jclass cls, jlong r) {
+	ngx_http_request_t *req = (ngx_http_request_t *)(uintptr_t) r;
+	req->write_event_handler(req);
+}
+
+static jlong JNICALL jni_ngx_http_clojure_mem_get_module_ctx_phase(JNIEnv *env, jclass cls, jlong r) {
+	ngx_http_request_t *req = (ngx_http_request_t *)(uintptr_t) r;
+	ngx_http_clojure_module_ctx_t *ctx = ngx_http_get_module_ctx(req, ngx_http_clojure_module);
+	return ctx == NULL ? -1 : (jlong)ctx->phrase;
+}
 
 #define log_debug0(log, msg) do{ \
 	ngx_log_debug0(NGX_LOG_DEBUG_HTTP, log, 0, msg); \
@@ -619,7 +665,10 @@ int ngx_http_clojure_init_memory_util(ngx_int_t workers, ngx_log_t *log) {
 			{"ngx_http_clojure_mem_copy_to_addr", "(Ljava/lang/Object;JJJ)V", jni_ngx_http_clojure_mem_copy_to_addr},
 			{"ngx_http_clojure_mem_get_header", "(JJJ)J", jni_ngx_http_clojure_mem_get_header},
 			{"ngx_http_clojure_mem_get_variable", "(JJJ)J", jni_ngx_http_clojure_mem_get_variable},
+			{"ngx_http_clojure_mem_set_variable", "(JJJJ)J", jni_ngx_http_clojure_mem_set_variable},
 			{"ngx_http_clojure_mem_inc_req_count", "(J)V", jni_ngx_http_clojure_mem_inc_req_count},
+			{"ngx_http_clojure_mem_continue_current_phase", "(J)V", jni_ngx_http_clojure_mem_continue_current_phase},
+			{"ngx_http_clojure_mem_get_module_ctx_phase", "(J)J", jni_ngx_http_clojure_mem_get_module_ctx_phase},
 			{"ngx_http_clojure_mem_post_write_event", "(J)V", jni_ngx_http_clojure_mem_post_write_event}
 //			{"ngx_http_clojure_mem_get_body_tmp_file", "(J)J", jni_ngx_http_clojure_mem_get_body_tmp_file}
 	};

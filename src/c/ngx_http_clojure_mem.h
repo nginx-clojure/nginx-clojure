@@ -29,6 +29,10 @@
 
 #define NGINX_CLOJURE_VER "nginx clojure/0.2.1"
 
+typedef struct {
+	ngx_int_t phrase;
+	ngx_int_t handled_couter;
+} ngx_http_clojure_module_ctx_t;
 
 #define NGX_HTTP_CLOJURE_MEM_IDX_START 0
 
@@ -258,11 +262,21 @@ extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 #define NGX_HTTP_CLOJURE_HEADERSO_HEADERS_IDX  153
 #define NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET offsetof(ngx_http_headers_out_t, headers)
 
+
+/*ngx_http_clojure_module_ctx_t idx*/
+#define NGINX_CLOJURE_MODULE_CTX_PHRASE_ID 251
+#define NGINX_CLOJURE_MODULE_CTX_PHRASE_ID_OFFSET offset(ngx_http_clojure_module_ctx_t, phrase)
+
+
 #define NGINX_CLOJURE_RT_WORKERS_ID 252
 #define NGINX_VER_ID 253
 #define NGINX_CLOJURE_VER_ID 254
 #define NGX_HTTP_CLOJURE_MEM_IDX_END 255
 
+
+#define NGX_HTTP_CLOJURE_MEM_ERR_VAR_NOT_FOUND 32
+#define NGX_HTTP_CLOJURE_MEM_ERR_VAR_UNCHANGABLE 33
+#define NGX_HTTP_CLOJURE_MEM_ERR_MALLOC 34
 
 int ngx_http_clojure_check_memory_util();
 

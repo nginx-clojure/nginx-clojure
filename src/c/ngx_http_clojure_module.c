@@ -13,6 +13,19 @@
 ngx_conf_t *ngx_http_clojure_global_ngx_conf;
 ngx_cycle_t *ngx_http_clojure_global_cycle;
 
+typedef struct {
+    ngx_array_t *jvm_options;
+    ngx_str_t jvm_path;
+    ngx_int_t jvm_workers;
+    ngx_str_t clojure_code;
+    ngx_flag_t enable;
+    ngx_int_t clojure_code_id;
+    ngx_str_t clojure_rewrite_code;
+    ngx_int_t clojure_rewrite_code_id;
+} ngx_http_clojure_loc_conf_t;
+
+
+
 static char* ngx_http_clojure(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 static void* ngx_http_clojure_create_loc_conf(ngx_conf_t *cf);
@@ -23,7 +36,23 @@ static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle);
 
 static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle);
 
-static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf);
+#if defined(_WIN32) || defined(WIN32)
+static ngx_int_t ngx_http_clojure_quit_master(ngx_cycle_t *cycle);
+#endif
+
+static ngx_int_t ngx_http_clojure_postconfiguration(ngx_conf_t *cf);
+
+static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r);
+
+static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t * r);
+
+static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  *lcf, ngx_log_t *log);
+
+static ngx_int_t ngx_http_clojure_init_socket(ngx_http_clojure_loc_conf_t  *lcf, ngx_log_t *log);
+
+static ngx_int_t ngx_http_clojure_init_clojure_script(char *type, ngx_str_t *code, ngx_int_t *pcid , ngx_log_t *log);
+
+static void ngx_http_clojure_client_body_handler(ngx_http_request_t *r);
 
 /* Sadly JNI_CreateJavaVM doesn't always return error code for bad things(e.g initialized memory is too large),
  * it just suspend and then jvm crash signal will be directly catched by nginx master which will re-initialize
@@ -46,17 +75,6 @@ static ngx_shm_t ngx_http_clojure_shared_memory;
 #endif
 
 
-
-
-
-typedef struct {
-    ngx_array_t *jvm_options;
-    ngx_str_t jvm_path;
-    ngx_int_t jvm_workers;
-    ngx_str_t clojure_code;
-    ngx_flag_t enable;
-    ngx_int_t clojure_code_id;
-} ngx_http_clojure_loc_conf_t;
 
 static ngx_command_t ngx_http_clojure_commands[] = {
 	{
@@ -97,6 +115,15 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 		ngx_conf_set_str_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, clojure_code),
+		NULL
+    },
+
+    {
+		ngx_string("clojure_rewrite_code"),
+		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		ngx_conf_set_str_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_clojure_loc_conf_t, clojure_rewrite_code),
 		NULL
     },
 
@@ -143,20 +170,20 @@ static void * ngx_http_clojure_create_loc_conf(ngx_conf_t *cf) {
 	conf->jvm_options = NGX_CONF_UNSET_PTR;
 	conf->jvm_workers = NGX_CONF_UNSET;
 	conf->clojure_code_id = -1;
-	conf->clojure_code.len = 0;
-	conf->clojure_code.data = NULL;
+	conf->clojure_rewrite_code_id = -1;
 	return conf;
 }
 
-static ngx_int_t ngx_http_clojure_init_clojure_script(ngx_http_clojure_loc_conf_t  *lcf, ngx_log_t *log) {
-    if (lcf != NULL && lcf->clojure_code_id < 0 && lcf->enable && lcf->clojure_code.len > 0) {
-    	if (ngx_http_clojure_register_script(&lcf->clojure_code.data, lcf->clojure_code.len, &(lcf->clojure_code_id)) != NGX_HTTP_CLOJURE_JVM_OK){
-    		ngx_log_error(NGX_LOG_ERR, log, 0, "invalid clojure code : %s", lcf->clojure_code.data);
+static ngx_int_t ngx_http_clojure_init_clojure_script(char *type, ngx_str_t *code, ngx_int_t *pcid , ngx_log_t *log) {
+    if (*pcid < 0 && code->len > 0) {
+    	if (ngx_http_clojure_register_script(&code->data, code->len, pcid) != NGX_HTTP_CLOJURE_JVM_OK){
+    		ngx_log_error(NGX_LOG_ERR, log, 0, "invalid clojure %s code : %s", type, code->data);
     		return NGX_HTTP_INTERNAL_SERVER_ERROR;
     	}
     }
     return NGX_HTTP_CLOJURE_JVM_OK;
 }
+
 
 
 static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  *lcf, ngx_log_t *log) {
@@ -306,7 +333,7 @@ static ngx_int_t ngx_http_clojure_quit_master(ngx_cycle_t *cycle) {
 #endif
 
 static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
-	ngx_http_conf_ctx_t * ctx = (ngx_http_conf_ctx_t *)ngx_get_conf(cycle->conf_ctx, ngx_http_module);
+	ngx_http_conf_ctx_t *ctx = (ngx_http_conf_ctx_t *)ngx_get_conf(cycle->conf_ctx, ngx_http_module);
 	ngx_int_t rc = 0;
 /*	ngx_http_core_main_conf_t *hcmcf = ngx_http_cycle_get_module_main_conf(cycle, ngx_http_core_module);*/
 	ngx_http_clojure_loc_conf_t *mcf = ctx->loc_conf[ngx_http_clojure_module.ctx_index];
@@ -345,7 +372,7 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
     	return NGX_ERROR;
     }
 
-    if (ngx_http_clojure_init_clojure_script(mcf, cycle->log) != NGX_HTTP_CLOJURE_JVM_OK) {
+    if (mcf->enable && ngx_http_clojure_init_clojure_script("init-process", &mcf->clojure_code, &mcf->clojure_code_id, cycle->log) != NGX_HTTP_CLOJURE_JVM_OK) {
     	return NGX_ERROR;
     }
 
@@ -361,7 +388,9 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 
 static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 
+	ngx_http_core_main_conf_t *cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
 	ngx_http_clojure_loc_conf_t *lcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_clojure_module);
+	ngx_http_handler_pt *h;
 
 	if (lcf->jvm_path.len == NGX_CONF_UNSET_SIZE) {
 		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "no jvm_path configured!");
@@ -372,6 +401,14 @@ static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "no jvm_options configured!");
 		return NGX_ERROR ;
 	}
+
+	h = ngx_array_push(&cmcf->phases[NGX_HTTP_REWRITE_PHASE].handlers);
+	if (h == NULL) {
+		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "can not register nginx clojure rewrite handler");
+		return NGX_ERROR;
+	}
+
+	*h = ngx_http_clojure_rewrite_handler;
 
 	return NGX_OK;
 }
@@ -404,8 +441,7 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     if (rc != NGX_HTTP_CLOJURE_JVM_OK){
     	return rc;
     }*/
-
-    rc = ngx_http_clojure_init_clojure_script(lcf, ngx_http_clojure_global_cycle->log);
+    rc = ngx_http_clojure_init_clojure_script("content handler", &lcf->clojure_code, &lcf->clojure_code_id, ngx_http_clojure_global_cycle->log);
 	if (rc != NGX_HTTP_CLOJURE_JVM_OK) {
 		return rc;
 	}
@@ -424,7 +460,7 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     }else {
     	rc = ngx_http_discard_request_body(r);
     	if (rc != NGX_OK && rc != NGX_AGAIN) {
-    	        return rc;
+    	   return rc;
     	}
     	rc = ngx_http_clojure_eval(lcf->clojure_code_id, r);
     }
@@ -432,6 +468,51 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     //ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "finished one request \n==============================================================\n\n");
 
     return rc;
+}
+
+static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t * r) {
+	ngx_int_t rc;
+	ngx_http_clojure_module_ctx_t *ctx;
+	ngx_http_clojure_loc_conf_t  *lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
+
+	if (!lcf->enable || lcf->clojure_rewrite_code.len == 0) {
+		return NGX_DECLINED;
+	}
+
+	rc = ngx_http_clojure_init_clojure_script("rewrite handler", &lcf->clojure_rewrite_code, &lcf->clojure_rewrite_code_id, ngx_http_clojure_global_cycle->log);
+	if (rc != NGX_HTTP_CLOJURE_JVM_OK) {
+			return rc;
+	}
+
+	if ((ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module)) == NULL) {
+		ctx = ngx_palloc(r->pool, sizeof(ngx_http_clojure_module_ctx_t));
+		if (ctx == NULL) {
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "OutOfMemory of create ngx_http_clojure_module_ctx_t");
+			return NGX_HTTP_INTERNAL_SERVER_ERROR;
+		}
+		ctx->handled_couter = 1;
+		ctx->phrase = NGX_HTTP_REWRITE_PHASE;
+		ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
+		rc = ngx_http_clojure_eval(lcf->clojure_rewrite_code_id, r);
+		if (rc != NGX_DONE) {
+			ctx->phrase = -1;
+		}
+		return rc;
+	}else if (++ ctx->handled_couter > 32) { /*reach dead cycle*/
+		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "too much times by rewrite/access handler %d", ctx->handled_couter);
+		ctx->phrase = -1;
+		return NGX_HTTP_INTERNAL_SERVER_ERROR;
+	}else if (ctx->phrase == NGX_HTTP_REWRITE_PHASE) { /*enter again*/
+		ctx->phrase = -1;
+		return NGX_DECLINED;
+	}else {
+		ctx->phrase = NGX_HTTP_REWRITE_PHASE;
+		rc = ngx_http_clojure_eval(lcf->clojure_rewrite_code_id, r);
+		if (rc != NGX_DONE) {
+			ctx->phrase = -1;
+		}
+		return rc;
+	}
 }
 
 static char* ngx_http_clojure(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
