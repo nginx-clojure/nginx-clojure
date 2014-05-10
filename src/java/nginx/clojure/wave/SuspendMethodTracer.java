@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -20,6 +21,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
+import nginx.clojure.asm.Type;
 import nginx.clojure.wave.MethodDatabase.ClassEntry;
 
 
@@ -192,57 +194,72 @@ public class SuspendMethodTracer {
 			return;
 		}
 		quiteFlags.set(true);
-		if (db.meetTraceTargetClassMethod(owner, method)) {
-			db.info("enter %s.%s", owner, method);
-		} else {
-			db.debug("enter %s.%s", owner, method);
-		}
-		quiteFlags.set(false);
-		if (isSuspend(owner, method)) {
-			for (int i = stack.size() - 1; i > -1;  i--) {
-				MethodInfo mi = stack.get(i);
-				if (mi.suspendType == MethodDatabase.SUSPEND_NORMAL || mi.suspendType == MethodDatabase.SUSPEND_NONE) {
-					break;
-				}
-				boolean meetTraced = db.meetTraceTargetClassMethod(mi.owner, mi.method);
-				Integer knownType = db.checkMethodSuspendType(mi.owner, mi.method, false, false);
-				if (knownType != null && knownType >= MethodDatabase.SUSPEND_NORMAL) {
-					mi.suspendType = knownType;
-					if (meetTraced) {
-						db.info("meet traced method %s.%s, known suspend type=%s", mi.owner, mi.method, MethodDatabase.SUSPEND_TYPE_STRS[knownType]);
+		try {
+			if (db.meetTraceTargetClassMethod(owner, method)) {
+				db.info("enter %s.%s", owner, method);
+			}
+			if (isSuspend(owner, method)) {
+				for (int i = stack.size() - 1; i > -1;  i--) {
+					MethodInfo mi = stack.get(i);
+					if (mi.suspendType == MethodDatabase.SUSPEND_NORMAL || mi.suspendType == MethodDatabase.SUSPEND_NONE) {
+						break;
 					}
-					//we need not record those records which has been defined by predefined configuration files
-					continue;
-				}else {
-					mi.suspendType = MethodDatabase.SUSPEND_NORMAL;
-					if (meetTraced) {
-						db.info("meet traced method %s.%s, set unknown suspend type to =%s", mi.owner, mi.method, MethodDatabase.SUSPEND_TYPE_STRS[knownType]);
+					boolean meetTraced = db.meetTraceTargetClassMethod(mi.owner, mi.method);
+					Integer knownType = db.checkMethodSuspendType(mi.owner, mi.method, false, false);
+					if (knownType != null && knownType >= MethodDatabase.SUSPEND_NORMAL) {
+						mi.suspendType = knownType;
+						if (meetTraced) {
+							db.info("meet traced method %s.%s, known suspend type=%s", mi.owner, mi.method, MethodDatabase.SUSPEND_TYPE_STRS[knownType]);
+						}
+						//we need not record those records which has been defined by predefined configuration files
+						continue;
+					}else {
+						mi.suspendType = MethodDatabase.SUSPEND_NORMAL;
+						if (meetTraced) {
+							db.info("meet traced method %s.%s, set unknown suspend type to =%s", mi.owner, mi.method, MethodDatabase.SUSPEND_TYPE_STRS[knownType]);
+						}
 					}
-				}
-				
-				String key = mi.owner;
-				String fowner = MethodDatabaseUtil.toFuzzyString(MethodDatabaseUtil.FUZZY_CLASS_PATTERN, mi.owner, MethodDatabaseUtil.FUZZY_CLASS_PATTERN.toString());
-				if (fowner != null) {
-					key = fowner;
-				}
-				
-				ConcurrentHashMap<String, Object> omis = SUSPEND_INFO_RESULTS.get(key);
-				ConcurrentHashMap<String, Object> mis = omis;
-				
-				if (omis == null) {
-					omis = SUSPEND_INFO_RESULTS.putIfAbsent(key, mis = new ConcurrentHashMap<String, Object>());
-					if (omis != null) {
-						mis = omis;
+					
+					String key = mi.owner;
+					String fowner = MethodDatabaseUtil.toFuzzyString(MethodDatabaseUtil.FUZZY_CLASS_PATTERN, mi.owner, MethodDatabaseUtil.FUZZY_CLASS_PATTERN.toString());
+					if (fowner != null) {
+						key = fowner;
 					}
-				}
-				if (db != null && db.isDebug()) {
-					mis.put(mi.method, new Object[] {new Exception().getStackTrace(), new ArrayList<MethodInfo>(stack)});
-				}else {
-					mis.put(mi.method, "");
+					
+					ConcurrentHashMap<String, Object> omis = SUSPEND_INFO_RESULTS.get(key);
+					ConcurrentHashMap<String, Object> mis = omis;
+					
+					if (omis == null) {
+						omis = SUSPEND_INFO_RESULTS.putIfAbsent(key, mis = new ConcurrentHashMap<String, Object>());
+						if (omis != null) {
+							mis = omis;
+						}
+					}
+					if (db != null && db.isDebug()) {
+						mis.put(mi.method, new Object[] {new Exception().getStackTrace(), new ArrayList<MethodInfo>(stack)});
+					}else {
+						mis.put(mi.method, "");
+					}
 				}
 			}
+			stack.add(new MethodInfo(owner, method));
+		}finally{
+			quiteFlags.set(false);
 		}
-		stack.add(new MethodInfo(owner, method));
+	}
+	
+	public static void downProxyInvoke(Method m) {
+		if (quiteFlags.get()) {
+			return;
+		}
+		enter(Type.getInternalName(m.getDeclaringClass()), m.getName()+Type.getMethodDescriptor(m));
+	}
+	
+	public static void upProxyInvoke(Method m) {
+		if (quiteFlags.get()) {
+			return;
+		}
+		leave(Type.getInternalName(m.getDeclaringClass()), m.getName()+Type.getMethodDescriptor(m));
 	}
 	
 	public static void leave(String owner, String method) {
@@ -250,23 +267,23 @@ public class SuspendMethodTracer {
 			return;
 		}
 		quiteFlags.set(true);
-		if (db.meetTraceTargetClassMethod(owner, method)) {
-			db.info("leave %s.%s", owner, method);
-		} else {
-			db.debug("leave %s.%s", owner, method);
-		}
-		quiteFlags.set(false);
-		ArrayList<MethodInfo> stack = fetchStack();
-		MethodInfo mi = stack.get(stack.size() - 1);
-		if (!mi.owner.equals(owner) || !mi.method.equals(method)) {
-			quiteFlags.set(true);
-			db.error("Thread #%d, leave != enter %s.%s != %s.%s", Thread
-					.currentThread().getId(), owner, method, mi.owner,
-					mi.method);
-			db.error("thread list: %s", threadTraceStacks.keySet().toString());
+		try{
+			if (db.meetTraceTargetClassMethod(owner, method)) {
+				db.info("leave %s.%s", owner, method);
+			}
+			ArrayList<MethodInfo> stack = fetchStack();
+			MethodInfo mi = stack.get(stack.size() - 1);
+			if (!mi.owner.equals(owner) || !mi.method.equals(method)) {
+				quiteFlags.set(true);
+				db.error("Thread #%d, leave != enter %s.%s != %s.%s", Thread
+						.currentThread().getId(), owner, method, mi.owner,
+						mi.method);
+				db.error("thread list: %s", threadTraceStacks.keySet().toString());
+			}else {
+				stack.remove(stack.size() - 1);
+			}
+		}finally{
 			quiteFlags.set(false);
-		}else {
-			stack.remove(stack.size() - 1);
 		}
 	}
 	

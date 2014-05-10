@@ -44,9 +44,17 @@ public class SuspendMethodTracerAdvice extends AdviceAdapter {
 		mv.visitLdcInsn(owner);
 		mv.visitLdcInsn(method);
 		mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodTracer", "enter", "(Ljava/lang/String;Ljava/lang/String;)V");
+		if (method.equals("invoke(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;")) {
+			mv.visitVarInsn(ALOAD, 2);
+			mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodTracer", "downProxyInvoke", "(Ljava/lang/reflect/Method;)V");
+		}
 	}
 	
 	private final void doExitCode() {
+		if (method.equals("invoke(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;")) {
+			mv.visitVarInsn(ALOAD, 2);
+			mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodTracer", "upProxyInvoke", "(Ljava/lang/reflect/Method;)V");
+		}
 		mv.visitLdcInsn(owner);
 		mv.visitLdcInsn(method);
 		mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodTracer", "leave", "(Ljava/lang/String;Ljava/lang/String;)V");
