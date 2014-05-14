@@ -102,6 +102,8 @@ public class MethodDatabase implements LoggerService {
     
     private final ArrayList<FuzzyLazyClassEntry> fuzzlyLazyClasses;
     
+    private final ArrayList<String> retransformedClasses = new ArrayList<String>();
+    
     private final ArrayList<File> workList;
     private final ArrayList<String> filters;
     private ArrayList<String> userDefinedWaveConfigFiles = new ArrayList<String>();
@@ -134,6 +136,10 @@ public class MethodDatabase implements LoggerService {
         filters = new ArrayList<String>();
         getLog();
     }
+    
+    public ArrayList<String> getRetransformedClasses() {
+		return retransformedClasses;
+	}
 
     public boolean isAllowMonitors() {
         return allowMonitors;
@@ -574,6 +580,10 @@ public class MethodDatabase implements LoggerService {
             return checkFileAndClose(is, className);
         }
         return null;
+    }
+    
+    public ClassLoader getClassLoader() {
+    	return cl;
     }
     
     public  CheckInstrumentationVisitor checkClass(ClassReader r) {

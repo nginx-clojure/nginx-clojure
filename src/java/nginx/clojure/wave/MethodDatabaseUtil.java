@@ -72,8 +72,16 @@ public class MethodDatabaseUtil {
 					lce = null;
 					flce = new FuzzyLazyClassEntry(Pattern.compile(clz), resource);
 					db.getFuzzlyLazyClasses().add(flce);
+				}else if (l.startsWith("retransform:")) {
+					db.getRetransformedClasses().add(l.substring("retransform:".length()).trim());
+					ce = null;
+					lce = null;
+					flce = null;
 				}else if (l.startsWith("filter:")) {
 					db.getFilters().add(l.substring("filter:".length()).trim());
+					ce = null;
+					lce = null;
+					flce = null;
 				}else if (l.length() == 0 || (ce == null && lce == null && flce == null) || l.charAt(0) == '#'){
 					continue;
 				}else {

@@ -90,4 +90,7 @@ filter:sun/security/ec/
 filter:com/sun/source/
 filter:com/sun/tools/javac/
 
+retransform:java.io.BufferedInputStream
+
+
 

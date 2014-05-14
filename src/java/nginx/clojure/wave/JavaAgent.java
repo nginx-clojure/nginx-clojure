@@ -101,7 +101,14 @@ public class JavaAgent {
     public static void premain(String agentArguments, Instrumentation instrumentation) {
     	ClassFileTransformer cft = buildClassFileTransformer(agentArguments);
     	if (cft != null) {
-    		instrumentation.addTransformer(cft);
+    		instrumentation.addTransformer(cft, true);
+    		for (String c : db.getRetransformedClasses()) {
+    			try {
+					instrumentation.retransformClasses(db.getClassLoader().loadClass(c));
+				} catch (Throwable e) {
+					db.warn("retransformClasses error:" + c, e);
+				} 
+    		}
     	}
     }
     

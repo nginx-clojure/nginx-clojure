@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import nginx.clojure.logger.LoggerService;
 import nginx.clojure.logger.TinyLogService;
 import nginx.clojure.net.NginxClojureSocketFactory;
+import nginx.clojure.net.NginxClojureSocketImpl;
 import nginx.clojure.wave.JavaAgent;
 import sun.misc.Unsafe;
 import clojure.lang.IFn;
@@ -61,7 +62,7 @@ public class NginxClojureRT {
 	//mapping clojure code pointer address to clojure code id 
 	private static Map<Long, Integer> CODE_MAP = new HashMap<Long, Integer>();
 	
-	private static ConcurrentHashMap<Long, HandlerContext> REQ_RESP_MAP = new ConcurrentHashMap<Long, HandlerContext>();
+	private static ConcurrentHashMap<Long, Object> POSTED_EVENTS_DATA = new ConcurrentHashMap<Long, Object>();
 	
 	private static ExecutorService eventDispather;
 	
@@ -127,7 +128,7 @@ public class NginxClojureRT {
 	
 	public native static long ngx_http_clojure_mem_get_module_ctx_phase(long r);
 	
-	public native static void ngx_http_clojure_mem_post_write_event(long r);
+	public native static void ngx_http_clojure_mem_post_event(long r);
 	
 //	public native static long ngx_http_clojure_mem_get_body_tmp_file(long r);
 	
@@ -197,12 +198,8 @@ public class NginxClojureRT {
 				try {
 					Future<HandlerContext> respFuture =  workers.take();
 					HandlerContext ctx = respFuture.get();
-					while (REQ_RESP_MAP.putIfAbsent(ctx.request.r, ctx) != null) {
-							Thread.sleep(0);
-					}
-//					System.out.println("REQ_RESP_MAP size:" + REQ_RESP_MAP.size());
-//					System.out.println("requet jlong value:" + ctx.request.r + ", jint:" + (int)ctx.request.r);
-					ngx_http_clojure_mem_post_write_event(ctx.request.r);
+					savePostEventData(ctx.request.r, ctx);
+					ngx_http_clojure_mem_post_event(ctx.request.r);
 				} catch (InterruptedException e) {
 					log.error("interrupted!", e);
 					break;
@@ -998,8 +995,30 @@ public class NginxClojureRT {
 	
 	}
 	
+	public static int handlePostEvent(long event) {
+		int tag = (int)((0xff00000000000000L & event) >> 56);
+		long data = event & 0x00ffffffffffffffL;
+		switch (tag) {
+		case POST_EVENT_TYPE_HANDLE_RESPONSE:
+			return handleResponse(data);
+		case POST_EVENT_TYPE_CLOSE_SOCKET:
+			try {
+				NginxClojureSocketImpl s = (NginxClojureSocketImpl) POSTED_EVENTS_DATA.remove(data);
+				s.closeByPostEvent();
+				return NGX_OK;
+			}catch (Throwable e) {
+				log.error("handle post close event error", e);
+				return NGX_HTTP_INTERNAL_SERVER_ERROR;
+			}
+			
+		default:
+			log.error("handlePostEvent:unknown event tag :%d", tag);
+			return NGX_HTTP_INTERNAL_SERVER_ERROR;
+		}
+	}
+	
 	public static int handleResponse(long r) {
-		HandlerContext ctx = REQ_RESP_MAP.remove(r);
+		HandlerContext ctx = (HandlerContext) POSTED_EVENTS_DATA.remove(r);
 		if (ctx.response == PHRASE_DONE) {
 			ngx_http_clojure_mem_continue_current_phase(r);
 			return NGX_OK;
@@ -1049,6 +1068,16 @@ public class NginxClojureRT {
 		ngx_http_finalize_request(r, rc);
 	}
 	
+	private final static void savePostEventData(long id, Object o) {
+		while (POSTED_EVENTS_DATA.putIfAbsent(id, o) != null) {
+			try {
+				Thread.sleep(0);
+			} catch (InterruptedException e) {
+				log.error("interrupted!", e);
+				return;
+			}
+		}
+	}
 
 	/**
 	 * When called in the main thread it will be handled directly otherwise it will post a event by pipe let 
@@ -1059,16 +1088,20 @@ public class NginxClojureRT {
 			handleResponse(req.r, resp);
 		}else {
 			HandlerContext ctx = new HandlerContext(req, resp, buildOutputChain(req.r, resp));
-			while (REQ_RESP_MAP.putIfAbsent(ctx.request.r, ctx) != null) {
-					try {
-						Thread.sleep(0);
-					} catch (InterruptedException e) {
-						log.error("interrupted!", e);
-						return;
-					}
-			}
-			ngx_http_clojure_mem_post_write_event(req.r);
+			savePostEventData(req.r, ctx);
+			ngx_http_clojure_mem_post_event(req.r);
 		}
+	}
+	
+	public final static long makeEventAndSaveIt(int type, Object o) {
+		long id = ngx_http_clojure_mem_get_obj_addr(o);
+		long event = ((long)type) << 56 | id;
+		savePostEventData(id, o);
+		return event;
+	}
+	
+	public static void postCloseSocketEvent(NginxClojureSocketImpl s) {
+		ngx_http_clojure_mem_post_event(makeEventAndSaveIt(POST_EVENT_TYPE_CLOSE_SOCKET, s));
 	}
 	
 	public static LoggerService getLog() {

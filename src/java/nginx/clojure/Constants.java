@@ -64,6 +64,9 @@ public class Constants {
 	public static final String DEFAULT_ENCODING_STR = "utf-8";
 	public static final Charset DEFAULT_ENCODING = Charset.forName(DEFAULT_ENCODING_STR);
 	
+	public static final int POST_EVENT_TYPE_HANDLE_RESPONSE = 0;
+	public static final int POST_EVENT_TYPE_CLOSE_SOCKET = 1;
+	
 	
 	public static int BYTE_ARRAY_OFFSET;
 	
@@ -302,7 +305,7 @@ public class Constants {
 	public static int NGX_HTTP_CLOJURE_MEM_IDX_END = 255;
 	
 	//nginx clojure java runtime required the lowest version of nginx-clojure c module
-	public static long NGINX_CLOJURE_RT_REQUIRED_LVER = 2000;
+	public static long NGINX_CLOJURE_RT_REQUIRED_LVER = 2001;
 	
 	//ngx_core.h
 	public static int  NGX_OK       =   0;

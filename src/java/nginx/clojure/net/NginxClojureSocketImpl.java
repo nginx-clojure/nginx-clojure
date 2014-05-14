@@ -59,7 +59,6 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
 			throw new IllegalAccessError("close method of coroutine based sockets can only be called in main thread");
 		}
-		coroutine = Coroutine.getActiveCoroutine();
 		if (log == null) {
 			log = NginxClojureRT.getLog();
 		}
@@ -72,6 +71,13 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 			return (Socket) NginxClojureRT.UNSAFE.getObject(this, SOCKET_FIELD_OFFSET_OF_SOCKETIMPL);
 		}
 		return null;
+	}
+	
+	protected void attachCoroutine() {
+		Coroutine ac = Coroutine.getActiveCoroutine();
+		if (coroutine == null || coroutine.getState() == Coroutine.State.FINISHED) {
+			coroutine = ac;
+		}
 	}
 	
 	@Override
@@ -174,7 +180,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		//now java.net.socket has done safe close check so we can ignore it
 		//checkCreatedAndNotClosed();
 		if (log.isDebugEnabled()) {
-			log.debug("connecting to %s:%d", host, port);
+			log.debug("socket#%d: connecting to %s:%d", as.s , host, port);
 		}
 		as.connect(new StringBuilder(host).append(':').append(port).toString());
 		if (!as.isConnected()) {
@@ -189,6 +195,10 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 			}else if (status != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
 				throw new ConnectException(as.buildError(status));
 			}
+			if (log.isDebugEnabled()) {
+				log.debug("socket#%d: yield on connect", as.s);
+			}
+			attachCoroutine();
 			Coroutine.yield();
 			if (status != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
 				throw new ConnectException(as.buildError(status));
@@ -268,9 +278,6 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 	protected void close() throws IOException {
 //		checkCreatedAndNotClosed();
 		if (!isClosed()) {
-			if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
-				throw new IllegalAccessError("close method of coroutine based sockets can only be called in main thread");
-			}
 			if (inputStream != null) {
 				inputStream.closed = true;
 				inputStream = null;
@@ -279,9 +286,22 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 				outputStream.closed = true;
 				outputStream = null;
 			}
+			if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
+				log.warn("socket#%d: close a coroutine based sockets not in main thread, so we post a event to main thread to do so", as.s);
+				NginxClojureRT.postCloseSocketEvent(this);
+			}else {
+				as.close();
+				as = null;
+			}
+			yieldFlag = 0;
+		}
+	}
+	
+	public void closeByPostEvent() {
+		if (as != null) {
+			log.debug("socket#%d: closed by post event", as.s);
 			as.close();
 			as = null;
-			yieldFlag = 0;
 		}
 	}
 
@@ -305,7 +325,9 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 
 	@Override
 	public void onConnect(NginxClojureAsynSocket s, long sc) {
-		log.debug("on connect status=%d", sc);
+		if (log.isDebugEnabled()) {
+			log.debug("socket#%d: on connect status=%d", as.s, sc);
+		}
 		status = sc;
 		NginxClojureSocketImpl ns = (NginxClojureSocketImpl)s.getHandler();
 		if (ns.yieldFlag == NginxClojureSocketImpl.YIELD_CONNECT){
@@ -318,7 +340,9 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 
 	@Override
 	public void onRead(NginxClojureAsynSocket s, long sc) {
-		log.debug("on read status=%d", sc);
+		if (log.isDebugEnabled()) {
+			log.debug("socket#%d: on read status=%d", as.s, sc);
+		}
 		status = sc;
 		NginxClojureSocketImpl ns = (NginxClojureSocketImpl)s.getHandler();
 		if (ns.yieldFlag == NginxClojureSocketImpl.YIELD_READ){
@@ -331,7 +355,9 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 
 	@Override
 	public void onWrite(NginxClojureAsynSocket s, long sc) {
-		log.debug("on write status=%d", sc);
+		if (log.isDebugEnabled()) {
+			log.debug("socket#%d: on write status=%d", as.s, sc);
+		}
 		status = sc;
 		NginxClojureSocketImpl ns = (NginxClojureSocketImpl)s.getHandler();
 		if (ns.yieldFlag == NginxClojureSocketImpl.YIELD_WRITE){
@@ -344,7 +370,9 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 
 	@Override
 	public void onRelease(NginxClojureAsynSocket s, long sc) {
-		log.debug("on release status=%d", sc);
+		if (log.isDebugEnabled()) {
+			log.debug("socket#%d: on release status=%d", as.s, sc);
+		}
 		status = sc;
 		NginxClojureSocketImpl ns = (NginxClojureSocketImpl)s.getHandler();
 		if (ns.coroutine.getState() == State.SUSPENDED){
@@ -391,13 +419,15 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 			if (off + len > b.length) {
 				throw new IndexOutOfBoundsException("buffer space is too small, off + len > b.length");
 			}
-			log.debug("enter read offset %d len %d", off, len);
+			if (log.isDebugEnabled()) {
+				log.debug("socket#%d: enter read offset %d len %d", s.as.s, off, len);
+			}
 			long rc = 0;
 			long c = 0;
 			do {
 				rc = s.as.read(b, off + c, len - c);
 				if (log.isDebugEnabled()) {
-					log.debug("read offset %d len %d return %d, total %d", off+c, len-c, rc, rc > 0 ? rc + c : c);
+					log.debug("socket#%d: read offset %d len %d return %d, total %d", s.as.s, off+c, len-c, rc, rc > 0 ? rc + c : c);
 				}
 				
 				if (rc == 0) {
@@ -412,15 +442,16 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 					}
 					s.yieldFlag = YIELD_READ;
 					if (log.isDebugEnabled()) {
-						log.debug("yield read", new Exception("DEBUG USAGE--yield"));
+						log.debug(String.format("socket#%d: yield read", s.as.s), new Exception("DEBUG USAGE--yield read"));
 					}
+					s.attachCoroutine();
 					Coroutine.yield();
 					if (s.status != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
 						throw new SocketException(s.as.buildError(s.status));
 					}
 				}else if (rc < 0) {
 					if (c > 0) {
-						log.warn("meet error %d, but we have read some data (len=%d), just return it", rc, c);
+						log.warn("socket#%d: meet error %d, but we have read some data (len=%d), just return it", s.as.s, rc, c);
 						break;
 					}
 					throw new SocketException(s.as.buildError(rc));
@@ -441,7 +472,9 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		
 		@Override
 		public void close() throws IOException {
-			log.debug("close input");
+			if (log.isDebugEnabled()) {
+				log.debug("socket#%d: close inputstream", s.as.s);
+			}
 //			checkClosed();
 			if (closed) {
 				return;
@@ -449,6 +482,8 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 			closed = true;
 			Socket fs = s.fetchSocket();
 			if (fs != null) {
+				//although I think it's wrong  but it becomes de facto standard because of 
+				//Java build-in implementation. so we have no choice :-(.
 				fs.close();
 			}else {
 				s.close();
@@ -482,13 +517,15 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 			if (off + len > b.length) {
 				throw new IndexOutOfBoundsException("buffer space is too small, off + len > b.length");
 			}
-			log.debug("enter write offset %d len %d", off, len);
+			if (log.isDebugEnabled()) {
+				log.debug("socket#%d: enter write offset %d len %d", s.as.s, off, len);
+			}
 			long rc = 0;
 			long c = 0;
 			do {
 				rc = s.as.write(b, off + c, len - c);
 				if (log.isDebugEnabled()) {
-					log.debug("write offset %d len %d return %d, total %d", off+c, len-c, rc, rc > 0 ? rc + c : c);
+					log.debug("socket#%d: write offset %d len %d return %d, total %d", s.as.s, off+c, len-c, rc, rc > 0 ? rc + c : c);
 				}
 				if (rc == 0) {
 					return;
@@ -497,7 +534,10 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 						throw new SocketTimeoutException(s.as.buildError(s.status));
 					}
 					s.yieldFlag = YIELD_WRITE;
-					log.debug("yield write");
+					if (log.isDebugEnabled()) {
+						log.debug(String.format("socket#%d: yield write", s.as.s), new Exception("DEBUG USAGE--yield write"));
+					}
+					s.attachCoroutine();
 					Coroutine.yield();
 					if (s.status != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
 						throw new SocketException(s.as.buildError(s.status));
@@ -519,7 +559,9 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		
 		@Override
 		public void close() throws IOException {
-			log.debug("close output");
+			if (log.isDebugEnabled()) {
+				log.debug("socket#%d: close outputstream", s.as.s);
+			}
 //			checkClosed();
 			if (closed) {
 				return;
@@ -528,6 +570,8 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 			closed = true;
 			Socket fs = s.fetchSocket();
 			if (fs != null) {
+				//although I think it's wrong  but it becomes de facto standard because of 
+				//Java build-in implementation. so we have no choice :-(.
 				fs.close();
 			}else {
 				s.close();
