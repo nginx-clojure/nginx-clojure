@@ -6,8 +6,7 @@
         [ring.middleware.content-type]
         [ring.middleware.session.memory]
         [ring.middleware.session.cookie]
-        ;sadly ring.middleware.multipart-params is dependent on servlet api so we must comment it
-        ;[ring.middleware.multipart-params]
+        [ring.middleware.multipart-params]
         [compojure.core]
         )
   (:require [compojure.route :as route])
@@ -45,5 +44,12 @@
   (GET "/wrap-cookies" [] (wrap-cookies echo-handler))
   ;:session
   (GET "/wrap-session" [] (-> session-handler wrap-params (wrap-session {:store my-session-store}) ))
+  (POST "/ring-upload" [] (wrap-multipart-params 
+                            (wrap-params 
+                              (fn [{params :params}] 
+                                (let [{:keys [tempfile filename]} (params "myfile")]
+                                  {:status 200, 
+                                   :headers {"rmap" (pr-str (dissoc params "myfile")), "content-type" "text/plain"}
+                                   :body (java.io.File. filename)})))))
   (GET "/not-found" [] (route/not-found "<h1>Page not found</h1>")))
 
