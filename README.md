@@ -186,7 +186,7 @@ Now you can start nginx and access http://localhost:8080/clojure, if some error 
 
 ```
 
-You should set your clojure JAR files to class path, see [2.1 JVM path & class path](#2.1 JVM path & class path) .
+You should set your clojure JAR files to class path, see [2.1 JVM Path , Class Path & Other JVM Options](#21-jvm-path--class-path--other-jvm-options) .
 
 
 ```nginx
@@ -243,7 +243,7 @@ In nginx.conf, eg.
        }
 ```
 
-You should set your  JAR files to class path, see [2.1 JVM path & class path](#2.1 JVM path & class path) .
+You should set your  JAR files to class path, see [2.1 JVM Path , Class Path & Other JVM Options](#21-jvm-path--class-path--other-jvm-options) .
 
 2.4 Chose  Coroutine based Socket Or Asynchronous Socket Or Thread Pool for slow I/O operations
 -----------------
@@ -377,7 +377,7 @@ In future we'll give more clojure style wrapper and examples. **_Pull requests a
 ### 2.4.3 Use Thread Pool
 
 If your tasks are often blocked by slow I/O operations, the thread pool method can make the nginx worker not blocked until
-all threads are exhuasted. When facing large amount of connections this choice isn't as good as above coroutine based choice.
+all threads are exhuasted. When facing large amount of connections this choice isn't as good as above coroutine based choice or asynchronous socket.
 
 eg.
 
