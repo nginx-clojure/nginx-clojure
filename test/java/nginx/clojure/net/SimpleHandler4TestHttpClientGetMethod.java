@@ -35,6 +35,7 @@ public class SimpleHandler4TestHttpClientGetMethod extends AFn {
 			while ((c = in.read(buf)) > 0) {
 				out.write(buf, 0, c);
 			}
+			in.close();
 			Object[] resps = new Object[] {
 					Constants.STATUS,
 					200,
@@ -47,9 +48,9 @@ public class SimpleHandler4TestHttpClientGetMethod extends AFn {
 		} catch(IOException e) {
 			throw new RuntimeException("ioexception", e);
 		}finally {
-			if (response != null) {
+			if (httpclient != null) {
 				try {
-					response.close();
+					httpclient.close();
 				} catch (IOException e) {
 					e.printStackTrace();
 				}

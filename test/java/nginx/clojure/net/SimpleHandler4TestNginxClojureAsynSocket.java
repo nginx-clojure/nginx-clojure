@@ -61,6 +61,8 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 				AsynHttpContext ctx = s.getContext();
 				if (ctx.reqSent) {
 					log.info("after request meet write again, just ignored..........");
+					//we don't need to write data now
+					s.shutdown(NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_SOFT_WRITE);
 					return;
 				}
 				

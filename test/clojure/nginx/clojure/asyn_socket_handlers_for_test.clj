@@ -31,7 +31,10 @@
     (let [ctx (.getContext as) 
           {:keys [rc, wc,req-sent?, creq, req, buf, resp]} @ctx]
       (if req-sent? 
-        (.info logger "after request meet write again, just ignored..........")
+        (do 
+          (.info logger "after request meet write again, just ignored..........")
+          (.shutdown as NginxClojureAsynSocket/NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_SOFT_WRITE))
+        
         ;else
         (loop [wc wc]
           (let [n (.write as req wc (- (alength req) wc))]
