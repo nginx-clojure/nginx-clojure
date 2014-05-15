@@ -24,6 +24,8 @@ import nginx.clojure.Coroutine;
 import nginx.clojure.Coroutine.State;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.logger.LoggerService;
+import nginx.clojure.logger.TinyLogService;
+import nginx.clojure.logger.TinyLogService.MsgType;
 
 public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSocketHandler {
 	
@@ -32,6 +34,8 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 	final static int YIELD_WRITE = 3;
 	
 	final static long SOCKET_FIELD_OFFSET_OF_SOCKETIMPL;
+	
+	public static final String NGINX_CLOJURE_LOG_SOCKET_LEVEL = "nginx.clojure.logger.socket.level";
 	
 	static {
 		Field socketField = null;
@@ -60,7 +64,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 			throw new IllegalAccessError("close method of coroutine based sockets can only be called in main thread");
 		}
 		if (log == null) {
-			log = NginxClojureRT.getLog();
+			log = new TinyLogService(TinyLogService.getSystemPropertyOrDefaultLevel(NGINX_CLOJURE_LOG_SOCKET_LEVEL, MsgType.info), System.err, System.err);
 		}
 	}
 	
@@ -287,7 +291,13 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 				outputStream = null;
 			}
 			if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
-				log.warn("socket#%d: close a coroutine based sockets not in main thread, so we post a event to main thread to do so", as.s);
+				if (log.isDebugEnabled()) {
+					log.debug(
+							String.format(
+									"socket#%d: close a coroutine based sockets not in main thread, so we post a event to main thread to do so",
+									as.s), new Exception(
+									"DEBUG USAGE--closeByPostEvent"));
+				}
 				NginxClojureRT.postCloseSocketEvent(this);
 			}else {
 				as.close();
@@ -299,7 +309,9 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 	
 	public void closeByPostEvent() {
 		if (as != null) {
-			log.debug("socket#%d: closed by post event", as.s);
+			if (log.isDebugEnabled()) {
+				log.debug("socket#%d: closed by post event", as.s);
+			}
 			as.close();
 			as = null;
 		}
