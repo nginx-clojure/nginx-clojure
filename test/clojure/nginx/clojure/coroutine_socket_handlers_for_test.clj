@@ -23,19 +23,19 @@
 
 (def tlog (TinyLogService/createDefaultTinyLogService))
 ;
-(defn println [& args]
+(defn tprintln [& args]
   (.info tlog (first args) (into-array  Object (rest args))))
 
 
 (defn do-simple-selfresume [selfresume]
-  (println "enter do-simple-response")
-  (println "before yield")
+  (tprintln "enter do-simple-response")
+  (tprintln "before yield")
 ;  (.printStackTrace (Exception. "debug stack trace"))
   (if selfresume
     (let [cr (Coroutine/getActiveCoroutine)]
-     (future (java.lang.Thread/sleep 3000) (println "before resume") (try  (.resume cr) (catch Throwable e (.printStackTrace e))))))
+     (future (java.lang.Thread/sleep 3000) (tprintln "before resume") (try  (.resume cr) (catch Throwable e (.printStackTrace e))))))
   (Coroutine/yield)
-  (println "after yield")
+  (tprintln "after yield")
   {:status 200, :headers {"content-type" "text/plain"}, :body "Simple Response\n"})
 
 
