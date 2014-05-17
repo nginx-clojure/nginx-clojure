@@ -1,3 +1,12 @@
+## 0.2.1 (2014-05-17)
+
+1. Support to close coroutine based socket from non-main thread (issue #19)
+2. Auto generated waving class configurations about Proxy InvocationHandler instance (issue #17 )
+3. Supports auto turn on thread pool mode when turning on Run Tool Mode feature (issue #16 )
+4. Fix bug of reading from coroutine based socket inputstream returns 0 when eof, should return -1 (issue #15)
+5. Handle multiple sockets parallel in sub coroutines, e.g. we can invoke two remote services at the same time feature (issue #14)
+6. Support nginx rewrite handler to set var before proxy pass (issue #3)
+
 ## 0.2.0 (2014-04-25)
 
 1. non-blocking socket based on coroutine and compatible with largely existing java library such as apache http client, mysql jdbc drivers
