@@ -442,13 +442,41 @@ We can alos use this feature to complete a simple dynamic balancer , e.g.
 						(fn[req]
 						  ;compute myhost based req & remote service, e.g.
 						  (let [myhost (compute-myhost req)])
-						  (set-ngx-var! req "myvar" myhost)
+						  (set-ngx-var! req "myhost" myhost)
 						  phrase-done))
           ';
           proxy_pass $myhost
        }    
 
 ```
+
+3. More about Nginx-Clojure
+=================
+
+3.1 Handle Multiple Coroutine Based Sockets Parallel
+-----------------
+
+Sometimes we need invoke serveral remote services before completing the ring  response. For better performance we need a way to handle multiple sockets parallel in sub coroutines.
+
+e.g. fetch two page parallel by clj-http
+
+```clojure
+   (let [[r1, r2] 
+                (co-pvalues (client/get "http://service1-url") 
+                            (client/get "http://service2-url"))]
+    ;println bodies of two remote response
+    (println (str (:body r1) "====\n" (:body r2) ))
+```
+
+Here `co-pvalues` is also non-blocking and coroutine based. In fact it will create two sub coroutines to handle two sockets.
+
+3.2 Shared Map among Nginx Workers
+-----------------
+
+Generally use redis or memorycached is the better choice to implement a shared map among Nginx workers. We can do some initialization of the 
+shared map by following the guide of [2.2 Initialization Handler for nginx worker](#22-initialization-handler-for-nginx-worker).
+If you like shared map managed in nginx  process better than redis or memcached, you can choose [SharedHashMap](https://github.com/OpenHFT/HugeCollections/wiki/Getting-Started)  
+which is fast and based on Memory Mapped File so that it can store  large amout of records and won't need too much java heap memory.
 
 
 4. Useful Links
