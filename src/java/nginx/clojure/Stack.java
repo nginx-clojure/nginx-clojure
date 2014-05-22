@@ -149,6 +149,10 @@ public final class Stack implements Serializable {
         
         method[idx] = 0;
         
+        if (idx < method.length - 1) { /*for issue #22*/
+        	method[idx+1] = 0;
+        }
+        
     	if (db != null && db.isDebug()) {
     		db.debug("th#%d: popMethod sp=%d, tos=%d %s, stack=%s", Thread.currentThread().getId(), curMethodSP, methodTOS, Thread.currentThread().getStackTrace()[2], stackToString());
     	}
