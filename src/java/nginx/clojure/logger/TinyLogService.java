@@ -78,7 +78,11 @@ public class TinyLogService implements LoggerService {
 	}
 
 	public void debug(Object message) {
-		message(message, MsgType.debug);
+		if (message instanceof Throwable) {
+			((Throwable)message).printStackTrace(message(((Throwable)message).getMessage(), MsgType.debug));
+		}else {
+			message(message, MsgType.debug); 
+		}
 	}
 
 
@@ -94,7 +98,11 @@ public class TinyLogService implements LoggerService {
 
 
 	public void error(Object message) {
-		message(message, MsgType.error); 
+		if (message instanceof Throwable) {
+			((Throwable)message).printStackTrace(message(((Throwable)message).getMessage(), MsgType.error));
+		}else {
+			message(message, MsgType.error); 
+		}
 	}
 
 
@@ -109,7 +117,11 @@ public class TinyLogService implements LoggerService {
 
 
 	public void fatal(Object message) {
-		message(message, MsgType.fatal);
+		if (message instanceof Throwable) {
+			((Throwable)message).printStackTrace(message(((Throwable)message).getMessage(), MsgType.fatal));
+		}else {
+			message(message, MsgType.fatal); 
+		}
 	}
 
 
@@ -162,7 +174,11 @@ public class TinyLogService implements LoggerService {
 	
 
 	public void info(Object message) {
-		message(message, MsgType.info);
+		if (message instanceof Throwable) {
+			((Throwable)message).printStackTrace(message(((Throwable)message).getMessage(), MsgType.info));
+		}else {
+			message(message, MsgType.info); 
+		}
 	}
 
 
@@ -222,7 +238,11 @@ public class TinyLogService implements LoggerService {
 
 
 	public void warn(Object message) {
-		message(message, MsgType.warn);
+		if (message instanceof Throwable) {
+			((Throwable)message).printStackTrace(message(((Throwable)message).getMessage(), MsgType.warn));
+		}else {
+			message(message, MsgType.warn); 
+		}
 	}
 
 
