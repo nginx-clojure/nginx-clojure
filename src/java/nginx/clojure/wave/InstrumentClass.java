@@ -127,7 +127,15 @@ public class InstrumentClass extends ClassVisitor {
             methods.add(mn);
             return new JSRInlinerAdapter(mv, access, name, desc, signature, exceptions);
         }
-        return super.visitMethod(access, name, desc, signature, exceptions);
+        
+        if (db.isVerify()) {
+			return new JSRInlinerAdapter(new SuspendMethodVerifyAdvice(db,
+					className, super.visitMethod(access, name, desc, signature,
+							exceptions), access, name, desc), access, name,
+					desc, signature, exceptions);
+        }else {
+        	return super.visitMethod(access, name, desc, signature, exceptions);
+        }
     }
     
     @Override
@@ -176,6 +184,7 @@ public class InstrumentClass extends ClassVisitor {
             }
         }
         super.visitEnd();
+        classEntry.setAlreadyInstrumented(true);
     }
 
     protected MethodVisitor makeOutMV(MethodNode mn) {
@@ -186,6 +195,9 @@ public class InstrumentClass extends ClassVisitor {
     		Printer tp = new Textifier();
     		TracableMethodVisitor tmv = new TracableMethodVisitor("Waved: " + className + "." + mk,  mv, mn.access, mn.name, mn.desc, mn.signature, exps, tp, new PrintWriter(System.out));
     		mv = new TraceMethodVisitor(tmv, tp);
+    	}
+    	if (db.isVerify()) {
+    		return new JSRInlinerAdapter(new SuspendMethodVerifyAdvice(db, className, mv, mn.access, mn.name, mn.desc), mn.access, mn.name, mn.desc, mn.signature, exps);
     	}
     	return new JSRInlinerAdapter(mv, mn.access, mn.name, mn.desc, mn.signature, exps);
     }

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2008, Matthias Mann
+ * Copyright (C) 2014, Zhang,Yuexiang (xfeep)
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,6 +32,9 @@ package nginx.clojure;
 import java.io.Serializable;
 
 import nginx.clojure.wave.MethodDatabase;
+import nginx.clojure.wave.SuspendMethodVerifier.VerifyInfo;
+import nginx.clojure.wave.SuspendMethodVerifier.VerifyMethodInfo;
+import nginx.clojure.wave.SuspendMethodVerifier.VerifyVarInfo;
 
 /**
  * Internal Class - DO NOT USE !
@@ -46,6 +50,8 @@ public final class Stack implements Serializable {
     
     private static final ThreadLocal<Stack> tls = new ThreadLocal<Stack>();
     
+    private static volatile long vidCounter = 0;
+    
     /** sadly this need to be here */
     public static SuspendExecution exception_instance_not_for_user_code = SuspendExecution.instance;
     
@@ -59,6 +65,8 @@ public final class Stack implements Serializable {
     private long[] dataLong;
     private Object[] dataObject;
     
+    private VerifyInfo verifyInfo;
+    
     transient int curMethodSP;
     
     
@@ -70,6 +78,18 @@ public final class Stack implements Serializable {
         this.method = new int[8];
         this.dataLong = new long[stackSize];
         this.dataObject = new Object[stackSize];
+        if (db.isVerify()) {
+        	verifyInfo = new VerifyInfo();
+        	verifyInfo.vid = vidCounter++;
+        }
+    }
+    
+    public static VerifyInfo getVerifyInfo() {
+    	Stack stack = tls.get();
+    	if (stack == null) {
+    		return null;
+    	}
+    	return stack.verifyInfo;
     }
     
     public static Stack getStack() {
@@ -82,6 +102,7 @@ public final class Stack implements Serializable {
     public static void setStack(Stack s) {
         tls.set(s);
     }
+    
     
     /**
      * Called before a method is called.
@@ -112,13 +133,32 @@ public final class Stack implements Serializable {
         	}
         }
         
-        if (db != null && db.isDebug()) {
-          db.debug("th#%d: pushMethodAndReserveSpace  entry=%d, numSlots=%d, sp=%d, dtos=%d,  nr(tos)=%d, %s stack=%s", Thread.currentThread().getId(), entry, numSlots, curMethodSP, dataTOS, methodIdx, Thread.currentThread().getStackTrace()[2], stackToString());
-        }
-        
         if(dataTOS > dataObject.length) {
             growDataStack(dataTOS);
         }
+    }
+    
+    public final void pushMethodAndReserveSpaceV(int entry, int numSlots, String classAndMethod) {
+    	int idx = methodTOS >> 1;
+    	pushMethodAndReserveSpace(entry, numSlots);
+    	if (db.meetTraceTargetClassMethod(classAndMethod)) {
+    		db.info("#%d pushMethodAndReserveSpaceV %s, slots=%d tos=%d midx=%d sp=%d", verifyInfo.vid, classAndMethod, numSlots, methodTOS, idx, curMethodSP);
+    	}
+        if (idx >= verifyInfo.methodIdxInfos.length -1) {
+        	VerifyMethodInfo[] nvmis = new VerifyMethodInfo[verifyInfo.methodIdxInfos.length << 1];
+            System.arraycopy(verifyInfo.methodIdxInfos, 0, nvmis, 0, verifyInfo.methodIdxInfos.length);
+            verifyInfo.methodIdxInfos = nvmis;
+        }
+        checkClassAndMethod(idx, "pushMethodAndReserveSpaceV", classAndMethod);
+        VerifyMethodInfo vmi = verifyInfo.methodIdxInfos[idx];
+        VerifyVarInfo[] mvvis = db.getVerfiyMethodInfos().get(classAndMethod)[entry-1];
+        VerifyVarInfo[] vvis = new VerifyVarInfo[mvvis.length];
+        for (int i = 0; i < mvvis.length; i++) {
+        	if (mvvis[i] != null) {
+        		vvis[i] = mvvis[i].clone();
+        	}
+        }
+        vmi.vars = vvis;
     }
     
     /**
@@ -127,10 +167,6 @@ public final class Stack implements Serializable {
      * to allow the values to be GCed.
      */
     public final void popMethod() {
-
-    	if (db != null && db.isDebug()) {
-    		db.debug("th#%d: before popMethod sp=%d, tos=%d, stack=%s", Thread.currentThread().getId(), curMethodSP, methodTOS, stackToString());
-    	}
     	
         int idx = methodTOS;
         
@@ -149,22 +185,50 @@ public final class Stack implements Serializable {
         
         method[idx] = 0;
         
-        if (idx < method.length - 1) { /*for issue #22*/
+        if (idx < method.length - 1) { /*newSP == oldSP*/
         	method[idx+1] = 0;
         }
-        
-    	if (db != null && db.isDebug()) {
-    		db.debug("th#%d: popMethod sp=%d, tos=%d %s, stack=%s", Thread.currentThread().getId(), curMethodSP, methodTOS, Thread.currentThread().getStackTrace()[2], stackToString());
-    	}
     }
     
-    private String stackToString() {
-    	StringBuilder s = new StringBuilder("{");
-    	for (int i = 0; i <= methodTOS; i++) {
-    		s.append(i).append(":").append(method[i]).append(",");
+    private boolean checkClassAndMethod(int idx, String phrase,  String classAndMethod) {
+    	VerifyMethodInfo vmi = verifyInfo.methodIdxInfos[idx];
+    	if ( !classAndMethod.equals(vmi.classAndMethod) ) {
+    		RuntimeException re = new RuntimeException(buildMessage(this, "#%d %s tos=%d midx=%d sp=%d %s != %s", verifyInfo.vid, phrase, methodTOS, idx, curMethodSP, classAndMethod, vmi.classAndMethod));
+    		db.error(re);
+    		return false;
     	}
-    	s.append("}");
-    	return s.toString();
+    	return true;
+    }
+    
+    public final void popMethodV(String classAndMethod) {
+    	int idx = methodTOS >> 1;
+    	popMethod();
+    	if (db.meetTraceTargetClassMethod(classAndMethod)) {
+    		db.info("#%d popMethodV %s tos=%d midx=%d sp=%d", verifyInfo.vid, classAndMethod, methodTOS, idx, curMethodSP);
+    	}
+    	checkClassAndMethod(idx, "popMethodV", classAndMethod);
+    	verifyInfo.methodIdxInfos[idx] = null;
+    }
+    
+    public final int nextMethodEntryV(String classAndMethod) {
+    	int entry = nextMethodEntry();
+    	int idx = methodTOS >> 1;
+    	if (db.meetTraceTargetClassMethod(classAndMethod)) {
+    		db.info("#%d nextMethodEntryV %s, entry=%d tos=%d midx=%d sp=%d", verifyInfo.vid, classAndMethod, entry, methodTOS, idx, curMethodSP);
+    	}
+    	if (entry < 0) {
+			db.warn("#%d nextMethodEntry %s,tos=%d midx=%d sp=%d return -1, we meet a broken suspend methods path because of unwaved methods mingled in the path",
+					verifyInfo.vid, classAndMethod, methodTOS, idx, curMethodSP);
+		} else {
+			if (entry == 0) {
+				VerifyMethodInfo vmi = verifyInfo.methodIdxInfos[idx] = verifyInfo.tracerStacks.get(verifyInfo.tracerStacks.size() - 1);
+				vmi.idx = methodTOS;
+			}
+			if (!checkClassAndMethod(idx, "nextMethodEntryV", classAndMethod)){
+				db.error("#%d nextMethodEntryV  entry=%d tos=%d midx=%d sp=%d classAndMethod:%s", verifyInfo.vid, entry, methodTOS, idx, curMethodSP, classAndMethod);
+			}
+		}
+    	return entry;
     }
     
     /**
@@ -173,17 +237,11 @@ public final class Stack implements Serializable {
      */
     public final int nextMethodEntry() {
     	if (methodTOS > 0 && (methodTOS + 1 == method.length || method[methodTOS + 1] == 0)) {
-    		if (db != null && db.isDebug()) {
-        		db.debug("th#%d:nextMethodEntry tos=%d return -1, we meet a broken suspend methods path because of unwaved methods mingled in the path, %s", Thread.currentThread().getId(), methodTOS, Thread.currentThread().getStackTrace()[2]);
-    		}
     		return -1;
     	}
         int idx = methodTOS;
         curMethodSP = method[++idx];
         methodTOS = ++idx;
-    	if (db != null && db.isDebug()) {
-    		db.debug("th#%d: nextMethodEntry entry=%d, sp=%d, tos=%d, %s, stack=%s",Thread.currentThread().getId(), method[idx], curMethodSP, methodTOS , Thread.currentThread().getStackTrace()[2], stackToString());
-    	}
         return method[idx];
     }
     
@@ -202,6 +260,62 @@ public final class Stack implements Serializable {
     public static void push(Object value, Stack s, int idx) {
         s.dataObject[s.curMethodSP + idx] = value;
     }
+    
+    public static void pushV(int value, Stack s, int idx, String classAndMethod) {
+    	int midx = s.methodTOS >> 1;
+    	if (db.meetTraceTargetClassMethod(classAndMethod)) {
+    		db.info("#%d pushVInt %s, tos=%d midx=%d sp=%d idx=%d v=%d", s.verifyInfo.vid, classAndMethod, s.methodTOS, midx, s.curMethodSP, idx, value);
+    	}
+        s.dataLong[s.curMethodSP + idx] = value;
+	    s.checkClassAndMethod(midx, "pushV", classAndMethod);
+        VerifyVarInfo[] vars = s.verifyInfo.methodIdxInfos[midx].vars;
+        vars[(vars.length >> 1) + idx].value = value;
+    }
+    
+    public static void pushV(float value, Stack s, int idx, String classAndMethod) {
+    	int midx = s.methodTOS >> 1;
+    	if (db.meetTraceTargetClassMethod(classAndMethod)) {
+    		db.info("#%d pushVFloat %s, tos=%d midx=%d sp=%d idx=%d v=%f", s.verifyInfo.vid, classAndMethod, s.methodTOS, midx, s.curMethodSP, idx, value);
+    	}
+	    s.checkClassAndMethod(midx, "pushV", classAndMethod);
+        s.dataLong[s.curMethodSP + idx] = Float.floatToRawIntBits(value);
+        VerifyVarInfo[] vars = s.verifyInfo.methodIdxInfos[s.methodTOS >> 1].vars;
+        vars[(vars.length >> 1) + idx].value = value;
+    }
+    
+    public static void pushV(long value, Stack s, int idx, String classAndMethod) {
+    	int midx = s.methodTOS >> 1;
+    	if (db.meetTraceTargetClassMethod(classAndMethod)) {
+    		db.info("#%d pushVLong %s, tos=%d midx=%d sp=%d idx=%d v=%d", s.verifyInfo.vid, classAndMethod, s.methodTOS, midx, s.curMethodSP, idx, value);
+    	}
+	    s.checkClassAndMethod(midx, "pushV", classAndMethod);
+        s.dataLong[s.curMethodSP + idx] = value;
+        VerifyVarInfo[] vars = s.verifyInfo.methodIdxInfos[s.methodTOS >> 1].vars;
+        vars[(vars.length >> 1) + idx].value = value;
+    }
+    
+    public static void pushV(double value, Stack s, int idx, String classAndMethod) {
+    	int midx = s.methodTOS >> 1;
+    	if (db.meetTraceTargetClassMethod(classAndMethod)) {
+    		db.info("#%d pushVDouble %s, tos=%d midx=%d sp=%d idx=%d v=%f", s.verifyInfo.vid, classAndMethod, s.methodTOS, midx, s.curMethodSP, idx, value);
+    	}
+	    s.checkClassAndMethod(midx, "pushV", classAndMethod);
+        s.dataLong[s.curMethodSP + idx] = Double.doubleToRawLongBits(value);
+        VerifyVarInfo[] vars = s.verifyInfo.methodIdxInfos[s.methodTOS >> 1].vars;
+        vars[(vars.length >> 1) + idx].value = value;
+    }
+    
+    public static void pushV(Object value, Stack s, int idx, String classAndMethod) {
+    	int midx = s.methodTOS >> 1;
+    	if (db.meetTraceTargetClassMethod(classAndMethod)) {
+    		db.info(buildMessage(s, "#%d pushVObject %s, tos=%d midx=%d sp=%d idx=%d v=%s", s.verifyInfo.vid, classAndMethod, s.methodTOS, midx, s.curMethodSP, idx, value));
+    	}
+	    s.checkClassAndMethod(midx, "pushV", classAndMethod);
+        s.dataObject[s.curMethodSP + idx] = value;
+        VerifyVarInfo[] vars = s.verifyInfo.methodIdxInfos[s.methodTOS >> 1].vars;
+        vars[idx].value = value;
+    }
+    
 
     public final int getInt(int idx) {
         return (int)dataLong[curMethodSP + idx];
@@ -218,6 +332,130 @@ public final class Stack implements Serializable {
     public final Object getObject(int idx) {
         return dataObject[curMethodSP + idx];
     }
+    
+    private static String buildMessage(Stack s, String format, Object... args) {
+    	setStack(null);
+    	try {
+    		return String.format(format, args);
+    	}finally {
+    		setStack(s);
+    	}
+    }
+    
+    private static void printErrorMessage(MethodDatabase db, Stack s, String format, Object... args) {
+    	setStack(null);
+    	try {
+    		RuntimeException re = new RuntimeException(String.format(format, args));
+    		db.error(re);
+    	}finally {
+    		setStack(s);
+    	}
+    }
+    
+    public final int getIntV(int idx, String classAndMethod) {
+    	int midx = methodTOS >> 1;
+	    checkClassAndMethod(midx, "getIntV", classAndMethod);
+        int rt = (int)dataLong[curMethodSP + idx];
+    	if (db.meetTraceTargetClassMethod(classAndMethod)) {
+    		db.info("#%d getIntV %s, tos=%d mid=%d, sp=%d idx=%d v=%s", verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx, rt);
+    	}
+    	VerifyVarInfo[] vis = verifyInfo.methodIdxInfos[midx].vars;
+    	Object ort = vis[(vis.length >> 1) + idx].value;
+    	int prt = 0;
+    	
+    	if (ort instanceof Boolean) {
+    		prt = (Boolean)ort ? 1 : 0;
+    	}else if (ort instanceof Number) {
+    		prt = ((Number)ort).intValue();
+    	}else if (ort instanceof Character) {
+    		prt = ((Character)ort).charValue();
+    	}else {
+    		printErrorMessage(this.db, this,"#%d getIntV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s",  verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx, rt, ort);
+    		return rt;
+    	}
+        
+        if (rt != prt) {
+        	printErrorMessage(this.db, this ,"#%d getIntV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s", verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx, rt, prt);
+        }
+    	return rt;
+    }
+    public final float getFloatV(int idx, String classAndMethod) {
+    	int midx = methodTOS >> 1;
+	    checkClassAndMethod(midx, "getFloatV", classAndMethod);
+        float rt = Float.intBitsToFloat((int)dataLong[curMethodSP + idx]);
+        if (db.meetTraceTargetClassMethod(classAndMethod)) {
+    		db.info("#%d getFloatV %s, tos=%d mid=%d, sp=%d idx=%d v=%s", verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx, rt);
+    	}
+    	VerifyVarInfo[] vis = verifyInfo.methodIdxInfos[midx].vars;
+    	Object ort = vis[(vis.length >> 1) + idx].value;
+    	Float prt;
+    	if (ort instanceof Float) {
+    		prt = (Float)ort;
+    	}else {
+    		printErrorMessage(this.db, this,"#%d getFloatV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s",  verifyInfo.vid, classAndMethod, methodTOS, midx,curMethodSP, idx, rt, ort);
+    		return rt;
+    	}
+        if (rt != prt) {
+        	printErrorMessage(this.db, this ,"#%d getFloatV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s", verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx,rt, prt);
+        }
+    	return rt;
+    }
+    public final long getLongV(int idx, String classAndMethod) {
+    	int midx = methodTOS >> 1;
+	    checkClassAndMethod(midx, "getLongV", classAndMethod);
+        long rt = dataLong[curMethodSP + idx];
+        if (db.meetTraceTargetClassMethod(classAndMethod)) {
+    		db.info("#%d getLongV %s, tos=%d midx=%d, sp=%d idx=%d v=%s", verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx, rt);
+    	}
+    	VerifyVarInfo[] vis = verifyInfo.methodIdxInfos[midx].vars;
+    	Object ort = vis[(vis.length >> 1) + idx].value;
+    	Long prt;
+    	if (ort instanceof Long) {
+    		prt = (Long)ort;
+    	}else {
+    		printErrorMessage(this.db, this ,"#%d getLongV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s",  verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx, rt, ort);
+    		return rt;
+    	}
+        if (rt != prt) {
+        	printErrorMessage(this.db, this ,"#%d getLongV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s", verifyInfo.vid, classAndMethod, methodTOS, midx,  curMethodSP, idx,rt, prt);
+        }
+    	return rt;
+    }
+    public final double getDoubleV(int idx, String classAndMethod) {
+    	int midx = methodTOS >> 1;
+	    checkClassAndMethod(midx, "getDoubleV", classAndMethod);
+        double rt = Double.longBitsToDouble(dataLong[curMethodSP + idx]);
+        if (db.meetTraceTargetClassMethod(classAndMethod)) {
+    		db.info("#%d getDoubleV %s, tos=%d midx=%d, sp=%d idx=%d v=%s", verifyInfo.vid, classAndMethod, midx, curMethodSP, idx, rt);
+    	}
+    	VerifyVarInfo[] vis = verifyInfo.methodIdxInfos[midx].vars;
+    	Object ort = vis[(vis.length >> 1) + idx].value;
+    	Double prt;
+    	if (ort instanceof Double) {
+    		prt = (Double)ort;
+    	}else {
+    		printErrorMessage(this.db, this ,"#%d getDoubleV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s",  verifyInfo.vid, classAndMethod, methodTOS,midx, curMethodSP, idx, rt, ort);
+    		return rt;
+    	}
+        if (rt != prt) {
+        	printErrorMessage(this.db, this ,"#%d getDoubleV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s", verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx,rt, prt);
+        }
+    	return rt;
+    }
+    public final Object getObjectV(int idx, String classAndMethod) {
+    	int midx = methodTOS >> 1;
+	    checkClassAndMethod(midx, "getObjectV", classAndMethod);
+        Object rt = dataObject[curMethodSP + idx];
+        if (db.meetTraceTargetClassMethod(classAndMethod)) {
+    		db.info(buildMessage(this ,"#%d getObjectV %s, tos=%d midx=%d, sp=%d idx=%d v=%s", verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx, rt));
+    	}
+        Object prt = verifyInfo.methodIdxInfos[midx].vars[idx].value;
+        if (rt != prt) {
+        	printErrorMessage(this.db, this ,"#%d getObjectV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s" , verifyInfo.vid, classAndMethod, methodTOS, midx,  curMethodSP, idx, rt, prt);
+        }
+    	return rt;
+    }
+    
     
     /** called when resuming a stack */
     final void resumeStack() {
@@ -256,6 +494,10 @@ public final class Stack implements Serializable {
 		Stack.db = db;
 	}
     
+    public static MethodDatabase getDb() {
+		return db;
+	}
+    
     /**
      * for junit test to check all objects are null now.
      */
@@ -275,5 +517,6 @@ public final class Stack implements Serializable {
     	method = null;
     	dataLong = null;
     	dataObject = null;
+    	verifyInfo = null;
     }
 }

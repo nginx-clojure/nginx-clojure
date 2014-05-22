@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2008, Matthias Mann
- * Copyright (C) Zhang,Yuexiang (xfeep)
+ * Copyright (C) 2014 Zhang,Yuexiang (xfeep)
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

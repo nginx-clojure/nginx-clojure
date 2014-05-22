@@ -54,6 +54,7 @@ import nginx.clojure.asm.tree.analysis.BasicValue;
 import nginx.clojure.asm.tree.analysis.Frame;
 import nginx.clojure.asm.tree.analysis.Value;
 import nginx.clojure.wave.MethodDatabase.ClassEntry;
+import nginx.clojure.wave.SuspendMethodVerifier.VerifyVarInfo;
 
 /**
  * Instrument a method to allow suspension
@@ -64,9 +65,30 @@ import nginx.clojure.wave.MethodDatabase.ClassEntry;
 public class InstrumentMethod {
 
     private static final String STACK_NAME = Type.getInternalName(Stack.class);
+
+	private static final String STACK_PUSH_OBJECT_VALUE_DESC = "(Ljava/lang/Object;L"+STACK_NAME+";I)V";
+
+	private static final String STACK_PUSHV_OBJECT_VALUE_DESC = "(Ljava/lang/Object;L"+STACK_NAME +";ILjava/lang/String;)V";
+
+	private static final String STACK_PUSH_DOUBLE_VALUE_DESC = "(DL"+STACK_NAME+";I)V";
+
+	private static final String STACK_PUSHV_DOUBLE_VALUE_DESC = "(DL"+STACK_NAME + ";ILjava/lang/String;)V";
+
+	private static final String STACK_PUSH_LONG_VALUE_DESC = "(JL"+STACK_NAME+";I)V";
+
+	private static final String STACK_PUSHV_LONG_VALUE_DESC = "(JL"+STACK_NAME  + ";ILjava/lang/String;)V";
+
+	private static final String STACK_PUSH_FLOAT_VALUE_DESC = "(FL"+STACK_NAME+";I)V";
+
+	private static final String STACK_PUSHV_FLOAT_VALUE_DESC = "(FL"+STACK_NAME  + ";ILjava/lang/String;)V";
+
+	private static final String STACK_PUSH_INT_VALUE_DESC = "(IL"+STACK_NAME+";I)V";
+
+	private static final String STACK_PUSHV_INT_VALUE_DESC = "(IL"+STACK_NAME + ";ILjava/lang/String;)V";
     
     private final MethodDatabase db;
     private final String className;
+    private final String classAndMethod;
     private final MethodNode mn;
     private final Frame[] frames;
     private final int lvarStack;
@@ -88,12 +110,14 @@ public class InstrumentMethod {
 					"java/lang/reflect/ReflectiveOperationException",
 					"java/lang/Exception",
 					"java/lang/Throwable"));
+	
+	private VerifyVarInfo[][] verifyVarInfoss;
     
     public InstrumentMethod(MethodDatabase db, String className, MethodNode mn) throws AnalyzerException {
         this.db = db;
         this.className = className;
         this.mn = mn;
-        
+        this.classAndMethod = className + "." +  mn.name + mn.desc;
         try {
             Analyzer a = MethodDatabaseUtil.buildAnalyzer(db);
             this.frames = a.analyze(className, mn);
@@ -146,10 +170,14 @@ public class InstrumentMethod {
     
     public void accept(MethodVisitor mv) {
         db.trace("Instrumenting method %s.%s%s", className, mn.name, mn.desc);
-        
-        if (db.isDebug() && db.meetTraceTargetClassMethod(className, mn.name + mn.desc)) {
+        if (db.isDebug() && db.meetTraceTargetClassMethod(classAndMethod)) {
         	db.info("Instrumenting meet traced method %s.%s%s", className, mn.name, mn.desc);
         }
+        
+        if (db.isVerify()) {
+        	verifyVarInfoss = new VerifyVarInfo[numCodeBlocks-1][];
+        }
+        
         mv.visitCode();
         
         Label lMethodStart = new Label();
@@ -205,7 +233,13 @@ public class InstrumentMethod {
             mv.visitVarInsn(Opcodes.ALOAD, lvarStack);
         }
         
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "nextMethodEntry", "()I");
+        if (verifyVarInfoss != null) {
+        	mv.visitLdcInsn(classAndMethod);
+        	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "nextMethodEntryV", "(Ljava/lang/String;)I");
+        }else {
+        	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "nextMethodEntry", "()I");
+        }
+        
         mv.visitInsn(Opcodes.DUP);
         Label tableSwitchLabel = new Label();
         mv.visitJumpInsn(Opcodes.IFGE, tableSwitchLabel);
@@ -229,6 +263,11 @@ public class InstrumentMethod {
                 if(min.getOpcode() != Opcodes.INVOKESTATIC) {
                     throw new UnableToInstrumentException("invalid call to yield()", className, mn.name, mn.desc);
                 }
+                
+                if (verifyVarInfoss != null) {
+                	mv.visitMethodInsn(Opcodes.INVOKESTATIC, "nginx/clojure/wave/SuspendMethodVerifier", "onYield", "()V");
+                }
+                
                 emitStoreState(mv, i, fi);
                 mv.visitFieldInsn(Opcodes.GETSTATIC, STACK_NAME,
                         "exception_instance_not_for_user_code",
@@ -274,8 +313,12 @@ public class InstrumentMethod {
                 ((LocalVariableNode)o).accept(mv);
             }
         }
-        
-        mv.visitMaxs(mn.maxStack+3, mn.maxLocals+1+additionalLocals);
+        if (verifyVarInfoss != null) {
+        	mv.visitMaxs(mn.maxStack + 4, mn.maxLocals+1+additionalLocals);
+        	db.getVerfiyMethodInfos().put(classAndMethod, verifyVarInfoss);
+        }else {
+        	mv.visitMaxs(mn.maxStack + 3, mn.maxLocals+1+additionalLocals);
+        }
         mv.visitEnd();
     }
 
@@ -475,15 +518,72 @@ public class InstrumentMethod {
 
     	
         mv.visitVarInsn(Opcodes.ALOAD, lvarStack);
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "popMethod", "()V");
+        
+        if (verifyVarInfoss != null) {
+        	mv.visitLdcInsn(classAndMethod);
+        	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "popMethodV", "(Ljava/lang/String;)V");
+        }else {
+        	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "popMethod", "()V");
+        }
+        
         
         if (db.isAllowOutofCoroutine()) {
             mv.visitLabel(ocl);
         }
     }
+    
+    private LocalVariableNode findVarNode(int i) {
+    	for (LocalVariableNode lvn : mn.localVariables) {
+    		if (lvn.index == i) {
+    			return lvn;
+    		}
+    	}
+    	return null;
+    }
 
     private void emitStoreState(MethodVisitor mv, int idx, FrameInfo fi) {
         Frame f = frames[fi.endInstruction];
+        
+        if (verifyVarInfoss != null) {
+        	VerifyVarInfo[] vis = verifyVarInfoss[idx-1] = new VerifyVarInfo[fi.numSlots*2];
+            for(int i=f.getStackSize() ; i-->0 ;) {
+                BasicValue v = (BasicValue) f.getStack(i);
+				if (!isOmitted(v) && !isNullType(v)) {
+					VerifyVarInfo vi = new VerifyVarInfo();
+					int slotIdx = fi.stackSlotIndices[i];
+					vi.idx = i;
+					vi.name = "_NGX_STACK_VAL_";
+					vi.dataIdx = slotIdx;
+					vi.value = v;
+					if (v.isReference()) {
+						vis[slotIdx] = vi;
+					}else {
+						vis[fi.numSlots + slotIdx] = vi;
+					}
+				}
+            }
+            
+            for(int i=firstLocal ; i<f.getLocals() ; i++) {
+                BasicValue v = (BasicValue) f.getLocal(i);
+                if(!isNullType(v)) {
+                	VerifyVarInfo vi = new VerifyVarInfo();
+                    int slotIdx = fi.localSlotIndices[i];
+					LocalVariableNode lvn = findVarNode(i);
+					if (lvn != null) {
+						vi.name = lvn.name;
+						vi.idx = i;
+					}
+                    vi.dataIdx = slotIdx;
+					vi.value = v;
+
+					if (v.isReference()) {
+						vis[slotIdx] = vi;
+					}else {
+						vis[fi.numSlots + slotIdx] = vi;
+					}
+                }
+            }
+        }
         
         if(fi.lBefore != null) {
             fi.lBefore.accept(mv);
@@ -492,7 +592,13 @@ public class InstrumentMethod {
         mv.visitVarInsn(Opcodes.ALOAD,lvarStack);
         emitConst(mv, idx);
         emitConst(mv, fi.numSlots);
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "pushMethodAndReserveSpace", "(II)V");
+        if (verifyVarInfoss != null) {
+        	mv.visitLdcInsn(classAndMethod);
+        	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "pushMethodAndReserveSpaceV", "(IILjava/lang/String;)V");
+        }else {
+        	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "pushMethodAndReserveSpace", "(II)V");
+        }
+        
                 
         for(int i=f.getStackSize() ; i-->0 ;) {
             BasicValue v = (BasicValue) f.getStack(i);
@@ -559,73 +665,137 @@ public class InstrumentMethod {
         switch(v.getType().getSort()) {
         case Type.OBJECT:
         case Type.ARRAY:
-            desc = "(Ljava/lang/Object;L"+STACK_NAME+";I)V";
+        	if (verifyVarInfoss != null) {
+        		desc = STACK_PUSHV_OBJECT_VALUE_DESC;
+        	}else {
+        		desc = STACK_PUSH_OBJECT_VALUE_DESC;
+        	}
             break;
         case Type.BOOLEAN:
         case Type.BYTE:
         case Type.SHORT:
         case Type.CHAR:
         case Type.INT:
-            desc = "(IL"+STACK_NAME+";I)V";
+        	if (verifyVarInfoss != null) {
+        		desc = STACK_PUSHV_INT_VALUE_DESC;
+        	}else {
+        		desc = STACK_PUSH_INT_VALUE_DESC;
+        	}
             break;
         case Type.FLOAT:
-            desc = "(FL"+STACK_NAME+";I)V";
+        	if (verifyVarInfoss != null) {
+        		desc = STACK_PUSHV_FLOAT_VALUE_DESC;
+        	}else {
+        		desc = STACK_PUSH_FLOAT_VALUE_DESC;
+        	}
             break;
         case Type.LONG:
-            desc = "(JL"+STACK_NAME+";I)V";
+        	if (verifyVarInfoss != null) {
+        		desc = STACK_PUSHV_LONG_VALUE_DESC;
+        	}else {
+        		desc = STACK_PUSH_LONG_VALUE_DESC;
+        	}
             break;
         case Type.DOUBLE:
-            desc = "(DL"+STACK_NAME+";I)V";
+        	if (verifyVarInfoss != null) {
+        		desc = STACK_PUSHV_DOUBLE_VALUE_DESC;
+        	}else {
+        		desc = STACK_PUSH_DOUBLE_VALUE_DESC;
+        	}
             break;
         default:
             throw new InternalError("Unexpected type: " + v.getType());
         }
 
+        
         mv.visitVarInsn(Opcodes.ALOAD, lvarStack);
         emitConst(mv, idx);
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC, STACK_NAME, "push", desc);
+        if (verifyVarInfoss != null) {
+        	mv.visitLdcInsn(classAndMethod);
+        	mv.visitMethodInsn(Opcodes.INVOKESTATIC, STACK_NAME, "pushV", desc);
+        }else {
+        	mv.visitMethodInsn(Opcodes.INVOKESTATIC, STACK_NAME, "push", desc);
+        }
     }
 
     private void emitRestoreValue(MethodVisitor mv, BasicValue v, int lvarStack, int idx) {
         mv.visitVarInsn(Opcodes.ALOAD, lvarStack);
         emitConst(mv, idx);
-        
+        if (verifyVarInfoss != null) {
+            mv.visitLdcInsn(classAndMethod);
+        }
         switch(v.getType().getSort()) {
         case Type.OBJECT:
             String internalName = v.getType().getInternalName();
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getObject", "(I)Ljava/lang/Object;");
+            if (verifyVarInfoss != null) {
+            	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getObjectV", "(ILjava/lang/String;)Ljava/lang/Object;");
+            }else {
+            	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getObject", "(I)Ljava/lang/Object;");
+            }
             if(!internalName.equals("java/lang/Object")) {  // don't cast to Object ;)
                 mv.visitTypeInsn(Opcodes.CHECKCAST, internalName);
             }
             break;
         case Type.ARRAY:
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getObject", "(I)Ljava/lang/Object;");
+        	if (verifyVarInfoss != null) {
+            	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getObjectV", "(ILjava/lang/String;)Ljava/lang/Object;");
+            }else {
+            	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getObject", "(I)Ljava/lang/Object;");
+            }
             mv.visitTypeInsn(Opcodes.CHECKCAST, v.getType().getDescriptor());
             break;
         case Type.BYTE:
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getInt", "(I)I");
+        	if (verifyVarInfoss != null) {
+            	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getIntV", "(ILjava/lang/String;)I");
+            }else {
+            	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getInt", "(I)I");
+            }
             mv.visitInsn(Opcodes.I2B);
             break;
         case Type.SHORT:
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getInt", "(I)I");
+        	if (verifyVarInfoss != null) {
+            	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getIntV", "(ILjava/lang/String;)I");
+            }else {
+            	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getInt", "(I)I");
+            }
             mv.visitInsn(Opcodes.I2S);
             break;
         case Type.CHAR:
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getInt", "(I)I");
+        	if (verifyVarInfoss != null) {
+            	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getIntV", "(ILjava/lang/String;)I");
+            }else {
+            	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getInt", "(I)I");
+            }
             mv.visitInsn(Opcodes.I2C);
             break;
         case Type.BOOLEAN:
         case Type.INT:
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getInt", "(I)I");
+        	if (verifyVarInfoss != null) {
+            	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getIntV", "(ILjava/lang/String;)I");
+            }else {
+            	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getInt", "(I)I");
+            }
             break;
         case Type.FLOAT:
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getFloat", "(I)F");
+        	if (verifyVarInfoss != null) {
+            	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getFloatV", "(ILjava/lang/String;)F");
+            }else {
+            	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getFloat", "(I)F");
+            }
             break;
         case Type.LONG:
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getLong", "(I)J");
+        	if (verifyVarInfoss != null) {
+            	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getLongV", "(ILjava/lang/String;)J");
+            }else {
+            	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getLong", "(I)J");
+            }
             break;
         case Type.DOUBLE:
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getDouble", "(I)D");
+        	if (verifyVarInfoss != null) {
+            	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getLongV", "(ILjava/lang/String;)D");
+            }else {
+            	mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, STACK_NAME, "getDouble", "(I)D");
+            }
             break;
         default:
             throw new InternalError("Unexpected type: " + v.getType());

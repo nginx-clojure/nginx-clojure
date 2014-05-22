@@ -83,6 +83,7 @@ public class CheckInstrumentationVisitor extends ClassVisitor {
     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
         if(desc.equals(InstrumentClass.ALREADY_INSTRUMENTED_NAME)) {
             alreadyInstrumented = true;
+            classEntry.setAlreadyInstrumented(true);
         }
         return null;
     }

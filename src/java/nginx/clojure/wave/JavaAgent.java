@@ -63,7 +63,6 @@ package nginx.clojure.wave;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.io.RandomAccessFile;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
@@ -79,7 +78,6 @@ import nginx.clojure.asm.MethodVisitor;
 import nginx.clojure.asm.Opcodes;
 import nginx.clojure.asm.commons.JSRInlinerAdapter;
 import nginx.clojure.asm.util.CheckClassAdapter;
-import nginx.clojure.asm.util.TraceClassVisitor;
 import nginx.clojure.logger.TinyLogService;
 import nginx.clojure.wave.MethodDatabase.ClassEntry;
 
@@ -123,7 +121,7 @@ public class JavaAgent {
             for(char c : agentArguments.toCharArray()) {
                 switch(c) {
                     case 'v':
-                        db.setVerbose(true);
+                        db.setVerify(true);
                         break;
 
                     case 'm':
@@ -200,6 +198,7 @@ public class JavaAgent {
         Stack.setDb(db);
         
         MethodDatabaseUtil.buildClassEntryFamily(db, "nginx/clojure/wave/MethodDatabaseUtil");
+        SuspendMethodVerifier.db = db;
         
         if (db.isRunTool()) {
         	SuspendMethodTracer.db = db;
@@ -375,8 +374,8 @@ public class JavaAgent {
 					return classfileBuffer;
 				}
 				db.debug("loading class %s", className);
-				ClassVisitor cv = db.isVerbose() ?  new TraceClassVisitor(cw, new PrintWriter(System.out)) : cw;
-				cv = new ClassVisitor(Opcodes.ASM4, cv == null ? cw : cv) {
+//				ClassVisitor cv = db.isVerbose() ?  new TraceClassVisitor(cw, new PrintWriter(System.out)) : cw;
+				ClassVisitor cv = new ClassVisitor(Opcodes.ASM4, cw) {
 					@Override
 					public MethodVisitor visitMethod(int access, String name,
 							String desc, String signature, String[] exceptions) {

@@ -36,6 +36,7 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
@@ -45,6 +46,7 @@ import nginx.clojure.asm.Type;
 import nginx.clojure.logger.LoggerService;
 import nginx.clojure.logger.TinyLogService;
 import nginx.clojure.logger.TinyLogService.MsgType;
+import nginx.clojure.wave.SuspendMethodVerifier.VerifyVarInfo;
 
 /**
  * <p>Collects information about classes and their suspendable methods.</p>
@@ -108,8 +110,10 @@ public class MethodDatabase implements LoggerService {
     private final ArrayList<String> filters;
     private ArrayList<String> userDefinedWaveConfigFiles = new ArrayList<String>();
     
+    private Map<String, VerifyVarInfo[][]> verfiyMethodInfos;
+    
     private static LoggerService log;
-    private boolean verbose;
+    private boolean verify;
     private boolean dump;
     private boolean allowMonitors;
     private boolean allowBlocking;
@@ -185,6 +189,10 @@ public class MethodDatabase implements LoggerService {
 		return classes;
 	}
     
+    public Map<String, VerifyVarInfo[][]> getVerfiyMethodInfos() {
+		return verfiyMethodInfos;
+	}
+    
     public ConcurrentHashMap<String, LazyClassEntry> getLazyClasses() {
 		return lazyClasses;
 	}
@@ -204,14 +212,6 @@ public class MethodDatabase implements LoggerService {
         MethodDatabase.log = log;
     }
 
-    public boolean isVerbose() {
-        return verbose;
-    }
-
-    public void setVerbose(boolean verbose) {
-        this.verbose = verbose;
-        
-    }
     
     public void setRunTool(boolean runTool) {
 		this.runTool = runTool;
@@ -251,6 +251,17 @@ public class MethodDatabase implements LoggerService {
     
     public void setHookDumpWaveCfg(boolean hookDumpWaveCfg) {
 		this.hookDumpWaveCfg = hookDumpWaveCfg;
+	}
+    
+    public void setVerify(boolean verify) {
+		this.verify = verify;
+		if (verify && verfiyMethodInfos == null) {
+			verfiyMethodInfos = new ConcurrentHashMap<String, VerifyVarInfo[][]>();
+		}
+	}
+    
+    public boolean isVerify() {
+		return verify;
 	}
     
     public boolean isDebug() {
@@ -664,6 +675,10 @@ public class MethodDatabase implements LoggerService {
     	return traceClassMethodPattern != null && traceClassMethodPattern.matcher(clz + "." + method).find();
     }
     
+    public boolean meetTraceTargetClassMethod(String clzAndmethod) {
+    	return traceClassMethodPattern != null && traceClassMethodPattern.matcher(clzAndmethod).find();
+    }
+    
     public static boolean isJavaCore(String className) {
         return className.startsWith("java/") || className.startsWith("javax/") ||
                 className.startsWith("sun/") || className.startsWith("com/sun/");
@@ -726,6 +741,7 @@ public class MethodDatabase implements LoggerService {
         private final boolean isInterface;
         private final String superName;
         private final String[] interfaces;
+        private boolean alreadyInstrumented;
 
         public ClassEntry(String superName, String[] interfaces, boolean isInterface) {
             this.superName = superName;
@@ -789,6 +805,14 @@ public class MethodDatabase implements LoggerService {
         public static String key(String methodName, String methodDesc) {
             return methodName.concat(methodDesc);
         }
+        
+        public boolean isAlreadyInstrumented() {
+			return alreadyInstrumented;
+		}
+        
+        public void setAlreadyInstrumented(boolean alreadyInstrumented) {
+			this.alreadyInstrumented = alreadyInstrumented;
+		}
         
     }
 

@@ -33,6 +33,16 @@ import nginx.clojure.wave.MethodDatabase.ClassEntry;
 public class InstrumentConstructorMethod {
 
     private static final String CSTACK_NAME = Type.getInternalName(SuspendableConstructorUtilStack.class);
+
+	private static final String CSTACK_PUSH_DOUBLE_VALUE_DESC = "(DL"+CSTACK_NAME+";I)V";
+
+	private static final String CSTACK_PUSH_LONG_VALUE_DESC = "(JL"+CSTACK_NAME+";I)V";
+
+	private static final String CSTACK_PUSH_FLOAT_VALUE_DESC = "(FL"+CSTACK_NAME+";I)V";
+
+	private static final String CSTACK_PUSH_INT_VALUE_DESC = "(IL"+CSTACK_NAME+";I)V";
+
+	private static final String CSTACK_PUSH_OBJECT_VALUE_DESC = "(Ljava/lang/Object;L"+CSTACK_NAME+";I)V";
     
     private final MethodDatabase db;
     private final String className;
@@ -317,23 +327,23 @@ public class InstrumentConstructorMethod {
         switch(v.getType().getSort()) {
         case Type.OBJECT:
         case Type.ARRAY:
-            desc = "(Ljava/lang/Object;L"+CSTACK_NAME+";I)V";
+            desc = CSTACK_PUSH_OBJECT_VALUE_DESC;
             break;
         case Type.BOOLEAN:
         case Type.BYTE:
         case Type.SHORT:
         case Type.CHAR:
         case Type.INT:
-            desc = "(IL"+CSTACK_NAME+";I)V";
+            desc = CSTACK_PUSH_INT_VALUE_DESC;
             break;
         case Type.FLOAT:
-            desc = "(FL"+CSTACK_NAME+";I)V";
+            desc = CSTACK_PUSH_FLOAT_VALUE_DESC;
             break;
         case Type.LONG:
-            desc = "(JL"+CSTACK_NAME+";I)V";
+            desc = CSTACK_PUSH_LONG_VALUE_DESC;
             break;
         case Type.DOUBLE:
-            desc = "(DL"+CSTACK_NAME+";I)V";
+            desc = CSTACK_PUSH_DOUBLE_VALUE_DESC;
             break;
         default:
             throw new InternalError("Unexpected type: " + v.getType());

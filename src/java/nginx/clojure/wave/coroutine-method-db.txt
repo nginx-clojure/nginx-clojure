@@ -81,14 +81,18 @@ filter:clojure/asm
 filter:com/sun/crypto/provider/
 #filter:java/lang
 filter:java/util/LinkedHashMap
+filter:nginx/clojure/Stack
 filter:nginx/clojure/asm/
 filter:nginx/clojure/wave/
 filter:org/eclipse/jdt/
 filter:org/junit
 filter:org/objectweb/asm/
 filter:sun/security/ec/
+filter:sun/instrument/
 filter:com/sun/source/
 filter:com/sun/tools/javac/
+
+
 
 retransform:java.io.BufferedInputStream
 
