@@ -30,7 +30,9 @@
 package nginx.clojure;
 
 import java.io.Serializable;
+import java.lang.reflect.Proxy;
 
+import clojure.lang.IPending;
 import nginx.clojure.wave.MethodDatabase;
 import nginx.clojure.wave.SuspendMethodVerifier.VerifyInfo;
 import nginx.clojure.wave.SuspendMethodVerifier.VerifyMethodInfo;
@@ -305,10 +307,25 @@ public final class Stack implements Serializable {
         vars[(vars.length >> 1) + idx].value = value;
     }
     
+    private static Object takeValueWithoutRealizeIt(Object v) {
+    	if (v == null) {
+    		return null;
+    	}
+    	Object fv = v;
+		if (fv instanceof IPending && !((IPending) fv).isRealized()) {
+			fv = fv.getClass().getName() + Long.toHexString(nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_obj_addr(fv));
+		}else if (Proxy.isProxyClass(fv.getClass())) {
+			Object handler = Proxy.getInvocationHandler(fv);
+			fv = "proxy@" + handler.getClass().getName() + Long.toHexString(nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_obj_addr(handler));
+		}
+		return fv;
+    }
+    
     public static void pushV(Object value, Stack s, int idx, String classAndMethod) {
     	int midx = s.methodTOS >> 1;
     	if (db.meetTraceTargetClassMethod(classAndMethod)) {
-    		db.info(buildMessage(s, "#%d pushVObject %s, tos=%d midx=%d sp=%d idx=%d v=%s", s.verifyInfo.vid, classAndMethod, s.methodTOS, midx, s.curMethodSP, idx, value));
+    		Object fv = value;
+    		db.info(buildMessage(s, "#%d pushVObject %s, tos=%d midx=%d sp=%d idx=%d v=%s", s.verifyInfo.vid, classAndMethod, s.methodTOS, midx, s.curMethodSP, idx, takeValueWithoutRealizeIt(value)));
     	}
 	    s.checkClassAndMethod(midx, "pushV", classAndMethod);
         s.dataObject[s.curMethodSP + idx] = value;
@@ -447,11 +464,11 @@ public final class Stack implements Serializable {
 	    checkClassAndMethod(midx, "getObjectV", classAndMethod);
         Object rt = dataObject[curMethodSP + idx];
         if (db.meetTraceTargetClassMethod(classAndMethod)) {
-    		db.info(buildMessage(this ,"#%d getObjectV %s, tos=%d midx=%d, sp=%d idx=%d v=%s", verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx, rt));
+    		db.info(buildMessage(this ,"#%d getObjectV %s, tos=%d midx=%d, sp=%d idx=%d v=%s", verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx, takeValueWithoutRealizeIt(rt)));
     	}
         Object prt = verifyInfo.methodIdxInfos[midx].vars[idx].value;
         if (rt != prt) {
-        	printErrorMessage(this.db, this ,"#%d getObjectV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s" , verifyInfo.vid, classAndMethod, methodTOS, midx,  curMethodSP, idx, rt, prt);
+        	printErrorMessage(this.db, this ,"#%d getObjectV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s" , verifyInfo.vid, classAndMethod, methodTOS, midx,  curMethodSP, idx, takeValueWithoutRealizeIt(rt), takeValueWithoutRealizeIt(prt));
         }
     	return rt;
     }

@@ -343,7 +343,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		status = sc;
 		NginxClojureSocketImpl ns = (NginxClojureSocketImpl)s.getHandler();
 		if (ns.yieldFlag == NginxClojureSocketImpl.YIELD_CONNECT){
-			log.debug("find suspend on YIELD_CONNECT, we'ill resume it");
+			log.debug("socket#%d: find suspend on YIELD_CONNECT, we'ill resume it", as.s);
 			ns.yieldFlag = 0;
 			ns.coroutine.resume();
 		}
@@ -358,7 +358,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		status = sc;
 		NginxClojureSocketImpl ns = (NginxClojureSocketImpl)s.getHandler();
 		if (ns.yieldFlag == NginxClojureSocketImpl.YIELD_READ){
-			log.debug("find suspend on YIELD_READ, we'ill resume it");
+			log.debug("socket#%d: find suspend on YIELD_READ, we'ill resume it", as.s);
 			ns.yieldFlag = 0;
 			ns.coroutine.resume();
 		}		
@@ -373,7 +373,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		status = sc;
 		NginxClojureSocketImpl ns = (NginxClojureSocketImpl)s.getHandler();
 		if (ns.yieldFlag == NginxClojureSocketImpl.YIELD_WRITE){
-			log.debug("find suspend on YIELD_WRITE, we'ill resume it");
+			log.debug("socket#%d: find suspend on YIELD_WRITE, we'ill resume it", as.s);
 			ns.yieldFlag = 0;
 			ns.coroutine.resume();
 		}
@@ -388,7 +388,10 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		status = sc;
 		NginxClojureSocketImpl ns = (NginxClojureSocketImpl)s.getHandler();
 		if (ns.coroutine.getState() == State.SUSPENDED){
-			NginxClojureRT.getLog().warn("onRelease : coroutine is not finished, but we receive release event!");
+			if (log.isDebugEnabled()) {
+				log.warn("socket#%d: onRelease : coroutine is not finished, but we receive release event!", as.s);
+				log.debug(String.format("socket#%d: onRelease : coroutine is not finished, but we receive release event!", as.s), new Exception("DEBUG USAGE--onRelease Warning"));
+			}
 		}
 	}
 	
