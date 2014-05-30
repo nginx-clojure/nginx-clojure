@@ -1,6 +1,6 @@
 (defproject nginx-clojure "0.2.2"
   :description "Nginx module for clojure & java programming"
-  :url "https://github.com/xfeep/nginx-clojure"
+  :url "https://github.com/nginx-clojure/nginx-clojure"
   :license {:name "BSD 3-Clause license"
             :url "http://opensource.org/licenses/BSD-3-Clause"}
   :dependencies [
