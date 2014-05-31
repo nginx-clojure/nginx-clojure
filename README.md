@@ -24,12 +24,12 @@ By the way it is very fast, the benchmarks can be found [HERE](https://github.co
 1. Installation
 =============
 
-The lastest release is 0.2.1. Please check the  [Update History](HISTORY.md) for more details.
+The lastest release is 0.2.2. Please check the  [Update History](HISTORY.md) for more details.
 
 1.1 Installation by Binary
 -------------
 
-1. First you can download  Release 0.2.1  from [here](https://sourceforge.net/projects/nginx-clojure/files/). 
+1. First you can download  Release 0.2.2  from [here](https://sourceforge.net/projects/nginx-clojure/files/). 
 The zip file includes Nginx-Clojure binaries about Linux x64, Linux i586, Win32 and Mac OS X.
 1. Unzip the zip file downloaded then rename the file `nginx-${os-arc}` to `nginx`, eg. for linux is `nginx-linux-x64`
 
@@ -67,7 +67,7 @@ For Win32 users MUST check out nginx source by hg because the zipped source does
 	$ cd nginx-clojure
 	$ lein jar
 	```
-	Then you'll find nginx-clojure-${version}.jar (eg. nginx-clojure-0.2.1.jar) in the target folder. 
+	Then you'll find nginx-clojure-${version}.jar (eg. nginx-clojure-0.2.2.jar) in the target folder. 
 	The jar file is self contained and only depend on the clojure core jar, e.g clojure-1.5.1.jar
 
 2. Configurations
@@ -89,8 +89,8 @@ Setting JVM path and class path within `http {` block in  nginx.conf
     jvm_path "/usr/lib/jvm/java-7-oracle/jre/lib/amd64/server/libjvm.so";
     
     #jvm_options can be repeated once per option.
-    #for win32, class path seperator is ";",  jvm_options maybe "-Djava.class.path=jars/nginx-clojure-0.2.1.jar;jars/clojure-1.5.1.jar";
-    jvm_options "-Djava.class.path=jars/nginx-clojure-0.2.1.jar:jars/clojure-1.5.1.jar";
+    #for win32, class path seperator is ";",  jvm_options maybe "-Djava.class.path=jars/nginx-clojure-0.2.2.jar;jars/clojure-1.5.1.jar";
+    jvm_options "-Djava.class.path=jars/nginx-clojure-0.2.2.jar:jars/clojure-1.5.1.jar";
     
     #jvm heap memory
     jvm_options "-Xms1024m";
@@ -284,8 +284,8 @@ thread in java is costlier than coroutine, facing large amount of connections th
 	worker_processes  1;
 	
 	#turn on run tool mode, t means Tool
-	jvm_options "-javaagent:jars/nginx-clojure-0.2.1.jar=tmb";
-  jvm_options "-Xbootclasspath/a:jars/nginx-clojure-0.2.1.jar:jars/clojure-1.5.1.jar";
+	jvm_options "-javaagent:jars/nginx-clojure-0.2.2.jar=tmb";
+  jvm_options "-Xbootclasspath/a:jars/nginx-clojure-0.2.2.jar:jars/clojure-1.5.1.jar";
   ...
 	}
 	```
@@ -336,11 +336,11 @@ thread in java is costlier than coroutine, facing large amount of connections th
 	worker_processes  8;
 			
 	#turn on coroutine mode
-	jvm_options "-javaagent:jars/nginx-clojure-0.2.1.jar=mb";
+	jvm_options "-javaagent:jars/nginx-clojure-0.2.2.jar=mb";
 	
 	#append nginx-clojure &  clojure runtime jars to jvm bootclasspath 		
-	#for win32, class path seperator is ";", e.g "-Xbootclasspath/a:jars/nginx-clojure-0.2.1.jar;jars/clojure-1.5.1.jar"
-	jvm_options "-Xbootclasspath/a:jars/nginx-clojure-0.2.1.jar:jars/clojure-1.5.1.jar";
+	#for win32, class path seperator is ";", e.g "-Xbootclasspath/a:jars/nginx-clojure-0.2.2.jar;jars/clojure-1.5.1.jar"
+	jvm_options "-Xbootclasspath/a:jars/nginx-clojure-0.2.2.jar:jars/clojure-1.5.1.jar";
 	
 	#coroutine-udfs is a directory to put your User Defined Class Waving Configuration File
 	#for win32, class path seperator is ";", e.g "-Djava.class.path=coroutine-udfs;YOUR_CLASSPATH_HERE"
@@ -386,7 +386,7 @@ eg.
 ```nginx
 
 #turn off coroutine mode,  n means do nothing. You can also comment this line to turn off coroutine mode 
-jvm_options "-javaagent:jars/nginx-clojure-0.2.1.jar=nmb";
+jvm_options "-javaagent:jars/nginx-clojure-0.2.2.jar=nmb";
 
 jvm_workers 40;
 ```

@@ -1,3 +1,8 @@
+## 0.2.2 (2014-05-31)
+
+1. Fix bug of with Compojure 1.1.5 + Apache Solrj 4.3.0 + httpclient 4.3.2 NPE happens first time then everything is OK (issue #22)
+2. Verifying option for auto generated waving configurations needed by coroutine based socket (issue #23)
+
 ## 0.2.1 (2014-05-17)
 
 1. Support to close coroutine based socket from non-main thread (issue #19)
