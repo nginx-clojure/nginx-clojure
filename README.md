@@ -440,7 +440,7 @@ We can alos use this feature to complete a simple dynamic balancer , e.g.
           clojure_rewrite_code '
            (do (use \'[nginx.clojure.core]) 
 						(fn[req]
-						  ;compute myhost based req & remote service, e.g.
+						  ;compute myhost (upstream name or real host name) based req & remote service, e.g.
 						  (let [myhost (compute-myhost req)])
 						  (set-ngx-var! req "myhost" myhost)
 						  phrase-done))
@@ -449,6 +449,103 @@ We can alos use this feature to complete a simple dynamic balancer , e.g.
        }    
 
 ```
+
+The equivalent java code is here
+
+```java
+
+package my.test;
+
+import clojure.lang.AFn;
+import clojure.lang.IPersistentMap;
+
+
+	
+	public static class MyRewriteProxyPassHandler extends AFn {
+		@Override
+		public Object invoke(Object arg) {
+			LazyRequestMap req = (LazyRequestMap)arg;
+			String myhost = computeMyHost(req);
+			NginxClojureRT.setNGXVariable(req.nativeRequest(), "myhost", myhost);
+			return NginxClojureRT.PHRASE_DONE;
+		}
+		
+		private String computeMyHost(LazyRequestMap req) {
+			//compute a upstream name or host name;
+		}
+	}
+
+```
+Then we set the java rewrtite handler in nginx.conf
+
+```nginx
+
+       set $myhost "";
+       
+       location /myproxy {
+          clojure;
+          clojure_rewrite_code '
+           (do (import \'[my.test MyRewriteProxyPassHandler]) 
+            (MyRewriteProxyPassHandler.))
+          ';
+          proxy_pass $myhost
+       }    
+
+```
+
+### 2.5.2 Simple Access Controller By Nginx rewrite handler
+
+For clojure
+
+```nginx
+ clojure;
+ clojure_rewrite_code '
+     (do (use \'[nginx.clojure.core]) 
+           (import \'[com\.test AuthenticationHandler]) 
+                (fn[req]
+                          (if ((AuthenticationHandler.)  req)
+                             ;AuthenticationHandler returns true so we go to proxy_pass
+                             phrase-done 
+                             ;else return 403
+                             {:status 403}
+                             )))
+          ';
+proxy_pass http://localhost:8084;
+```
+
+For Java
+* nginx.conf
+ 
+	```nginx
+		 clojure;
+		 clojure_rewrite_code '
+		     (do 
+		           (import \'[com.test MyHandler] (MyHandler.)))';
+		proxy_pass http://localhost:8084;
+	```
+		
+* MyHandler.java
+ 
+	```java
+		public Object invoke(Object req) {
+		
+		   /*do some computing here*/
+		   
+		    if (goto-proxy-pass) {
+		           return  NginxClojureRT/PHRASE_DONE;
+		    }else {  //return 403
+		            Object[] resps = new Object[] {
+		                          Constants.STATUS, 403, 
+		                         //add some headers -- optional for no-20X response
+		                         //Constants.HEADERS, new PersistentArrayMap(new Object[]{Constants.CONTENT_TYPE.getName(),"text/plain"}),
+		                         //body text -- optional for no-20X response
+		                        // Constants.BODY, "xxxxxxxxxxxxxx!"
+		                         };
+		        return new PersistentArrayMap(resps);
+		    }
+		}
+	
+	```
 
 3. More about Nginx-Clojure
 =================
