@@ -306,7 +306,8 @@ void ngx_http_clojure_socket_upstream_connect_by_url(ngx_http_clojure_socket_ups
 			return;
 		}
 	}
-
+	u->resolved->host.data = url->host.data;
+	u->resolved->host.len = url->host.len;
 	ngx_http_clojure_socket_upstream_connect(u, (struct sockaddr *)url->sockaddr, url->socklen);
 }
 
@@ -334,6 +335,7 @@ static void ngx_http_clojure_socket_upstream_connect_inner(ngx_http_clojure_sock
 	pc->log = u->pool->log;
 	pc->rcvbuf = u->buffer_size ? u->buffer_size : ngx_pagesize;
 	pc->data = u;
+	pc->name = &u->resolved->host;
 
 	u->connect_event_sent = 0;
 	rc = ngx_event_connect_peer(pc);
@@ -379,6 +381,10 @@ void ngx_http_clojure_socket_upstream_connect(ngx_http_clojure_socket_upstream_t
 	u->resolved->sockaddr = addr;
 	u->resolved->socklen = len;
 	u->resolved->naddrs = 1;
+	if (u->resolved->host.data == NULL) {
+		/*TODO: set the name by convert ip to string*/
+		ngx_str_set(&u->resolved->host, "not-set");
+	}
 	ngx_http_clojure_socket_upstream_connect_inner(u);
 }
 
