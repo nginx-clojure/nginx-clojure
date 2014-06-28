@@ -446,12 +446,10 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
 		return rc;
 	}
 
-    if (r->method & (NGX_HTTP_POST|NGX_HTTP_PUT)) {
-    	if (r->headers_in.content_type && ngx_strcmp("application/x-www-form-urlencoded", r->headers_in.content_type->value.data) != 0) {
-    		r->request_body_in_file_only = 1;
-    		r->request_body_in_clean_file = 1;
-    		r->request_body_in_persistent_file = 1;
-    	}
+    if (r->method & (NGX_HTTP_POST | NGX_HTTP_PUT | NGX_HTTP_PATCH)) {
+        r->request_body_in_single_buf = 1;
+        r->request_body_in_clean_file = 1;
+        r->request_body_in_persistent_file = 1;
     	rc = ngx_http_read_client_request_body(r, ngx_http_clojure_client_body_handler);
     	if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
     		return rc;
