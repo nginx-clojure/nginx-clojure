@@ -171,14 +171,15 @@ public class LazyHeaderMap extends AFn implements IPersistentMap  {
 			if (p.longValue() == NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET) {
 				val = (String)RequestKnownHeaderFetcher.cookieFetcher.fetch(headersPointer - NGX_HTTP_CLOJURE_REQ_HEADERS_IN_OFFSET, DEFAULT_ENCODING);
 			}else {
-				val = fetchNGXString(UNSAFE.getAddress(headersPointer + p.longValue()) + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
+				long hp = UNSAFE.getAddress(headersPointer + p.longValue());
+				if (hp != 0) {
+					val = fetchNGXString(hp + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
+				}
 			}
 		}else {
 			byte[] kbs = key.getBytes();
 			long hp = ngx_http_clojure_mem_get_header(headersPointer, ngx_http_clojure_mem_get_obj_addr(kbs) + BYTE_ARRAY_OFFSET , kbs.length);
-			if (hp == 0){
-				val = null;
-			}else {
+			if (hp != 0) {
 				val = fetchNGXString(hp + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
 			}
 		}
