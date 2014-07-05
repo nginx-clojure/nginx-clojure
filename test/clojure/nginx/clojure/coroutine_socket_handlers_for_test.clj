@@ -62,8 +62,8 @@
      )
   (GET "/fetch-two-pages" []
        (let [[r1 r2] (co-pvalues 
-                       (client/get "http://echo.jsontest.com/java/good/c/better")
-                       (client/get "http://headers.jsontest.com/"))]
+                       (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/")
+                       (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpcore/"))]
          {:status 200, 
           :headers {"content-type" "text/plain"}, 
           :body (str (:body r1) "\n==========================\n" (:body r2)) }))

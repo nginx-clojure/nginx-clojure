@@ -397,6 +397,10 @@ curl -v "http://localhost:8080/coroutineSocketAndCompojure/mysql-drop"
 
 curl -v "http://localhost:8080/coroutineSocketAndCompojure/fetch-two-pages"
 
+curl -v -X PATCH -d '{"replace": "/count", "value": 5}' http://localhost:8080/ringCompojure/json-patch
+
+curl -v -X MYOP -d '{"value": 5}' http://localhost:8080/user-defined-method
+
 performance testing:
 
 #native nginx proxy pass

@@ -279,6 +279,18 @@
              (is (= 200 (:status r)))
              ;(is (= "gzip" (:orig-content-encoding r)))
              (is (= {"tc1" {:value "tc1value"}, "tc2" {:value "tc2value"} } cookies))))
+    (testing "authorized-service"
+             (let [
+                   r1 (client/get (str "http://" *host* ":" *port* "/ringCompojure/authorized-service") {:coerce :unexceptional, :throw-exceptions false})
+                   r2 (client/get (str "http://" *host* ":" *port* "/ringCompojure/authorized-service") {:basic-auth ["nginx-clojure" "xxxx"] :coerce :unexceptional, :throw-exceptions false})
+                   ]
+               (is (= 401 (:status r1)))
+               (is (= 200 (:status r2)))))
+    (testing "json-patch"
+             (let [msg "{\"value\": 5}"
+                   r (client/patch (str "http://" *host* ":" *port* "/ringCompojure/json-patch") {:coerce :unexceptional, :throw-exceptions false, :body msg})
+                   ]
+               (is (= (str "Your patch succeeded! length=" (count msg)) (:body r)))))
     (testing "wrap-session"
            (let [cs (clj-http.cookies/cookie-store)]
              (let [r (client/get (str "http://" *host* ":" *port* "/ringCompojure/wrap-session") {:throw-exceptions false, :cookie-store cs})
@@ -395,8 +407,8 @@
             (let [r (client/get (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/fetch-two-pages") {:throw-exceptions false})
                   h (:headers r)
                   b (r :body)
-                 [r1, r2] (pvalues (client/get "http://echo.jsontest.com/java/good/c/better")
-                                   (client/get "http://headers.jsontest.com/"))
+                 [r1, r2] (pvalues (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/")
+                                   (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpcore/"))
                  b12 (str (:body r1) "\n==========================\n" (:body r2))
                 ]
              (debug-println "=================coroutine based socket--co-pvalues & compojure & clj-http  =============================")
@@ -434,6 +446,7 @@
     )
   )
 ;)
+
 
 ;eg. (concurrent-run 10 (run-tests 'nginx.clojure.test-all))
 (defmacro concurrent-run 

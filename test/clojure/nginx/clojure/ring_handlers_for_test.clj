@@ -10,6 +10,7 @@
         [compojure.core]
         )
   (:require [compojure.route :as route])
+  (:require [ring.util.codec :as codec])
   (:import [ring.middleware.session.memory.MemoryStore]))
 
 (def my-session-store (cookie-store {:key "my-secrect-key!!"}))
@@ -28,6 +29,24 @@
         (content-type "text/html")
         (assoc :session session))))
 
+(defn decode [encoded]
+  (String. (codec/base64-decode encoded)))
+
+(defn get-username-from-authorization-header [header-value]
+  (if (not-empty header-value)
+   (let [user-pass (second (clojure.string/split header-value #"\s+"))]
+     (first (clojure.string/split (decode user-pass) #":")))
+   ""))
+
+(defn check-authorisation [context]
+  (let [authorised? (= "nginx-clojure"
+                      (get-username-from-authorization-header (get-in context [:request
+                      :headers "authorization"])))]
+    (do
+      (println (format "request_authorised=%s" authorised?))
+      authorised?)))
+
+
 (defroutes ring-compojure-test-handler
   (GET "/hello2" [] {:status 200, :headers {"content-type" "text/plain"}, :body "Hello World"})
   (GET "/hello" [] (-> (response "Hello World")
@@ -42,6 +61,14 @@
   (POST "/wrap-params" [] (wrap-params echo-handler))
   ;:cookies {"username" {:value "alice"}} ,, {"secret" {:value "foobar", :secure true, :max-age 3600}}
   (GET "/wrap-cookies" [] (wrap-cookies echo-handler))
+  (GET "/authorized-service" []
+       (fn [req]
+         (if (check-authorisation {:request req})
+           {:status 200, :headers {"content-type" "text/plain"}, :body "OK, you have authorized to see this message!"}
+           {:status 401, :headers {"www-authenticate" "Basic realm=\"Secure Area\"" :body "<HTML><BODY><H1>401 Unauthorized.</H1></BODY></HTML>"}})))
+  (PATCH "/json-patch" []
+         (fn [req]
+            {:status 200, :headers {"content-type" "text/plain"}, :body (str "Your patch succeeded! length=" (-> req :body slurp count))}))
   ;:session
   (GET "/wrap-session" [] (-> session-handler wrap-params (wrap-session {:store my-session-store}) ))
   (POST "/ring-upload" [] (wrap-multipart-params 
@@ -52,4 +79,5 @@
                                    :headers {"rmap" (pr-str (dissoc params "myfile")), "content-type" "text/plain"}
                                    :body (java.io.File. filename)})))))
   (GET "/not-found" [] (route/not-found "<h1>Page not found</h1>")))
+
 

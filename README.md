@@ -6,17 +6,17 @@ Nginx-Clojure
 There are some core features :
 
 1. Compatible with [Ring](https://github.com/ring-clojure/ring/blob/master/SPEC) and obviously supports those Ring based frameworks, such as Compojure etc.
-1. **_NEW_**: Use Java/Clojure code to write a simple nginx rewrite handler to set var before proxy pass
-1. **_NEW_**: Non-blocking coroutine based socket which is Compatible with Java Socket API and works well with largely existing java library such as apache http client, mysql jdbc drivers. 
+1. Use Java/Clojure code to write a simple nginx rewrite handler to set var before proxy pass
+1. Non-blocking coroutine based socket which is Compatible with Java Socket API and works well with largely existing java library such as apache http client, mysql jdbc drivers. 
 With this feature  one java main thread can handle thousands of connections.
-1. **_NEW_**: Handle multiple sockets parallel in sub coroutines, e.g. we can invoke two remote services at the same time feature
-1. **_NEW_**: Asynchronous callback API of socket for some advanced usage
-1. **_NEW_**: Run initialization clojure code when nginx worker starting
-1. **_NEW_**: Compatible with the Nginx lastest stable version 1.6.0. (Nginx 1.4.x is also ok, older version is not tested and maybe works.)
+1. Handle multiple sockets parallel in sub coroutines, e.g. we can invoke two remote services at the same time feature
+1. Asynchronous callback API of socket for some advanced usage
+1. Run initialization clojure code when nginx worker starting
+1. Compatible with the Nginx lastest stable version 1.6.0. (Nginx 1.4.x is also ok, older version is not tested and maybe works.)
 1. One of  benifits of [Nginx](http://nginx.org/) is worker processes are automatically restarted by a master process if they crash
 1. Utilizes lazy headers and direct memory operation between [Nginx](http://nginx.org/) and JVM to fast handle dynamic contents from Clojure or Java code.
 1. Utilizes [Nginx](http://nginx.org/) zero copy file sending mechanism to fast handle static contents controlled by Clojure or Java code.
-1. Supports Linux x64, Linux x32 (**_NEW_**), Win32 and Mac OS X. Win64 users can also run it with a 32bit JRE/JDK.
+1. Supports Linux x64, Linux x86 32bit (**_NEW_**), Win32 and Mac OS X. Win64 users can also run it with a 32bit JRE/JDK.
 
 By the way it is very fast, the benchmarks can be found [HERE](https://github.com/ptaoussanis/clojure-web-server-benchmarks) .
 
@@ -493,7 +493,7 @@ Then we set the java rewrtite handler in nginx.conf
 
 ```
 
-### 2.5.2 Simple Access Controller By Nginx rewrite handler
+### 2.5.3 Simple Access Controller By Nginx rewrite handler
 
 For clojure
 
@@ -572,7 +572,7 @@ Here `co-pvalues` is also non-blocking and coroutine based. In fact it will crea
 
 Generally use redis or memorycached is the better choice to implement a shared map among Nginx workers. We can do some initialization of the 
 shared map by following the guide of [2.2 Initialization Handler for nginx worker](#22-initialization-handler-for-nginx-worker).
-If you like shared map managed in nginx  process better than redis or memcached, you can choose [SharedHashMap](https://github.com/OpenHFT/HugeCollections/wiki/Getting-Started)  
+If you like shared map managed in nginx  process better than redis or memcached, you can choose [SharedHashMap](https://github.com/OpenHFT/HugeCollections/wiki)  
 which is fast and based on Memory Mapped File so that it can store  large amout of records and won't need too much java heap memory.
 
 
