@@ -1,3 +1,10 @@
+## 0.2.3 (2014-07-05)
+
+1. Fix issue After invoking on coroutine based socket nginx worker will exit and be recreated when network is disabled (issue #26)
+2. Fix issue PATCH loses the data payload (issue #27)
+3. Support user defined http request method (issue #28 )
+4. Fix issue Nginx worker crashes when to fetch http header "authorization" from request (issue #30)
+
 ## 0.2.2 (2014-05-31)
 
 1. Fix bug of with Compojure 1.1.5 + Apache Solrj 4.3.0 + httpclient 4.3.2 NPE happens first time then everything is OK (issue #22)
