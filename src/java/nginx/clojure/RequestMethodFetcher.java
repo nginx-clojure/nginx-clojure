@@ -12,6 +12,7 @@ import java.nio.charset.Charset;
 
 public class RequestMethodFetcher implements RequestVarFetcher {
 
+	public final static RequestKnownNameVarFetcher REQUEST_METHOD_VAR_FETCHER = new RequestKnownNameVarFetcher("request_method");
 	
 	@Override
 	public Object fetch(long r, Charset encoding) {
@@ -21,8 +22,9 @@ public class RequestMethodFetcher implements RequestVarFetcher {
 			methodCode = methodCode >> 1;
 			methodIdx ++;
 		}
-		if (methodIdx >=  HTTP_METHODS.length){
-			return HTTP_METHODS[0];
+		if (methodIdx >=  HTTP_METHODS.length || methodIdx == 0){
+			String m = (String) REQUEST_METHOD_VAR_FETCHER.fetch(r, Constants.DEFAULT_ENCODING);
+			return m == null ? HTTP_METHODS[0] : m;
 		}else {
 			return HTTP_METHODS[methodIdx];
 		}

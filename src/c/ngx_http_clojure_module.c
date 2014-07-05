@@ -19,6 +19,7 @@ typedef struct {
     ngx_int_t jvm_workers;
     ngx_str_t clojure_code;
     ngx_flag_t enable;
+    ngx_flag_t always_read_body;
     ngx_int_t clojure_code_id;
     ngx_str_t clojure_rewrite_code;
     ngx_int_t clojure_rewrite_code_id;
@@ -76,6 +77,7 @@ static ngx_shm_t ngx_http_clojure_shared_memory;
 
 
 
+
 static ngx_command_t ngx_http_clojure_commands[] = {
 	{
 		ngx_string("clojure"),
@@ -127,6 +129,15 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 		NULL
     },
 
+    {
+		ngx_string("always_read_body"),
+		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		ngx_conf_set_flag_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_clojure_loc_conf_t, always_read_body),
+		NULL
+    },
+
     ngx_null_command
 };
 
@@ -169,6 +180,7 @@ static void * ngx_http_clojure_create_loc_conf(ngx_conf_t *cf) {
 	conf->jvm_path.len = NGX_CONF_UNSET_SIZE;
 	conf->jvm_options = NGX_CONF_UNSET_PTR;
 	conf->jvm_workers = NGX_CONF_UNSET;
+	conf->always_read_body = NGX_CONF_UNSET;
 	conf->clojure_code_id = -1;
 	conf->clojure_rewrite_code_id = -1;
 	return conf;
@@ -251,7 +263,7 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 	conf->jvm_options = prev->jvm_options;
 	conf->jvm_path = prev->jvm_path;
 	conf->jvm_workers = prev->jvm_workers;
-
+	ngx_conf_merge_value(conf->always_read_body, prev->always_read_body, 0);
 	return NGX_CONF_OK;
 }
 
@@ -446,11 +458,11 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
 		return rc;
 	}
 
-    if (r->method & (NGX_HTTP_POST | NGX_HTTP_PUT | NGX_HTTP_PATCH)) {
-        r->request_body_in_single_buf = 1;
-        r->request_body_in_clean_file = 1;
-        r->request_body_in_persistent_file = 1;
-    	rc = ngx_http_read_client_request_body(r, ngx_http_clojure_client_body_handler);
+    if (lcf->always_read_body || (r->method & (NGX_HTTP_POST | NGX_HTTP_PUT | NGX_HTTP_PATCH))) {
+		r->request_body_in_single_buf = 1;
+		r->request_body_in_clean_file = 1;
+		r->request_body_in_persistent_file = 1;
+		rc = ngx_http_read_client_request_body(r, ngx_http_clojure_client_body_handler);
     	if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
     		return rc;
     	}
