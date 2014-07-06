@@ -12,11 +12,12 @@ With this feature  one java main thread can handle thousands of connections.
 1. Handle multiple sockets parallel in sub coroutines, e.g. we can invoke two remote services at the same time feature
 1. Asynchronous callback API of socket for some advanced usage
 1. Run initialization clojure code when nginx worker starting
+1. **_NEW_** Support user defined http request method
 1. Compatible with the Nginx lastest stable version 1.6.0. (Nginx 1.4.x is also ok, older version is not tested and maybe works.)
 1. One of  benifits of [Nginx](http://nginx.org/) is worker processes are automatically restarted by a master process if they crash
 1. Utilizes lazy headers and direct memory operation between [Nginx](http://nginx.org/) and JVM to fast handle dynamic contents from Clojure or Java code.
 1. Utilizes [Nginx](http://nginx.org/) zero copy file sending mechanism to fast handle static contents controlled by Clojure or Java code.
-1. Supports Linux x64, Linux x86 32bit (**_NEW_**), Win32 and Mac OS X. Win64 users can also run it with a 32bit JRE/JDK.
+1. Supports Linux x64, Linux x86 32bit, Win32 and Mac OS X. Win64 users can also run it with a 32bit JRE/JDK.
 
 By the way it is very fast, the benchmarks can be found [HERE](https://github.com/ptaoussanis/clojure-web-server-benchmarks) .
 
