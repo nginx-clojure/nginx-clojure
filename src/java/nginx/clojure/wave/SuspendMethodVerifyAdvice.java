@@ -32,17 +32,17 @@ public class SuspendMethodVerifyAdvice extends AdviceAdapter {
 		mv.visitLdcInsn(owner);
 		mv.visitLdcInsn(method);
 		mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodVerifier", "enter", "(Ljava/lang/String;Ljava/lang/String;)V");
-		if (method.equals("invoke(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;")) {
-			mv.visitVarInsn(ALOAD, 2);
-			mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodVerifier", "downProxyInvoke", "(Ljava/lang/reflect/Method;)V");
-		}
+//		if (method.equals("invoke(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;")) {
+//			mv.visitVarInsn(ALOAD, 2);
+//			mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodVerifier", "downProxyInvoke", "(Ljava/lang/reflect/Method;)V");
+//		}
 	}
 	
 	private final void doExitCode() {
-		if (method.equals("invoke(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;")) {
-			mv.visitVarInsn(ALOAD, 2);
-			mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodVerifier", "upProxyInvoke", "(Ljava/lang/reflect/Method;)V");
-		}
+//		if (method.equals("invoke(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;")) {
+//			mv.visitVarInsn(ALOAD, 2);
+//			mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodVerifier", "upProxyInvoke", "(Ljava/lang/reflect/Method;)V");
+//		}
 		mv.visitLdcInsn(owner);
 		mv.visitLdcInsn(method);
 		mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodVerifier", "leave", "(Ljava/lang/String;Ljava/lang/String;)V");

@@ -17,6 +17,8 @@ lazyclass:nginx/clojure/Coroutine
   run()V:skip
   _resumep()V:skip
 
+fuzzyclass:com/sun/proxy/\$Proxy(\d+)
+  run()V:normal
 
 lazyclass:java/lang/reflect/Method
   invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;:just_mark
@@ -82,6 +84,7 @@ filter:com/sun/crypto/provider/
 #filter:java/lang
 filter:java/util/LinkedHashMap
 filter:nginx/clojure/Stack
+filter:nginx/clojure/HackUtils
 filter:nginx/clojure/asm/
 filter:nginx/clojure/wave/
 filter:org/eclipse/jdt/

@@ -55,7 +55,7 @@ public class NginxClojureRT {
 	public static Thread NGINX_MAIN_THREAD;
 	
 	/*use it carefully!!*/
-	public static Unsafe UNSAFE = null;
+	public static Unsafe UNSAFE = HackUtils.UNSAFE;
 	
 	private static List<IFn>  HANDLERS = new ArrayList<IFn>();
 	
@@ -512,14 +512,7 @@ public class NginxClojureRT {
 		if (UNSAFE != null) {
 			return;
 		}
-	    try{
-	        Field field = Unsafe.class.getDeclaredField("theUnsafe");
-	        field.setAccessible(true);
-	        UNSAFE = (Unsafe)field.get(null);
-	    }
-	    catch (Exception e){
-	        throw new RuntimeException(e);
-	    }
+		UNSAFE = HackUtils.UNSAFE;
 	}
 	
 	

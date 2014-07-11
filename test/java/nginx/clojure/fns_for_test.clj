@@ -40,3 +40,24 @@
 
 (defn coreduce-test [ma]
   (co [1 3 5 7 9] ma))
+
+(def ^:dynamic *mybinding* "mybinding")
+
+(defn ca [ma]
+  (Coroutine. 
+    (fn []
+        (binding [*mybinding* "ca"]
+          (println "in ca:" *mybinding*)
+          (Coroutine/yield)
+          (.add ma *mybinding*))
+      )))
+
+
+(defn cb [ma]
+  (Coroutine. 
+    (fn []
+        (binding [*mybinding* "cb"]
+          (println "in cb:" *mybinding*)
+          (Coroutine/yield)
+          (.add ma *mybinding*))
+      )))

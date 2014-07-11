@@ -105,4 +105,23 @@ public class ClojureFnTest {
 			assertTrue(cr.getStack().allObjsAreNull());
 		}
 	}
+	
+	@Test
+	public void testBinding() {
+		RT.var("clojure.core", "require").invoke(Symbol.create("nginx.clojure.fns-for-test"));
+		IFn  cafn = (IFn)RT.var("nginx.clojure.fns-for-test", "ca").fn();
+		IFn  cbfn = (IFn)RT.var("nginx.clojure.fns-for-test", "cb").fn();
+		ArrayList<String> ma = new ArrayList<String>();
+		Coroutine ca = (Coroutine) cafn.invoke(ma);
+		ArrayList<String> mb = new ArrayList<String>();
+		Coroutine cb = (Coroutine) cbfn.invoke(mb);
+		ca.resume();
+		cb.resume();
+		assertTrue(ma.isEmpty());
+		assertTrue(mb.isEmpty());
+		ca.resume();
+		assertEquals("ca", ma.get(0));
+		cb.resume();
+		assertEquals("cb", mb.get(0));
+	}
 }

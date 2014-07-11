@@ -1,4 +1,4 @@
-(defproject nginx-clojure "0.2.3"
+(defproject nginx-clojure "0.2.4"
   :description "Nginx module for clojure & java programming"
   :url "https://github.com/nginx-clojure/nginx-clojure"
   :license {:name "BSD 3-Clause license"
@@ -36,7 +36,7 @@
                                   [javax.servlet/servlet-api "2.5"]
                                   ]}
              :unittest {
-                    :jvm-opts ["-javaagent:target/nginx-clojure-0.2.2.jar=mb"
+                    :jvm-opts ["-javaagent:target/nginx-clojure-0.2.4.jar=mb"
                                "-Dnginx.clojure.wave.udfs=pure-clj.txt,compojure.txt,compojure-http-clj.txt"]
                     :java-source-paths ["test/java" "test/clojure"]
                     :test-paths ["src/test/clojure"]

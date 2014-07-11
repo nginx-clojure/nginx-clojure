@@ -135,7 +135,7 @@ public class LazyHeaderMap extends AFn implements IPersistentMap  {
 		@Override
 		public ISeq next() {
 			if (i < h.size -1) {
-				return new LazyHeaderSeq(h, ++i);
+				return new LazyHeaderSeq(h, i+1);
 			}
 			return null;
 		}

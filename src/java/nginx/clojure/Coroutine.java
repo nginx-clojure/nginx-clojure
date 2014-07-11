@@ -72,6 +72,9 @@ public class Coroutine implements Runnable, Serializable {
     private State state;
     private int resumeCounter = 0;
     
+    private Object locals;
+    private Object inheritableLocals;
+    
     /**
      * Suspend the currently running Coroutine on the calling thread.
      * 
@@ -117,6 +120,21 @@ public class Coroutine implements Runnable, Serializable {
         this.stack = new Stack(this, stackSize);
         this.cstack = new SuspendableConstructorUtilStack(stackSize/8);
         this.state = State.NEW;
+        Thread thread = Thread.currentThread();
+        Object currentLocals = HackUtils.getThreadLocals(Thread.currentThread());
+        this.locals = HackUtils.cloneThreadLocalMap(currentLocals);
+        try {
+            HackUtils.setThreadLocals(thread, this.locals);
+            Stack.setStack(this.stack);
+            SuspendableConstructorUtilStack.setStack(this.cstack);
+        }finally {
+        	HackUtils.setThreadLocals(thread, currentLocals);
+        }
+        
+        Object inheritableLocals = HackUtils.getInheritableThreadLocals(Thread.currentThread());
+        if (inheritableLocals != null) {
+        	this.inheritableLocals = HackUtils.createInheritedMap(inheritableLocals);
+        }
         
         if(proto == null) {
             throw new NullPointerException("proto");
@@ -185,12 +203,18 @@ public class Coroutine implements Runnable, Serializable {
         }
 		resumeCounter++;
         State result = State.FINISHED;
-        Stack oldStack = Stack.getStack();
-        SuspendableConstructorUtilStack oldCStack = SuspendableConstructorUtilStack.getStack();
+//        Stack oldStack = Stack.getStack();
+//        SuspendableConstructorUtilStack oldCStack = SuspendableConstructorUtilStack.getStack();
+        Thread thread = Thread.currentThread();
+        Object oldLocals = HackUtils.getThreadLocals(thread);
+        Object oldInheritableLocals = HackUtils.getInheritableThreadLocals(thread);
         try {
+            HackUtils.setThreadLocals(thread, this.locals);
+            HackUtils.setInheritablehreadLocals(thread, this.inheritableLocals);
             state = State.RUNNING;
-            Stack.setStack(stack);
-            SuspendableConstructorUtilStack.setStack(cstack);
+//            Stack.setStack(stack);
+//            SuspendableConstructorUtilStack.setStack(cstack);
+            
             try {
             	if (proto instanceof IFn) {
             		((IFn)proto).invoke();
@@ -209,8 +233,13 @@ public class Coroutine implements Runnable, Serializable {
         		//TODO: use stack
         		stack.release();
         	}
-            Stack.setStack(oldStack);
-            SuspendableConstructorUtilStack.setStack(oldCStack);
+        	
+            HackUtils.setThreadLocals(thread, oldLocals);
+            HackUtils.setInheritablehreadLocals(thread, oldInheritableLocals);
+            
+//            Stack.setStack(oldStack);
+//            SuspendableConstructorUtilStack.setStack(oldCStack);
+
             state = result;
         }
 	}
