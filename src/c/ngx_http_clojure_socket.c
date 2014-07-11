@@ -458,7 +458,8 @@ static void  jni_ngx_http_clojure_socket_connect_handler(ngx_http_clojure_socket
 
 static void  jni_ngx_http_clojure_socket_release_handler(ngx_http_clojure_socket_upstream_t *u, ngx_int_t sc) {
 	(*jvm_env)->CallVoidMethod(jvm_env, (jobject)u->context, nc_socket_handler_release_mid, (jlong)(uintptr_t)u, (jlong)sc);
-	exception_handle(0 == 0, jvm_env, (*jvm_env)->DeleteGlobalRef(jvm_env, (jobject)u->context));
+	exception_handle(0 == 0, jvm_env, (*jvm_env)->DeleteGlobalRef(jvm_env, (jobject)u->context);return);
+	(*jvm_env)->DeleteGlobalRef(jvm_env, (jobject)u->context);
 }
 
 static jlong JNICALL jni_ngx_http_clojure_socket_create(JNIEnv *env, jclass cls, jobject handler) {
