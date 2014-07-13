@@ -52,6 +52,21 @@
                                   ;[mysql/mysql-connector-java "5.1.30"]
                                   ]
                         }
+             :cljremotetest {
+                                :java-source-paths ["test/clojure"]
+                                :test-paths ["src/test/clojure"]
+                                :source-paths ["test/clojure" "test/java" "test/nginx-working-dir/coroutine-udfs"]
+                                :compile-path "target/testclasses"
+                                :dependencies [
+                                              [ring/ring-core "1.2.1"]
+                                              [compojure "1.1.6"]
+                                              [clj-http "0.7.8"]
+                                              [junit/junit "4.11"]
+                                              [org.clojure/java.jdbc "0.3.3"]
+                                              [org.clojure/tools.nrepl "0.2.3"]
+                                              ;[mysql/mysql-connector-java "5.1.30"]
+                                              ]
+                                    }             
              :1.4 {:dependencies [[org.clojure/clojure "1.4.0"]]}
              :1.5 {:dependencies [[org.clojure/clojure "1.5.0"]]}
              })
