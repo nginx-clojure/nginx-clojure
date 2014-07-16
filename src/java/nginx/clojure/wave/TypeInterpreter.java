@@ -256,4 +256,11 @@ public class TypeInterpreter extends SimpleVerifier {
 		}
     }
     
+    public boolean checkAssignableFrom(Type t, Type u) {
+    	return isAssignableFrom(t, u);
+    }
+    
+    public Type fetchSuperClass(Type t) {
+    	return getSuperClass(t);
+    }
 }

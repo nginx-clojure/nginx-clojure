@@ -6,7 +6,7 @@
   :dependencies [
                  [org.clojure/clojure "1.5.1"]
                  ]
-  :plugins [[lein-junit "1.1.2"]]
+  :plugins [[lein-junit "1.1.7"]]
   ;; CLJ source code path
   :source-paths ["src/clojure"]
   :target-path "target/"
@@ -37,7 +37,9 @@
                                   ]}
              :unittest {
                     :jvm-opts ["-javaagent:target/nginx-clojure-0.2.4.jar=mb"
-                               "-Dnginx.clojure.wave.udfs=pure-clj.txt,compojure.txt,compojure-http-clj.txt"]
+                               "-Dnginx.clojure.wave.udfs=pure-clj.txt,compojure.txt,compojure-http-clj.txt"
+                               "-Xbootclasspath/a:target/nginx-clojure-0.2.4.jar"]
+                    :junit-options {:fork "on"}
                     :java-source-paths ["test/java" "test/clojure"]
                     :test-paths ["src/test/clojure"]
                     :source-paths ["test/clojure" "test/java" "test/nginx-working-dir/coroutine-udfs"]
