@@ -1,5 +1,6 @@
 (ns nginx.clojure.core
-  (:import [nginx.clojure Coroutine Stack NginxClojureRT LazyRequestMap]))
+  (:import [nginx.clojure Coroutine Stack NginxClojureRT LazyRequestMap])
+  (:import [nginx.clojure.clj NginxClojureHandler Constants]))
 
 (defn without-coroutine 
   "wrap a handler f to a new handler which will keep away the coroutine context"
@@ -20,7 +21,7 @@
     (println (str (:body r1) \"====\\n\" (:body r2) ))
   "
   [& exprs]
-  `(NginxClojureRT/coBatchCall (list ~@(map #(list `fn [] %) exprs))))
+  `(NginxClojureHandler/coBatchCall (list ~@(map #(list `fn [] %) exprs))))
 
 (defn co-pcalls
   "Executes the no-arg fns in parallel coroutines, returning a  sequence of their values
@@ -31,7 +32,7 @@
     (println (str (:body r1) \"====\\n\" (:body r2) ))
   "
   [& fns]
-  (NginxClojureRT/coBatchCall fns))
+  (NginxClojureHandler/coBatchCall fns))
 
 (defn get-ngx-var 
   "get nginx variable"
@@ -43,4 +44,4 @@
   [^LazyRequestMap req name, val]
   (NginxClojureRT/setNGXVariable (.nativeRequest req) name val))
 
-(def phrase-done NginxClojureRT/PHRASE_DONE)
+(def phrase-done Constants/PHRASE_DONE)

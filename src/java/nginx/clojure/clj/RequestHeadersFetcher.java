@@ -2,11 +2,13 @@
  *  Copyright (C) Zhang,Yuexiang (xfeep)
  *
  */
-package nginx.clojure;
+package nginx.clojure.clj;
+
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_HEADERS_IN_OFFSET;
 
 import java.nio.charset.Charset;
 
-import static nginx.clojure.Constants.*;
+import nginx.clojure.RequestVarFetcher;
 
 public class RequestHeadersFetcher implements RequestVarFetcher {
 

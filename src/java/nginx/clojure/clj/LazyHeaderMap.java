@@ -2,16 +2,16 @@
  *  Copyright (C) Zhang,Yuexiang (xfeep)
  *
  */
-package nginx.clojure;
+package nginx.clojure.clj;
 
-import static nginx.clojure.Constants.BYTE_ARRAY_OFFSET;
-import static nginx.clojure.Constants.DEFAULT_ENCODING;
-import static nginx.clojure.Constants.KNOWN_REQ_HEADERS;
-import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET;
-import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET;
-import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_REQ_HEADERS_IN_OFFSET;
-import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_TEL_KEY_OFFSET;
-import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET;
+import static nginx.clojure.MiniConstants.BYTE_ARRAY_OFFSET;
+import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
+import static nginx.clojure.MiniConstants.KNOWN_REQ_HEADERS;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_HEADERS_IN_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_KEY_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
 import static nginx.clojure.NginxClojureRT.fetchNGXString;
 import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_header;
@@ -21,6 +21,7 @@ import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_obj_addr;
 
 import java.util.Iterator;
 
+import nginx.clojure.RequestKnownHeaderFetcher;
 import clojure.lang.AFn;
 import clojure.lang.ASeq;
 import clojure.lang.Counted;
@@ -78,7 +79,7 @@ public class LazyHeaderMap extends AFn implements IPersistentMap  {
 
 	@Override
 	public boolean containsKey(Object keyObj) {
-		String key = NginxClojureRT.normalizeHeaderName(keyObj);
+		String key = NginxClojureHandler.normalizeHeaderName(keyObj);
 		if (key == null) {
 			return false;
 		}
@@ -161,7 +162,7 @@ public class LazyHeaderMap extends AFn implements IPersistentMap  {
 		if (keyObj == null) {
 			return null;
 		}
-		String key = NginxClojureRT.normalizeHeaderName(keyObj);
+		String key = NginxClojureHandler.normalizeHeaderName(keyObj);
 		if (key == null) {
 			return null;
 		}

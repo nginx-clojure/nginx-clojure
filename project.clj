@@ -25,7 +25,8 @@
              "Can-Redefine-Classes" "true"
              "Can-Retransform-Classes" "true"
              }
-  :profiles {:dev {:dependencies [;only for test usage
+  :profiles {
+             :dev {:dependencies [;only for test usage
                                   [ring/ring-core "1.2.1"]
                                   [compojure "1.1.6"]
                                   [clj-http "0.7.8"]
@@ -34,6 +35,7 @@
                                   [mysql/mysql-connector-java "5.1.30"]
                                   ;for test file upload with ring-core which need it
                                   [javax.servlet/servlet-api "2.5"]
+                                  [org.codehaus.jackson/jackson-mapper-asl "1.9.13"]
                                   ]}
              :unittest {
                     :jvm-opts ["-javaagent:target/nginx-clojure-0.2.4.jar=mb"
@@ -51,6 +53,7 @@
                                   [clj-http "0.7.8"]
                                   [junit/junit "4.11"]
                                   [org.clojure/java.jdbc "0.3.3"]
+                                  [org.codehaus.jackson/jackson-mapper-asl "1.9.13"]
                                   ;[mysql/mysql-connector-java "5.1.30"]
                                   ]
                         }

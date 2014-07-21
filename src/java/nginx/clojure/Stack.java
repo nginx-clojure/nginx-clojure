@@ -32,7 +32,6 @@ package nginx.clojure;
 import java.io.Serializable;
 import java.lang.reflect.Proxy;
 
-import clojure.lang.IPending;
 import nginx.clojure.wave.MethodDatabase;
 import nginx.clojure.wave.SuspendMethodVerifier.VerifyInfo;
 import nginx.clojure.wave.SuspendMethodVerifier.VerifyMethodInfo;
@@ -312,7 +311,8 @@ public final class Stack implements Serializable {
     		return null;
     	}
     	Object fv = v;
-		if (fv instanceof IPending && !((IPending) fv).isRealized()) {
+    	//TODO:!((IPending) fv).isRealized()
+		if (fv.getClass().getName().equals("clojure.lang.IPending")) {
 			fv = fv.getClass().getName() + Long.toHexString(nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_obj_addr(fv));
 		}else if (Proxy.isProxyClass(fv.getClass())) {
 			Object handler = Proxy.getInvocationHandler(fv);

@@ -3,7 +3,8 @@ lazyclass:clojure/lang/IFn
 	/applyToHelper.*|applyTo.*:just_mark
 
 lazyclass:clojure/lang/AFn
-  /applyToHelper.*|applyTo.*:just_mark	
+  /applyToHelper.*|applyTo.*:just_mark
+  call()Ljava/lang/Object;:normal	
 
 lazyclass:clojure/lang/RestFn
   /invoke.*:just_mark
@@ -78,6 +79,43 @@ lazyclass:nginx/clojure/net/NginxClojureSocketImpl$SocketInputStream
 
 lazyclass:nginx/clojure/net/NginxClojureSocketImpl$SocketOutputStream
   /write.*
+
+
+lazyclass:java/util/concurrent/Executors$RunnableAdapter
+  call()Ljava/lang/Object;:normal
+
+lazyclass:java/util/concurrent/FutureTask
+  run()V:normal
+
+lazyclass:java/util/concurrent/ThreadPoolExecutor
+  runWorker(Ljava/util/concurrent/ThreadPoolExecutor$Worker;)V:normal
+
+lazyclass:java/util/concurrent/ThreadPoolExecutor$Worker
+  run()V:normal
+
+lazyclass:nginx/clojure/NginxSimpleHandler
+  handleRequest(Lnginx/clojure/NginxRequest;)Lnginx/clojure/NginxResponse;:normal
+
+fuzzyclass:nginx/clojure/NginxSimpleHandler\$(\d+)
+  call()Ljava/lang/Object;:normal
+  call()Lnginx/clojure/NginxClojureRT$WorkerResponseContext;:normal
+
+lazyclass:nginx/clojure/clj/LazyRequestMap
+  process()Lnginx/clojure/NginxResponse;:normal
+
+
+lazyclass:java/lang/Runnable
+#mark from sub java/util/concurrent/ThreadPoolExecutor$Worker
+  run()V:just_mark
+
+lazyclass:java/util/concurrent/Callable
+#mark from sub java/util/concurrent/Executors$RunnableAdapter
+  call()Ljava/lang/Object;:just_mark
+
+
+lazyclass:nginx/clojure/NginxRequest
+#mark from sub nginx/clojure/clj/LazyRequestMap
+  process()Lnginx/clojure/NginxResponse;:just_mark
 
 filter:clojure/asm
 filter:com/sun/crypto/provider/

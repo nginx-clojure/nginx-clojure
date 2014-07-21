@@ -4,13 +4,14 @@
  */
 package nginx.clojure;
 
-import static nginx.clojure.Constants.HTTP_METHODS;
-import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_REQ_METHOD_OFFSET;
+import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
+import static nginx.clojure.MiniConstants.HTTP_METHODS;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_METHOD_OFFSET;
 import static nginx.clojure.NginxClojureRT.fetchNGXInt;
 
 import java.nio.charset.Charset;
 
-public class RequestMethodFetcher implements RequestVarFetcher {
+public class RequestMethodStrFetcher implements RequestVarFetcher {
 
 	public final static RequestKnownNameVarFetcher REQUEST_METHOD_VAR_FETCHER = new RequestKnownNameVarFetcher("request_method");
 	
@@ -23,7 +24,7 @@ public class RequestMethodFetcher implements RequestVarFetcher {
 			methodIdx ++;
 		}
 		if (methodIdx >=  HTTP_METHODS.length || methodIdx == 0){
-			String m = (String) REQUEST_METHOD_VAR_FETCHER.fetch(r, Constants.DEFAULT_ENCODING);
+			String m = (String) REQUEST_METHOD_VAR_FETCHER.fetch(r, DEFAULT_ENCODING);
 			return m == null ? HTTP_METHODS[0] : m;
 		}else {
 			return HTTP_METHODS[methodIdx];

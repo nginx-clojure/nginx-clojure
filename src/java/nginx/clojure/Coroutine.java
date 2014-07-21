@@ -32,7 +32,6 @@ package nginx.clojure;
 import java.io.IOException;
 import java.io.Serializable;
 
-import clojure.lang.IFn;
 
 /**
  * <p>A Coroutine is used to run a CoroutineProto.</p>
@@ -216,11 +215,7 @@ public class Coroutine implements Runnable, Serializable {
 //            SuspendableConstructorUtilStack.setStack(cstack);
             
             try {
-            	if (proto instanceof IFn) {
-            		((IFn)proto).invoke();
-            	}else {
             		proto.run();
-            	}
             } catch (SuspendExecution ex) {
                 assert ex == SuspendExecution.instance;
                 result = State.SUSPENDED;
@@ -260,11 +255,7 @@ public class Coroutine implements Runnable, Serializable {
             state = State.RUNNING;
             Stack.setStack(stack);
             try {
-            	if (proto instanceof IFn) {
-            		((IFn)proto).invoke();
-            	}else {
             		proto.run();
-            	}
             } catch (SuspendExecution ex) {
                 assert ex == SuspendExecution.instance;
                 result = State.SUSPENDED;

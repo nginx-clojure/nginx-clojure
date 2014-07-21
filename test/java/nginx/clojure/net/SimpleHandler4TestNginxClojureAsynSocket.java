@@ -3,9 +3,10 @@ package nginx.clojure.net;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 
-import nginx.clojure.Constants;
-import nginx.clojure.LazyRequestMap;
 import nginx.clojure.NginxClojureRT;
+import nginx.clojure.clj.Constants;
+import nginx.clojure.clj.LazyRequestMap;
+import nginx.clojure.clj.NginxClojureHandler;
 import nginx.clojure.logger.LoggerService;
 import clojure.lang.AFn;
 import clojure.lang.PersistentArrayMap;
@@ -134,7 +135,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 											"text/html" }),
 							Constants.BODY, new ByteArrayInputStream(ctx.resp.toByteArray()) };
 							//just for test not for good performance and right behavior for a http proxy
-							NginxClojureRT.completeAsyncResponse(ctx.clientRequest, new  PersistentArrayMap(resps));
+							NginxClojureHandler.completeAsyncResponse(ctx.clientRequest, new PersistentArrayMap(resps));
 						}else {
 							ctx.rc += n;
 							ctx.resp.write(ctx.buf, 0, (int)n);
@@ -158,7 +159,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 		});
 		asynSocket.connect("mirror.bit.edu.cn:80");
 		//tell nginx clojure our work isn't done.
-		return NginxClojureRT.ASYNC_TAG;
+		return Constants.ASYNC_TAG;
 	}
 
 }

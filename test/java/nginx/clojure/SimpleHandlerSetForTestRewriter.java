@@ -1,5 +1,7 @@
 package nginx.clojure;
 
+import nginx.clojure.clj.Constants;
+import nginx.clojure.clj.LazyRequestMap;
 import clojure.lang.AFn;
 
 public class SimpleHandlerSetForTestRewriter {
@@ -13,7 +15,7 @@ public class SimpleHandlerSetForTestRewriter {
 			LazyRequestMap req = (LazyRequestMap)arg;
 			String myhost = computeMyHost(req);
 			NginxClojureRT.setNGXVariable(req.nativeRequest(), "myhost", myhost);
-			return NginxClojureRT.PHRASE_DONE;
+			return Constants.PHRASE_DONE;
 		}
 
 		private String computeMyHost(LazyRequestMap req) {

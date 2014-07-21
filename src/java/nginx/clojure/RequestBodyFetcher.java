@@ -8,6 +8,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.nio.charset.Charset;
 
+
 public class RequestBodyFetcher implements RequestVarFetcher {
 	
 	public final static RequestKnownNameVarFetcher BODY_VAR_FETCHER = new RequestKnownNameVarFetcher("request_body");
@@ -19,8 +20,8 @@ public class RequestBodyFetcher implements RequestVarFetcher {
 	
 	@Override
 	public Object fetch(long r, Charset encoding) {
-		Object reqMethod = Constants.REQUEST_METHOD_FETCHER.fetch(r, encoding);
-		if (Constants.GET == reqMethod) {
+		Object reqMethod = MiniConstants.REQUEST_METHOD_FETCHER.fetch(r, encoding);
+		if (MiniConstants.GET == reqMethod) {
 			return BODY_VAR_FETCHER.fetchAsStream(r);
 		}
 		String tmpfile = (String)BODY_FILE_FETCHER.fetch(r, encoding);

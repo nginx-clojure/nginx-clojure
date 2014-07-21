@@ -9,8 +9,8 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.Collections;
 
-import nginx.clojure.Constants;
 import nginx.clojure.NginxClojureRT;
+import nginx.clojure.clj.Constants;
 import nginx.clojure.logger.LoggerService;
 import clojure.lang.AFn;
 import clojure.lang.PersistentArrayMap;

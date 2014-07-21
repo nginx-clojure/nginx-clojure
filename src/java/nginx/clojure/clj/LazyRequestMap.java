@@ -2,38 +2,44 @@
  *  Copyright (C) Zhang,Yuexiang (xfeep)
  *
  */
-package nginx.clojure;
+package nginx.clojure.clj;
 
-import static nginx.clojure.Constants.BODY;
-import static nginx.clojure.Constants.BODY_FETCHER;
-import static nginx.clojure.Constants.CHARACTER_ENCODING;
-import static nginx.clojure.Constants.CHARACTER_ENCODING_FETCHER;
-import static nginx.clojure.Constants.CONTENT_TYPE;
-import static nginx.clojure.Constants.CONTENT_TYPE_FETCHER;
-import static nginx.clojure.Constants.DEFAULT_ENCODING;
-import static nginx.clojure.Constants.HEADERS;
-import static nginx.clojure.Constants.HEADER_FETCHER;
-import static nginx.clojure.Constants.QUERY_STRING;
-import static nginx.clojure.Constants.QUERY_STRING_FETCHER;
-import static nginx.clojure.Constants.REMOTE_ADDR;
-import static nginx.clojure.Constants.REMOTE_ADDR_FETCHER;
-import static nginx.clojure.Constants.REQUEST_METHOD;
-import static nginx.clojure.Constants.REQUEST_METHOD_FETCHER;
-import static nginx.clojure.Constants.SCHEME;
-import static nginx.clojure.Constants.SCHEME_FETCHER;
-import static nginx.clojure.Constants.SERVER_NAME;
-import static nginx.clojure.Constants.SERVER_NAME_FETCHER;
-import static nginx.clojure.Constants.SERVER_PORT;
-import static nginx.clojure.Constants.SERVER_PORT_FETCHER;
-import static nginx.clojure.Constants.URI;
-import static nginx.clojure.Constants.URI_FETCHER;
+import static nginx.clojure.MiniConstants.BODY_FETCHER;
+import static nginx.clojure.MiniConstants.CHARACTER_ENCODING_FETCHER;
+import static nginx.clojure.MiniConstants.CONTENT_TYPE_FETCHER;
+import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
+import static nginx.clojure.MiniConstants.QUERY_STRING_FETCHER;
+import static nginx.clojure.MiniConstants.REMOTE_ADDR_FETCHER;
+import static nginx.clojure.MiniConstants.SCHEME_FETCHER;
+import static nginx.clojure.MiniConstants.SERVER_NAME_FETCHER;
+import static nginx.clojure.MiniConstants.SERVER_PORT_FETCHER;
+import static nginx.clojure.MiniConstants.URI_FETCHER;
+import static nginx.clojure.clj.Constants.BODY;
+import static nginx.clojure.clj.Constants.CHARACTER_ENCODING;
+import static nginx.clojure.clj.Constants.CONTENT_TYPE;
+import static nginx.clojure.clj.Constants.HEADERS;
+import static nginx.clojure.clj.Constants.HEADER_FETCHER;
+import static nginx.clojure.clj.Constants.QUERY_STRING;
+import static nginx.clojure.clj.Constants.REMOTE_ADDR;
+import static nginx.clojure.clj.Constants.REQUEST_METHOD;
+import static nginx.clojure.clj.Constants.REQUEST_METHOD_FETCHER;
+import static nginx.clojure.clj.Constants.SCHEME;
+import static nginx.clojure.clj.Constants.SERVER_NAME;
+import static nginx.clojure.clj.Constants.SERVER_PORT;
+import static nginx.clojure.clj.Constants.URI;
 
+import java.io.Closeable;
 import java.util.Iterator;
 import java.util.Map;
 
+import nginx.clojure.NginxClojureRT;
+import nginx.clojure.NginxRequest;
+import nginx.clojure.NginxResponse;
+import nginx.clojure.RequestVarFetcher;
 import clojure.lang.AFn;
 import clojure.lang.ASeq;
 import clojure.lang.Counted;
+import clojure.lang.IFn;
 import clojure.lang.IMapEntry;
 import clojure.lang.IPersistentCollection;
 import clojure.lang.IPersistentMap;
@@ -44,23 +50,23 @@ import clojure.lang.Obj;
 import clojure.lang.RT;
 import clojure.lang.Util;
 
-public   class LazyRequestMap extends AFn  implements IPersistentMap {
+public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentMap {
 	
 	protected long r;
-	protected int codeId;
+	protected IFn ringHandler;
 	protected Object[] array;
-	public final static LazyRequestMap EMPTY_MAP = new LazyRequestMap(0, 0, new Object[0]);
+	public final static LazyRequestMap EMPTY_MAP = new LazyRequestMap(null, 0, new Object[0]);
 	
-	public LazyRequestMap(int codeId, long r, Object[] array) {
+	public LazyRequestMap(IFn ringHandler, long r, Object[] array) {
 		this.r = r;
 		this.array = array;
-		this.codeId = codeId;
+		this.ringHandler = ringHandler;
 	}
 	
 	@SuppressWarnings("unchecked")
-	public LazyRequestMap(int codeId, long r) {
+	public LazyRequestMap(IFn ringHandler, long r) {
 		//TODO: SSL_CLIENT_CERT
-		this(codeId, r, new Object[] {
+		this(ringHandler, r, new Object[] {
 				URI, URI_FETCHER,
 				BODY, BODY_FETCHER,
 				HEADERS, HEADER_FETCHER,
@@ -249,7 +255,7 @@ public   class LazyRequestMap extends AFn  implements IPersistentMap {
 		System.arraycopy(array, 0, newArray, 0, array.length);
 		newArray[array.length] = key;
 		newArray[array.length+1] = val;
-		return new LazyRequestMap(codeId, r, newArray);
+		return new LazyRequestMap(ringHandler, r, newArray);
 	}
 
 	@Override
@@ -275,7 +281,7 @@ public   class LazyRequestMap extends AFn  implements IPersistentMap {
 				System.arraycopy(array, 0, newArray, 0, i);
 			}
 			System.arraycopy(array, i + 2, newArray, i, array.length - i - 2);
-			return new LazyRequestMap(codeId, r , newArray);
+			return new LazyRequestMap(ringHandler, r , newArray);
 		}
 	}
 	
@@ -296,6 +302,23 @@ public   class LazyRequestMap extends AFn  implements IPersistentMap {
 	@Override
 	public Object invoke(Object key, Object notFound) {
 		return valAt(key, notFound);
+	}
+
+	@Override
+	public NginxResponse process() {
+		try{
+			Map resp = (Map) ringHandler.invoke(this);
+			return NginxClojureHandler.toNginxResponse(resp);
+		}finally {
+			int bodyIdx = index(BODY);
+			if (bodyIdx > 0 && array[bodyIdx] instanceof Closeable) {
+				try {
+					((Closeable)array[bodyIdx]).close();
+				} catch (Throwable e) {
+					NginxClojureRT.log.error("can not close Closeable object such as FileInputStream!", e);
+				}
+			}
+		}
 	}
 
 }

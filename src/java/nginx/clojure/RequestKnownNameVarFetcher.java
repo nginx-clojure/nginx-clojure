@@ -4,10 +4,10 @@
  */
 package nginx.clojure;
 
-import static nginx.clojure.Constants.CORE_VARS;
-import static nginx.clojure.Constants.DEFAULT_ENCODING;
-import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_REQ_POOL_OFFSET;
-import static nginx.clojure.Constants.NGX_HTTP_CLOJURE_UINT_SIZE;
+import static nginx.clojure.MiniConstants.CORE_VARS;
+import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_POOL_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_UINT_SIZE;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
 import static nginx.clojure.NginxClojureRT.fetchNGXInt;
 import static nginx.clojure.NginxClojureRT.fetchString;

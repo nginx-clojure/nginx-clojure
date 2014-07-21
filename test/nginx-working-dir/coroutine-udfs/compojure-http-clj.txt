@@ -372,7 +372,18 @@ fuzzyclass:nginx/clojure/coroutine_socket_handlers_for_test\$fn__(\d+)\$fn__(\d+
 lazyclass:org/apache/http/impl/io/IdentityInputStream
   read([BII)I:normal
 
-lazyclass:java/io/InputStream
-#mark from sub org/apache/http/impl/io/IdentityInputStream
-  read([BII)I:just_mark
+
+lazyclass:org/apache/http/HttpClientConnection
+  flush()V:normal
+  receiveResponseHeader()Lorg/apache/http/HttpResponse;:normal
+
+lazyclass:org/apache/http/conn/EofSensorInputStream
+  read([B)I:normal
+
+lazyclass:org/apache/http/impl/io/ContentLengthInputStream
+  read([BII)I:normal
+
+
+
+
 

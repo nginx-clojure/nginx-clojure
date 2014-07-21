@@ -4,8 +4,8 @@
  */
 package nginx.clojure.net;
 
-import clojure.lang.IFn;
-import nginx.clojure.Constants;
+import nginx.clojure.MiniConstants;
+import nginx.clojure.NginxClojureRT;
 
 
 public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
@@ -63,6 +63,9 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	
 	
 	public NginxClojureAsynSocket() {
+		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
+			throw new IllegalAccessError("NginxClojureAsynSocket can only be operated in main thread");
+		}
 		s = create(this);
 		if (s == 0) {
 			throw new OutOfMemoryError("no memory for create a native nginx clojure socket");
@@ -74,9 +77,6 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 		this.handler = handler;
 	}
 	
-	public NginxClojureAsynSocket(IFn f) {
-		this(new ClojureFunctionHandler(f));
-	}
 	
 	public int available() {
 		return (int)available(s);
@@ -187,8 +187,8 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	
 	public long connect(String url) {
 		this.url = url;
-		byte[] urlba = url.getBytes(Constants.DEFAULT_ENCODING);
-		return connect(s, urlba, Constants.BYTE_ARRAY_OFFSET, urlba.length);
+		byte[] urlba = url.getBytes(MiniConstants.DEFAULT_ENCODING);
+		return connect(s, urlba, MiniConstants.BYTE_ARRAY_OFFSET, urlba.length);
 	}
 	
 	/**
@@ -202,7 +202,7 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	 */
 	public long read(byte[] buf, long off, long size) {
 		checkConnected();
-		return read(s, buf, Constants.BYTE_ARRAY_OFFSET + off, size);
+		return read(s, buf, MiniConstants.BYTE_ARRAY_OFFSET + off, size);
 	}
 	
 	/**
@@ -216,7 +216,7 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	 */
 	public long write(byte[] buf, long off, long size) {
 		checkConnected();
-		return write(s, buf, Constants.BYTE_ARRAY_OFFSET + off, size);
+		return write(s, buf, MiniConstants.BYTE_ARRAY_OFFSET + off, size);
 	}
 
 	public long shutdown(long how) {
@@ -254,9 +254,6 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 		this.handler = handler;
 	}
 	
-	public void setHandler(IFn f) {
-		this.handler = new ClojureFunctionHandler(f);
-	}
 
 	@Override
 	public void onConnect(long u, long sc) {
@@ -351,36 +348,5 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	private static native long shutdown(long s, long how);
 	
 	private static native long cancelSoftShutdown(long s, long how);
-	
-	
-	public final static class ClojureFunctionHandler implements NginxClojureSocketHandler {
-		
-		IFn f;
-		
-		public ClojureFunctionHandler(IFn f) {
-			this.f = f;
-		}
-
-		@Override
-		public void onConnect(NginxClojureAsynSocket s, long sc) {
-			f.invoke(s, "connect", sc);
-		}
-
-		@Override
-		public void onRead(NginxClojureAsynSocket s, long sc) {
-			f.invoke(s, "read", sc);
-		}
-
-		@Override
-		public void onWrite(NginxClojureAsynSocket s, long sc) {
-			f.invoke(s, "write", sc);
-		}
-
-		@Override
-		public void onRelease(NginxClojureAsynSocket s, long sc) {
-			f.invoke(s, "release", sc);
-		}
-		
-	}
 
 }

@@ -5,50 +5,55 @@
 package nginx.clojure;
 
 import java.nio.charset.Charset;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
-import clojure.lang.Keyword;
-import clojure.lang.RT;
+/**
+ * Mini constants needed Nginx-Clojure Basic Platform
+ * @author Zhang,Yuexiang (xfeep)
+ *
+ */
+public class MiniConstants {
 
-public class Constants {
 
 	/**
-	 * Ring Spec (1.1) Keywords : https://github.com/ring-clojure/ring/blob/master/SPEC
+	 * Ring Spec (1.1) Strings : https://github.com/ring-clojure/ring/blob/master/SPEC
 	 */
-	public static final Keyword SERVER_PORT = RT.keyword(null, "server-port");
-	public static final Keyword SERVER_NAME = RT.keyword(null, "server-name");
-	public static final Keyword REMOTE_ADDR = RT.keyword(null, "remote-addr");
-	public static final Keyword URI = RT.keyword(null, "uri");
-	public static final Keyword QUERY_STRING = RT.keyword(null, "query-string");
-	public static final Keyword SCHEME = RT.keyword(null, "scheme");
-	public static final Keyword REQUEST_METHOD = RT.keyword(null, "request-method");
-	public static final Keyword CONTENT_TYPE = RT.keyword(null, "content-type");
-	public static final Keyword CHARACTER_ENCODING = RT.keyword(null, "character-encoding");
-	public static final Keyword SSL_CLIENT_CERT = RT.keyword(null, "ssl-client-cert");
-	public static final Keyword HEADERS = RT.keyword(null, "headers");
-	public static final Keyword BODY = RT.keyword(null, "body");
+	public static final String SERVER_PORT = "server-port"; 
+	public static final String SERVER_NAME = "server-name";
+	public static final String REMOTE_ADDR = "remote-addr";
+	public static final String URI = "uri";
+	public static final String QUERY_STRING = "query-string";
+	public static final String SCHEME = "scheme";
+	public static final String REQUEST_METHOD = "request-method";
+	public static final String CONTENT_TYPE = "content-type";
+	public static final String CHARACTER_ENCODING = "character-encoding";
+	public static final String SSL_CLIENT_CERT = "ssl-client-cert";
+	public static final String HEADERS = "headers";
+	public static final String BODY = "body";
 	
-	public static final Keyword UNKNOWN = RT.keyword(null, "UNKNOWN");
-	public static final Keyword GET = RT.keyword(null, "get");
-	public static final Keyword HEAD = RT.keyword(null, "head");
-	public static final Keyword POST = RT.keyword(null, "post");
-	public static final Keyword PUT = RT.keyword(null, "put");
-	public static final Keyword DELETE = RT.keyword(null, "delete");
-	public static final Keyword MKCOL = RT.keyword(null, "mkcol");
-	public static final Keyword COPY = RT.keyword(null, "copy");
-	public static final Keyword MOVE = RT.keyword(null, "move");
-	public static final Keyword OPTIONS = RT.keyword(null, "options");
-	public static final Keyword PROPFIND = RT.keyword(null, "propfind");
-	public static final Keyword PROPPATCH = RT.keyword(null, "proppatch");
-	public static final Keyword LOCK = RT.keyword(null, "lock");
-	public static final Keyword UNLOCK = RT.keyword(null, "unlock");
-	public static final Keyword PATCH = RT.keyword(null, "patch");
-	public static final Keyword TRACE = RT.keyword(null, "trace");
+	public static final String UNKNOWN = "UNKNOWN";
+	public static final String GET = "get";
+	public static final String HEAD = "head";
+	public static final String POST = "post";
+	public static final String PUT = "put";
+	public static final String DELETE = "delete";
+	public static final String MKCOL = "mkcol";
+	public static final String COPY = "copy";
+	public static final String MOVE = "move";
+	public static final String OPTIONS = "options";
+	public static final String PROPFIND = "propfind";
+	public static final String PROPPATCH = "proppatch";
+	public static final String LOCK = "lock";
+	public static final String UNLOCK = "unlock";
+	public static final String PATCH = "patch";
+	public static final String TRACE = "trace";
 	
 	
 	
-	public static final Keyword[] HTTP_METHODS = { UNKNOWN, GET, HEAD,
+	public static final String[] HTTP_METHODS = { UNKNOWN, GET, HEAD,
 			POST, PUT, DELETE, MKCOL, COPY, MOVE, OPTIONS, PROPFIND,
 			PROPPATCH, LOCK, UNLOCK, PATCH, TRACE };
 	
@@ -58,9 +63,9 @@ public class Constants {
 	
 	public static Map<String, Long> CORE_VARS = new HashMap<String, Long>();
 	
-	public static final Keyword STATUS = RT.keyword(null, "status");
-//	public static final Keyword BODY = RT.keyword(null, "body");
-//	public static final Keyword HEADERS = RT.keyword(null, "headers");
+	public static final String STATUS_STR = "status";
+//	public static final String BODY = RT.keyword(null, "body");
+//	public static final String HEADERS = RT.keyword(null, "headers");
 	public static final String DEFAULT_ENCODING_STR = "utf-8";
 	public static final Charset DEFAULT_ENCODING = Charset.forName(DEFAULT_ENCODING_STR);
 	
@@ -305,8 +310,8 @@ public class Constants {
 	public static int NGX_HTTP_CLOJURE_MEM_IDX_END = 255;
 	
 	//nginx clojure java runtime required the lowest version of nginx-clojure c module
-	public final static long NGINX_CLOJURE_RT_REQUIRED_LVER = 2001;
-	public final static long NGINX_CLOJURE_RT_VER = 2002;
+	public final static long NGINX_CLOJURE_RT_REQUIRED_LVER = 2004;
+	public final static long NGINX_CLOJURE_RT_VER = 2004;
 	
 	//ngx_core.h
 	public static int  NGX_OK       =   0;
@@ -413,8 +418,8 @@ public class Constants {
 	public static int NGX_HTTP_INSUFFICIENT_STORAGE = 507;
 	
 
-//	public static final Keyword HEADERS = RT.keyword(null, "headers");
-//	public static final Keyword BODY = RT.keyword(null, "body");
+//	public static final String HEADERS = RT.keyword(null, "headers");
+//	public static final String BODY = RT.keyword(null, "body");
 	
 	//these consts are initialized by MemoryUtil.initMemIndex
 	public static RequestVarFetcher SERVER_PORT_FETCHER;// = new RequestKnownNameVarFetcher("server_port");
@@ -435,11 +440,32 @@ public class Constants {
 	
 	public static RequestVarFetcher CHARACTER_ENCODING_FETCHER;// = new RequestCharacterEncodingFetcher();
 	
-	public static RequestVarFetcher HEADER_FETCHER;// = new RequestHeaderFetcher();
+//	public static RequestVarFetcher HEADER_FETCHER;// = new RequestHeaderFetcher();
 	
 	public static RequestVarFetcher BODY_FETCHER;// = new RequestBodyFetcher();
 	
 	
 	public static ResponseTableEltHeaderPusher SERVER_PUSHER;
 	
+	public static final class NginxFakeResponse implements NginxResponse {
+		public long buildOutputChain(long r) {
+			return 0;
+		}
+		public int fetchStatus(int defaultStatus) {
+			return defaultStatus;
+		}
+		@Override
+		public Collection<Entry> fetchHeaders() {
+			return null;
+		}
+		@Override
+		public Object fetchBody() {
+			return null;
+		}
+	}
+	
+	public static final NginxResponse NR_ASYNC_TAG = new NginxFakeResponse();
+	
+	public static final NginxResponse NR_PHRASE_DONE = new NginxFakeResponse();
+
 }

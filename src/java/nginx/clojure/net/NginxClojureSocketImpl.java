@@ -61,7 +61,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 
 	public NginxClojureSocketImpl() {
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
-			throw new IllegalAccessError("close method of coroutine based sockets can only be called in main thread");
+			throw new IllegalAccessError("coroutine based sockets can only be called in main thread");
 		}
 		if (log == null) {
 			log = new TinyLogService(TinyLogService.getSystemPropertyOrDefaultLevel(NGINX_CLOJURE_LOG_SOCKET_LEVEL, MsgType.info), System.err, System.err);

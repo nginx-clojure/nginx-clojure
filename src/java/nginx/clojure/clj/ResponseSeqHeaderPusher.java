@@ -2,7 +2,7 @@
  *  Copyright (C) Zhang,Yuexiang (xfeep)
  *
  */
-package nginx.clojure;
+package nginx.clojure.clj;
 
 import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_ARRAY_ELTS_OFFSET;
@@ -13,18 +13,18 @@ import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_KEY_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_OK;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
+import nginx.clojure.NginxClojureRT;
+import nginx.clojure.ResponseHeaderPusher;
+import clojure.lang.ArraySeq;
+import clojure.lang.ISeq;
+import clojure.lang.RT;
 
-import java.util.Arrays;
-import java.util.List;
-
-
-
-public class ResponseArrayHeaderPusher implements ResponseHeaderPusher {
+public class ResponseSeqHeaderPusher implements ResponseHeaderPusher {
 
 	protected long offset;
 	protected String name;
 	
-	public ResponseArrayHeaderPusher(String name, long offset) {
+	public ResponseSeqHeaderPusher(String name, long offset) {
 		this.offset = offset;
 		this.name = name;
 	}
@@ -46,17 +46,17 @@ public class ResponseArrayHeaderPusher implements ResponseHeaderPusher {
 			throw new RuntimeException("invalid address for set header array value " + v);
 		}
 		
-		List<String> seq = null;
-		if (v == null || v instanceof String) {
+		ISeq seq = null;
+		if (v instanceof String) {
 			String val = (String) v;
-			seq = Arrays.asList(val);
-		}else if (v instanceof List) {
-			seq = (List) v;
-		}else if (v.getClass().isArray()){
-			seq = (List)Arrays.asList((Object[])v);
+			seq = ArraySeq.create(val);
+		}else if (v instanceof ISeq) {
+			seq = (ISeq) v;
+		}else {
+			seq = RT.seq(v);
 		}
 		
-		int c = seq.size();
+		int c = seq.count();
 		if (c == 0) {
 			return;
 		}
@@ -74,7 +74,9 @@ public class ResponseArrayHeaderPusher implements ResponseHeaderPusher {
 			throw new RuntimeException("can not push ngx array for header");
 		}
 		
-		for (String val : seq) {
+		for (int i = 0; i < c; i++) {
+			String val = (String) seq.first();
+			seq = seq.next();
 			if (val != null) {
 				long p = NginxClojureRT.ngx_list_push(h + NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET);
 				if (p == 0) {

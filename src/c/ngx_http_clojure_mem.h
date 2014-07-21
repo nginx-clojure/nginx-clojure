@@ -25,9 +25,9 @@
 #include <inttypes.h>
 #endif
 
-#define nginx_clojure_ver  2003 /*0.2.0*/
+#define nginx_clojure_ver  2004 /*0.2.0*/
 
-#define NGINX_CLOJURE_VER "nginx clojure/0.2.3"
+#define NGINX_CLOJURE_VER "nginx clojure/0.2.4"
 
 typedef struct {
 	ngx_int_t phrase;
@@ -285,7 +285,7 @@ int ngx_http_clojure_check_memory_util();
  */
 int ngx_http_clojure_init_memory_util(ngx_int_t workers, ngx_log_t *log);
 
-int ngx_http_clojure_register_script(u_char **script, size_t len, ngx_int_t *cid);
+int ngx_http_clojure_register_script(ngx_str_t *handler_type, ngx_str_t *handler, ngx_str_t *code, ngx_int_t *pcid);
 
 int ngx_http_clojure_eval(int handle, void *r);
 

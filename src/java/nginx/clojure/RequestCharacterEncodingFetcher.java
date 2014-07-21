@@ -5,7 +5,7 @@
 package nginx.clojure;
 
 import java.nio.charset.Charset;
-import static nginx.clojure.Constants.CONTENT_TYPE_FETCHER;;
+import static nginx.clojure.MiniConstants.CONTENT_TYPE_FETCHER;;
 
 public class RequestCharacterEncodingFetcher implements RequestVarFetcher {
 	

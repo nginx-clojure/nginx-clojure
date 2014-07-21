@@ -825,7 +825,7 @@ int ngx_http_clojure_init_memory_util(ngx_int_t workers, ngx_log_t *log) {
 	(*env)->RegisterNatives(env, nc_rt_class, nms, sizeof(nms) / sizeof(JNINativeMethod));
 	exception_handle(0 == 0, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 
-	nc_rt_register_code_mid = (*env)->GetStaticMethodID(env, nc_rt_class, "registerCode", "(JJ)I");
+	nc_rt_register_code_mid = (*env)->GetStaticMethodID(env, nc_rt_class, "registerCode", "(JJJ)I");
 	exception_handle(nc_rt_register_code_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 
 	nc_rt_eval_mid = (*env)->GetStaticMethodID(env, nc_rt_class, "eval", "(IJ)I");
@@ -846,11 +846,11 @@ int ngx_http_clojure_init_memory_util(ngx_int_t workers, ngx_log_t *log) {
 
 
 
-int ngx_http_clojure_register_script(u_char **script, size_t len, ngx_int_t *cid) {
+int ngx_http_clojure_register_script(ngx_str_t *handler_type, ngx_str_t *handler, ngx_str_t *code, ngx_int_t *pcid) {
 	JNIEnv *env = jvm_env;
-	*cid = (int)(*env)->CallStaticIntMethod(env, nc_rt_class, nc_rt_register_code_mid, (jlong)(uintptr_t)script, (jlong)len);
+	*pcid = (int)(*env)->CallStaticIntMethod(env, nc_rt_class, nc_rt_register_code_mid, (jlong)(uintptr_t)handler_type, (jlong)(uintptr_t)handler, (jlong)(uintptr_t)code);
 	if ((*env)->ExceptionOccurred(env)) {
-		*cid = -1;
+		*pcid = -1;
 		(*env)->ExceptionDescribe(env);
 		(*env)->ExceptionClear(env);
 		return NGX_HTTP_CLOJURE_JVM_ERR;

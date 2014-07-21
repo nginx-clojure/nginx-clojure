@@ -1,10 +1,11 @@
 package nginx.clojure;
 
+import static nginx.clojure.MiniConstants.BYTE_ARRAY_OFFSET;
+import static nginx.clojure.NginxClojureRT.UNSAFE;
+import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_copy_to_obj;
+
 import java.io.IOException;
 import java.io.InputStream;
-
-import static nginx.clojure.NginxClojureRT.*;
-import static nginx.clojure.Constants.*;
 
 public class NativeInputStream extends InputStream {
 
