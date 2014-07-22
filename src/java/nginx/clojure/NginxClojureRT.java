@@ -486,7 +486,7 @@ public class NginxClojureRT extends MiniConstants {
 		//set system properties for build-in nginx handler factories
 		System.setProperty(NginxHandlerFactory.NGINX_CLOJURE_HANDLER_FACTORY_SYSTEM_PROPERTY_PREFIX + "java", "nginx.clojure.java.NginxJavaHandlerFactory");
 		System.setProperty(NginxHandlerFactory.NGINX_CLOJURE_HANDLER_FACTORY_SYSTEM_PROPERTY_PREFIX + "clojure", "nginx.clojure.clj.NginxClojureHandlerFactory");
-
+		System.setProperty(NginxHandlerFactory.NGINX_CLOJURE_HANDLER_FACTORY_SYSTEM_PROPERTY_PREFIX + "groovy", "nginx.clojure.groovy.NginxGroovyHandlerFactory");
 	}
 
 	public static void initUnsafe() {
@@ -762,5 +762,46 @@ public class NginxClojureRT extends MiniConstants {
 				parent.resume();
 			}
 		}
+	}
+	
+	public static final Object[] coBatchCall(Callable<Object> ...calls) {
+
+		int c = calls.length;
+		int[] counter = new int[] {c};
+		Object[] results = new Object[c];
+		Coroutine parent = Coroutine.getActiveCoroutine();
+		
+		if (parent == null && (JavaAgent.db == null || !JavaAgent.db.isRunTool())) {
+			log.warn("we are not in coroutine enabled context, so we turn to use thread for only testing usage!");
+			Future[] futures = new Future[c];
+			for (int i = 0; i < c ; i++) {
+				BatchCallRunner bcr = new BatchCallRunner(parent, counter, calls[i], i, results);
+				if (threadPoolOnlyForTestingUsage == null) {
+					initThreadPoolOnlyForTestingUsage();
+				}
+				futures[i] = threadPoolOnlyForTestingUsage.submit(bcr);
+			}
+			for (Future f : futures) {
+				try {
+					f.get();
+				} catch (Throwable e) {
+					log.error("do future failed", e);
+				} 
+			}
+		}else {
+			boolean shouldYieldParent = false;
+			for (int i = 0; i < c ; i++) {
+				Coroutine co  = new Coroutine(new BatchCallRunner(parent, counter, calls[i], i, results));
+				co.resume();
+				if (co.getState() != Coroutine.State.FINISHED) {
+					shouldYieldParent = true;
+				}
+			}
+			
+			if (parent != null && shouldYieldParent) {
+				Coroutine.yield();
+			}
+		}
+		return results;
 	}
 }

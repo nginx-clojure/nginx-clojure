@@ -170,6 +170,7 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 				response = request.process();
 			}catch(Throwable e) {
 				response = buildUnhandledExceptionResponse(e);
+				log.error("unhandled exception in coroutine", e);
 			}
 			
 			if (Coroutine.getActiveCoroutine().getResumeCounter() != 1) {

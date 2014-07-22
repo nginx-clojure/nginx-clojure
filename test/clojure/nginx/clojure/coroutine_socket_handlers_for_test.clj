@@ -65,7 +65,7 @@
                        (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/")
                        (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpcore/"))]
          {:status 200, 
-          :headers {"content-type" "text/plain"}, 
+          :headers {"content-type" "text/html"}, 
           :body (str (:body r1) "\n==========================\n" (:body r2)) }))
   ;this is only call by junit test
   (GET "/simple2" [] 

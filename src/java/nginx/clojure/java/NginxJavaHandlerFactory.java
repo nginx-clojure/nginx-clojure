@@ -17,6 +17,7 @@ public class NginxJavaHandlerFactory extends NginxHandlerFactory {
 	@Override
 	public NginxHandler newInstance(String name, String code) {
 		try {
+			name = name.trim();
 			NginxJavaRingHandler ringHandler = (NginxJavaRingHandler) Thread.currentThread().getContextClassLoader().loadClass(name).newInstance();
 			return new NginxJavaHandler(ringHandler);
 		} catch (Throwable e) {

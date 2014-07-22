@@ -354,6 +354,10 @@ public class MethodDatabase implements LoggerService {
 //        String fullname = ClassEntry.key(methodName, methodDesc);
         ClassEntry ce = MethodDatabaseUtil.buildClassEntryFamily(this, className);
         if (ce == null) {
+        	if (method.charAt(0) == '<') {
+        		warn("contructor's class not found - assuming not suspendable: %s#%s", className, method);
+        		return SUSPEND_NONE;
+        	}
         	warn("not found class - assuming suspendable: %s#%s", className, method);
         	return SUSPEND_NORMAL;
         }

@@ -12,14 +12,39 @@ lazyclass:clojure/lang/RestFn
 
 lazyclass:clojure/core$apply
   /invoke.*:just_mark
+  
+lazyclass:clojure/lang/RestFn
+#mark from sub nginx/clojure/core$co_pcalls
+  doInvoke(Ljava/lang/Object;)Ljava/lang/Object;:just_mark
 
-lazyclass:nginx/clojure/Coroutine
-  resume()V:skip
-  run()V:skip
-  _resumep()V:skip
+fuzzyclass:com/caucho/hessian/io/Hessian(\d+)Input
+    /read.*
+    /parse.*
+    /isEnd.*
+
+lazyclass:com/caucho/hessian/io/AbstractHessianInput
+    /read.*
+    /parse.*
+    /isEnd.*
 
 fuzzyclass:com/sun/proxy/\$Proxy(\d+)
   run()V:normal
+
+lazyclass:java/io/BufferedInputStream
+   /read.*
+   /write.*
+   /fill.*
+
+lazyclass:java/io/BufferedReader
+  /read.*
+
+
+lazyclass:java/io/InputStreamReader
+  /read.*
+
+lazyclass:java/io/Reader
+  /read.*
+
 
 lazyclass:java/lang/reflect/Method
   invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;:just_mark
@@ -44,11 +69,10 @@ lazyclass:java/lang/Object
 	wait()V:blocking
 	wait(J)V:blocking
 	wait(JI)V:blocking
-
-lazyclass:java/util/concurrent/locks/Lock
-	lock()V:blocking
-	lockInterruptibly()V:blocking
 	
+lazyclass:java/lang/Runnable
+#mark from sub java/util/concurrent/ThreadPoolExecutor$Worker
+  run()V:just_mark
 
 lazyclass:java/net/Socket
 	<init>(Ljava/lang/String;I)V:normal
@@ -60,25 +84,15 @@ lazyclass:java/net/Socket
 	<init>(Ljava/net/InetAddress;IZ)V:normal
 	connect(Ljava/net/SocketAddress;)V:normal
 	connect(Ljava/net/SocketAddress;I)V:normal
-  
-lazyclass:java/net/SocketImpl
-  /connect.*:normal
-	
-lazyclass:java/io/InputStream
-  /read.*:just_mark
-
-lazyclass:java/io/OutputStream
-  /write.*:just_mark
-
-lazyclass:nginx/clojure/net/NginxClojureSocketImpl
-	/connect.*
-
-lazyclass:nginx/clojure/net/NginxClojureSocketImpl$SocketInputStream
-  /read.*
 
 
-lazyclass:nginx/clojure/net/NginxClojureSocketImpl$SocketOutputStream
-  /write.*
+lazyclass:java/util/concurrent/Callable
+#mark from sub java/util/concurrent/Executors$RunnableAdapter
+  call()Ljava/lang/Object;:just_mark
+
+lazyclass:java/util/concurrent/locks/Lock
+	lock()V:blocking
+	lockInterruptibly()V:blocking
 
 
 lazyclass:java/util/concurrent/Executors$RunnableAdapter
@@ -91,7 +105,37 @@ lazyclass:java/util/concurrent/ThreadPoolExecutor
   runWorker(Ljava/util/concurrent/ThreadPoolExecutor$Worker;)V:normal
 
 lazyclass:java/util/concurrent/ThreadPoolExecutor$Worker
-  run()V:normal
+  run()V:normal	
+
+
+  
+lazyclass:java/net/SocketImpl
+  /connect.*:normal
+	
+lazyclass:java/io/InputStream
+  /read.*:just_mark
+
+lazyclass:java/io/OutputStream
+  /write.*:just_mark
+  
+lazyclass:nginx/clojure/Coroutine
+  resume()V:skip
+  run()V:skip
+  _resumep()V:skip
+
+
+lazyclass:nginx/clojure/clj/LazyRequestMap
+  process()Lnginx/clojure/NginxResponse;:normal
+
+lazyclass:nginx/clojure/net/NginxClojureSocketImpl
+	/connect.*
+
+lazyclass:nginx/clojure/net/NginxClojureSocketImpl$SocketInputStream
+  /read.*
+
+
+lazyclass:nginx/clojure/net/NginxClojureSocketImpl$SocketOutputStream
+  /write.*
 
 lazyclass:nginx/clojure/NginxSimpleHandler
   handleRequest(Lnginx/clojure/NginxRequest;)Lnginx/clojure/NginxResponse;:normal
@@ -100,22 +144,32 @@ fuzzyclass:nginx/clojure/NginxSimpleHandler\$(\d+)
   call()Ljava/lang/Object;:normal
   call()Lnginx/clojure/NginxClojureRT$WorkerResponseContext;:normal
 
-lazyclass:nginx/clojure/clj/LazyRequestMap
-  process()Lnginx/clojure/NginxResponse;:normal
-
-
-lazyclass:java/lang/Runnable
-#mark from sub java/util/concurrent/ThreadPoolExecutor$Worker
-  run()V:just_mark
-
-lazyclass:java/util/concurrent/Callable
-#mark from sub java/util/concurrent/Executors$RunnableAdapter
-  call()Ljava/lang/Object;:just_mark
-
 
 lazyclass:nginx/clojure/NginxRequest
 #mark from sub nginx/clojure/clj/LazyRequestMap
   process()Lnginx/clojure/NginxResponse;:just_mark
+  
+lazyclass:nginx/clojure/NginxClojureRT
+  coBatchCall([Ljava/util/concurrent/Callable;)[Ljava/lang/Object;:normal
+
+lazyclass:nginx/clojure/core$co_pcalls
+  doInvoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
+
+lazyclass:org/apache/solr/common/util/JavaBinCodec
+  /read.*
+  unmarshal(Ljava/io/InputStream;)Ljava/lang/Object;:normal
+
+lazyclass:sun/nio/cs/StreamDecoder
+  /readBytes.*
+	/implRead.*
+	/read.*
+
+lazyclass:sun/net/www/http/ChunkedInputStream
+  /fastRead.*
+  /read.*
+
+fuzzyclass:sun/reflect/GeneratedMethodAccessor(\d+)
+  invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;:normal
 
 filter:clojure/asm
 filter:com/sun/crypto/provider/

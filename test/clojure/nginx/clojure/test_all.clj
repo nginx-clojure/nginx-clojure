@@ -447,6 +447,15 @@
   )
 ;)
 
+(deftest test-var
+  (testing "simple nginx var"
+           (let [r (client/get (str "http://" *host* ":" *port* "/vartest") {:follow-redirects false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================vartest=============================")
+             (is (= 200 (:status r)))
+             (is (= "Hello,Xfeep!" (:body r))))))
 
 ;eg. (concurrent-run 10 (run-tests 'nginx.clojure.test-all))
 (defmacro concurrent-run 

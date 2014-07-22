@@ -238,7 +238,7 @@ static void * ngx_http_clojure_create_loc_conf(ngx_conf_t *cf) {
 static ngx_int_t ngx_http_clojure_init_clojure_script(char *type, ngx_str_t *handler_type, ngx_str_t *handler, ngx_str_t *code, ngx_int_t *pcid , ngx_log_t *log) {
     if (*pcid < 0 && (code->len > 0 || handler->len > 0)) {
     	if (ngx_http_clojure_register_script(handler_type, handler, code, pcid) != NGX_HTTP_CLOJURE_JVM_OK){
-    		ngx_log_error(NGX_LOG_ERR, log, 0, "invalid clojure %s code : %s", type, code->len > 0 ? code->data : handler->data);
+    		ngx_log_error(NGX_LOG_ERR, log, 0, "invalid %s %s code : %s", handler_type->data, type, code->len > 0 ? code->data : handler->data);
     		return NGX_HTTP_INTERNAL_SERVER_ERROR;
     	}
     }
