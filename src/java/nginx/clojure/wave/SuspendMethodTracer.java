@@ -317,6 +317,10 @@ public class SuspendMethodTracer {
 					upperMarks.put(parent, ms = new TreeMap<String, String>());
 				}
 				for (String m : tmp) {
+					Integer knownType = db.checkMethodSuspendType(child, m, false, false);
+					if (knownType != null && knownType >= MethodDatabase.SUSPEND_JUST_MARK) {
+						continue;
+					}
 					ms.put(m, child);
 				}
 			}
@@ -453,6 +457,9 @@ public class SuspendMethodTracer {
 			}
 			
 			for (Entry<String, TreeMap<String, String>> umen : upperMarks.entrySet()) {
+				if (umen.getValue().isEmpty()) {
+					continue;
+				}
 				writer.printf("lazyclass:%s\r\n", umen.getKey());
 				for (Entry<String, String> me : umen.getValue().entrySet()) {
 					writer.printf("#mark from sub %s\r\n", me.getValue());

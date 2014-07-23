@@ -168,8 +168,12 @@ lazyclass:sun/net/www/http/ChunkedInputStream
   /fastRead.*
   /read.*
 
+lazyclass:sun/net/www/MeteredStream
+  /read.*
+
 fuzzyclass:sun/reflect/GeneratedMethodAccessor(\d+)
-  invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;:normal
+  /invoke.*:skip
+
 
 filter:clojure/asm
 filter:com/sun/crypto/provider/

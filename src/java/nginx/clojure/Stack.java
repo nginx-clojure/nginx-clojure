@@ -29,6 +29,7 @@
  */
 package nginx.clojure;
 
+import java.io.BufferedReader;
 import java.io.Serializable;
 import java.lang.reflect.Proxy;
 
@@ -317,7 +318,13 @@ public final class Stack implements Serializable {
 		}else if (Proxy.isProxyClass(fv.getClass())) {
 			Object handler = Proxy.getInvocationHandler(fv);
 			fv = "proxy@" + handler.getClass().getName() + Long.toHexString(nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_obj_addr(handler));
+		}else if (fv != null) {
+			fv = fv.toString();
+			if (((String)fv).length() > 100) {
+				fv = ((String)fv).substring(0, 100);
+			}
 		}
+		
 		return fv;
     }
     

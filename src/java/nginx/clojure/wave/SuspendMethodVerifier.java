@@ -44,7 +44,7 @@ public class SuspendMethodVerifier {
 		public boolean exception = false;
 		public ArrayList<VerifyMethodInfo> tracerStacks = new ArrayList<SuspendMethodVerifier.VerifyMethodInfo>();
 		public VerifyMethodInfo[] methodIdxInfos = new VerifyMethodInfo[8];
-		private long id;
+//		private long id;
 	}
 
 	
@@ -62,54 +62,62 @@ public class SuspendMethodVerifier {
 		}
 		
 		vi.quite = true;
-		ArrayList<VerifyMethodInfo> stack = vi.tracerStacks;
-		
-		for (int i = stack.size() - 1; i > -1;  i--) {
-			MethodInfo mi = stack.get(i);
-			if (mi.suspendType != -1 || ("nginx/clojure/Coroutine".equals(mi.owner) && "resume()V".equals(mi.method))) {
-				break;
+		try {
+			ArrayList<VerifyMethodInfo> stack = vi.tracerStacks;
+			MethodInfo cmi = stack.get(stack.size() -1);
+			if (db.meetTraceTargetClassMethod(cmi.owner, cmi.method)) {
+				db.info("#%d onYield %s.%s", vi.vid , cmi.owner, cmi.method);
 			}
 			
-			ClassEntry ce = db.getClasses().get(mi.owner);
-			
-			if (ce == null) {
-				vi.exception = true;
-				db.error(new RuntimeException("can not found ClassEntry for " + mi.owner));
-				return;
+			for (int i = stack.size() - 1; i > -1;  i--) {
+				MethodInfo mi = stack.get(i);
+				if (mi.suspendType != -1 || ("nginx/clojure/Coroutine".equals(mi.owner) && "resume()V".equals(mi.method))) {
+					break;
+				}
+				
+				ClassEntry ce = db.getClasses().get(mi.owner);
+				
+				if (ce == null) {
+					vi.exception = true;
+					db.error(new RuntimeException(String.format("#%d onYield: can not found ClassEntry for %s", vi.vid, mi.owner)));
+					return;
+				}
+				
+				if (!ce.isAlreadyInstrumented()) {
+					vi.exception = true;
+					db.error(new RuntimeException(String.format("#%d onYield: %s is not AlreadyInstrumented!", vi.vid, mi.owner)));
+					return;
+				}
+				
+//				boolean meetTraced = db.meetTraceTargetClassMethod(mi.owner, mi.method);
+				Integer knownType = db.checkMethodSuspendType(mi.owner, mi.method, false, true);
+				
+				
+				if (knownType == null || knownType < MethodDatabase.SUSPEND_NORMAL) {
+					mi.suspendType = knownType == null ? MethodDatabase.SUSPEND_NONE : knownType;
+//					db.warn("meet type %s != SUSPEND_NORMAL from %s.%s", MethodDatabase.SUSPEND_TYPE_STRS[knownType], mi.owner, mi.method);
+					vi.exception = true;
+					db.error( new RuntimeException(String.format("#%d onYield: meet type %s != SUSPEND_NORMAL from %s.%s", vi.vid,  MethodDatabase.SUSPEND_TYPE_STRS[knownType], mi.owner, mi.method) ));
+				}else if (knownType > MethodDatabase.SUSPEND_NORMAL) {
+					mi.suspendType = knownType;
+//					if (meetTraced) {
+//						db.info("meet traced method %s.%s, known suspend type=%s", mi.owner, mi.method, MethodDatabase.SUSPEND_TYPE_STRS[knownType]);
+//					}
+					//we need not record those records which has been defined by predefined configuration files
+					db.warn("#%d onYield: meet predefined type %s != SUSPEND_NORMAL from %s.%s", vi.vid, MethodDatabase.SUSPEND_TYPE_STRS[knownType], mi.owner, mi.method);
+					continue;
+				}else {
+					mi.suspendType = MethodDatabase.SUSPEND_NORMAL;
+//					if (meetTraced) {
+//						db.info("meet traced method %s.%s, set unknown suspend type to =%s", mi.owner, mi.method, MethodDatabase.SUSPEND_TYPE_STRS[knownType]);
+//					}
+				}
 			}
-			
-			if (!ce.isAlreadyInstrumented()) {
-				vi.exception = true;
-				db.error(new RuntimeException(mi.owner + " is not AlreadyInstrumented!"));
-				return;
-			}
-			
-//			boolean meetTraced = db.meetTraceTargetClassMethod(mi.owner, mi.method);
-			Integer knownType = db.checkMethodSuspendType(mi.owner, mi.method, false, true);
-			
-			
-			if (knownType == null || knownType < MethodDatabase.SUSPEND_NORMAL) {
-				mi.suspendType = knownType == null ? MethodDatabase.SUSPEND_NONE : knownType;
-//				db.warn("meet type %s != SUSPEND_NORMAL from %s.%s", MethodDatabase.SUSPEND_TYPE_STRS[knownType], mi.owner, mi.method);
-				vi.exception = true;
-				db.error( new RuntimeException(String.format("meet type %s != SUSPEND_NORMAL from %s.%s", MethodDatabase.SUSPEND_TYPE_STRS[knownType], mi.owner, mi.method) ));
-			}else if (knownType > MethodDatabase.SUSPEND_NORMAL) {
-				mi.suspendType = knownType;
-//				if (meetTraced) {
-//					db.info("meet traced method %s.%s, known suspend type=%s", mi.owner, mi.method, MethodDatabase.SUSPEND_TYPE_STRS[knownType]);
-//				}
-				//we need not record those records which has been defined by predefined configuration files
-				db.warn("meet predefined type %s != SUSPEND_NORMAL from %s.%s", MethodDatabase.SUSPEND_TYPE_STRS[knownType], mi.owner, mi.method);
-				continue;
-			}else {
-				mi.suspendType = MethodDatabase.SUSPEND_NORMAL;
-//				if (meetTraced) {
-//					db.info("meet traced method %s.%s, set unknown suspend type to =%s", mi.owner, mi.method, MethodDatabase.SUSPEND_TYPE_STRS[knownType]);
-//				}
-			}
+		}finally {
+			vi.quite = false;
 		}
-		vi.quite = false;
-	
+		
+		
 	}
 	
 	public static void enter(String owner, String method) {
@@ -125,7 +133,7 @@ public class SuspendMethodVerifier {
 		ArrayList<VerifyMethodInfo> stack = vi.tracerStacks;
 		try {
 			if (db.meetTraceTargetClassMethod(owner, method)) {
-				db.info("enter %s.%s", owner, method);
+				db.info("#%d enter %s.%s", vi.vid , owner, method);
 			}
 			stack.add(new VerifyMethodInfo(owner, method));
 		}finally{
@@ -171,12 +179,12 @@ public class SuspendMethodVerifier {
 		ArrayList<VerifyMethodInfo> stack = vi.tracerStacks;
 		try{
 			if (db.meetTraceTargetClassMethod(owner, method)) {
-				db.info("leave %s.%s", owner, method);
+				db.info("#%d leave %s.%s", vi.vid , owner, method);
 			}
 			MethodInfo mi = stack.get(stack.size() - 1);
 			if (!mi.owner.equals(owner) || !mi.method.equals(method)) {
 				vi.exception = true;
-				db.error(new RuntimeException(String.format("Thread #%d, leave != enter %s.%s != %s.%s", Thread
+				db.error(new RuntimeException(String.format("#%d Thread #%d, leave != enter %s.%s != %s.%s", vi.vid, Thread
 						.currentThread().getId(), owner, method, mi.owner,
 						mi.method)));
 				return;
