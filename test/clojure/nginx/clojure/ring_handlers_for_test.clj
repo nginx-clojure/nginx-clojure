@@ -20,6 +20,9 @@
    :headers {"rmap" (pr-str (dissoc r :body))}
    :body "ok"})
 
+(defn hello-ring [req]
+  {:status 200, :headers {"content-type" "text/html"}, :body "Hello, Ring handler!"})
+
 (defn session-handler [{session :session, {user "user"} :params }]
   (let [user   (or user (:user session "guest"))
         ;_ (println session)

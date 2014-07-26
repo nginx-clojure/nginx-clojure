@@ -1,3 +1,12 @@
+## 0.2.4 (2014-07-25)
+
+1. New Feature: Support Groovy - another dynamic jvm language (issue #34)
+2. Fix bug: Slow Memory Leak for Coroutine based Socket bug (issue #32 )
+3. Fix bug: Should Clone ThreadLocals for Coroutines (issue #31)
+4. New Feature: More friendly to java users who maybe know nothing about clojure feature (issue #29)
+5. Five new nginx directives `handler_type`, `handler_name`, `handler_code`, `rewrite_handler_name`, `rewrite_handler_code`. 
+Make Clojure/Java/Groovy handler configurations have the same form. e.g. The old pair of nginx directives `clojure`, `clojure_code` is equivalent to `handler_type='clojure'` + `handler_code`.
+
 ## 0.2.3 (2014-07-05)
 
 1. Fix issue After invoking on coroutine based socket nginx worker will exit and be recreated when network is disabled (issue #26)

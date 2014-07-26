@@ -29,7 +29,6 @@
  */
 package nginx.clojure;
 
-import java.io.BufferedReader;
 import java.io.Serializable;
 import java.lang.reflect.Proxy;
 
