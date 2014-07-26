@@ -43,6 +43,9 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 
 	@Override
 	public NginxRequest makeRequest(long r) {
+		if (r == 0) {
+			return new LazyRequestMap(ringHandler, r, new Object[0]); 
+		}
 		return new LazyRequestMap(ringHandler, r);
 	}
 	

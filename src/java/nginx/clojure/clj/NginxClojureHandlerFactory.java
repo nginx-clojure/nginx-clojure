@@ -24,6 +24,19 @@ public class NginxClojureHandlerFactory extends NginxHandlerFactory {
 	
 	@Override
 	public NginxHandler newInstance(String name, String code) {
+		if (name != null) {
+			int d = name.lastIndexOf('/');
+			if (d > 0) {
+				code = "(do (require '";
+				code += name.substring(0, d);
+				code += ")";
+				code += name;
+				code += ")";
+			}else {
+				code = name;
+			}
+			
+		}
 		IFn f = (IFn)RT.var("clojure.core", "eval").invoke(RT.var("clojure.core","read-string").invoke(code));
 		return new NginxClojureHandler(f);
 	}
