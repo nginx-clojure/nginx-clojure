@@ -447,7 +447,7 @@
   )
 ;)
 
-(deftest test-var
+(deftest test-nginx-var
   (testing "simple nginx var"
            (let [r (client/get (str "http://" *host* ":" *port* "/vartest") {:follow-redirects false})
                  h (:headers r)
