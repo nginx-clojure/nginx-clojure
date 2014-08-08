@@ -186,12 +186,20 @@ static void ngx_http_clojure_socket_upstream_handler(ngx_event_t *ev) {
 			}
 		}else {
 			ngx_http_clojure_socket_upstream_connect_handler(u, NGX_HTTP_CLOJURE_SOCKET_ERR_CONNECT);
-			return;
+			/*when ev->ready is true, we'll give a chance to writing after immediately successful connecting */
+			if (!ev->ready) {
+				return;
+			}
 		}
 	}
 
 	if (ev->write) {
 		ngx_http_clojure_socket_upstream_write_handler(ev);
+		/*If the write handler didn't do any writing, we need to delete this event for level/select/poll event to avoid
+		 * foolish repeated write event notification*/
+		if (ev->ready) {
+			(void)ngx_handle_write_event(ev, 0);
+		}
 	} else {
 		ngx_http_clojure_socket_upstream_read_handler(ev);
 	}
@@ -406,6 +414,12 @@ int ngx_http_clojure_socket_upstream_write(ngx_http_clojure_socket_upstream_t *u
 	ngx_connection_t  *c = u->peer.connection;
 	ngx_int_t rc = ngx_send(c, buf, size);
 	if (rc == 0 || rc == NGX_AGAIN) {
+		/*Because if connected immediately successfully or we have deleted this event in
+		 * ngx_http_clojure_socket_upstream_handler the write event was not registered
+		 * so we need register it here.*/
+		if (!c->write->active) {
+			(void)ngx_handle_write_event(c->write, 0);
+		}
 		if (u->write_timeout > 0) {
 			ngx_add_timer(c->write, u->write_timeout);
 		}

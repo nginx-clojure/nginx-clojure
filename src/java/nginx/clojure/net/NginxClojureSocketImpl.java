@@ -447,7 +447,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 				
 				if (rc == 0) {
 					eof = true;
-					return (int)c;
+					return c == 0 ? -1 : (int)c;
 				}else if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
 					if (c > 0) {
 						return (int)c;

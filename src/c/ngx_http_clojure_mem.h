@@ -25,9 +25,9 @@
 #include <inttypes.h>
 #endif
 
-#define nginx_clojure_ver  2004 /*0.2.0*/
+#define nginx_clojure_ver  2005 /*0.2.5*/
 
-#define NGINX_CLOJURE_VER "nginx clojure/0.2.4"
+#define NGINX_CLOJURE_VER "nginx clojure/0.2.5"
 
 typedef struct {
 	ngx_int_t phrase;

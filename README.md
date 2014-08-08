@@ -10,7 +10,7 @@ There are some core features :
 1. Use Clojure / Java / Groovy(**_NEW_** ) to write a simple nginx rewrite handler to set var or return errors before proxy pass or content ring handler
 1. Non-blocking coroutine based socket which is Compatible with Java Socket API and works well with largely existing java library such as apache http client, mysql jdbc drivers. 
 With this feature  one java main thread can handle thousands of connections.
-1. Handle multiple sockets parallel in sub coroutines, e.g. we can invoke two remote services at the same time feature
+1. Handle multiple sockets parallel in sub coroutines, e.g. we can invoke two remote services at the same time.
 1. Asynchronous callback API of socket for some advanced usage
 1. Run initialization clojure code when nginx worker starting
 1. Support user defined http request method

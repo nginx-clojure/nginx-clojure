@@ -107,13 +107,13 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	}
 	
 	public final void checkConnected() {
-		if (s == 0 || !connected) {
+		if (s <= 0 || !connected) {
 			throw new RuntimeException("socket has been closed or not connected!");
 		}
 	}
 	
 	public final void checkNotClosed() {
-		if (s == 0) {
+		if (s <= 0) {
 			throw new RuntimeException("socket has been closed!");
 		}
 	}
@@ -230,12 +230,11 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	}
 	
 	public void close() {
-		if (s == 0) {
+		if (s <= 0) {
 			return;
 		}
-		long os = s;
-		s = 0;
-		close(os);
+		s = -s;
+		close(-s);
 	}
 
 	public <T> T getContext() {
