@@ -342,13 +342,37 @@
                  r1 (sf {})
                  b1 (slurp (r1 :body))
                  b1b (subs b1 (.indexOf b1 "\r\n\r\n"))]
-             (debug-println "=================coroutine based socket simple example =============================")
+             (debug-println "=================asyncsocket simple example =============================")
              (is (= 200 (:status r)))
              (is (= (.length bb) (.length b1b)))
              (is (= bb b1b))))
     )
   
   )
+
+(deftest test-cljasyncsocket
+    (let [
+        ;r1 (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
+        ;b1 (r1 :body)
+        abc ""
+        ]
+      (testing "asyncsocket --simple example"
+           (let [r (client/get (str "http://" *host* ":" *port* "/cljasyncsocket") {:throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)
+                 bb (subs b (.indexOf b "\r\n\r\n"))
+                 sf (nginx.clojure.net.SimpleHandler4TestNginxClojureSocket.)
+                 r1 (sf {})
+                 b1 (slurp (r1 :body))
+                 b1b (subs b1 (.indexOf b1 "\r\n\r\n"))]
+             (debug-println "=================clj asyncsocket simple example =============================")
+             (is (= 200 (:status r)))
+             (is (= (.length bb) (.length b1b)))
+             (is (= bb b1b))))
+    )
+  
+  )
+
 ;(comment 
 (deftest test-coroutine
   (let [r1 (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")

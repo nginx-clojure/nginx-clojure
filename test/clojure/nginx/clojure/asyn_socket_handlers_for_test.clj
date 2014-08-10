@@ -1,7 +1,8 @@
 (ns nginx.clojure.asyn-socket-handlers-for-test
   (:require [compojure.route :as route])
   (:import  [nginx.clojure.logger LoggerService]
-            [nginx.clojure NginxClojureRT LazyRequestMap]
+            [nginx.clojure NginxClojureRT]
+            [nginx.clojure.clj LazyRequestMap Constants NginxClojureHandler ClojureFunctionSocketHandler]
             [nginx.clojure.net NginxClojureAsynSocket]
             [java.io ByteArrayInputStream ByteArrayOutputStream]))
 
@@ -80,7 +81,7 @@
                   (do
                     (.info logger (format "fininsh request total read: %d" rc))
                     (.close as)
-                    (NginxClojureRT/completeAsyncResponse creq 
+                    (NginxClojureHandler/completeAsyncResponse creq 
                                                           {:status 200, 
                                                            :headers {:content-type "text/html"}
                                                            ;just for test not for good performance and right behavior for a http proxy
@@ -113,15 +114,16 @@
                    :buf (byte-array 4096)
                    :resp (ByteArrayOutputStream.)})
         as (NginxClojureAsynSocket. 
-             (fn [as, type, sc]
+             (ClojureFunctionSocketHandler.
+               (fn [as, type, sc]
 								(case type 
 										"connect" (connect-handler as sc)
 											"read"  (read-handler as sc)
 											"write" (write-handler as sc)
 											"release" (release-handler as sc))
-         ))]
+                )))]
     (.setContext as ctx)
     (.connect as "mirror.bit.edu.cn:80")
     ;tell nginx clojure our work isn't done.
-    NginxClojureRT/ASYNC_TAG)
+    Constants/ASYNC_TAG)
   )

@@ -39,7 +39,7 @@
                                   [org.codehaus.groovy/groovy "2.3.4"]
                                   ]}
              :unittest {
-                    :jvm-opts ["-javaagent:target/nginx-clojure-0.2.4.jar=mb"
+                    :jvm-opts ["-javaagent:target/nginx-clojure-0.2.5.jar=mb"
                                "-Dnginx.clojure.wave.udfs=pure-clj.txt,compojure.txt,compojure-http-clj.txt"
                                "-Xbootclasspath/a:target/nginx-clojure-0.2.4.jar"]
                     :junit-options {:fork "on"}
@@ -59,7 +59,7 @@
                                   ]
                         }
              :cljremotetest {
-                                :java-source-paths ["test/clojure"]
+                                :java-source-paths ["test/java" "test/clojure"]
                                 :test-paths ["src/test/clojure"]
                                 :source-paths ["test/clojure" "test/java" "test/nginx-working-dir/coroutine-udfs"]
                                 :compile-path "target/testclasses"
@@ -70,6 +70,7 @@
                                               [junit/junit "4.11"]
                                               [org.clojure/java.jdbc "0.3.3"]
                                               [org.clojure/tools.nrepl "0.2.3"]
+                                              [org.codehaus.jackson/jackson-mapper-asl "1.9.13"]
                                               ;[mysql/mysql-connector-java "5.1.30"]
                                               ]
                                     }             
