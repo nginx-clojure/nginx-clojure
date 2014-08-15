@@ -546,7 +546,7 @@ static int ngx_http_clojure_pipe_write(ngx_socket_t fd, void *buf, size_t size) 
 #if defined(_WIN32) || defined(WIN32)
 	return send(fd, buf, size, 0);
 #else
-	write(fd, buf, size);
+	return write(fd, buf, size);
 #endif
 
 }
