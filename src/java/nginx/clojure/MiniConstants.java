@@ -69,8 +69,18 @@ public class MiniConstants {
 	public static final String DEFAULT_ENCODING_STR = "utf-8";
 	public static final Charset DEFAULT_ENCODING = Charset.forName(DEFAULT_ENCODING_STR);
 	
+	/**
+	 * System Event : 0x00 ~ 0x1f
+	 * App Event : 0x20 ~ 0xff
+	 * Simple  Event : 0x00 ~ 0x7f, only event id (7Byte), no message body
+	 * Complex Event : 0x80 ~ 0xff
+	 */
+	public static final int POST_EVENT_TYPE_SYSTEM_EVENT_IDX_START = 0;
 	public static final int POST_EVENT_TYPE_HANDLE_RESPONSE = 0;
-	public static final int POST_EVENT_TYPE_CLOSE_SOCKET = 1;
+	public static final int POST_EVENT_TYPE_CLOSE_SOCKET = 0x01;
+	public static final int POST_EVENT_TYPE_SYSTEM_EVENT_IDX_END = 0x1f;
+	public static final int POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START = 0x80;
+	public static final int POST_EVENT_TYPE_COMPLEX_EVENT_IDX_END = 0xff;
 	
 	
 	public static int BYTE_ARRAY_OFFSET;
@@ -310,8 +320,8 @@ public class MiniConstants {
 	public static int NGX_HTTP_CLOJURE_MEM_IDX_END = 255;
 	
 	//nginx clojure java runtime required the lowest version of nginx-clojure c module
-	public final static long NGINX_CLOJURE_RT_REQUIRED_LVER = 2004;
-	public final static long NGINX_CLOJURE_RT_VER = 2004;
+	public final static long NGINX_CLOJURE_RT_REQUIRED_LVER = 2005;
+	public final static long NGINX_CLOJURE_RT_VER = 2005;
 	
 	//ngx_core.h
 	public static int  NGX_OK       =   0;

@@ -118,14 +118,29 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public native static long ngx_http_clojure_mem_get_module_ctx_phase(long r);
 	
-	public native static void ngx_http_clojure_mem_post_event(long r);
+	public native static long ngx_http_clojure_mem_post_event(long e, Object data, long offset);
+	
+	public native static long ngx_http_clojure_mem_broadcast_event(long e, Object data, long offset, long hasSelf);
+	
+	public native static long ngx_http_clojure_mem_read_raw_pipe(long p, Object buf, long offset, long len);
+	
 	
 //	public native static long ngx_http_clojure_mem_get_body_tmp_file(long r);
+	
+	private static AppEventMessageHandler appEventMessageHandler;
 	
 	static {
 		//be friendly to lein ring testing
 		getLog();
 		initUnsafe();
+	}
+	
+	public static AppEventMessageHandler getAppEventMessageHandler() {
+		return appEventMessageHandler;
+	}
+	
+	public static void setAppEventMessageHandler(AppEventMessageHandler appEventMessageHandler) {
+		NginxClojureRT.appEventMessageHandler = appEventMessageHandler;
 	}
 	
 	public static String formatVer(long ver) {
@@ -163,8 +178,11 @@ public class NginxClojureRT extends MiniConstants {
 				try {
 					Future<WorkerResponseContext> respFuture =  workers.take();
 					WorkerResponseContext ctx = respFuture.get();
+					if (ctx.response == NR_ASYNC_TAG) {
+						continue;
+					}
 					savePostEventData(ctx.request, ctx);
-					ngx_http_clojure_mem_post_event(ctx.request);
+					ngx_http_clojure_mem_post_event(ctx.request, null, 0);
 				} catch (InterruptedException e) {
 					log.error("interrupted!", e);
 					break;
@@ -234,6 +252,8 @@ public class NginxClojureRT extends MiniConstants {
 		if (n < 0) {
 			return;
 		}
+		
+		log.info("nginx-clojure run on thread pool mode,  coroutineEnabled=false");
 		
 		eventDispather = Executors.newSingleThreadExecutor(new ThreadFactory() {
 			@Override
@@ -626,37 +646,66 @@ public class NginxClojureRT extends MiniConstants {
 		NginxClojureRT.log = log;
 	}
 
-	public final static long makeEventAndSaveIt(int type, Object o) {
+	public final static long makeEventAndSaveIt(long type, Object o) {
 		long id = ngx_http_clojure_mem_get_obj_addr(o);
-		long event = ((long)type) << 56 | id;
+		long event = type << 56 | id;
 		savePostEventData(id, o);
 		return event;
 	}
 	
 	public static void postCloseSocketEvent(NginxClojureSocketImpl s) {
-		ngx_http_clojure_mem_post_event(makeEventAndSaveIt(POST_EVENT_TYPE_CLOSE_SOCKET, s));
+		ngx_http_clojure_mem_post_event(makeEventAndSaveIt(POST_EVENT_TYPE_CLOSE_SOCKET, s), null, 0);
 	}
 	
+	private final static byte[] POST_EVENT_BUF = new byte[4096];
 	
-	public static int handlePostEvent(long event) {
-		int tag = (int)((0xff00000000000000L & event) >> 56);
+	public static int handlePostEvent(long event, byte[] body, int off) {
+		int tag = (int)((0xff00000000000000L & event) >>> 56);
 		long data = event & 0x00ffffffffffffffL;
-		switch (tag) {
-		case POST_EVENT_TYPE_HANDLE_RESPONSE:
-			return handleResponse(data);
-		case POST_EVENT_TYPE_CLOSE_SOCKET:
-			try {
-				NginxClojureSocketImpl s = (NginxClojureSocketImpl) POSTED_EVENTS_DATA.remove(data);
-				s.closeByPostEvent();
-				return NGX_OK;
-			}catch (Throwable e) {
-				log.error("handle post close event error", e);
+		if (tag <= POST_EVENT_TYPE_SYSTEM_EVENT_IDX_END) {
+			switch (tag) {
+			case POST_EVENT_TYPE_HANDLE_RESPONSE:
+				return handleResponse(data);
+			case POST_EVENT_TYPE_CLOSE_SOCKET:
+				try {
+					NginxClojureSocketImpl s = (NginxClojureSocketImpl) POSTED_EVENTS_DATA.remove(data);
+					s.closeByPostEvent();
+					return NGX_OK;
+				}catch (Throwable e) {
+					log.error("handle post close event error", e);
+					return NGX_HTTP_INTERNAL_SERVER_ERROR;
+				}
+				
+			default:
+				log.error("handlePostEvent:unknown event tag :%d", tag);
 				return NGX_HTTP_INTERNAL_SERVER_ERROR;
 			}
-			
-		default:
-			log.error("handlePostEvent:unknown event tag :%d", tag);
-			return NGX_HTTP_INTERNAL_SERVER_ERROR;
+		} else {
+			if (appEventMessageHandler == null) {
+				log.warn("handlePostEvent:no appEventMessageHandler to handle app message event");
+				return NGX_OK;
+			}
+			if (tag < POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START) {
+				appEventMessageHandler.handleSimpleEvent(tag, data);
+				return NGX_OK;
+			}else {
+				appEventMessageHandler.handleComplexEvent(tag, body, off, (int)data);
+				return NGX_OK;
+			}
+		}
+	}
+	
+	private static int handlePostEvent(long event, long pipe) {
+		int tag = (int)((0xff00000000000000L & event) >>> 56);
+		long data = event & 0x00ffffffffffffffL;
+		if (tag < POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START) {
+			return handlePostEvent(event, null, 0);
+		} else {
+			if (ngx_http_clojure_mem_read_raw_pipe(pipe, POST_EVENT_BUF,
+					BYTE_ARRAY_OFFSET, data) != data) {
+				return NGX_HTTP_INTERNAL_SERVER_ERROR;
+			}
+			return handlePostEvent(event, POST_EVENT_BUF, 0);
 		}
 	}
 	
@@ -685,7 +734,7 @@ public class NginxClojureRT extends MiniConstants {
 		
 
 		if (resp == null) {
-			return -NGX_HTTP_NOT_FOUND;
+			return NGX_HTTP_NOT_FOUND;
 		}
 		
 		long chain = resp.buildOutputChain(r);
@@ -728,8 +777,108 @@ public class NginxClojureRT extends MiniConstants {
 			long r = req.nativeRequest();
 			WorkerResponseContext ctx = new WorkerResponseContext(r, resp, resp.buildOutputChain(r));
 			savePostEventData(r, ctx);
-			ngx_http_clojure_mem_post_event(r);
+			ngx_http_clojure_mem_post_event(r, null, 0);
 		}
+	}
+	
+	/**
+	 * broadcast simple event to all nginx workers
+	 * @param tag must be less than POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START
+	 * @param id event id, must be less than 0x0100000000000000L
+	 * @param 
+	 */
+	public static int broadcastEvent(long tag, long id) {
+		if (tag >= POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START) {
+			throw new IllegalArgumentException("invalid event tag :" + tag);
+		}
+		if (id >= 0x0100000000000000L) {
+			throw new IllegalArgumentException("invalid event id :" + id + ", must be less than 0x0100000000000000L");
+		}
+		id |= (tag << 56);
+		if (Thread.currentThread() == NGINX_MAIN_THREAD) {
+			int rt = (int)ngx_http_clojure_mem_broadcast_event(id, null, 0, 0);
+			if (rt == 0) {
+				return handlePostEvent(id, null, 0);
+			}else {
+				rt = handlePostEvent(id, null, 0);
+			}
+			return rt;
+		}else {
+			return (int)ngx_http_clojure_mem_broadcast_event(id, null, 0, 1);
+		}
+	}
+	
+	/**
+	 * broadcast event to all nginx workers, message length must be less than PIPE_BUF - 8, generally on Linux/Windows is 4088, on MacosX is 504
+	 * message will be truncated if its length exceeds this limitation.
+	 * @param tag must be  greater than POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START  and less than POST_EVENT_TYPE_COMPLEX_EVENT_IDX_END
+	 * @param body 
+	 * @param offset
+	 * @param len
+	 */
+	public static int broadcastEvent(long tag, byte[] body, int offset, int len) {
+		if (tag >= 0xff) {
+			throw new IllegalArgumentException("invalid event tag :" + tag);
+		}
+		
+		if (tag < POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START) {
+			throw new IllegalArgumentException("invalid event tag :" + tag + ", must be greater than POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START");
+		}
+		long event = (tag << 56) | len;
+		
+		if (Thread.currentThread() == NGINX_MAIN_THREAD) {
+			int rt = (int)ngx_http_clojure_mem_broadcast_event(event, body, BYTE_ARRAY_OFFSET + offset, 0);
+			if (rt == 0) {
+				rt = (int)handlePostEvent(event, body, offset);
+			}else {
+				handlePostEvent(event, body, offset);
+			}
+			return rt;
+		}else {
+			return (int)ngx_http_clojure_mem_broadcast_event(event, body, BYTE_ARRAY_OFFSET + offset, 1);
+		}
+	}
+	
+	/**
+	 * broadcast event to all nginx workers, message length must be less than PIPE_BUF - 8, generally on Linux/Windows is 4088, on MacosX is 504
+	 * message will be truncated if its length exceeds this limitation.
+	 * it is identical to 
+	 * <pre>
+	 * broadcastEvent(POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START, body, offset, len);
+	 * </pre>
+	 */
+	public static int broadcastEvent(byte[] message, int offset, int len) {
+		return broadcastEvent(POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START, message, offset, len);
+	}
+	
+	/**
+	 * broadcast event to all nginx workers, message length, viz. message.getBytes("utf-8").length,  must be less than PIPE_BUF - 8,
+	 * generally on Linux/Windows is 4088, on MacosX is 504
+	 * message will be truncated if its length exceeds this limitation.
+	 * it is identical to 
+	 * <pre>
+     *   byte[] buf = message.getBytes(DEFAULT_ENCODING);
+	 *	 return broadcastEvent(tag, buf, 0, buf.length);
+	 * </pre>
+	 */
+	public static int broadcastEvent(long tag, String message) {
+		byte[] buf = message.getBytes(DEFAULT_ENCODING);
+		return broadcastEvent(tag, buf, 0, buf.length);
+	}
+
+	/**
+	 * broadcast event to all nginx workers, message length, viz. message.getBytes("utf-8").length,  must be less than PIPE_BUF - 8,
+	 * generally on Linux/Windows is 4088, on MacosX is 504
+	 * message will be truncated if its length exceeds this limitation.
+	 * it is identical to 
+	 * <pre>
+     *   byte[] buf = message.getBytes(DEFAULT_ENCODING);
+	 *	 return broadcastEvent(POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START, buf, 0, buf.length);
+	 * </pre>
+	 */	
+	public static int broadcastEvent(String message) {
+		byte[] buf = message.getBytes(DEFAULT_ENCODING);
+		return broadcastEvent(POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START, buf, 0, buf.length);
 	}
 
 	
@@ -762,6 +911,26 @@ public class NginxClojureRT extends MiniConstants {
 				parent.resume();
 			}
 		}
+	}
+	
+	public static interface AppEventMessageHandler {
+
+		/**
+		 * Handle simple event which only has a event id as its data without any message body
+		 * @param tag event type tag e.g. @see  {@link MiniConstants#POST_EVENT_TYPE_HANDLE_RESPONSE}
+		 * @param data
+		 */
+		public void handleSimpleEvent(int tag, long data);
+
+		/**
+		 * Handle complex event because buf will be reused by next event so this listener must handle it carefully and
+		 * do use it out of this invoke scope.
+		 * @param tag event type tag e.g. @see  {@link MiniConstants#POST_EVENT_TYPE_HANDLE_RESPONSE}
+		 * @param buf message body buffer
+		 * @param off offset of message body in the buffer
+		 * @param len length of message body 
+		 */
+		public void handleComplexEvent(int tag, byte[] buf, int off, int len);
 	}
 	
 	public static final Object[] coBatchCall(Callable<Object> ...calls) {

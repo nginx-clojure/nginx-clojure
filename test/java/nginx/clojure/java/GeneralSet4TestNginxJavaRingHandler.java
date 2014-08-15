@@ -2,8 +2,13 @@ package nginx.clojure.java;
 
 import static nginx.clojure.MiniConstants.*;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+
+import nginx.clojure.NginxClojureRT;
+import nginx.clojure.NginxClojureRT.AppEventMessageHandler;
 
 import org.codehaus.jackson.map.ObjectMapper;
 
@@ -41,11 +46,66 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		
 	}
 	
+	public static class Init implements NginxJavaRingHandler, AppEventMessageHandler {
+		
+		public static Set<Long> subscribers;
+		
+		@Override
+		public Object[] invoke(Map<String, Object> request) {
+			//HashMap is enough without thread pool mode, 
+			//otherwise we should use ConcurrentHashMap instead.
+			subscribers = Collections.newSetFromMap(new HashMap<Long, Boolean>());
+			NginxClojureRT.setAppEventMessageHandler(this);
+			return null;
+		}
+
+		@Override
+		public void handleSimpleEvent(int tag, long data) {
+		}
+
+		@Override
+		public void handleComplexEvent(int tag, byte[] buf, int off, int len) {
+			for (Long l : subscribers) {
+				NginxJavaHandler.completeAsyncResponse(
+						l,
+						new Object[] { NGX_HTTP_OK,
+								ArrayMap.create("content-type", "text/json"),
+								new String(buf, off, len, DEFAULT_ENCODING) });
+			}
+			subscribers.clear();
+		}
+	}
+	
+	public static class Sub implements NginxJavaRingHandler {
+		
+		@Override
+		public Object[] invoke(Map<String, Object> request) {
+			Init.subscribers.add(((NginxJavaRequest)request).nativeRequest());
+			//to tell nginx our work isn't done.
+			return Constants.ASYNC_TAG;
+		}
+	}
+	
+	public static class Pub implements NginxJavaRingHandler {
+
+		@Override
+		public Object[] invoke(Map<String, Object> request) {
+			NginxClojureRT.broadcastEvent(request.get(QUERY_STRING).toString());
+			return new Object[] { NGX_HTTP_OK, null, "OK" };
+		}
+		
+	}
+	
+	
 	private Map<String, NginxJavaRingHandler> routing = new HashMap<String, NginxJavaRingHandler>();
 	
 	public GeneralSet4TestNginxJavaRingHandler() {
+		Init init = new Init();
+		init.invoke(null);
 		routing.put("/hello", new Hello());
 		routing.put("/headers", new Headers());
+		routing.put("/sub", new Sub());
+		routing.put("/pub", new Pub());
 	}
 
 	@Override

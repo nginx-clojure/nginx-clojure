@@ -56,6 +56,9 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 		if (resp == PHRASE_DONE) {
 			return NR_PHRASE_DONE;
 		}
+		if (resp == null) {
+			return null;
+		}
 		return new NginxClojureResponse(resp);
 	}
 	

@@ -27,6 +27,9 @@
 
 #define nginx_clojure_ver  2005 /*0.2.5*/
 
+/*the least jar version required*/
+#define nginx_clojure_required_rt_lver 2005
+
 #define NGINX_CLOJURE_VER "nginx clojure/0.2.5"
 
 typedef struct {
@@ -280,10 +283,13 @@ extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 
 int ngx_http_clojure_check_memory_util();
 
+int ngx_http_clojure_pipe_init_by_master(int workers);
+
+
 /*
  *
  */
-int ngx_http_clojure_init_memory_util(ngx_int_t workers, ngx_log_t *log);
+int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log);
 
 int ngx_http_clojure_register_script(ngx_str_t *handler_type, ngx_str_t *handler, ngx_str_t *code, ngx_int_t *pcid);
 

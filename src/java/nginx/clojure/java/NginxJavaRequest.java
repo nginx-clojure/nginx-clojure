@@ -131,7 +131,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	@Override
 	public NginxResponse process() {
 		try{
-			return new NginxJavaResponse(ringHandler.invoke(this));
+			return NginxJavaHandler.toNginxResponse(ringHandler.invoke(this));
 		}finally {
 			int bodyIdx = index(BODY);
 			if (bodyIdx > 0) {

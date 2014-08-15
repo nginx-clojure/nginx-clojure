@@ -318,6 +318,7 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 
 static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
 
+	ngx_core_conf_t  *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 	ngx_http_clojure_global_cycle = cycle;
 
 #if !(NGX_WIN32)
@@ -336,6 +337,10 @@ static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
     ngx_http_clojure_jvm_be_mad_times = &ngx_http_clojure_jvm_be_mad_times_ins;
 #endif
 	ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, NGINX_CLOJURE_VER);
+
+	if (ngx_http_clojure_pipe_init_by_master(ccf->worker_processes) != NGX_OK) {
+		return NGX_ERROR;
+	}
 
 	return NGX_OK;
 }
@@ -398,7 +403,7 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 	ngx_int_t rc = 0;
 /*	ngx_http_core_main_conf_t *hcmcf = ngx_http_cycle_get_module_main_conf(cycle, ngx_http_core_module);*/
 	ngx_http_clojure_loc_conf_t *mcf = ctx->loc_conf[ngx_http_clojure_module.ctx_index];
-	ngx_core_conf_t  *ccf = (ngx_core_conf_t *) ngx_get_conf(ngx_cycle->conf_ctx, ngx_core_module);
+	ngx_core_conf_t  *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 
 #if !(NGX_WIN32)
 	ngx_setproctitle("worker process");
