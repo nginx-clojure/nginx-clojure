@@ -104,24 +104,49 @@ nmake -f Makefile
 
 #win64 build
 
-#start visual studio x64  command prompt (2010)
+1. install Visual C++ 2010 Express
+2. install Windows SDK 7.1
+3. install Visual Studio 2010 SP1
+4. install Visual C++ 2010 SP1 Compiler Update for the Windows SDK 7.1
+
+#start visual studio x64  command prompt (2010) 
+(or for vc 2010 express call "c:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\SetEnv.Cmd" /Release /x64)
 #run C:\MinGW\msys\1.0\msys.bat
+
 #modify auto/lib/openssl/makefile.msvc, two line
 
 perl Configure VC-WIN64A no-shared --prefix=openssl $(OPENSSL_OPT)
 ms\do_win64a
 
-#modify ms\do_win64a, add ping for race condition, suggestion from http://wishmesh.com/2013/01/building-openssl-with-visual-studio-2010-for-x64-win64-causes-error/
+nginx_win32_config.h
+
+line 32 : 
+
+#ifdef _MSC_VER
+#pragma warning(disable:4201)
+#pragma warning(disable:4306)
+#pragma warning(disable:4244)
+#pragma warning(disable:4267)
+#pragma warning(disable:4334)
+#pragma warning(disable:4018)
+#pragma warning(disable:4133)
+#pragma warning(disable:4214)
+#endif
 
 
-perl ms\uplink-x86_64.pl masm > ms\uptable.asm
-ping 127.0.0.1
-ml64 -c -Foms\uptable.obj ms\uptable.asm
+line 139 :
 
-#util/mkm1.pl http://stackoverflow.com/questions/7680189/openssl-cant-build-in-vc-2010
-line 330 add: 
-s/\r$//; #remove carriage return too!
-
+#ifndef __WATCOMC__
+ #ifdef _MSC_VER
+ #if (_MSC_VER < 1400) || defined (XP_BEOS)
+ typedef int                 intptr_t;
+ typedef u_int               uintptr_t;
+ #endif
+    #else
+ typedef int                 intptr_t;
+ typedef u_int               uintptr_t;
+    #endif
+#endif
 
 
 auto/configure --with-cc=cl --builddir=objs --with-debug --prefix= \
@@ -131,8 +156,8 @@ auto/configure --with-cc=cl --builddir=objs --with-debug --prefix= \
 --http-proxy-temp-path=temp/proxy_temp \
 --http-fastcgi-temp-path=temp/fastcgi_temp \
 --http-scgi-temp-path=temp/scgi_temp --http-uwsgi-temp-path=temp/uwsgi_temp \
---with-cc-opt=-DFD_SETSIZE=4096 --with-pcre=../pcre-8.32 \
---with-zlib=../zlib-1.2.8 --with-openssl=../openssl-1.0.1e \
+--with-cc-opt=-DFD_SETSIZE=4096 --with-pcre=objs/lib/pcre-8.32 \
+--with-zlib=objs/lib/zlib-1.2.8 --with-openssl=objs/lib/openssl-1.0.1i \
 --with-select_module \
 --with-http_realip_module --with-http_addition_module \
 --with-http_sub_module --with-http_dav_module \
@@ -141,7 +166,7 @@ auto/configure --with-cc=cl --builddir=objs --with-debug --prefix= \
 --with-http_gzip_static_module --with-http_random_index_module \
 --with-http_secure_link_module --with-mail  \
 --with-openssl-opt=enable-tlsext --with-http_ssl_module --with-mail_ssl_module --with-ipv6 \
---add-module=../nginx-clojure/src/c
+--add-module=Y:/nginx-clojure/src/c
 
 nmake -f objs\Makefile NGX_WIN64=1
 

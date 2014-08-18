@@ -570,7 +570,7 @@ static ngx_int_t ngx_http_clojure_post_event(ngx_socket_t fd, void *e, size_t si
 	}
 #endif
 	wc = ngx_http_clojure_pipe_write(fd, e, size);
-	if (wc != size) {
+	if (wc != (ngx_int_t)size) {
 		ngx_log_error(NGX_LOG_ERR, ngx_http_clojure_global_cycle->log, 0,
 				"jni_ngx_http_clojure_mem_post_event write count : %zu < %zu",
 				wc, 8);
@@ -972,23 +972,28 @@ int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log) {
 
 	env = jvm_env;
 
-	/*check nginx-clojure.jar version*/
-	jclass mc_class = (*env)->FindClass(env, "nginx/clojure/MiniConstants");
-	exception_handle(mc_class == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
-	jfieldID frtver = (*env)->GetStaticFieldID(env, mc_class, "NGINX_CLOJURE_RT_VER", "J");
-	exception_handle(frtver == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
-	int rtver = (int)(*env)->GetStaticLongField(env, mc_class, frtver);
-	exception_handle(0 == 0, env, return NGX_HTTP_CLOJURE_JVM_ERR);
-	if (nginx_clojure_required_rt_lver > (int)rtver) {
-		int f = rtver / 1000000;
-		int s = rtver / 1000 - f * 1000;
-		int t = rtver - s * 1000 - f * 1000000;
-		int nf = nginx_clojure_required_rt_lver / 1000000;
-		int ns = nginx_clojure_required_rt_lver / 1000 - nf * 1000;
-		int nt = nginx_clojure_required_rt_lver - ns * 1000 - nf * 1000000;
-		ngx_log_error(NGX_LOG_ERR, ngx_http_clojure_global_cycle->log, 0,
-							"too low version jar of nginx-clojure, we need at least %d.%d.%d, but meet %d.%d.%d", nf, ns, nt, f, s, t);
-		return NGX_HTTP_CLOJURE_JVM_ERR;
+    /*check nginx-clojure.jar version*/
+	{
+		jclass mc_class;
+		jfieldID frtver;
+		int rtver;
+		mc_class = (*env)->FindClass(env, "nginx/clojure/MiniConstants");
+		exception_handle(mc_class == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+		frtver = (*env)->GetStaticFieldID(env, mc_class, "NGINX_CLOJURE_RT_VER", "J");
+		exception_handle(frtver == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+		rtver = (int)(*env)->GetStaticLongField(env, mc_class, frtver);
+		exception_handle(0 == 0, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+		if (nginx_clojure_required_rt_lver > (int)rtver) {
+			int f = rtver / 1000000;
+			int s = rtver / 1000 - f * 1000;
+			int t = rtver - s * 1000 - f * 1000000;
+			int nf = nginx_clojure_required_rt_lver / 1000000;
+			int ns = nginx_clojure_required_rt_lver / 1000 - nf * 1000;
+			int nt = nginx_clojure_required_rt_lver - ns * 1000 - nf * 1000000;
+			ngx_log_error(NGX_LOG_ERR, ngx_http_clojure_global_cycle->log, 0,
+								"too low version jar of nginx-clojure, we need at least %d.%d.%d, but meet %d.%d.%d", nf, ns, nt, f, s, t);
+			return NGX_HTTP_CLOJURE_JVM_ERR;
+		}
 	}
 
 	nc_rt_class = (*env)->FindClass(env, "nginx/clojure/NginxClojureRT");
