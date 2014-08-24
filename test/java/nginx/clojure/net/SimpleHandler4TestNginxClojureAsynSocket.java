@@ -4,9 +4,9 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 
 import nginx.clojure.NginxClojureRT;
+import nginx.clojure.NginxRequest;
 import nginx.clojure.clj.Constants;
 import nginx.clojure.clj.LazyRequestMap;
-import nginx.clojure.clj.NginxClojureHandler;
 import nginx.clojure.logger.LoggerService;
 import clojure.lang.AFn;
 import clojure.lang.PersistentArrayMap;
@@ -20,7 +20,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 		byte[] req;
 		byte[] buf;
 		ByteArrayOutputStream resp;
-		long clientRequest;
+		NginxRequest clientRequest;
 	}
 	
 	static LoggerService log;
@@ -46,7 +46,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 		ctx.req = "GET /apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\nUser-Agent: curl/7.32.0\r\nHost: mirror.bit.edu.cn\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes();
 		ctx.buf = new byte[1024];
 		ctx.resp = new ByteArrayOutputStream();
-		ctx.clientRequest = req.nativeRequest();
+		ctx.clientRequest = req;
 		asynSocket.setContext(ctx);
 		asynSocket.setHandler(new NginxClojureSocketHandler() {
 			
@@ -135,7 +135,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 											"text/html" }),
 							Constants.BODY, new ByteArrayInputStream(ctx.resp.toByteArray()) };
 							//just for test not for good performance and right behavior for a http proxy
-							NginxClojureHandler.completeAsyncResponse(ctx.clientRequest, new PersistentArrayMap(resps));
+							ctx.clientRequest.handler().completeAsyncResponse(ctx.clientRequest, new PersistentArrayMap(resps));
 						}else {
 							ctx.rc += n;
 							ctx.resp.write(ctx.buf, 0, (int)n);

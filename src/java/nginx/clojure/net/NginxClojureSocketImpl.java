@@ -594,4 +594,8 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 			s = null;
 		}
 	}
+	
+	public NginxClojureAsynSocket asynSocket() {
+		return as;
+	}
 }

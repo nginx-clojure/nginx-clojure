@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import nginx.clojure.NginxRequest;
 import nginx.clojure.NginxSimpleResponse;
 
 public class NginxJavaResponse extends NginxSimpleResponse {
@@ -17,8 +18,8 @@ public class NginxJavaResponse extends NginxSimpleResponse {
 	public NginxJavaResponse() {
 	}
 	
-	public NginxJavaResponse(Object[] response) {
-		super();
+	public NginxJavaResponse(NginxRequest req, Object[] response) {
+		super(req);
 		this.response = response;
 	}
 
@@ -37,7 +38,7 @@ public class NginxJavaResponse extends NginxSimpleResponse {
 	}
 
 	@Override
-	public Collection<Entry> fetchHeaders() {
+	public Collection<Entry<?,?>> fetchHeaders() {
 		Map headers = (Map)response[1];
 		return headers == null ? null : headers.entrySet();
 	}

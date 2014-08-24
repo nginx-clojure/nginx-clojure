@@ -492,7 +492,7 @@ static void ngx_http_clojure_client_body_handler(ngx_http_request_t *r) {
 static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     ngx_int_t     rc;
     ngx_http_clojure_loc_conf_t  *lcf;
-
+    ngx_http_clojure_module_ctx_t *ctx;
 
     lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
 /*  ngx_http_core_main_conf_t  *cmcf = ngx_http_get_module_main_conf(r, ngx_http_core_module);*/
@@ -510,6 +510,17 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     rc = ngx_http_clojure_init_clojure_script("content handler", &lcf->handler_type, &lcf->handler_name, &lcf->handler_code, &lcf->handler_id, ngx_http_clojure_global_cycle->log);
 	if (rc != NGX_HTTP_CLOJURE_JVM_OK) {
 		return rc;
+	}
+
+	if ((ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module)) == NULL) {
+			ctx = ngx_palloc(r->pool, sizeof(ngx_http_clojure_module_ctx_t));
+			if (ctx == NULL) {
+				ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "OutOfMemory of create ngx_http_clojure_module_ctx_t");
+				return NGX_HTTP_INTERNAL_SERVER_ERROR;
+			}
+
+			ngx_http_clojure_init_ctx(ctx, -1);
+			ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
 	}
 
     if (lcf->always_read_body || (r->method & (NGX_HTTP_POST | NGX_HTTP_PUT | NGX_HTTP_PATCH))) {
@@ -534,6 +545,8 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     return rc;
 }
 
+
+
 static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t * r) {
 	ngx_int_t rc;
 	ngx_http_clojure_module_ctx_t *ctx;
@@ -554,8 +567,8 @@ static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t * r) {
 			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "OutOfMemory of create ngx_http_clojure_module_ctx_t");
 			return NGX_HTTP_INTERNAL_SERVER_ERROR;
 		}
-		ctx->handled_couter = 1;
-		ctx->phrase = NGX_HTTP_REWRITE_PHASE;
+
+		ngx_http_clojure_init_ctx(ctx, NGX_HTTP_REWRITE_PHASE);
 		ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
 		rc = ngx_http_clojure_eval(lcf->rewrite_handler_id, r);
 		if (rc != NGX_DONE) {

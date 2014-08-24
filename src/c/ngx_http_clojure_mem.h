@@ -35,7 +35,19 @@
 typedef struct {
 	ngx_int_t phrase;
 	ngx_int_t handled_couter;
+	ngx_chain_t *free;
+	ngx_chain_t *busy;
+	/*these two members only used by hijack send & read, default is 0*/
+	unsigned last_buf_meeted : 1;
+	unsigned ignore_filters : 1;
 } ngx_http_clojure_module_ctx_t;
+
+#define ngx_http_clojure_init_ctx(ctx, p) \
+		ctx->handled_couter = 1; \
+		ctx->phrase = p; \
+		ctx->last_buf_meeted = 0; \
+		ctx->busy = ctx->free = NULL; \
+		ctx->ignore_filters = 0
 
 #define NGX_HTTP_CLOJURE_MEM_IDX_START 0
 
@@ -280,6 +292,11 @@ extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 #define NGX_HTTP_CLOJURE_MEM_ERR_VAR_NOT_FOUND 32
 #define NGX_HTTP_CLOJURE_MEM_ERR_VAR_UNCHANGABLE 33
 #define NGX_HTTP_CLOJURE_MEM_ERR_MALLOC 34
+
+
+#define NGX_BUF_LAST_OF_NONE  0
+#define NGX_BUF_LAST_OF_CHAIN  1
+#define NGX_BUF_LAST_OF_RESPONSE 2
 
 int ngx_http_clojure_check_memory_util();
 

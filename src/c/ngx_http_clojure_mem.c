@@ -15,6 +15,7 @@ static jclass nc_rt_class;
 static jmethodID nc_rt_eval_mid;
 static jmethodID nc_rt_register_code_mid;
 static jmethodID nc_rt_handle_post_event_mid;
+static jmethodID nc_rt_channel_listener_onclose_mid;
 
 static int nc_ngx_workers;
 static ngx_socket_t nc_ngx_worker_pipes_fds[NGX_MAX_PROCESSES][2];
@@ -67,6 +68,17 @@ static  ngx_str_t  ngx_http_clojure_core_variables_names[] = {
 	    ngx_string("hostname"),
 	    ngx_string("pid")
 };
+
+typedef struct {
+	jobject listener;
+	jobject data;
+} ngx_http_clojure_clean_up_data_t;
+
+static void ngx_http_clojure_check_broken_connection(ngx_http_request_t *r, ngx_event_t *ev);
+
+static void ngx_http_clojure_rd_check_broken_connection(ngx_http_request_t *r);
+
+static void ngx_http_clojure_wt_check_broken_connection(ngx_http_request_t *r);
 
 static jlong JNICALL jni_ngx_palloc (JNIEnv *env, jclass cls, jlong pool, jlong size) {
 	return (uintptr_t)ngx_palloc((ngx_pool_t *)(uintptr_t)pool, (size_t)size);
@@ -214,8 +226,12 @@ static jlong JNICALL jni_ngx_create_file_buf (JNIEnv *env, jclass cls, jlong r, 
     b->file_last = of.size;
 
     b->in_file = b->file_last ? 1: 0;
-    b->last_buf = last_buf;
-    b->last_in_chain = last_buf;
+
+    if (last_buf & NGX_BUF_LAST_OF_RESPONSE) {
+    	b->last_buf = b->last_in_chain = 1;
+    }else {
+    	b->last_in_chain = last_buf & NGX_BUF_LAST_OF_CHAIN;
+    }
 
     b->file->fd = of.fd;
     b->file->name = path;
@@ -250,20 +266,1044 @@ static jlong JNICALL jni_ngx_http_output_filter (JNIEnv *env, jclass cls, jlong 
 	return ngx_http_output_filter((ngx_http_request_t *)(uintptr_t)r, (ngx_chain_t *)(uintptr_t)chain);
 }
 
+#define NGX_CLOJURE_REUSABLE_PAGE_SIZE 4096
+#define NGX_CLOJURE_BUF_LAST_FLAG 0x01
+#define NGX_CLOJURE_BUF_FLUSH_FLAG 0x02
+#define NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG 0x04
+
+static ngx_chain_t * ngx_http_clojure_get_and_copy_bufs(ngx_pool_t *p, ngx_chain_t **free, char *src, size_t len,  ngx_int_t flag) {
+	ngx_chain_t *cl;
+	ngx_chain_t **ll = &cl;
+	ngx_buf_t *b = NULL;
+	while (len) {
+		if (*free) {
+			*ll = *free;
+			*free = (*ll)->next;
+			b = (*ll)->buf;
+			b->last_in_chain = b->last_buf = 0;
+			b->temporary = 1;
+			if (len > NGX_CLOJURE_REUSABLE_PAGE_SIZE) {
+				ngx_memcpy(b->pos, src, NGX_CLOJURE_REUSABLE_PAGE_SIZE);
+				b->last += NGX_CLOJURE_REUSABLE_PAGE_SIZE;
+				src += NGX_CLOJURE_REUSABLE_PAGE_SIZE;
+				len -= NGX_CLOJURE_REUSABLE_PAGE_SIZE;
+			} else {
+				ngx_memcpy(b->pos, src, len);
+				b->last += len;
+				len = 0;
+			}
+			ll = &(*ll)->next;
+
+		}else {
+	    	ngx_bufs_t bufs;
+	    	bufs.size = NGX_CLOJURE_REUSABLE_PAGE_SIZE;
+	    	bufs.num = len / NGX_CLOJURE_REUSABLE_PAGE_SIZE;
+	    	if (len % NGX_CLOJURE_REUSABLE_PAGE_SIZE != 0) {
+	    		bufs.num ++;
+	    	}
+	    	*ll = ngx_create_chain_of_bufs(p, &bufs);
+	    	if (*ll == NULL) {
+	    		return NULL;
+	    	}
+	    	ngx_memcpy((*ll)->buf->pos, src, len);
+	    	for (;  *ll; ll = &(*ll)->next) {
+	    		b = (*ll)->buf;
+	    		if ((*ll)->next) {
+	    			b->last += NGX_CLOJURE_REUSABLE_PAGE_SIZE;
+	    		}else {
+	    			b->last += (len % NGX_CLOJURE_REUSABLE_PAGE_SIZE);
+	    		}
+	    		b->tag = (ngx_buf_tag_t) &ngx_http_clojure_module;
+	    	}
+	    	break;
+	    }
+	}
+	*ll = NULL;
+	if (b) {
+		b->last_in_chain = 1;
+		if (flag & NGX_CLOJURE_BUF_LAST_FLAG) {
+			b->last_buf = 1;
+		}
+		if (flag & NGX_CLOJURE_BUF_FLUSH_FLAG) {
+			b->flush = 1;
+		}
+	}
+
+	return cl;
+}
+
+/*copy from ngx_http_request.c*/
+static void
+ngx_http_close_request(ngx_http_request_t *r, ngx_int_t rc)
+{
+    ngx_connection_t  *c;
+
+    r = r->main;
+    c = r->connection;
+
+    ngx_log_debug2(NGX_LOG_DEBUG_HTTP, c->log, 0,
+                   "http request count:%d blk:%d", r->count, r->blocked);
+
+    if (r->count == 0) {
+        ngx_log_error(NGX_LOG_ALERT, c->log, 0, "http request count is zero");
+    }
+
+    r->count--;
+
+    if (r->count || r->blocked) {
+        return;
+    }
+
+#if (NGX_HTTP_SPDY)
+    if (r->spdy_stream) {
+        ngx_http_spdy_close_stream(r->spdy_stream, rc);
+        return;
+    }
+#endif
+
+    ngx_http_free_request(r, rc);
+    ngx_http_close_connection(c);
+}
+
+static void ngx_http_clojure_hijack_writer(ngx_http_request_t *r) {
+	int rc;
+	ngx_event_t *wev;
+	ngx_connection_t *c;
+	ngx_http_core_loc_conf_t *clcf;
+	ngx_http_clojure_module_ctx_t *ctx;
+
+	ctx = (ngx_http_clojure_module_ctx_t *)ngx_http_get_module_ctx(r, ngx_http_clojure_module);
+	c = r->connection;
+	wev = c->write;
+
+	ngx_log_debug2(NGX_LOG_DEBUG_HTTP, wev->log, 0,
+			"clojure module hijack writer: \"%V?%V\"", &r->uri, &r->args);
+
+	clcf = ngx_http_get_module_loc_conf(r->main, ngx_http_core_module);
+
+	if (wev->timedout) {
+		if (!wev->delayed) {
+			ngx_log_error(NGX_LOG_INFO, c->log, NGX_ETIMEDOUT, "client timed out");
+			c->timedout = 1;
+
+			ngx_http_finalize_request(r, NGX_HTTP_REQUEST_TIME_OUT);
+			return;
+		}
+
+		wev->timedout = 0;
+		wev->delayed = 0;
+
+		if (!wev->ready) {
+			ngx_add_timer(wev, clcf->send_timeout);
+
+			if (ngx_handle_write_event(wev, clcf->send_lowat) != NGX_OK) {
+				ngx_http_close_request(r, 0);
+			}
+
+			return;
+		}
+
+	}
+
+	if (wev->delayed || r->aio) {
+		ngx_log_debug0(NGX_LOG_DEBUG_HTTP, wev->log, 0, "clojure module hijack writer delayed");
+
+		if (ngx_handle_write_event(wev, clcf->send_lowat) != NGX_OK) {
+			ngx_http_close_request(r, 0);
+		}
+
+		return;
+	}
+
+	rc = ctx->ignore_filters ? ngx_http_write_filter(r, NULL) : ngx_http_output_filter(r, NULL);
+
+	ngx_log_debug3(NGX_LOG_DEBUG_HTTP, c->log, 0,
+			"clojure module hijack writer output filter: %d, \"%V?%V\"", rc, &r->uri, &r->args);
+
+	if (rc == NGX_ERROR) {
+		ngx_http_finalize_request(r, rc);
+		return;
+	}
+
+	if (r->buffered || r->postponed || (r == r->main && c->buffered)) {
+
+		if (!wev->delayed) {
+			ngx_add_timer(wev, clcf->send_timeout);
+		}
+
+		if (ngx_handle_write_event(wev, clcf->send_lowat) != NGX_OK) {
+			ngx_http_close_request(r, 0);
+		}
+
+		return;
+	}
+
+	ngx_log_debug2(NGX_LOG_DEBUG_HTTP, wev->log, 0,
+			"clojure module hijack writer done: \"%V?%V\"", &r->uri, &r->args);
+
+	if (ctx->last_buf_meeted) {
+		ngx_http_close_request(r, 0);
+		return;
+	}
+	r->write_event_handler = ngx_http_request_empty_handler;
+}
+
+
+/*
+ * *****************************************************************************
+ * START of copy from ngx_http_header_filter_module.c
+ * *****************************************************************************
+ * */
+static char ngx_http_server_string[] = "Server: nginx" CRLF;
+static char ngx_http_server_full_string[] = "Server: " NGINX_VER CRLF;
+
+
+static ngx_str_t ngx_http_status_lines[] = {
+
+    ngx_string("200 OK"),
+    ngx_string("201 Created"),
+    ngx_string("202 Accepted"),
+    ngx_null_string,  /* "203 Non-Authoritative Information" */
+    ngx_string("204 No Content"),
+    ngx_null_string,  /* "205 Reset Content" */
+    ngx_string("206 Partial Content"),
+
+    /* ngx_null_string, */  /* "207 Multi-Status" */
+
+#define NGX_HTTP_LAST_2XX  207
+#define NGX_HTTP_OFF_3XX   (NGX_HTTP_LAST_2XX - 200)
+
+    /* ngx_null_string, */  /* "300 Multiple Choices" */
+
+    ngx_string("301 Moved Permanently"),
+    ngx_string("302 Moved Temporarily"),
+    ngx_string("303 See Other"),
+    ngx_string("304 Not Modified"),
+    ngx_null_string,  /* "305 Use Proxy" */
+    ngx_null_string,  /* "306 unused" */
+    ngx_string("307 Temporary Redirect"),
+
+#define NGX_HTTP_LAST_3XX  308
+#define NGX_HTTP_OFF_4XX   (NGX_HTTP_LAST_3XX - 301 + NGX_HTTP_OFF_3XX)
+
+    ngx_string("400 Bad Request"),
+    ngx_string("401 Unauthorized"),
+    ngx_string("402 Payment Required"),
+    ngx_string("403 Forbidden"),
+    ngx_string("404 Not Found"),
+    ngx_string("405 Not Allowed"),
+    ngx_string("406 Not Acceptable"),
+    ngx_null_string,  /* "407 Proxy Authentication Required" */
+    ngx_string("408 Request Time-out"),
+    ngx_string("409 Conflict"),
+    ngx_string("410 Gone"),
+    ngx_string("411 Length Required"),
+    ngx_string("412 Precondition Failed"),
+    ngx_string("413 Request Entity Too Large"),
+    ngx_null_string,  /* "414 Request-URI Too Large", but we never send it
+                       * because we treat such requests as the HTTP/0.9
+                       * requests and send only a body without a header
+                       */
+    ngx_string("415 Unsupported Media Type"),
+    ngx_string("416 Requested Range Not Satisfiable"),
+
+    /* ngx_null_string, */  /* "417 Expectation Failed" */
+    /* ngx_null_string, */  /* "418 unused" */
+    /* ngx_null_string, */  /* "419 unused" */
+    /* ngx_null_string, */  /* "420 unused" */
+    /* ngx_null_string, */  /* "421 unused" */
+    /* ngx_null_string, */  /* "422 Unprocessable Entity" */
+    /* ngx_null_string, */  /* "423 Locked" */
+    /* ngx_null_string, */  /* "424 Failed Dependency" */
+
+#define NGX_HTTP_LAST_4XX  417
+#define NGX_HTTP_OFF_5XX   (NGX_HTTP_LAST_4XX - 400 + NGX_HTTP_OFF_4XX)
+
+    ngx_string("500 Internal Server Error"),
+    ngx_string("501 Method Not Implemented"),
+    ngx_string("502 Bad Gateway"),
+    ngx_string("503 Service Temporarily Unavailable"),
+    ngx_string("504 Gateway Time-out"),
+
+    ngx_null_string,        /* "505 HTTP Version Not Supported" */
+    ngx_null_string,        /* "506 Variant Also Negotiates" */
+    ngx_string("507 Insufficient Storage"),
+    /* ngx_null_string, */  /* "508 unused" */
+    /* ngx_null_string, */  /* "509 unused" */
+    /* ngx_null_string, */  /* "510 Not Extended" */
+
+#define NGX_HTTP_LAST_5XX  508
+
+};
+
+
+static ngx_int_t
+ngx_http_header_filter(ngx_http_request_t *r)
+{
+    u_char                    *p;
+    size_t                     len;
+    ngx_str_t                  host, *status_line;
+    ngx_buf_t                 *b;
+    ngx_uint_t                 status, i, port;
+    ngx_chain_t                out;
+    ngx_list_part_t           *part;
+    ngx_table_elt_t           *header;
+    ngx_connection_t          *c;
+    ngx_http_core_loc_conf_t  *clcf;
+    ngx_http_core_srv_conf_t  *cscf;
+    struct sockaddr_in        *sin;
+#if (NGX_HAVE_INET6)
+    struct sockaddr_in6       *sin6;
+#endif
+    u_char                     addr[NGX_SOCKADDR_STRLEN];
+
+    if (r->header_sent) {
+        return NGX_OK;
+    }
+
+    r->header_sent = 1;
+
+    if (r != r->main) {
+        return NGX_OK;
+    }
+
+    if (r->http_version < NGX_HTTP_VERSION_10) {
+        return NGX_OK;
+    }
+
+    if (r->method == NGX_HTTP_HEAD) {
+        r->header_only = 1;
+    }
+
+    if (r->headers_out.last_modified_time != -1) {
+        if (r->headers_out.status != NGX_HTTP_OK
+            && r->headers_out.status != NGX_HTTP_PARTIAL_CONTENT
+            && r->headers_out.status != NGX_HTTP_NOT_MODIFIED)
+        {
+            r->headers_out.last_modified_time = -1;
+            r->headers_out.last_modified = NULL;
+        }
+    }
+
+    len = sizeof("HTTP/1.x ") - 1 + sizeof(CRLF) - 1
+          /* the end of the header */
+          + sizeof(CRLF) - 1;
+
+    /* status line */
+
+    if (r->headers_out.status_line.len) {
+        len += r->headers_out.status_line.len;
+        status_line = &r->headers_out.status_line;
+#if (NGX_SUPPRESS_WARN)
+        status = 0;
+#endif
+
+    } else {
+
+        status = r->headers_out.status;
+
+        if (status >= NGX_HTTP_OK
+            && status < NGX_HTTP_LAST_2XX)
+        {
+            /* 2XX */
+
+            if (status == NGX_HTTP_NO_CONTENT) {
+                r->header_only = 1;
+                ngx_str_null(&r->headers_out.content_type);
+                r->headers_out.last_modified_time = -1;
+                r->headers_out.last_modified = NULL;
+                r->headers_out.content_length = NULL;
+                r->headers_out.content_length_n = -1;
+            }
+
+            status -= NGX_HTTP_OK;
+            status_line = &ngx_http_status_lines[status];
+            len += ngx_http_status_lines[status].len;
+
+        } else if (status >= NGX_HTTP_MOVED_PERMANENTLY
+                   && status < NGX_HTTP_LAST_3XX)
+        {
+            /* 3XX */
+
+            if (status == NGX_HTTP_NOT_MODIFIED) {
+                r->header_only = 1;
+            }
+
+            status = status - NGX_HTTP_MOVED_PERMANENTLY + NGX_HTTP_OFF_3XX;
+            status_line = &ngx_http_status_lines[status];
+            len += ngx_http_status_lines[status].len;
+
+        } else if (status >= NGX_HTTP_BAD_REQUEST
+                   && status < NGX_HTTP_LAST_4XX)
+        {
+            /* 4XX */
+            status = status - NGX_HTTP_BAD_REQUEST
+                            + NGX_HTTP_OFF_4XX;
+
+            status_line = &ngx_http_status_lines[status];
+            len += ngx_http_status_lines[status].len;
+
+        } else if (status >= NGX_HTTP_INTERNAL_SERVER_ERROR
+                   && status < NGX_HTTP_LAST_5XX)
+        {
+            /* 5XX */
+            status = status - NGX_HTTP_INTERNAL_SERVER_ERROR
+                            + NGX_HTTP_OFF_5XX;
+
+            status_line = &ngx_http_status_lines[status];
+            len += ngx_http_status_lines[status].len;
+
+        } else {
+            len += NGX_INT_T_LEN;
+            status_line = NULL;
+        }
+    }
+
+    clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
+
+    if (r->headers_out.server == NULL) {
+        len += clcf->server_tokens ? sizeof(ngx_http_server_full_string) - 1:
+                                     sizeof(ngx_http_server_string) - 1;
+    }
+
+    if (r->headers_out.date == NULL) {
+        len += sizeof("Date: Mon, 28 Sep 1970 06:00:00 GMT" CRLF) - 1;
+    }
+
+    if (r->headers_out.content_type.len) {
+        len += sizeof("Content-Type: ") - 1
+               + r->headers_out.content_type.len + 2;
+
+        if (r->headers_out.content_type_len == r->headers_out.content_type.len
+            && r->headers_out.charset.len)
+        {
+            len += sizeof("; charset=") - 1 + r->headers_out.charset.len;
+        }
+    }
+
+    if (r->headers_out.content_length == NULL
+        && r->headers_out.content_length_n >= 0)
+    {
+        len += sizeof("Content-Length: ") - 1 + NGX_OFF_T_LEN + 2;
+    }
+
+    if (r->headers_out.last_modified == NULL
+        && r->headers_out.last_modified_time != -1)
+    {
+        len += sizeof("Last-Modified: Mon, 28 Sep 1970 06:00:00 GMT" CRLF) - 1;
+    }
+
+    c = r->connection;
+
+    if (r->headers_out.location
+        && r->headers_out.location->value.len
+        && r->headers_out.location->value.data[0] == '/')
+    {
+        r->headers_out.location->hash = 0;
+
+        if (clcf->server_name_in_redirect) {
+            cscf = ngx_http_get_module_srv_conf(r, ngx_http_core_module);
+            host = cscf->server_name;
+
+        } else if (r->headers_in.server.len) {
+            host = r->headers_in.server;
+
+        } else {
+            host.len = NGX_SOCKADDR_STRLEN;
+            host.data = addr;
+
+            if (ngx_connection_local_sockaddr(c, &host, 0) != NGX_OK) {
+                return NGX_ERROR;
+            }
+        }
+
+        switch (c->local_sockaddr->sa_family) {
+
+#if (NGX_HAVE_INET6)
+        case AF_INET6:
+            sin6 = (struct sockaddr_in6 *) c->local_sockaddr;
+            port = ntohs(sin6->sin6_port);
+            break;
+#endif
+#if (NGX_HAVE_UNIX_DOMAIN)
+        case AF_UNIX:
+            port = 0;
+            break;
+#endif
+        default: /* AF_INET */
+            sin = (struct sockaddr_in *) c->local_sockaddr;
+            port = ntohs(sin->sin_port);
+            break;
+        }
+
+        len += sizeof("Location: https://") - 1
+               + host.len
+               + r->headers_out.location->value.len + 2;
+
+        if (clcf->port_in_redirect) {
+
+#if (NGX_HTTP_SSL)
+            if (c->ssl)
+                port = (port == 443) ? 0 : port;
+            else
+#endif
+                port = (port == 80) ? 0 : port;
+
+        } else {
+            port = 0;
+        }
+
+        if (port) {
+            len += sizeof(":65535") - 1;
+        }
+
+    } else {
+        ngx_str_null(&host);
+        port = 0;
+    }
+
+    if (r->chunked) {
+        len += sizeof("Transfer-Encoding: chunked" CRLF) - 1;
+    }
+
+    if (r->keepalive) {
+        len += sizeof("Connection: keep-alive" CRLF) - 1;
+
+        /*
+         * MSIE and Opera ignore the "Keep-Alive: timeout=<N>" header.
+         * MSIE keeps the connection alive for about 60-65 seconds.
+         * Opera keeps the connection alive very long.
+         * Mozilla keeps the connection alive for N plus about 1-10 seconds.
+         * Konqueror keeps the connection alive for about N seconds.
+         */
+
+        if (clcf->keepalive_header) {
+            len += sizeof("Keep-Alive: timeout=") - 1 + NGX_TIME_T_LEN + 2;
+        }
+
+    } else {
+        len += sizeof("Connection: closed" CRLF) - 1;
+    }
+
+#if (NGX_HTTP_GZIP)
+    if (r->gzip_vary) {
+        if (clcf->gzip_vary) {
+            len += sizeof("Vary: Accept-Encoding" CRLF) - 1;
+
+        } else {
+            r->gzip_vary = 0;
+        }
+    }
+#endif
+
+    part = &r->headers_out.headers.part;
+    header = part->elts;
+
+    for (i = 0; /* void */; i++) {
+
+        if (i >= part->nelts) {
+            if (part->next == NULL) {
+                break;
+            }
+
+            part = part->next;
+            header = part->elts;
+            i = 0;
+        }
+
+        if (header[i].hash == 0) {
+            continue;
+        }
+
+        len += header[i].key.len + sizeof(": ") - 1 + header[i].value.len
+               + sizeof(CRLF) - 1;
+    }
+
+    b = ngx_create_temp_buf(r->pool, len);
+    if (b == NULL) {
+        return NGX_ERROR;
+    }
+
+    /* "HTTP/1.x " */
+    b->last = ngx_cpymem(b->last, "HTTP/1.1 ", sizeof("HTTP/1.x ") - 1);
+
+    /* status line */
+    if (status_line) {
+        b->last = ngx_copy(b->last, status_line->data, status_line->len);
+
+    } else {
+        b->last = ngx_sprintf(b->last, "%ui", status);
+    }
+    *b->last++ = CR; *b->last++ = LF;
+
+    if (r->headers_out.server == NULL) {
+        if (clcf->server_tokens) {
+            p = (u_char *) ngx_http_server_full_string;
+            len = sizeof(ngx_http_server_full_string) - 1;
+
+        } else {
+            p = (u_char *) ngx_http_server_string;
+            len = sizeof(ngx_http_server_string) - 1;
+        }
+
+        b->last = ngx_cpymem(b->last, p, len);
+    }
+
+    if (r->headers_out.date == NULL) {
+        b->last = ngx_cpymem(b->last, "Date: ", sizeof("Date: ") - 1);
+        b->last = ngx_cpymem(b->last, ngx_cached_http_time.data,
+                             ngx_cached_http_time.len);
+
+        *b->last++ = CR; *b->last++ = LF;
+    }
+
+    if (r->headers_out.content_type.len) {
+        b->last = ngx_cpymem(b->last, "Content-Type: ",
+                             sizeof("Content-Type: ") - 1);
+        p = b->last;
+        b->last = ngx_copy(b->last, r->headers_out.content_type.data,
+                           r->headers_out.content_type.len);
+
+        if (r->headers_out.content_type_len == r->headers_out.content_type.len
+            && r->headers_out.charset.len)
+        {
+            b->last = ngx_cpymem(b->last, "; charset=",
+                                 sizeof("; charset=") - 1);
+            b->last = ngx_copy(b->last, r->headers_out.charset.data,
+                               r->headers_out.charset.len);
+
+            /* update r->headers_out.content_type for possible logging */
+
+            r->headers_out.content_type.len = b->last - p;
+            r->headers_out.content_type.data = p;
+        }
+
+        *b->last++ = CR; *b->last++ = LF;
+    }
+
+    if (r->headers_out.content_length == NULL
+        && r->headers_out.content_length_n >= 0)
+    {
+        b->last = ngx_sprintf(b->last, "Content-Length: %O" CRLF,
+                              r->headers_out.content_length_n);
+    }
+
+    if (r->headers_out.last_modified == NULL
+        && r->headers_out.last_modified_time != -1)
+    {
+        b->last = ngx_cpymem(b->last, "Last-Modified: ",
+                             sizeof("Last-Modified: ") - 1);
+        b->last = ngx_http_time(b->last, r->headers_out.last_modified_time);
+
+        *b->last++ = CR; *b->last++ = LF;
+    }
+
+    if (host.data) {
+
+        p = b->last + sizeof("Location: ") - 1;
+
+        b->last = ngx_cpymem(b->last, "Location: http",
+                             sizeof("Location: http") - 1);
+
+#if (NGX_HTTP_SSL)
+        if (c->ssl) {
+            *b->last++ ='s';
+        }
+#endif
+
+        *b->last++ = ':'; *b->last++ = '/'; *b->last++ = '/';
+        b->last = ngx_copy(b->last, host.data, host.len);
+
+        if (port) {
+            b->last = ngx_sprintf(b->last, ":%ui", port);
+        }
+
+        b->last = ngx_copy(b->last, r->headers_out.location->value.data,
+                           r->headers_out.location->value.len);
+
+        /* update r->headers_out.location->value for possible logging */
+
+        r->headers_out.location->value.len = b->last - p;
+        r->headers_out.location->value.data = p;
+        ngx_str_set(&r->headers_out.location->key, "Location");
+
+        *b->last++ = CR; *b->last++ = LF;
+    }
+
+    if (r->chunked) {
+        b->last = ngx_cpymem(b->last, "Transfer-Encoding: chunked" CRLF,
+                             sizeof("Transfer-Encoding: chunked" CRLF) - 1);
+    }
+
+    if (r->keepalive) {
+        b->last = ngx_cpymem(b->last, "Connection: keep-alive" CRLF,
+                             sizeof("Connection: keep-alive" CRLF) - 1);
+
+        if (clcf->keepalive_header) {
+            b->last = ngx_sprintf(b->last, "Keep-Alive: timeout=%T" CRLF,
+                                  clcf->keepalive_header);
+        }
+
+    } else {
+        b->last = ngx_cpymem(b->last, "Connection: close" CRLF,
+                             sizeof("Connection: close" CRLF) - 1);
+    }
+
+#if (NGX_HTTP_GZIP)
+    if (r->gzip_vary) {
+        b->last = ngx_cpymem(b->last, "Vary: Accept-Encoding" CRLF,
+                             sizeof("Vary: Accept-Encoding" CRLF) - 1);
+    }
+#endif
+
+    part = &r->headers_out.headers.part;
+    header = part->elts;
+
+    for (i = 0; /* void */; i++) {
+
+        if (i >= part->nelts) {
+            if (part->next == NULL) {
+                break;
+            }
+
+            part = part->next;
+            header = part->elts;
+            i = 0;
+        }
+
+        if (header[i].hash == 0) {
+            continue;
+        }
+
+        b->last = ngx_copy(b->last, header[i].key.data, header[i].key.len);
+        *b->last++ = ':'; *b->last++ = ' ';
+
+        b->last = ngx_copy(b->last, header[i].value.data, header[i].value.len);
+        *b->last++ = CR; *b->last++ = LF;
+    }
+
+    ngx_log_debug2(NGX_LOG_DEBUG_HTTP, c->log, 0,
+                   "%*s", (size_t) (b->last - b->pos), b->pos);
+
+    /* the end of HTTP header */
+    *b->last++ = CR; *b->last++ = LF;
+
+    r->header_size = b->last - b->pos;
+
+    if (r->header_only) {
+        b->last_buf = 1;
+    }
+
+    out.buf = b;
+    out.next = NULL;
+
+    return ngx_http_write_filter(r, &out);
+}
+/*
+ * *****************************************************************************
+ * END of copy from ngx_http_header_filter_module.c
+ * *****************************************************************************
+ * */
+
+static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, char *message, size_t len, ngx_int_t flag) {
+	ngx_http_clojure_module_ctx_t *ctx;
+	ngx_chain_t *in;
+	ngx_int_t rc;
+
+	if (r->pool == NULL) {
+		ngx_log_error(NGX_LOG_ERR, ngx_http_clojure_global_cycle->log, 0,
+						"ngx_http_clojure_hijack_send:"
+						"can not send message because the request was closed");
+		return NGX_ERROR;
+	}
+
+	ctx = (ngx_http_clojure_module_ctx_t *) ngx_http_get_module_ctx(r, ngx_http_clojure_module);
+	if (flag & NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG) {
+		ctx->ignore_filters = 1;
+	} else {
+		ctx->ignore_filters = 0;
+	}
+
+	if (len == 0) {
+		if (flag & NGX_CLOJURE_BUF_LAST_FLAG || flag & NGX_CLOJURE_BUF_FLUSH_FLAG) {
+			in = ngx_http_clojure_get_and_copy_bufs(r->pool, &ctx->free, "n", 1, flag);
+			if (in == NULL) {
+				ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+						"ngx_http_clojure_hijack_send:"
+						"not enough memory, ngx_http_clojure_get_and_copy_bufs fail");
+				return NGX_ERROR;
+			}
+			in->buf->pos = in->buf->last;
+			in->buf->temporary = 0;
+		}
+	}else {
+		in = ngx_http_clojure_get_and_copy_bufs(r->pool, &ctx->free, message, len, flag);
+		if (in == NULL) {
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+					"ngx_http_clojure_hijack_send:"
+					"not enough memory, ngx_http_clojure_get_and_copy_bufs fail");
+			return NGX_ERROR;
+		}
+	}
+
+	if (flag & NGX_CLOJURE_BUF_LAST_FLAG) {
+		ctx->last_buf_meeted = 1;
+	}
+
+	rc = ctx->ignore_filters ? ngx_http_write_filter(r, in) : ngx_http_output_filter(r, in);
+
+
+	if (rc == NGX_AGAIN) {
+		if (r->write_event_handler != ngx_http_clojure_hijack_writer) {
+			r->write_event_handler = ngx_http_clojure_hijack_writer;
+		}
+		r->read_event_handler = ngx_http_clojure_rd_check_broken_connection;
+		if (!r->connection->write->active) {
+			(void)ngx_handle_write_event(r->connection->write, 0);
+		}
+	}else if (rc != NGX_OK) {
+		return rc;
+	}else {
+		if (ctx->last_buf_meeted) {
+			ngx_http_close_request(r, 0);
+			return NGX_OK;
+		}
+		r->read_event_handler = ngx_http_clojure_rd_check_broken_connection;
+		r->write_event_handler = ngx_http_request_empty_handler;
+	}
+
+	if (!r->connection->read->active) {
+		(void)ngx_handle_read_event(r->connection->read, 0);
+	}
+
+#if nginx_version >= 1001004
+	ngx_chain_update_chains(r->pool, &ctx->free, &ctx->busy, &in, (ngx_buf_tag_t)&ngx_http_clojure_module);
+#else
+	ngx_chain_update_chains(&ctx->free, &ctx->busy, &in, (ngx_buf_tag_t)&ngx_http_clojure_module);
+#endif
+	return NGX_OK;
+
+}
+
+static jlong JNICALL jni_ngx_http_hijack_send_header(JNIEnv *env, jclass cls, jlong req, jint flag) {
+	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t)req;
+	ngx_http_clojure_module_ctx_t *ctx;
+	ngx_int_t rc;
+
+	if (r->pool == NULL) {
+		ngx_log_error(NGX_LOG_ERR, ngx_http_clojure_global_cycle->log, 0, "jni_ngx_http_hijack_send_header:"
+				"can not send header because the request was closed");
+		return NGX_ERROR;
+	}
+
+	ctx = (ngx_http_clojure_module_ctx_t *)ngx_http_get_module_ctx(r, ngx_http_clojure_module);
+	if (flag & NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG) {
+		ctx->ignore_filters = 1;
+	}else {
+		ctx->ignore_filters = 0;
+	}
+	rc = ctx->ignore_filters ? ngx_http_header_filter(r) : ngx_http_send_header(r);
+
+	if (rc == NGX_OK || rc == NGX_AGAIN) {
+		if (flag) {
+			rc = ngx_http_clojure_hijack_send(r, 0, 0, flag);
+			if (rc != NGX_OK) {
+				ngx_http_finalize_request(r, rc);
+				return rc;
+			}
+		}
+	}else {
+		ngx_http_finalize_request(r, rc);
+		return rc;
+	}
+}
+
+static jlong JNICALL jni_ngx_http_hijack_send(JNIEnv *env, jclass cls, jlong req, jobject obj, jlong offset, jlong len, jint flag) {
+	ngx_int_t rc = ngx_http_clojure_hijack_send((ngx_http_request_t *)(uintptr_t)req, (char *)(*(uintptr_t*)obj) + offset, len, flag);
+	if (rc != NGX_OK) {
+		ngx_http_finalize_request((ngx_http_request_t *)(uintptr_t)req, rc);
+	}
+	return rc;
+}
+
+static void ngx_http_clojure_cleanup_handler(void *data) {
+	ngx_http_clojure_clean_up_data_t *cd = (ngx_http_clojure_clean_up_data_t *)data;
+	(*jvm_env)->CallVoidMethod(jvm_env, cd->listener, nc_rt_channel_listener_onclose_mid, cd->data);
+	exception_handle(0 == 0, jvm_env,
+			(*jvm_env)->DeleteGlobalRef(jvm_env, cd->listener);
+	        (*jvm_env)->DeleteGlobalRef(jvm_env, cd->data);
+	        return);
+	(*jvm_env)->DeleteGlobalRef(jvm_env, cd->listener);
+	(*jvm_env)->DeleteGlobalRef(jvm_env, cd->data);
+}
+
+static void ngx_http_clojure_check_broken_connection(ngx_http_request_t *r, ngx_event_t *ev) {
+	int n;
+	char buf[1];
+	ngx_err_t err;
+	ngx_int_t event;
+	ngx_connection_t *c;
+
+	ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ev->log, 0, "http upstream check client, write event:%d, \"%V\"", ev->write, &r->uri);
+
+	c = r->connection;
+
+	if (c->error) {
+		if ((ngx_event_flags & NGX_USE_LEVEL_EVENT) && ev->active) {
+
+			event = ev->write ? NGX_WRITE_EVENT : NGX_READ_EVENT;
+
+			if (ngx_del_event(ev, event, 0) != NGX_OK) {
+				ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
+				return;
+			}
+		}
+		ngx_http_finalize_request(r, NGX_HTTP_CLIENT_CLOSED_REQUEST);
+		return;
+	}
+
+#if (NGX_HTTP_SPDY)
+	if (r->spdy_stream) {
+		return;
+	}
+#endif
+
+#if (NGX_HAVE_KQUEUE)
+
+	if (ngx_event_flags & NGX_USE_KQUEUE_EVENT) {
+
+		if (!ev->pending_eof) {
+			return;
+		}
+
+		ev->eof = 1;
+		c->error = 1;
+
+		if (ev->kq_errno) {
+			ev->error = 1;
+		}
+
+		ngx_log_error(NGX_LOG_INFO, ev->log, ev->kq_errno,
+				"kevent() reported that client prematurely closed "
+				"connection");
+
+		ngx_http_finalize_request(r, NGX_HTTP_CLIENT_CLOSED_REQUEST);
+		return;
+	}
+
+#endif
+
+#if (NGX_HAVE_EPOLLRDHUP)
+
+	if ((ngx_event_flags & NGX_USE_EPOLL_EVENT) && ev->pending_eof) {
+		socklen_t len;
+
+		ev->eof = 1;
+		c->error = 1;
+
+		err = 0;
+		len = sizeof(ngx_err_t);
+
+		/*
+		 * BSDs and Linux return 0 and set a pending error in err
+		 * Solaris returns -1 and sets errno
+		 */
+
+		if (getsockopt(c->fd, SOL_SOCKET, SO_ERROR, (void *) &err, &len) == -1) {
+			err = ngx_socket_errno;
+		}
+
+		if (err) {
+			ev->error = 1;
+		}
+
+		ngx_log_error(NGX_LOG_INFO, ev->log, err, "epoll_wait() reported that client prematurely closed "
+				"connection");
+		ngx_http_finalize_request(r, NGX_HTTP_CLIENT_CLOSED_REQUEST);
+		return;
+	}
+
+#endif
+
+	n = recv(c->fd, buf, 1, MSG_PEEK);
+
+	err = ngx_socket_errno;
+
+	ngx_log_debug1(NGX_LOG_DEBUG_HTTP, ev->log, err, "http clojure module recv(): %d", n);
+
+	if (ev->write && (n >= 0 || err == NGX_EAGAIN)) {
+		return;
+	}
+
+	if ((ngx_event_flags & NGX_USE_LEVEL_EVENT) && ev->active) {
+
+		event = ev->write ? NGX_WRITE_EVENT : NGX_READ_EVENT;
+
+		if (ngx_del_event(ev, event, 0) != NGX_OK) {
+			ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
+			return;
+		}
+	}
+
+	if (n > 0) {
+		return;
+	}
+
+	if (n == -1) {
+		if (err == NGX_EAGAIN) {
+			return;
+		}
+
+		ev->error = 1;
+
+	} else { /* n == 0 */
+		err = 0;
+	}
+
+	ev->eof = 1;
+	c->error = 1;
+
+	ngx_log_error(NGX_LOG_INFO, ev->log, err, "client prematurely closed connection");
+
+	ngx_http_finalize_request(r, NGX_HTTP_CLIENT_CLOSED_REQUEST);
+}
+
+static void ngx_http_clojure_rd_check_broken_connection(ngx_http_request_t *r){
+    ngx_http_clojure_check_broken_connection(r, r->connection->read);
+}
+
+static void ngx_http_clojure_wt_check_broken_connection(ngx_http_request_t *r){
+    ngx_http_clojure_check_broken_connection(r, r->connection->write);
+}
+
+static jlong JNICALL jni_ngx_http_cleanup_add(JNIEnv *env, jclass cls, jlong req, jobject listener, jobject data) {
+	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t)req;
+	ngx_http_cleanup_t *cu = ngx_http_cleanup_add(r, sizeof(ngx_http_clojure_clean_up_data_t));
+	cu->handler = ngx_http_clojure_cleanup_handler;
+	((ngx_http_clojure_clean_up_data_t *)cu->data)->listener = (*env)->NewGlobalRef(env, listener);
+	exception_handle(((ngx_http_clojure_clean_up_data_t *)cu->data)->listener == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+	((ngx_http_clojure_clean_up_data_t *)cu->data)->data = (*env)->NewGlobalRef(env, data);
+	exception_handle(((ngx_http_clojure_clean_up_data_t *)cu->data)->data == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+	return NGX_OK;
+}
+
 static void JNICALL jni_ngx_http_finalize_request (JNIEnv *env, jclass cls, jlong r , jlong rc) {
 	ngx_http_finalize_request((ngx_http_request_t *)(uintptr_t)r, (ngx_int_t)rc);
 }
 
 static jlong JNICALL jni_ngx_http_clojure_mem_init_ngx_buf(JNIEnv *env, jclass cls, jlong buf, jobject obj, jlong offset, jlong len, jint last_buf) {
-	ngx_buf_t * b = (ngx_buf_t *)(uintptr_t)buf;
+	ngx_buf_t *b = (ngx_buf_t *)(uintptr_t)buf;
 
 	if (len > 0) {
 		ngx_memcpy(b->pos, (char *)(*(uintptr_t*)obj) + offset, len);
 		b->last = b->pos + len;
 	}
 
-	b->last_buf = last_buf;
-	b->last_in_chain = last_buf;
+	if (last_buf & NGX_BUF_LAST_OF_RESPONSE) {
+		b->last_buf = b->last_in_chain = 1;
+	}else {
+		b->last_in_chain = last_buf & NGX_BUF_LAST_OF_CHAIN;
+	}
 	return (uintptr_t)b;
 }
 
@@ -617,7 +1657,7 @@ static ngx_int_t ngx_http_clojure_broadcast_event(void *e, size_t size, int has_
 	do { \
 		char *src = (char *)(*(uintptr_t*)data) + off; \
 		len = (int)(0xffffLL & e); \
-		if (len > sizeof(buf) - 8) { \
+		if (len > (int)sizeof(buf) - 8) { \
 				len = sizeof(buf) - 8; \
 		} \
 		e &= 0xff00000000000000LL; \
@@ -719,16 +1759,12 @@ static  ngx_int_t ngx_http_clojure_jvm_worker_pipe_init(ngx_log_t *log) {
 		}
 	}
 
+	/*before v0.2.5 fd-1 is only used by another thread from thread pool so it needn't be nonblocking
+	  but now fd-1 is also be used by another nginx worker process.*/
 	if (ngx_nonblocking(nc_jvm_worker_pipe_fds[0]) == -1) {
 		ngx_log_error(NGX_LOG_ERR, log, 0, "ngx clojure create worker_pipe at ngx_nonblocking(fds[0]) failed");
 		return NGX_ERROR;
 	}
-
-/*fd-1 is used by another thread from thread pool so it needn't be nonblocking*/
-/*	if (ngx_nonblocking(nc_jvm_worker_pipe_fds[1]) == -1) {
-		ngx_log_error(NGX_LOG_ERR, log, 0, "ngx clojure: create worker_pipe at ngx_nonblocking(fds[1]) failed");
-		return NGX_ERROR;
-	}*/
 
 	ngx_log_error(NGX_LOG_NOTICE, log, 0, "ngx clojure: init pipe for jvm worker, fds: %d, %d", nc_jvm_worker_pipe_fds[0], nc_jvm_worker_pipe_fds[1]);
 
@@ -825,7 +1861,10 @@ int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log) {
 			{"ngx_http_clojure_mem_get_module_ctx_phase", "(J)J", jni_ngx_http_clojure_mem_get_module_ctx_phase},
 			{"ngx_http_clojure_mem_post_event", "(JLjava/lang/Object;J)J", jni_ngx_http_clojure_mem_post_event},
 			{"ngx_http_clojure_mem_broadcast_event", "(JLjava/lang/Object;JJ)J", jni_ngx_http_clojure_mem_broadcast_event},
-			{"ngx_http_clojure_mem_read_raw_pipe", "(JLjava/lang/Object;JJ)J", jni_ngx_http_clojure_mem_read_raw_pipe}
+			{"ngx_http_clojure_mem_read_raw_pipe", "(JLjava/lang/Object;JJ)J", jni_ngx_http_clojure_mem_read_raw_pipe},
+			{"ngx_http_hijack_send", "(JLjava/lang/Object;JJI)J", jni_ngx_http_hijack_send},
+			{"ngx_http_hijack_send_header", "(JI)J", jni_ngx_http_hijack_send_header},
+			{"ngx_http_cleanup_add", "(JLnginx/clojure/ChannelListener;Ljava/lang/Object;)J", jni_ngx_http_cleanup_add}
 //			{"ngx_http_clojure_mem_get_body_tmp_file", "(J)J", jni_ngx_http_clojure_mem_get_body_tmp_file}
 	};
 	jmethodID nc_rt_init_mid;
@@ -1014,6 +2053,13 @@ int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log) {
 
 	nc_rt_handle_post_event_mid = (*env)->GetStaticMethodID(env, nc_rt_class,"handlePostEvent", "(JJ)I");
 	exception_handle(nc_rt_handle_post_event_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+
+	{
+		jclass nc_cleanup_listener_class = (*env)->FindClass(env, "nginx/clojure/ChannelListener");
+		exception_handle(nc_cleanup_listener_class == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+		nc_rt_channel_listener_onclose_mid = (*env)->GetMethodID(env, nc_cleanup_listener_class, "onClose", "(Ljava/lang/Object;)V");
+		exception_handle(nc_rt_channel_listener_onclose_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+	}
 
 	(*env)->CallStaticVoidMethod(env, nc_rt_class, nc_rt_init_mid, MEM_INDEX);
 

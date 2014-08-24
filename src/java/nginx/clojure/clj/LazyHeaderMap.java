@@ -79,7 +79,7 @@ public class LazyHeaderMap extends AFn implements IPersistentMap  {
 
 	@Override
 	public boolean containsKey(Object keyObj) {
-		String key = NginxClojureHandler.normalizeHeaderName(keyObj);
+		String key = NginxClojureHandler.normalizeHeaderNameHelper(keyObj);
 		if (key == null) {
 			return false;
 		}
@@ -162,7 +162,7 @@ public class LazyHeaderMap extends AFn implements IPersistentMap  {
 		if (keyObj == null) {
 			return null;
 		}
-		String key = NginxClojureHandler.normalizeHeaderName(keyObj);
+		String key = NginxClojureHandler.normalizeHeaderNameHelper(keyObj);
 		if (key == null) {
 			return null;
 		}

@@ -81,7 +81,7 @@
                   (do
                     (.info logger (format "fininsh request total read: %d" rc))
                     (.close as)
-                    (NginxClojureHandler/completeAsyncResponse creq 
+                    (.completeAsyncResponse (.handler creq) creq 
                                                           {:status 200, 
                                                            :headers {:content-type "text/html"}
                                                            ;just for test not for good performance and right behavior for a http proxy
@@ -100,7 +100,7 @@
 
 (defn async-socket-example-handler [^LazyRequestMap req]
   (let [;request to nginx (downstream client request)
-        creq (.nativeRequest req)
+        creq req
         ;user defined context for attach with a NginxClojureAsynSocket
         ctx (atom {:rc 0, ;read count 
                    :wc 0, ;write count

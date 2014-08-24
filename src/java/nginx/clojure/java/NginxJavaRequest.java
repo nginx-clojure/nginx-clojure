@@ -28,7 +28,6 @@ import static nginx.clojure.MiniConstants.URI;
 import static nginx.clojure.MiniConstants.URI_FETCHER;
 import static nginx.clojure.java.Constants.HEADER_FETCHER;
 
-import java.io.Closeable;
 import java.util.AbstractSet;
 import java.util.Collection;
 import java.util.Iterator;
@@ -36,8 +35,9 @@ import java.util.Map;
 import java.util.Set;
 
 import nginx.clojure.NginxClojureRT;
+import nginx.clojure.NginxHandler;
 import nginx.clojure.NginxRequest;
-import nginx.clojure.NginxResponse;
+import nginx.clojure.NginxServerChannel;
 import nginx.clojure.NginxSimpleHandler.SimpleEntry;
 import nginx.clojure.RequestVarFetcher;
 import nginx.clojure.java.PickerPoweredIterator.Picker;
@@ -45,19 +45,23 @@ import nginx.clojure.java.PickerPoweredIterator.Picker;
 public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 
 	protected long r;
+	NginxHandler handler;
 	protected NginxJavaRingHandler ringHandler;
 	protected Object[] array;
+	protected boolean hijacked = false;
+	protected NginxServerChannel channel;
 	
-	public NginxJavaRequest(NginxJavaRingHandler ringHandler, long r, Object[] array) {
+	public NginxJavaRequest(NginxHandler handler, NginxJavaRingHandler ringHandler, long r, Object[] array) {
 		this.r = r;
+		this.handler = handler;
 		this.array = array;
 		this.ringHandler = ringHandler;
 	}
 	
 	@SuppressWarnings("unchecked")
-	public NginxJavaRequest(NginxJavaRingHandler ringHandler, long r) {
+	public NginxJavaRequest(NginxHandler handler, NginxJavaRingHandler ringHandler, long r) {
 		//TODO: SSL_CLIENT_CERT
-		this(ringHandler, r, new Object[] {
+		this(handler, ringHandler, r, new Object[] {
 				URI, URI_FETCHER,
 				BODY, BODY_FETCHER,
 				HEADERS, HEADER_FETCHER,
@@ -125,26 +129,6 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	@Override
 	public boolean containsKey(Object key) {
 		return index(key) != -1;
-	}
-	
-
-	@Override
-	public NginxResponse process() {
-		try{
-			return NginxJavaHandler.toNginxResponse(ringHandler.invoke(this));
-		}finally {
-			int bodyIdx = index(BODY);
-			if (bodyIdx > 0) {
-				try {
-					Object body = val(bodyIdx);
-					if (body != null && body instanceof Closeable) {
-						((Closeable)body).close();
-					}
-				} catch (Throwable e) {
-					NginxClojureRT.log.error("can not close Closeable object such as FileInputStream!", e);
-				}
-			}
-		}
 	}
 
 	@Override
@@ -303,6 +287,21 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	@Override
 	public Set<java.util.Map.Entry<String, Object>> entrySet() {
 		return new EntrySet();
+	}
+
+	@Override
+	public NginxHandler handler() {
+		return handler;
+	}
+
+	@Override
+	public boolean isHijacked() {
+		return hijacked;
+	}
+
+	@Override
+	public NginxServerChannel channel() {
+		return channel;
 	}
 
 }

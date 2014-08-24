@@ -28,18 +28,17 @@ import static nginx.clojure.clj.Constants.SERVER_NAME;
 import static nginx.clojure.clj.Constants.SERVER_PORT;
 import static nginx.clojure.clj.Constants.URI;
 
-import java.io.Closeable;
 import java.util.Iterator;
 import java.util.Map;
 
 import nginx.clojure.NginxClojureRT;
+import nginx.clojure.NginxHandler;
 import nginx.clojure.NginxRequest;
-import nginx.clojure.NginxResponse;
+import nginx.clojure.NginxServerChannel;
 import nginx.clojure.RequestVarFetcher;
 import clojure.lang.AFn;
 import clojure.lang.ASeq;
 import clojure.lang.Counted;
-import clojure.lang.IFn;
 import clojure.lang.IMapEntry;
 import clojure.lang.IPersistentCollection;
 import clojure.lang.IPersistentMap;
@@ -53,20 +52,23 @@ import clojure.lang.Util;
 public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentMap {
 	
 	protected long r;
-	protected IFn ringHandler;
 	protected Object[] array;
+	protected NginxHandler handler;
+	protected NginxServerChannel channel;
+	protected boolean hijacked;
+	
 	public final static LazyRequestMap EMPTY_MAP = new LazyRequestMap(null, 0, new Object[0]);
 	
-	public LazyRequestMap(IFn ringHandler, long r, Object[] array) {
+	public LazyRequestMap(NginxHandler handler, long r, Object[] array) {
+		this.handler = handler;
 		this.r = r;
 		this.array = array;
-		this.ringHandler = ringHandler;
 	}
 	
 	@SuppressWarnings("unchecked")
-	public LazyRequestMap(IFn ringHandler, long r) {
+	public LazyRequestMap(NginxHandler handler, long r) {
 		//TODO: SSL_CLIENT_CERT
-		this(ringHandler, r, new Object[] {
+		this(handler, r, new Object[] {
 				URI, URI_FETCHER,
 				BODY, BODY_FETCHER,
 				HEADERS, HEADER_FETCHER,
@@ -80,8 +82,6 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 				REQUEST_METHOD, REQUEST_METHOD_FETCHER,
 				CONTENT_TYPE, CONTENT_TYPE_FETCHER,
 				CHARACTER_ENCODING, CHARACTER_ENCODING_FETCHER,
-				
-				
 		});
 	}
 	
@@ -255,7 +255,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		System.arraycopy(array, 0, newArray, 0, array.length);
 		newArray[array.length] = key;
 		newArray[array.length+1] = val;
-		return new LazyRequestMap(ringHandler, r, newArray);
+		return new LazyRequestMap(handler, r, newArray);
 	}
 
 	@Override
@@ -281,7 +281,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 				System.arraycopy(array, 0, newArray, 0, i);
 			}
 			System.arraycopy(array, i + 2, newArray, i, array.length - i - 2);
-			return new LazyRequestMap(ringHandler, r , newArray);
+			return new LazyRequestMap(handler, r , newArray);
 		}
 	}
 	
@@ -304,21 +304,20 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		return valAt(key, notFound);
 	}
 
+	
 	@Override
-	public NginxResponse process() {
-		try{
-			Map resp = (Map) ringHandler.invoke(this);
-			return NginxClojureHandler.toNginxResponse(resp);
-		}finally {
-			int bodyIdx = index(BODY);
-			if (bodyIdx > 0 && array[bodyIdx] instanceof Closeable) {
-				try {
-					((Closeable)array[bodyIdx]).close();
-				} catch (Throwable e) {
-					NginxClojureRT.log.error("can not close Closeable object such as FileInputStream!", e);
-				}
-			}
-		}
+	public NginxHandler handler() {
+		return handler;
+	}
+	
+	@Override
+	public NginxServerChannel channel() {
+		return channel;
+	}
+
+	@Override
+	public boolean isHijacked() {
+		return hijacked;
 	}
 
 }

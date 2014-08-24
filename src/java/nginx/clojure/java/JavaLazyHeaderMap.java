@@ -26,8 +26,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import nginx.clojure.NginxSimpleHandler;
 import nginx.clojure.NginxSimpleHandler.SimpleEntry;
-import nginx.clojure.NginxSimpleResponse;
 import nginx.clojure.RequestKnownHeaderFetcher;
 import nginx.clojure.java.PickerPoweredIterator.Picker;
 
@@ -86,7 +86,7 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable<Entry<St
 
 	@Override
 	public boolean containsKey(Object keyObj) {
-		String key = NginxSimpleResponse.headerNameToNormalized(keyObj);
+		String key = NginxSimpleHandler.normalizeHeaderNameHelper(keyObj);
 		if (key == null) {
 			return false;
 		}
@@ -125,7 +125,7 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable<Entry<St
 		if (keyObj == null) {
 			return null;
 		}
-		String key = NginxSimpleResponse.headerNameToNormalized(keyObj);
+		String key = NginxSimpleHandler.normalizeHeaderNameHelper(keyObj);
 		if (key == null) {
 			return null;
 		}

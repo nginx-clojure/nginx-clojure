@@ -69,6 +69,14 @@ public class MiniConstants {
 	public static final String DEFAULT_ENCODING_STR = "utf-8";
 	public static final Charset DEFAULT_ENCODING = Charset.forName(DEFAULT_ENCODING_STR);
 	
+	public static final int NGX_CLOJURE_BUF_LAST_OF_NONE = 0;
+	public static final int NGX_CLOJURE_BUF_LAST_OF_CHAIN = 1;
+	public static final int NGX_CLOJURE_BUF_LAST_OF_RESPONSE = 2;
+	
+	public static final int NGX_CLOJURE_BUF_LAST_FLAG = 0x01;
+	public static final int NGX_CLOJURE_BUF_FLUSH_FLAG = 0x02;
+	public static final int NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG = 0x04;
+	
 	/**
 	 * System Event : 0x00 ~ 0x1f
 	 * App Event : 0x20 ~ 0xff
@@ -78,6 +86,8 @@ public class MiniConstants {
 	public static final int POST_EVENT_TYPE_SYSTEM_EVENT_IDX_START = 0;
 	public static final int POST_EVENT_TYPE_HANDLE_RESPONSE = 0;
 	public static final int POST_EVENT_TYPE_CLOSE_SOCKET = 0x01;
+	public static final int POST_EVENT_TYPE_HIJACK_SEND = 0x02;
+	public static final int POST_EVENT_TYPE_HIJACK_SEND_HEADER = 0x03;
 	public static final int POST_EVENT_TYPE_SYSTEM_EVENT_IDX_END = 0x1f;
 	public static final int POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START = 0x80;
 	public static final int POST_EVENT_TYPE_COMPLEX_EVENT_IDX_END = 0xff;
@@ -458,18 +468,20 @@ public class MiniConstants {
 	public static ResponseTableEltHeaderPusher SERVER_PUSHER;
 	
 	public static final class NginxFakeResponse implements NginxResponse {
-		public long buildOutputChain(long r) {
-			return 0;
-		}
+
 		public int fetchStatus(int defaultStatus) {
 			return defaultStatus;
 		}
 		@Override
-		public Collection<Entry> fetchHeaders() {
+		public Collection<Entry<?, ?>> fetchHeaders() {
 			return null;
 		}
 		@Override
 		public Object fetchBody() {
+			return null;
+		}
+		@Override
+		public NginxRequest request() {
 			return null;
 		}
 	}

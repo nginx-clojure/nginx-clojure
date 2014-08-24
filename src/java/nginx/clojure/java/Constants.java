@@ -4,9 +4,10 @@
  */
 package nginx.clojure.java;
 
+import nginx.clojure.MiniConstants;
 import nginx.clojure.RequestVarFetcher;
 
-public class Constants {
+public class Constants extends MiniConstants {
 
 	public static RequestVarFetcher HEADER_FETCHER;
 	

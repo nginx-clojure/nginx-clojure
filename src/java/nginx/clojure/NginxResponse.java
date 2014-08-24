@@ -5,12 +5,12 @@ import java.util.Map;
 
 public interface NginxResponse {
 	
-	public long buildOutputChain(long r);
-	
 	public int fetchStatus(int defaultStatus);
 	
-	public Collection<Map.Entry> fetchHeaders();
+	public <K,V> Collection<Map.Entry<K, V>> fetchHeaders();
 	
 	public Object fetchBody();
+	
+	public NginxRequest request();
 	
 }

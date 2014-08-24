@@ -7,6 +7,7 @@ package nginx.clojure.clj;
 import java.util.HashMap;
 import java.util.Map;
 
+import nginx.clojure.MiniConstants;
 import nginx.clojure.RequestVarFetcher;
 import nginx.clojure.ResponseHeaderPusher;
 import clojure.lang.Keyword;
@@ -17,7 +18,7 @@ import clojure.lang.RT;
  * @author Zhang,Yuexiang (xfeep)
  *
  */
-public class Constants  {
+public class Constants extends MiniConstants {
 
 	/**
 	 * Ring Spec (1.1) Keywords : https://github.com/ring-clojure/ring/blob/master/SPEC
