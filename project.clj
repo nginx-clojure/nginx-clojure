@@ -63,6 +63,9 @@
                                 :test-paths ["src/test/clojure"]
                                 :source-paths ["test/clojure" "test/java" "test/nginx-working-dir/coroutine-udfs"]
                                 :compile-path "target/testclasses"
+                                :test-selectors {:default (fn [m] (and (:remote m) (not (:async m))))
+                                                 :async :async
+                                                 :all :remote}
                                 :dependencies [
                                               [ring/ring-core "1.2.1"]
                                               [compojure "1.1.6"]
