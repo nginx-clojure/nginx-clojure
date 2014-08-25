@@ -42,7 +42,11 @@ typedef jint (*jni_createvm_pt)(JavaVM **pvm, void **penv, void *args);
 		} \
 	} while (0)
 
+#define ngx_http_clojure_abs_off_addr(jobj, off) \
+		(jobj ? (char *)(*(uintptr_t*)jobj) + off : (char *)(uintptr_t)off)
 
+#define ngx_http_clojure_abs_addr(jobj) \
+		(jobj ? (char *)(*(uintptr_t*)jobj) : (char *)(uintptr_t)0;
 
 int ngx_http_clojure_check_jvm();
 

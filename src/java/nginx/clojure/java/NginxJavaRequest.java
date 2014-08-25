@@ -301,6 +301,9 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 
 	@Override
 	public NginxServerChannel channel() {
+		if (!hijacked) {
+			NginxClojureRT.UNSAFE.throwException(new IllegalAccessException("not hijacked!"));
+		}
 		return channel;
 	}
 

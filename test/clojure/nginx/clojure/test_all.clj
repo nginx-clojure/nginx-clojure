@@ -11,7 +11,7 @@
   (when (true? *debug*)
       (apply println args)))
 
-(deftest test-naive-simple
+(deftest ^{:remote true} test-naive-simple
   (testing "hello clojure"
            (let [r (client/get (str "http://" *host* ":" *port* "/clojure") {:coerce :unexceptional})
                  h (:headers r)]
@@ -23,7 +23,7 @@
              (is (= "22" (h "content-length")))
              (is (.startsWith (h "server") "nginx-clojure")))))
 
-(deftest test-headers
+(deftest ^{:remote true} test-headers
   (testing "simple headers"
            (let [r (client/get (str "http://" *host* ":" *port* "/headers") {:coerce :unexceptional})
                  h (:headers r)
@@ -88,7 +88,7 @@
              (is (= "my=test" (b :query-string)))
              (is (= "utf-8" (b :character-encoding))))))
 
-(deftest test-form
+(deftest ^{:remote true} test-form
   (testing "form method=get"
            (let [r (client/get (str "http://" *host* ":" *port* "/form") {:coerce :unexceptional, :query-params {:foo "bar"}})
                  h (:headers r)
@@ -128,7 +128,7 @@
   )
 
 
-(deftest test-file
+(deftest ^{:remote true} test-file
   (testing "static file without gzip"
            (let [r (client/get (str "http://" *host* ":" *port* "/files/small.html") {:coerce :unexceptional, :decompress-body false})
                  h (:headers r)
@@ -161,7 +161,7 @@
     
   )
 
-(deftest test-seq
+(deftest ^{:remote true} test-seq
   (testing "seq include String &  File without gzip"
            (let [r (client/get (str "http://" *host* ":" *port* "/testMySeq") {:coerce :unexceptional, :decompress-body false})
                  h (:headers r)
@@ -173,7 +173,7 @@
   )
 
 
-(deftest test-inputstream
+(deftest ^{:remote true} test-inputstream
   (testing "inputstream without gzip"
            (let [r (client/get (str "http://" *host* ":" *port* "/testInputStream") {:coerce :unexceptional, :decompress-body false})
                  h (:headers r)
@@ -194,7 +194,7 @@
              (is (= 680 (count (r :body))))))
   )
 
-(deftest test-redirect
+(deftest ^{:remote true} test-redirect
   (testing "redirect"
            (let [r (client/get (str "http://" *host* ":" *port* "/testRedirect") {:follow-redirects false})
                  h (:headers r)
@@ -205,7 +205,7 @@
              (is (= (str  "http://" *host* ":" *port*  "/files/small.html") (h "location"))))))
 
 
-(deftest test-ring-compojure
+(deftest ^{:remote true} test-ring-compojure
     (testing "hello"
            (let [r (client/get (str "http://" *host* ":" *port* "/ringCompojure/hello") {:throw-exceptions false})
                  h (:headers r)
@@ -327,7 +327,7 @@
              (is (= "<h1>Page not found</h1>" b))))    
   )
 
-(deftest test-asyncsocket
+(deftest ^{:async true :remote true} test-asyncsocket
     (let [
         ;r1 (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
         ;b1 (r1 :body)
@@ -350,7 +350,7 @@
   
   )
 
-(deftest test-cljasyncsocket
+(deftest ^{:async true :remote true} test-cljasyncsocket
     (let [
         ;r1 (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
         ;b1 (r1 :body)
@@ -374,7 +374,7 @@
   )
 
 ;(comment 
-(deftest test-coroutine
+(deftest ^{:remote true} test-coroutine
   (let [r1 (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
         b1 (r1 :body)]
       (testing "coroutine based socket--simple example"
@@ -471,7 +471,7 @@
   )
 ;)
 
-(deftest test-nginx-var
+(deftest ^{:remote true} test-nginx-var
   (testing "simple nginx var"
            (let [r (client/get (str "http://" *host* ":" *port* "/vartest") {:follow-redirects false})
                  h (:headers r)

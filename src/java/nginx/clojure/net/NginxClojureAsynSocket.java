@@ -4,6 +4,9 @@
  */
 package nginx.clojure.net;
 
+import java.nio.ByteBuffer;
+
+import sun.nio.ch.DirectBuffer;
 import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
 
@@ -205,6 +208,26 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 		return read(s, buf, MiniConstants.BYTE_ARRAY_OFFSET + off, size);
 	}
 	
+	
+	/**
+	 * @param buf buffer
+	 * @return 0 : EOF, 
+	 *         NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN : try on next event, 
+	 *         NGX_HTTP_CLOJURE_SOCKET_ERR_READ : read error
+	 */
+	public long read(ByteBuffer buf) {
+		long rc;
+		if (buf.isDirect()) {
+			rc = read(s, null, ((DirectBuffer)buf).address()+buf.position(), buf.remaining());
+		}else {
+			rc = read(s, buf.array(), MiniConstants.BYTE_ARRAY_OFFSET + buf.arrayOffset()+buf.position(), buf.remaining());
+		}
+		if (rc > 0) {
+			buf.position(buf.position() + (int)rc);
+		}
+		return rc;
+	}
+	
 	/**
 	 * 
 	 * @param buf buffer
@@ -217,6 +240,19 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	public long write(byte[] buf, long off, long size) {
 		checkConnected();
 		return write(s, buf, MiniConstants.BYTE_ARRAY_OFFSET + off, size);
+	}
+	
+	public long write(ByteBuffer buf) {
+		long rc;
+		if (buf.isDirect()) {
+			rc = write(s, null, ((DirectBuffer)buf).address()+buf.position(), buf.remaining());
+		}else {
+			rc = write(s, buf.array(), MiniConstants.BYTE_ARRAY_OFFSET + buf.arrayOffset()+buf.position(), buf.remaining());
+		}
+		if (rc > 0) {
+			buf.position(buf.position() + (int)rc);
+		}
+		return rc;
 	}
 
 	public long shutdown(long how) {

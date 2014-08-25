@@ -44,7 +44,8 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 	public NginxResponse process(NginxRequest req) {
 		NginxJavaRequest r = (NginxJavaRequest)req;
 		try{
-			return toNginxResponse(req, ringHandler.invoke(r));
+			Object resp = ringHandler.invoke(r);
+			return req.isHijacked() ? NR_ASYNC_TAG : toNginxResponse(req, resp);
 		}finally {
 			int bodyIdx = r.index(BODY);
 			if (bodyIdx > 0) {
@@ -62,9 +63,6 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 
 	@Override
 	public  NginxResponse toNginxResponse(NginxRequest req, Object resp) {
-		if (req.isHijacked()) {
-			return NR_ASYNC_TAG;
-		}
 		
 		if (resp == ASYNC_TAG) {
 			return NR_ASYNC_TAG;
@@ -84,7 +82,7 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 	@Override
 	public NginxServerChannel hijack(NginxRequest req, boolean ignoreFilter) {
 		((NginxJavaRequest)req).hijacked = true;
-		return new NginxServerChannel(req, ignoreFilter);
+		return ((NginxJavaRequest)req).channel = new NginxServerChannel(req, ignoreFilter);
 	}
 
 }

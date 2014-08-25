@@ -88,6 +88,7 @@ public class MiniConstants {
 	public static final int POST_EVENT_TYPE_CLOSE_SOCKET = 0x01;
 	public static final int POST_EVENT_TYPE_HIJACK_SEND = 0x02;
 	public static final int POST_EVENT_TYPE_HIJACK_SEND_HEADER = 0x03;
+	public static final int POST_EVENT_TYPE_HIJACK_SEND_RESPONSE = 0x04;
 	public static final int POST_EVENT_TYPE_SYSTEM_EVENT_IDX_END = 0x1f;
 	public static final int POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START = 0x80;
 	public static final int POST_EVENT_TYPE_COMPLEX_EVENT_IDX_END = 0xff;

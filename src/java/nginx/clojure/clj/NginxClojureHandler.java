@@ -73,7 +73,7 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 		LazyRequestMap r = (LazyRequestMap)req;
 		try{
 			Map resp = (Map) ringHandler.invoke(r);
-			return toNginxResponse(r, resp);
+			return req.isHijacked() ? NR_ASYNC_TAG : toNginxResponse(r, resp);
 		}finally {
 			int bodyIdx = r.index(BODY);
 			if (bodyIdx > 0 && r.array[bodyIdx] instanceof Closeable) {
@@ -87,10 +87,6 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 	}
 	
 	public  NginxResponse toNginxResponse(NginxRequest req, Object resp) {
-		if (req.isHijacked()) {
-			return NR_ASYNC_TAG;
-		}
-		
 		if (resp == ASYNC_TAG) {
 			return NR_ASYNC_TAG;
 		}
@@ -160,7 +156,7 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 	@Override
 	public NginxServerChannel hijack(NginxRequest req, boolean ignoreFilter) {
 		((LazyRequestMap)req).hijacked = true;
-		return new NginxServerChannel(req, ignoreFilter);
+		return ((LazyRequestMap)req).channel = new NginxServerChannel(req, ignoreFilter);
 	}
 
 }

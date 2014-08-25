@@ -527,7 +527,7 @@ static jlong JNICALL jni_ngx_http_clojure_socket_connect_url(JNIEnv *env, jclass
 	if (url->url.data == NULL){
 			return NGX_HTTP_CLOJURE_SOCKET_ERR_OUTOFMEMORY;
 	}
-	ngx_memcpy(url->url.data, (char *)(*(uintptr_t*)jurl) + off, (size_t)len);
+	ngx_memcpy(url->url.data, ngx_http_clojure_abs_off_addr(jurl, off), (size_t)len);
 	url->url.len = (size_t)len;
 	ngx_http_clojure_socket_upstream_connect_by_url(u, url);
 	return NGX_HTTP_CLOJURE_SOCKET_OK;
@@ -567,13 +567,13 @@ static jlong jni_ngx_http_clojure_socket_get_receive_buf(JNIEnv *env, jclass cls
 }
 
 static jlong JNICALL jni_ngx_http_clojure_socket_read(JNIEnv *env, jclass cls, jlong s, jobject buf, jlong off, jlong len) {
-	char *dst = (char *)(*(uintptr_t*)buf) + off;
-	return ngx_http_clojure_socket_upstream_read((ngx_http_clojure_socket_upstream_t *)(uintptr_t)s, dst, len);
+	return ngx_http_clojure_socket_upstream_read((ngx_http_clojure_socket_upstream_t *) (uintptr_t) s,
+			ngx_http_clojure_abs_off_addr(buf, off), len);
 }
 
 static jlong JNICALL jni_ngx_http_clojure_socket_write(JNIEnv *env, jclass cls, jlong s, jobject buf, jlong off, jlong len) {
-	char *src = (char *)(*(uintptr_t*)(uintptr_t)buf) + off;
-	return ngx_http_clojure_socket_upstream_write((ngx_http_clojure_socket_upstream_t *)(uintptr_t)s, src, len);
+	return ngx_http_clojure_socket_upstream_write((ngx_http_clojure_socket_upstream_t *) (uintptr_t) s,
+			ngx_http_clojure_abs_off_addr(buf, off), len);
 }
 
 static void JNICALL jni_ngx_http_clojure_socket_close(JNIEnv *env, jclass cls, jlong u) {

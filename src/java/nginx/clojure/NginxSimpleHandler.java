@@ -5,7 +5,6 @@ import static nginx.clojure.MiniConstants.CONTENT_TYPE;
 import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
 import static nginx.clojure.MiniConstants.NGINX_CLOJURE_FULL_VER;
 import static nginx.clojure.MiniConstants.NGX_DONE;
-import static nginx.clojure.MiniConstants.NGX_ERROR;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_CHAINT_SIZE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_CHAIN_BUF_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET;
@@ -17,7 +16,6 @@ import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_POOL_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_INTERNAL_SERVER_ERROR;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NO_CONTENT;
 import static nginx.clojure.MiniConstants.NGX_HTTP_OK;
-import static nginx.clojure.MiniConstants.NGX_OK;
 import static nginx.clojure.MiniConstants.NR_ASYNC_TAG;
 import static nginx.clojure.MiniConstants.NR_PHRASE_DONE;
 import static nginx.clojure.MiniConstants.SERVER_PUSHER;
@@ -31,7 +29,6 @@ import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_copy_to_addr;
 import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_module_ctx_phase;
 import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_inc_req_count;
 import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_init_ngx_buf;
-import static nginx.clojure.NginxClojureRT.ngx_http_send_header;
 import static nginx.clojure.NginxClojureRT.ngx_http_set_content_type;
 import static nginx.clojure.NginxClojureRT.ngx_palloc;
 import static nginx.clojure.NginxClojureRT.ngx_pcalloc;
@@ -95,7 +92,7 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 			public WorkerResponseContext call() throws Exception {
 				NginxResponse resp = handleRequest(req);
 				//let output chain built before entering the main thread
-				return new WorkerResponseContext(resp, resp == NR_PHRASE_DONE ? 0 : buildOutputChain(resp));
+				return new WorkerResponseContext(resp, resp == NR_PHRASE_DONE || resp == NR_ASYNC_TAG ? 0 : buildOutputChain(resp));
 			}
 		});
 		return NGX_DONE;
@@ -317,16 +314,7 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 				if (status == NGX_HTTP_OK) {
 					status = NGX_HTTP_NO_CONTENT;
 				}
-				prepareHeaders(response.request(), status, response.fetchHeaders());
-				//header sent yet so we return normal OK
 				return -status;
-			}
-			
-			prepareHeaders(response.request(), status, response.fetchHeaders());
-			int rc = (int) ngx_http_send_header(r);
-
-			if (rc == NGX_ERROR || rc > NGX_OK) {
-				return -rc;
 			}
 			
 			return chain;

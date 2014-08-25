@@ -9,6 +9,7 @@ package nginx.clojure;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.Socket;
+import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -139,6 +140,8 @@ public class NginxClojureRT extends MiniConstants {
 	 */
 	public native static long ngx_http_hijack_send_header(long req, int flag);
 	
+	public native static long ngx_http_hijack_send_chain(long req, long chain, int flag);
+	
 //	public native static long ngx_http_clojure_mem_get_body_tmp_file(long r);
 	
 	private static AppEventMessageHandler appEventMessageHandler;
@@ -177,12 +180,12 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public static final class HijackEvent {
 		public final NginxServerChannel channel;
-		public final byte[] message;
+		public final Object message;
 		public final int off;
 		public final int len;
 		public final int flag;
 		
-		public HijackEvent(NginxServerChannel channel, byte[] message, int off, int len, int flag) {
+		public HijackEvent(NginxServerChannel channel, Object message, int off, int len, int flag) {
 			super();
 			this.channel = channel;
 			this.message = message;
@@ -199,6 +202,20 @@ public class NginxClojureRT extends MiniConstants {
 		public HijackHeaderEvent(NginxServerChannel channel, int flag) {
 			super();
 			this.channel = channel;
+			this.flag = flag;
+		}
+	}
+	
+	public static final class HijackResponseEvent {
+		public final NginxServerChannel channel;
+		public final NginxResponse response;
+		public final long chain;
+		public final int flag;
+		public HijackResponseEvent(NginxServerChannel channel, NginxResponse response, long chain, int flag) {
+			super();
+			this.channel = channel;
+			this.response = response;
+			this.chain = chain;
 			this.flag = flag;
 		}
 	}
@@ -698,7 +715,7 @@ public class NginxClojureRT extends MiniConstants {
 		ngx_http_clojure_mem_post_event(makeEventAndSaveIt(POST_EVENT_TYPE_CLOSE_SOCKET, s), null, 0);
 	}
 	
-	public static void postHijackSendEvent(NginxServerChannel channel, byte[] message, int off, int len, int flag) {
+	public static void postHijackSendEvent(NginxServerChannel channel, Object message, int off, int len, int flag) {
 		ngx_http_clojure_mem_post_event(
 				makeEventAndSaveIt(POST_EVENT_TYPE_HIJACK_SEND,
 						new HijackEvent(channel, message, off, len , flag)), null, 0);
@@ -708,6 +725,12 @@ public class NginxClojureRT extends MiniConstants {
 		ngx_http_clojure_mem_post_event(
 				makeEventAndSaveIt(POST_EVENT_TYPE_HIJACK_SEND_HEADER,
 						new HijackHeaderEvent(channel, flag)), null, 0);
+	}
+	
+	public static void postHijackSendResponseEvent(NginxServerChannel channel, NginxResponse resp, long chain, int flag) {
+		ngx_http_clojure_mem_post_event(
+				makeEventAndSaveIt(POST_EVENT_TYPE_HIJACK_SEND_RESPONSE,
+						new HijackResponseEvent(channel, resp, chain, flag | NGX_CLOJURE_BUF_LAST_FLAG)), null, 0);
 	}
 	
 	private final static byte[] POST_EVENT_BUF = new byte[4096];
@@ -728,14 +751,32 @@ public class NginxClojureRT extends MiniConstants {
 					log.error("handle post close event error", e);
 					return NGX_HTTP_INTERNAL_SERVER_ERROR;
 				}
-			case POST_EVENT_TYPE_HIJACK_SEND :
+			case POST_EVENT_TYPE_HIJACK_SEND : {
 				HijackEvent hijackEvent = (HijackEvent)POSTED_EVENTS_DATA.remove(data);
-				hijackEvent.channel.send(hijackEvent.message, hijackEvent.off, hijackEvent.len, hijackEvent.flag);
+				if (hijackEvent.message instanceof ByteBuffer) {
+					hijackEvent.channel.send((ByteBuffer)hijackEvent.message, hijackEvent.flag);
+				}else {
+					hijackEvent.channel.send((byte[])hijackEvent.message, hijackEvent.off, hijackEvent.len, hijackEvent.flag);
+				}
 				return NGX_OK;
-			case POST_EVENT_TYPE_HIJACK_SEND_HEADER :
+			}
+			case POST_EVENT_TYPE_HIJACK_SEND_HEADER : {
 				HijackHeaderEvent hijackHeaderEvent = (HijackHeaderEvent)POSTED_EVENTS_DATA.remove(data);
 				ngx_http_hijack_send_header(hijackHeaderEvent.channel.request.nativeRequest(), hijackHeaderEvent.flag);
 				return NGX_OK;
+			}
+			case POST_EVENT_TYPE_HIJACK_SEND_RESPONSE : {
+				HijackResponseEvent hijackResponseEvent = (HijackResponseEvent)POSTED_EVENTS_DATA.remove(data);
+				NginxRequest request = hijackResponseEvent.channel.request;
+				request.handler().prepareHeaders(request,hijackResponseEvent.response.fetchStatus(NGX_OK) , hijackResponseEvent.response.fetchHeaders());
+				int rc = (int) NginxClojureRT.ngx_http_hijack_send_header(request.nativeRequest(),
+						(hijackResponseEvent.flag & NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG) != 0 ? NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG
+								: 0);
+				if (rc == NGX_OK || rc == NGX_AGAIN) {
+					ngx_http_hijack_send_chain(hijackResponseEvent.channel.request.nativeRequest(), hijackResponseEvent.chain, hijackResponseEvent.flag);
+				}
+				return NGX_OK;
+			}
 			default:
 				log.error("handlePostEvent:unknown event tag :%d", tag);
 				return NGX_HTTP_INTERNAL_SERVER_ERROR;
@@ -779,10 +820,19 @@ public class NginxClojureRT extends MiniConstants {
 			return NGX_OK;
 		}
 		long chain = ctx.chain;
+		NginxRequest req = ctx.response.request();
 		if (chain < 0) {
+			req.handler().prepareHeaders(req, -(int)chain, ctx.response.fetchHeaders());
 			ngx_http_finalize_request(r, -chain);
 		} else {
-			ngx_http_finalize_request(r, ngx_http_output_filter(r, chain));
+			int status = ctx.response.fetchStatus(NGX_HTTP_OK);
+			req.handler().prepareHeaders(req, status, ctx.response.fetchHeaders());
+			int rc = (int)ngx_http_send_header(req.nativeRequest());
+			if (rc == NGX_ERROR || rc > NGX_OK) {
+				ngx_http_finalize_request(r, rc);
+			}else {
+				ngx_http_finalize_request(r, ngx_http_output_filter(r, chain));
+			}
 		}
 		return NGX_OK;
 	}
@@ -800,9 +850,18 @@ public class NginxClojureRT extends MiniConstants {
 			return NGX_HTTP_NOT_FOUND;
 		}
 		
-		long chain = r.handler().buildOutputChain(resp);
+		NginxHandler handler = r.handler();
+		int status = resp.fetchStatus(NGX_HTTP_OK);
+		long chain = handler.buildOutputChain(resp);
 		if (chain < 0) {
-			return -(int)chain;
+			status = -(int)chain;
+			handler.prepareHeaders(r, status, resp.fetchHeaders());
+			return status;
+		}
+		handler.prepareHeaders(r, status, resp.fetchHeaders());
+		int rc = (int)ngx_http_send_header(r.nativeRequest());
+		if (rc == NGX_ERROR || rc > NGX_OK) {
+			return rc;
 		}
 		return (int)ngx_http_output_filter(r.nativeRequest(), chain);
 	}

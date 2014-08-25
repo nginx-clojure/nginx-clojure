@@ -312,6 +312,9 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	
 	@Override
 	public NginxServerChannel channel() {
+		if (!hijacked) {
+			NginxClojureRT.UNSAFE.throwException(new IllegalAccessException("not hijacked!"));
+		}
 		return channel;
 	}
 
