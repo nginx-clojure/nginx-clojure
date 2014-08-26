@@ -14,9 +14,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import nginx.clojure.AppEventListenerManager.Listener;
+import nginx.clojure.AppEventListenerManager.PostedEvent;
 import nginx.clojure.ChannelListener;
 import nginx.clojure.NginxClojureRT;
-import nginx.clojure.NginxClojureRT.AppEventMessageHandler;
 import nginx.clojure.NginxHandler;
 import nginx.clojure.NginxServerChannel;
 
@@ -56,7 +57,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		
 	}
 	
-	public static class Init implements NginxJavaRingHandler, AppEventMessageHandler {
+	public static class Init implements NginxJavaRingHandler, Listener {
 		public static final int LONGPOLL_EVENT = POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START;
 		public static final int SEVER_SENT_EVENTS = LONGPOLL_EVENT + 1;
 		public static Set<NginxServerChannel> longpollSubscribers;
@@ -69,41 +70,40 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		public Object[] invoke(Map<String, Object> request) {
 			longpollSubscribers = Collections.newSetFromMap(new ConcurrentHashMap<NginxServerChannel, Boolean>());
 			serverSentEventSubscribers = Collections.newSetFromMap(new ConcurrentHashMap<NginxServerChannel, Boolean>());
-			NginxClojureRT.setAppEventMessageHandler(this);
+			NginxClojureRT.getAppEventListenerManager().addListener(this);
 			return null;
 		}
-
+		
 		@Override
-		public void handleSimpleEvent(int tag, long data) {
-		}
-
-		@Override
-		public void handleComplexEvent(int tag, byte[] buf, int off, int len) {
-			String message = new String(buf, off, len, DEFAULT_ENCODING);
-			if (tag == LONGPOLL_EVENT) {
+		public void onEvent(PostedEvent event) {
+			if (event.tag != LONGPOLL_EVENT && event.tag != SEVER_SENT_EVENTS) {
+				return;
+			}
+			String message = new String((byte[])event.data, event.offset, event.length, DEFAULT_ENCODING);
+			if (event.tag == LONGPOLL_EVENT) {
 				for (NginxServerChannel channel : longpollSubscribers) {
 					channel.sendResponse(new Object[] { NGX_HTTP_OK,
 							ArrayMap.create("content-type", "text/json"),
 							message});
 				}
 				longpollSubscribers.clear();
-			}else if (tag == SEVER_SENT_EVENTS) {
+			}else if (event.tag == SEVER_SENT_EVENTS) {
 				for (NginxServerChannel channel : serverSentEventSubscribers) {
 					if ("shutdown!".equals(message)) {
 						channel.send("data: "+message+"\r\n\r\n", true, true);
 					}else if ("shutdownQuite!".equals(message)) {
 						channel.close();
 					}else if (message.startsWith("DirectByteBufferTest")) {
-						ByteBuffer buffer = ByteBuffer.allocateDirect(len + "data: ".length()+4);
+						ByteBuffer buffer = ByteBuffer.allocateDirect(event.length + "data: ".length()+4);
 						buffer.put("data: ".getBytes());
-						buffer.put(buf, off, len);
+						buffer.put((byte[])event.data, event.offset, event.length);
 						buffer.put("\r\n\r\n".getBytes());
 						buffer.flip();
 						channel.send(buffer, true, false);
 					}else if (message.startsWith("HeapByteBufferTest")) {
-						ByteBuffer buffer = ByteBuffer.allocate(len + "data: ".length()+4);
+						ByteBuffer buffer = ByteBuffer.allocate(event.length + "data: ".length()+4);
 						buffer.put("data: ".getBytes());
-						buffer.put(buf, off, len);
+						buffer.put((byte[])event.data, event.offset, event.length);
 						buffer.put("\r\n\r\n".getBytes());
 						buffer.flip();
 						channel.send(buffer, true, false);
@@ -132,20 +132,23 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
-			NginxClojureRT.broadcastEvent(Init.LONGPOLL_EVENT, request.get(QUERY_STRING).toString());
+			/*
+			 * Or use NginxClojureRT.broadcastEvent(Init.LONGPOLL_EVENT,request.get(QUERY_STRING).toString());
+			 */
+			PostedEvent event = new PostedEvent(Init.LONGPOLL_EVENT, request.get(QUERY_STRING).toString());
+			NginxClojureRT.getAppEventListenerManager().broadcast(event);
 			return new Object[] { NGX_HTTP_OK, null, "OK" };
 		}
 		
 	}
 	
-	public static class SubEvent implements NginxJavaRingHandler {
+	public static class SSESub implements NginxJavaRingHandler {
 
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
 			NginxJavaRequest r = (NginxJavaRequest) request;
 			NginxHandler handler = r.handler();
-			NginxServerChannel channel = handler.hijack(r, false);
-			Init.serverSentEventSubscribers.add(channel);
+			NginxServerChannel channel = handler.hijack(r, true);
 			channel.addListener(new ChannelListener<NginxServerChannel>() {
 				@Override
 				public void onClose(NginxServerChannel data) {
@@ -153,17 +156,22 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 					NginxClojureRT.getLog().info("closing...." + data.request().nativeRequest());
 				}
 			}, channel);
+			Init.serverSentEventSubscribers.add(channel);
 			channel.sendHeader(200, ArrayMap.create("Content-Type", "text/event-stream").entrySet(), true, false);
 			channel.send("retry: 4500\r\n", true, false);
 			return null;
 		}
 	}
 	
-	public static class PubEvent implements NginxJavaRingHandler {
+	public static class SSEPub implements NginxJavaRingHandler {
 
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
-			NginxClojureRT.broadcastEvent(Init.SEVER_SENT_EVENTS, request.get(QUERY_STRING).toString());
+			/*
+			 * Or use NginxClojureRT.broadcastEvent(Init.SEVER_SENT_EVENTS, request.get(QUERY_STRING).toString());
+			 */
+			PostedEvent event = new PostedEvent(Init.SEVER_SENT_EVENTS, request.get(QUERY_STRING).toString());
+			NginxClojureRT.getAppEventListenerManager().broadcast(event);
 			return new Object[] { NGX_HTTP_OK, null, "OK" };
 		}
 		
@@ -179,8 +187,8 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		routing.put("/headers", new Headers());
 		routing.put("/sub", new Sub());
 		routing.put("/pub", new Pub());
-		routing.put("/sube", new SubEvent());
-		routing.put("/pube", new PubEvent());
+		routing.put("/ssesub", new SSESub());
+		routing.put("/ssepub", new SSEPub());
 	}
 
 	@Override

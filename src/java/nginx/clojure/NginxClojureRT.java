@@ -144,20 +144,21 @@ public class NginxClojureRT extends MiniConstants {
 	
 //	public native static long ngx_http_clojure_mem_get_body_tmp_file(long r);
 	
-	private static AppEventMessageHandler appEventMessageHandler;
+	private static AppEventListenerManager appEventListenerManager;
 	
 	static {
 		//be friendly to lein ring testing
 		getLog();
 		initUnsafe();
+		appEventListenerManager = new AppEventListenerManager();
 	}
 	
-	public static AppEventMessageHandler getAppEventMessageHandler() {
-		return appEventMessageHandler;
+	public static AppEventListenerManager getAppEventListenerManager() {
+		return appEventListenerManager;
 	}
 	
-	public static void setAppEventMessageHandler(AppEventMessageHandler appEventMessageHandler) {
-		NginxClojureRT.appEventMessageHandler = appEventMessageHandler;
+	public static void setAppEventListenerManager(AppEventListenerManager appEventListenerManager) {
+		NginxClojureRT.appEventListenerManager = appEventListenerManager;
 	}
 	
 	public static String formatVer(long ver) {
@@ -735,7 +736,7 @@ public class NginxClojureRT extends MiniConstants {
 	
 	private final static byte[] POST_EVENT_BUF = new byte[4096];
 	
-	public static int handlePostEvent(long event, byte[] body, int off) {
+	public static int handlePostEvent(long event, byte[] body, long off) {
 		int tag = (int)((0xff00000000000000L & event) >>> 56);
 		long data = event & 0x00ffffffffffffffL;
 		if (tag <= POST_EVENT_TYPE_SYSTEM_EVENT_IDX_END) {
@@ -782,15 +783,11 @@ public class NginxClojureRT extends MiniConstants {
 				return NGX_HTTP_INTERNAL_SERVER_ERROR;
 			}
 		} else {
-			if (appEventMessageHandler == null) {
-				log.warn("handlePostEvent:no appEventMessageHandler to handle app message event");
-				return NGX_OK;
-			}
 			if (tag < POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START) {
-				appEventMessageHandler.handleSimpleEvent(tag, data);
+				appEventListenerManager.onBroadcastedEvent(tag, data);
 				return NGX_OK;
 			}else {
-				appEventMessageHandler.handleComplexEvent(tag, body, off, (int)data);
+				appEventListenerManager.onBroadcastedEvent(tag, body, (int)off, (int)data);
 				return NGX_OK;
 			}
 		}
@@ -950,7 +947,7 @@ public class NginxClojureRT extends MiniConstants {
 	 * @param offset
 	 * @param len
 	 */
-	public static int broadcastEvent(long tag, byte[] body, int offset, int len) {
+	public static int broadcastEvent(long tag, byte[] body, long offset, long len) {
 		if (tag >= 0xff) {
 			throw new IllegalArgumentException("invalid event tag :" + tag);
 		}
@@ -981,7 +978,7 @@ public class NginxClojureRT extends MiniConstants {
 	 * broadcastEvent(POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START, body, offset, len);
 	 * </pre>
 	 */
-	public static int broadcastEvent(byte[] message, int offset, int len) {
+	public static int broadcastEvent(byte[] message, long offset, long len) {
 		return broadcastEvent(POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START, message, offset, len);
 	}
 	
@@ -1044,26 +1041,6 @@ public class NginxClojureRT extends MiniConstants {
 				parent.resume();
 			}
 		}
-	}
-	
-	public static interface AppEventMessageHandler {
-
-		/**
-		 * Handle simple event which only has a event id as its data without any message body
-		 * @param tag event type tag e.g. @see  {@link MiniConstants#POST_EVENT_TYPE_HANDLE_RESPONSE}
-		 * @param data
-		 */
-		public void handleSimpleEvent(int tag, long data);
-
-		/**
-		 * Handle complex event because buf will be reused by next event so this listener must handle it carefully and
-		 * do use it out of this invoke scope.
-		 * @param tag event type tag e.g. @see  {@link MiniConstants#POST_EVENT_TYPE_HANDLE_RESPONSE}
-		 * @param buf message body buffer
-		 * @param off offset of message body in the buffer
-		 * @param len length of message body 
-		 */
-		public void handleComplexEvent(int tag, byte[] buf, int off, int len);
 	}
 	
 	public static final Object[] coBatchCall(Callable<Object> ...calls) {

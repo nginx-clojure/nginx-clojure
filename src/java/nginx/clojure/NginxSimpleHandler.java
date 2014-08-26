@@ -223,7 +223,7 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 	}
 
 	@Override
-	public <K, V> long prepareHeaders(NginxRequest req, int status, Collection<Map.Entry<K, V>> headers) {
+	public <K, V> long prepareHeaders(NginxRequest req, long status, Collection<Map.Entry<K, V>> headers) {
 		long r = req.nativeRequest();
 		long pool = NginxClojureRT.UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
 		long headers_out = r + NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
@@ -274,7 +274,7 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 			pushNGXSizet(headers_out + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_LEN_OFFSET, contentTypeLen);
 		}
 		
-		pushNGXInt(headers_out + NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET, status);
+		pushNGXInt(headers_out + NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET, (int)status);
 		return r;
 	}
 

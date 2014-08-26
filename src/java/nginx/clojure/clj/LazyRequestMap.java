@@ -55,20 +55,21 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	protected Object[] array;
 	protected NginxHandler handler;
 	protected NginxServerChannel channel;
-	protected boolean hijacked;
+	protected byte[] hijackTag;
 	
-	public final static LazyRequestMap EMPTY_MAP = new LazyRequestMap(null, 0, new Object[0]);
+	public final static LazyRequestMap EMPTY_MAP = new LazyRequestMap(null, 0, null, new Object[0]);
 	
-	public LazyRequestMap(NginxHandler handler, long r, Object[] array) {
+	public LazyRequestMap(NginxHandler handler, long r, byte[] hijackTag, Object[] array) {
 		this.handler = handler;
 		this.r = r;
 		this.array = array;
+		this.hijackTag = hijackTag;
 	}
 	
 	@SuppressWarnings("unchecked")
 	public LazyRequestMap(NginxHandler handler, long r) {
 		//TODO: SSL_CLIENT_CERT
-		this(handler, r, new Object[] {
+		this(handler, r, new byte[]{0}, new Object[] {
 				URI, URI_FETCHER,
 				BODY, BODY_FETCHER,
 				HEADERS, HEADER_FETCHER,
@@ -255,7 +256,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		System.arraycopy(array, 0, newArray, 0, array.length);
 		newArray[array.length] = key;
 		newArray[array.length+1] = val;
-		return new LazyRequestMap(handler, r, newArray);
+		return new LazyRequestMap(handler, r,  this.hijackTag, newArray);
 	}
 
 	@Override
@@ -281,7 +282,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 				System.arraycopy(array, 0, newArray, 0, i);
 			}
 			System.arraycopy(array, i + 2, newArray, i, array.length - i - 2);
-			return new LazyRequestMap(handler, r , newArray);
+			return new LazyRequestMap(handler, r , this.hijackTag, newArray);
 		}
 	}
 	
@@ -312,7 +313,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	
 	@Override
 	public NginxServerChannel channel() {
-		if (!hijacked) {
+		if (hijackTag == null || hijackTag[0] == 0) {
 			NginxClojureRT.UNSAFE.throwException(new IllegalAccessException("not hijacked!"));
 		}
 		return channel;
@@ -320,7 +321,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 
 	@Override
 	public boolean isHijacked() {
-		return hijacked;
+		return hijackTag != null && hijackTag[0] == 1;
 	}
 
 }

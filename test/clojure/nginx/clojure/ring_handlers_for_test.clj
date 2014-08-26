@@ -8,10 +8,12 @@
         [ring.middleware.session.cookie]
         [ring.middleware.multipart-params]
         [compojure.core]
+        [nginx.clojure.core]
         )
   (:require [compojure.route :as route])
   (:require [ring.util.codec :as codec])
-  (:import [ring.middleware.session.memory.MemoryStore]))
+  (:import [ring.middleware.session.memory.MemoryStore]
+           [nginx.clojure NginxRequest]))
 
 (def my-session-store (cookie-store {:key "my-secrect-key!!"}))
 
@@ -49,6 +51,29 @@
       (println (format "request_authorised=%s" authorised?))
       authorised?)))
 
+(def sse-subscribers (atom {}))
+(def long-polling-subscribers (atom {}))
+(def sse-event-tag (int (+ 0x80 10)))
+(def long-polling-event-tag (int (+ 0x80 11)))
+
+(def init-broadcast-event-listener
+  (delay 
+    (on-broadcast-event-decode!
+      ;;tester
+      (fn [{tag :tag}] 
+        (or (= tag sse-event-tag) (= tag long-polling-event-tag)))
+      ;;decoder
+      (fn [{:keys [tag data offset length] :as e}]
+        (assoc e :data (String. data offset length "utf-8"))))
+    (on-broadcast! 
+      (fn [{:keys [tag data]}]
+        (condp = tag
+          sse-event-tag 
+            (doseq [ch (keys @sse-subscribers)]
+              (send! ch (str "data: " data "\r\n\r\n") true false))
+          long-polling-event-tag 
+            (doseq [ch (keys @long-polling-subscribers)]
+             (send! ch (str "data: " data "\r\n\r\n") true true)))))))
 
 (defroutes ring-compojure-test-handler
   (GET "/hello2" [] {:status 200, :headers {"content-type" "text/plain"}, :body "Hello World"})
@@ -81,6 +106,21 @@
                                   {:status 200, 
                                    :headers {"rmap" (pr-str (dissoc params "myfile")), "content-type" "text/plain"}
                                    :body (java.io.File. filename)})))))
-  (GET "/not-found" [] (route/not-found "<h1>Page not found</h1>")))
+  (GET "/not-found" [] (route/not-found "<h1>Page not found</h1>"))
+  ;;server sent events publisher
+  (GET "/sse-pub" [] 
+       (fn [req]
+         @init-broadcast-event-listener
+         (broadcast! {:tag sse-event-tag, :data (:query-string req)})
+         {:body "OK"}))
+  ;;server sent events subscriber
+  (GET "/sse-sub" [] 
+       (fn [^NginxRequest req]
+         (let [ch (hijack! req true)]
+           (on-close! ch ch #((println "channel closed. id=" (.nativeRequest req))
+                    (swap! sse-subscribers dissoc %)))
+           (swap! sse-subscribers assoc ch req)
+           (send-header! ch 200 {"Content-Type", "text/event-stream"} false false)
+           (send! ch "retry: 4500\r\n" true false)))))
 
 

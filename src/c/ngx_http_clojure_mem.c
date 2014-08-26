@@ -1105,6 +1105,8 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, char *mess
 			}
 			in->buf->pos = in->buf->last;
 			in->buf->temporary = 0;
+		}else {
+			return NGX_ERROR;
 		}
 	}else {
 		in = ngx_http_clojure_get_and_copy_bufs(r->pool, &ctx->free, message, len, flag);
@@ -1139,7 +1141,7 @@ static jlong JNICALL jni_ngx_http_hijack_send_header(JNIEnv *env, jclass cls, jl
 	rc = ctx->ignore_filters ? ngx_http_header_filter(r) : ngx_http_send_header(r);
 
 	if (rc == NGX_OK || rc == NGX_AGAIN) {
-		if (flag) {
+		if (flag & NGX_CLOJURE_BUF_LAST_FLAG || flag & NGX_CLOJURE_BUF_FLUSH_FLAG) {
 			rc = ngx_http_clojure_hijack_send(r, 0, 0, flag);
 			if (rc != NGX_OK) {
 				ngx_http_finalize_request(r, rc);

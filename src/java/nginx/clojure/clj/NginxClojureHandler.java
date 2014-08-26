@@ -63,7 +63,7 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 	@Override
 	public NginxRequest makeRequest(long r) {
 		if (r == 0) {
-			return new LazyRequestMap(this, r, new Object[0]); 
+			return new LazyRequestMap(this, r, null, new Object[0]); 
 		}
 		return new LazyRequestMap(this, r);
 	}
@@ -155,7 +155,7 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 
 	@Override
 	public NginxServerChannel hijack(NginxRequest req, boolean ignoreFilter) {
-		((LazyRequestMap)req).hijacked = true;
+		((LazyRequestMap)req).hijackTag[0] = 1;
 		return ((LazyRequestMap)req).channel = new NginxServerChannel(req, ignoreFilter);
 	}
 

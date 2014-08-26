@@ -97,7 +97,7 @@ public class NginxServerChannel implements ChannelListener<NginxServerChannel> {
 		}
 	}
 	
-	public <K, V> void sendHeader(int status, Collection<Map.Entry<K, V>> headers, boolean flush, boolean last) {
+	public <K, V> void sendHeader(long status, Collection<Map.Entry<K, V>> headers, boolean flush, boolean last) {
 		int flag = computeFlag(flush, last);
 		request.handler().prepareHeaders(request, status, headers);
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
@@ -123,6 +123,7 @@ public class NginxServerChannel implements ChannelListener<NginxServerChannel> {
 	
 	public void close() {
 		if (!closed) {
+			closed = true;
 			send(null, 0, 0, false, true);
 		}
 	}
