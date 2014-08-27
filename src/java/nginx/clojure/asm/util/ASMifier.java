@@ -201,7 +201,10 @@ public class ASMifier extends Printer {
             break;
         case Opcodes.V1_7:
             buf.append("V1_7");
-            break;
+			break;
+		case Opcodes.V1_8:
+			buf.append("V1_7");
+			break;
         default:
             buf.append(version);
             break;
