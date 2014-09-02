@@ -15,6 +15,7 @@ ngx_cycle_t *ngx_http_clojure_global_cycle;
 
 typedef struct {
     ngx_array_t *jvm_options;
+    ngx_array_t *jvm_vars;
     ngx_str_t jvm_path;
     ngx_int_t jvm_workers;
     ngx_flag_t enable;
@@ -65,10 +66,16 @@ static void ngx_http_clojure_client_body_handler(ngx_http_request_t *r);
  * We use this memory shared variable to avoid it.*/
 static ngx_atomic_t *ngx_http_clojure_jvm_be_mad_times;
 
+/**
+ * total number of jvms created
+ */
+static ngx_atomic_t *ngx_http_clojure_jvm_num;
+
 #if defined(_WIN32) || defined(WIN32)
 
 #pragma data_seg("ngx_http_clojure_shared_memory")
 ngx_atomic_t ngx_http_clojure_jvm_be_mad_times_ins = 0;
+ngx_atomic_t ngx_http_clojure_jvm_num_ins = 0;
 #pragma data_seg()
 
 #pragma comment(linker, "/Section:ngx_http_clojure_shared_memory,RWS")
@@ -105,6 +112,14 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 		ngx_conf_set_str_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, jvm_path),
+		NULL
+    },
+    {
+		ngx_string("jvm_var"),
+		NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE2,
+		ngx_conf_set_keyval_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_clojure_loc_conf_t, jvm_vars),
 		NULL
     },
     {
@@ -246,6 +261,46 @@ static ngx_int_t ngx_http_clojure_init_clojure_script(char *type, ngx_str_t *han
 }
 
 
+static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_loc_conf_t  *lcf, ngx_str_t exp, ngx_pool_t *pool) {
+	ngx_array_t *vars = lcf->jvm_vars;
+	if (vars == NULL) {
+		return exp.data;
+	} else {
+		u_char *sp = exp.data;
+		u_char *esp = sp + exp.len;
+		u_char tmp[NGX_MAX_PATH];
+		u_char *dp = tmp;
+		u_char *edp = dp + NGX_MAX_PATH;
+		ngx_keyval_t *kv = vars->elts;
+		u_char *rt;
+
+		while (sp != esp && dp != edp) {
+			if (*sp == '#' && sp[1] == '{') {
+				u_char *ev = ngx_strlchr(sp, esp, '}');
+				if (ev != NULL) {
+					sp += 2;
+					ngx_uint_t vn = vars->nelts;
+					while (vn--) {
+						if (ngx_strncmp(kv[vn].key.data, sp, ev - sp) == 0) {
+							ngx_cpystrn(dp, kv[vn].value.data, kv[vn].value.len + 1);
+							sp = ev + 1;
+							dp += kv[vn].value.len;
+							break;
+						}
+					}
+					if (vn) {
+						continue;
+					}
+				}
+			}
+			*dp++ = *sp++;
+		}
+		rt = ngx_palloc(pool, dp-tmp + 1);
+		ngx_cpystrn(rt, tmp, dp-tmp + 1);
+		return rt;
+	}
+}
+
 
 static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  *lcf, ngx_log_t *log) {
 	if (ngx_http_clojure_check_jvm() != NGX_HTTP_CLOJURE_JVM_OK){
@@ -255,8 +310,9 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  
     	int i;
     	int len = lcf->jvm_options->nelts;
     	int rc;
+    	ngx_pool_t *pool = ngx_create_pool(40960, log);
 
-    	options = malloc(len * sizeof(char *));
+    	options = ngx_pcalloc(pool, len * sizeof(char *));
     	if (!options) {
     		ngx_log_error(NGX_LOG_ERR, log, 0, "can not malloc for jvm create options!");
     		return NGX_HTTP_CLOJURE_JVM_ERR_MALLOC;
@@ -265,7 +321,7 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  
     	jvm_path = (char *)lcf->jvm_path.data;
 
     	for (i = 0; i < len; i++){
-    		options[i] = (char *)elts[i].data;
+    		options[i] = (char *)ngx_http_clojure_eval_experssion(lcf, elts[i], pool);
     	}
 
     	rc = ngx_http_clojure_init_jvm(jvm_path, (char **)options, len);
@@ -282,10 +338,10 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  
     		default:
     			ngx_log_error(NGX_LOG_ERR, log, 0, "can not initialize jvm!");
     		}
-    		free(options);
+    		ngx_destroy_pool(pool);
     		return rc;
     	}
-    	free(options);
+    	ngx_destroy_pool(pool);
     }
 
     if (ngx_http_clojure_check_memory_util() != NGX_HTTP_CLOJURE_JVM_OK){
@@ -322,7 +378,7 @@ static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
 	ngx_http_clojure_global_cycle = cycle;
 
 #if !(NGX_WIN32)
-	ngx_http_clojure_shared_memory.size = 8;
+	ngx_http_clojure_shared_memory.size = 8*2;
 	ngx_http_clojure_shared_memory.name.len = sizeof("nginx_clojure_shared_zone");
 	ngx_http_clojure_shared_memory.name.data = (u_char *) "nginx_clojure_shared_zone";
 	ngx_http_clojure_shared_memory.log = cycle->log;
@@ -332,9 +388,12 @@ static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
     }
 
     ngx_http_clojure_jvm_be_mad_times = (ngx_atomic_t *) ngx_http_clojure_shared_memory.addr;
+    ngx_http_clojure_jvm_num = (ngx_atomic_t *) ngx_http_clojure_shared_memory.addr+8;
     *ngx_http_clojure_jvm_be_mad_times = 0;
+    *ngx_http_clojure_jvm_num = 1;
 #else
     ngx_http_clojure_jvm_be_mad_times = &ngx_http_clojure_jvm_be_mad_times_ins;
+    ngx_http_clojure_jvm_num = &ngx_http_clojure_jvm_num_ins;
 #endif
 	ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, NGINX_CLOJURE_VER);
 
@@ -404,12 +463,16 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 /*	ngx_http_core_main_conf_t *hcmcf = ngx_http_cycle_get_module_main_conf(cycle, ngx_http_core_module);*/
 	ngx_http_clojure_loc_conf_t *mcf = ctx->loc_conf[ngx_http_clojure_module.ctx_index];
 	ngx_core_conf_t  *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
+	int jvm_num = 0;
 
 #if !(NGX_WIN32)
 	ngx_setproctitle("worker process");
 #else
 	ngx_http_clojure_jvm_be_mad_times = &ngx_http_clojure_jvm_be_mad_times_ins;
+	ngx_http_clojure_jvm_num = &ngx_http_clojure_jvm_num_ins;
 #endif
+
+	jvm_num = (int)ngx_atomic_fetch_add(ngx_http_clojure_jvm_num, 1);
 
 	if ((ngx_int_t)ngx_atomic_fetch_add(ngx_http_clojure_jvm_be_mad_times, 1) >= ccf->worker_processes) {
 		ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "jvm may be mad for wrong options! See hs_err_pid****.log for detail! restarted %d", *ngx_http_clojure_jvm_be_mad_times);
@@ -421,6 +484,33 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 #endif
 		return NGX_ERROR;
 	}
+	{
+		ngx_keyval_t *kv = NULL;
+		if (mcf->jvm_vars == NULL) {
+			mcf->jvm_vars = ngx_array_create(cycle->pool, 1, sizeof(ngx_keyval_t));
+		}else {
+			ngx_uint_t vi = 0;
+			kv = mcf->jvm_vars->elts;
+			for (; vi < mcf->jvm_vars->nelts; vi++) {
+				if (ngx_strcmp("pno", kv->key.data) == 0) {
+					break;
+				}
+				kv++;
+			}
+			if (vi == mcf->jvm_vars->nelts) {
+				kv = NULL;
+			}
+		}
+		if (kv == NULL) {
+			kv = ngx_array_push(mcf->jvm_vars);
+		}
+		kv->key.data = "pno";
+		kv->key.len = strlen("pno");
+		kv->value.data = ngx_pcalloc(cycle->pool, 8);
+		ngx_sprintf(kv->value.data, "%d", jvm_num);
+		kv->value.len = strlen(kv->value.data);
+	}
+
 
     rc = ngx_http_clojure_init_jvm_and_mem(mcf, cycle->log);
 
@@ -603,6 +693,7 @@ static char* ngx_http_clojure(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
 	lcf->handler_type.len = sizeof("clojure")-1;
 	return NGX_CONF_OK;
 }
+
 
 static char* ngx_http_clojure_set_str_slot_and_enable_tag(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
 	ngx_http_core_loc_conf_t * clcf;
