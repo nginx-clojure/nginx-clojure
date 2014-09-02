@@ -1,6 +1,11 @@
+/**
+ *  Copyright (C) Zhang,Yuexiang (xfeep)
+ *
+ */
 package nginx.clojure;
 
 import static nginx.clojure.MiniConstants.*;
+import static nginx.clojure.NginxClojureRT.log;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -9,18 +14,19 @@ import java.util.Map;
 
 import sun.nio.ch.DirectBuffer;
 
-public class NginxServerChannel implements ChannelListener<NginxServerChannel> {
+public class NginxHttpServerChannel implements ChannelListener<NginxHttpServerChannel> {
 	
 	protected NginxRequest request;
 	protected boolean ignoreFilter;
 	protected boolean closed;
+	protected Object context;
 	
-	public NginxServerChannel(NginxRequest request, boolean ignoreFilter) {
+	public NginxHttpServerChannel(NginxRequest request, boolean ignoreFilter) {
 		this.request = request;
 		this.ignoreFilter = ignoreFilter;
 	}
 	
-	public <T> void addListener(ChannelListener<T> listener, T data) {
+	public <T> void addListener(T data, ChannelListener<T> listener) {
 		NginxClojureRT.ngx_http_cleanup_add(request.nativeRequest(), listener, data);
 	}
 	
@@ -44,7 +50,7 @@ public class NginxServerChannel implements ChannelListener<NginxServerChannel> {
 					MiniConstants.BYTE_ARRAY_OFFSET + message.arrayOffset()+message.position(), message.remaining(), flag);
 		}
 		if (rc == MiniConstants.NGX_OK) {
-			message.clear();
+			message.position(message.limit());
 		}
 		return rc;
 	}
@@ -77,7 +83,10 @@ public class NginxServerChannel implements ChannelListener<NginxServerChannel> {
 	}
 	
 	public void send(String message, boolean flush, boolean last) {
-		byte[] bs = message.getBytes(DEFAULT_ENCODING);
+		if (log.isDebugEnabled()) {
+			log.debug("#%s: send message : '%s', flush=%s, last=%s", NginxClojureRT.processId, message, flush, last);
+		}
+		byte[] bs = message == null ? null : message.getBytes(DEFAULT_ENCODING);
 		int flag = computeFlag(flush, last);
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
 			NginxClojureRT.postHijackSendEvent(this, bs, 0, bs.length, flag);
@@ -89,9 +98,13 @@ public class NginxServerChannel implements ChannelListener<NginxServerChannel> {
 	public void send(ByteBuffer message, boolean flush, boolean last) {
 		int flag = computeFlag(flush, last);
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
-			ByteBuffer cm = ByteBuffer.allocate(message.remaining());
-			cm.put(message);
-			NginxClojureRT.postHijackSendEvent(this, cm, 0, cm.remaining(), flag);
+			if (message != null) {
+				ByteBuffer cm = ByteBuffer.allocate(message.remaining());
+				cm.put(message);
+				NginxClojureRT.postHijackSendEvent(this, cm, 0, cm.remaining(), flag);
+			}else {
+				NginxClojureRT.postHijackSendEvent(this, null, 0, 0, flag);
+			}
 		}else {
 			send(message, flag);
 		}
@@ -108,17 +121,31 @@ public class NginxServerChannel implements ChannelListener<NginxServerChannel> {
 		}
 	}
 	
+	protected void sendResponseHelp(NginxResponse response, long chain) {
+		if (chain < 0) {
+			int status = (int)-chain;
+			request.handler().prepareHeaders(request, status, response.fetchHeaders());
+			NginxClojureRT.ngx_http_finalize_request(request.nativeRequest(), status);
+			return;
+		}
+		request.handler().prepareHeaders(request, response.fetchStatus(NGX_OK) , response.fetchHeaders());
+		int rc = (int) NginxClojureRT.ngx_http_hijack_send_header(request.nativeRequest(), computeFlag(false, false));
+		if (rc == NGX_OK || rc == NGX_AGAIN) {
+			NginxClojureRT.ngx_http_hijack_send_chain(request.nativeRequest(), chain, computeFlag(false, true));
+		}
+	}
+	
 	public void sendResponse(Object resp) {
 		NginxResponse response = request.handler().toNginxResponse(request, resp);
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
-			NginxClojureRT.postHijackSendResponseEvent(this, response, request.handler().buildOutputChain(response), computeFlag(false, true));
+			NginxClojureRT.postHijackSendResponseEvent(this, response, request.handler().buildOutputChain(response));
 		}else {
-			request.handler().prepareHeaders(request,response.fetchStatus(NGX_OK) , response.fetchHeaders());
-			int rc = (int) NginxClojureRT.ngx_http_hijack_send_header(request.nativeRequest(), computeFlag(false, false));
-			if (rc == NGX_OK || rc == NGX_AGAIN) {
-				NginxClojureRT.ngx_http_hijack_send_chain(request.nativeRequest(), request.handler().buildOutputChain(response), computeFlag(false, true));
-			}
+			sendResponseHelp(response, request.handler().buildOutputChain(response));
 		}
+	}
+	
+	public void sendResponse(int status) {
+		NginxClojureRT.ngx_http_finalize_request(request.nativeRequest(), status);
 	}
 	
 	public void close() {
@@ -137,8 +164,26 @@ public class NginxServerChannel implements ChannelListener<NginxServerChannel> {
 	}
 
 	@Override
-	public void onClose(NginxServerChannel data) {
+	public void onClose(NginxHttpServerChannel data) {
 		this.closed = true;
 	}
+
+	@Override
+	public void onConnect(long status, NginxHttpServerChannel data) {
+		//this method will never be called.
+	}
+	
+	public boolean isClosed() {
+		return closed;
+	}
+	
+	public Object getContext() {
+		return context;
+	}
+	
+	public void setContext(Object context) {
+		this.context = context;
+	}
+	
 	
 }

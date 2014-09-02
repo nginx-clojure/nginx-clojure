@@ -9,7 +9,7 @@ public interface NginxRequest {
 	
 	public NginxHandler handler();
 	
-	public NginxServerChannel channel();
+	public NginxHttpServerChannel channel();
 	
 	public boolean isHijacked();
 	

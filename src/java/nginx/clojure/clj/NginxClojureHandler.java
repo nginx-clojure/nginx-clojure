@@ -22,7 +22,7 @@ import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxRequest;
 import nginx.clojure.NginxResponse;
-import nginx.clojure.NginxServerChannel;
+import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxSimpleHandler;
 import nginx.clojure.ResponseHeaderPusher;
 import nginx.clojure.ResponseUnknownHeaderPusher;
@@ -96,6 +96,9 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 		if (resp == null) {
 			return null;
 		}
+		if (resp instanceof NginxResponse) {
+			return (NginxResponse) resp;
+		}
 		return new NginxClojureResponse(req, (Map)resp);
 	}
 	
@@ -154,9 +157,12 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 	}
 
 	@Override
-	public NginxServerChannel hijack(NginxRequest req, boolean ignoreFilter) {
+	public NginxHttpServerChannel hijack(NginxRequest req, boolean ignoreFilter) {
+		if (NginxClojureRT.log.isDebugEnabled()) {
+			NginxClojureRT.log.debug("#%s: hijack at %s", NginxClojureRT.processId, ((LazyRequestMap)req).valAt(Constants.URI));
+		}
 		((LazyRequestMap)req).hijackTag[0] = 1;
-		return ((LazyRequestMap)req).channel = new NginxServerChannel(req, ignoreFilter);
+		return ((LazyRequestMap)req).channel = new NginxHttpServerChannel(req, ignoreFilter);
 	}
 
 }

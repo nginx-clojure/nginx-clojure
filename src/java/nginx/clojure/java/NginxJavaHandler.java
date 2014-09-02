@@ -15,7 +15,7 @@ import java.io.Closeable;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxRequest;
 import nginx.clojure.NginxResponse;
-import nginx.clojure.NginxServerChannel;
+import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxSimpleHandler;
 
 public class NginxJavaHandler extends NginxSimpleHandler {
@@ -70,6 +70,14 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 		if (resp == PHRASE_DONE) {
 			return NR_PHRASE_DONE;
 		}
+		
+		if (resp == null) {
+			return null;
+		}
+		
+		if (resp instanceof NginxResponse) {
+			return (NginxResponse)resp;
+		}
 		return new NginxJavaResponse(req, (Object[])resp);
 	}
 	
@@ -80,9 +88,9 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 
 
 	@Override
-	public NginxServerChannel hijack(NginxRequest req, boolean ignoreFilter) {
+	public NginxHttpServerChannel hijack(NginxRequest req, boolean ignoreFilter) {
 		((NginxJavaRequest)req).hijacked = true;
-		return ((NginxJavaRequest)req).channel = new NginxServerChannel(req, ignoreFilter);
+		return ((NginxJavaRequest)req).channel = new NginxHttpServerChannel(req, ignoreFilter);
 	}
 
 }

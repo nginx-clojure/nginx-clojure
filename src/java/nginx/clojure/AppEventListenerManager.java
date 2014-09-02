@@ -1,3 +1,7 @@
+/**
+ *  Copyright (C) Zhang,Yuexiang (xfeep)
+ *
+ */
 package nginx.clojure;
 
 import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
@@ -85,14 +89,18 @@ public class AppEventListenerManager  {
 		return listeners.remove(listener);
 	}
 	
-	public void onBroadcastedEvent(PostedEvent e) {
+	public void onBroadcastedEvent(PostedEvent ev) {
 		for (Decoder d : decorders) {
-			if (d.shouldDecode(e)) {
-				e = d.decode(e);
+			if (d.shouldDecode(ev)) {
+				ev = d.decode(ev);
 			}
 		}
 		for (Listener l : listeners) {
-			l.onEvent(e);
+			try{
+				l.onEvent(ev);
+			}catch(Throwable e) {
+				NginxClojureRT.log.error("onBroadcastedEvent error", e);
+			}
 		}
 	}
 	

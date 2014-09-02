@@ -34,7 +34,7 @@ import java.util.Map;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHandler;
 import nginx.clojure.NginxRequest;
-import nginx.clojure.NginxServerChannel;
+import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.RequestVarFetcher;
 import clojure.lang.AFn;
 import clojure.lang.ASeq;
@@ -54,7 +54,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	protected long r;
 	protected Object[] array;
 	protected NginxHandler handler;
-	protected NginxServerChannel channel;
+	protected NginxHttpServerChannel channel;
 	protected byte[] hijackTag;
 	
 	public final static LazyRequestMap EMPTY_MAP = new LazyRequestMap(null, 0, null, new Object[0]);
@@ -312,7 +312,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	}
 	
 	@Override
-	public NginxServerChannel channel() {
+	public NginxHttpServerChannel channel() {
 		if (hijackTag == null || hijackTag[0] == 0) {
 			NginxClojureRT.UNSAFE.throwException(new IllegalAccessException("not hijacked!"));
 		}

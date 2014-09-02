@@ -7,6 +7,7 @@ package nginx.clojure;
 
 
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
 import java.lang.reflect.Field;
 import java.net.Socket;
 import java.nio.ByteBuffer;
@@ -65,6 +66,8 @@ public class NginxClojureRT extends MiniConstants {
 	public static boolean coroutineEnabled = false;
 	
 	public static LoggerService log;
+	
+	public static String processId;
 	
 	public native static long ngx_palloc(long pool, long size);
 	
@@ -151,6 +154,7 @@ public class NginxClojureRT extends MiniConstants {
 		getLog();
 		initUnsafe();
 		appEventListenerManager = new AppEventListenerManager();
+		processId = ManagementFactory.getRuntimeMXBean().getName().split("@")[0];
 	}
 	
 	public static AppEventListenerManager getAppEventListenerManager() {
@@ -180,13 +184,13 @@ public class NginxClojureRT extends MiniConstants {
 	}
 	
 	public static final class HijackEvent {
-		public final NginxServerChannel channel;
+		public final NginxHttpServerChannel channel;
 		public final Object message;
 		public final int off;
 		public final int len;
 		public final int flag;
 		
-		public HijackEvent(NginxServerChannel channel, Object message, int off, int len, int flag) {
+		public HijackEvent(NginxHttpServerChannel channel, Object message, int off, int len, int flag) {
 			super();
 			this.channel = channel;
 			this.message = message;
@@ -198,9 +202,9 @@ public class NginxClojureRT extends MiniConstants {
 	}
 	
 	public static final class HijackHeaderEvent {
-		public final NginxServerChannel channel;
+		public final NginxHttpServerChannel channel;
 		public final int flag;
-		public HijackHeaderEvent(NginxServerChannel channel, int flag) {
+		public HijackHeaderEvent(NginxHttpServerChannel channel, int flag) {
 			super();
 			this.channel = channel;
 			this.flag = flag;
@@ -208,16 +212,14 @@ public class NginxClojureRT extends MiniConstants {
 	}
 	
 	public static final class HijackResponseEvent {
-		public final NginxServerChannel channel;
+		public final NginxHttpServerChannel channel;
 		public final NginxResponse response;
 		public final long chain;
-		public final int flag;
-		public HijackResponseEvent(NginxServerChannel channel, NginxResponse response, long chain, int flag) {
+		public HijackResponseEvent(NginxHttpServerChannel channel, NginxResponse response, long chain) {
 			super();
 			this.channel = channel;
 			this.response = response;
 			this.chain = chain;
-			this.flag = flag;
 		}
 	}
 	
@@ -716,22 +718,22 @@ public class NginxClojureRT extends MiniConstants {
 		ngx_http_clojure_mem_post_event(makeEventAndSaveIt(POST_EVENT_TYPE_CLOSE_SOCKET, s), null, 0);
 	}
 	
-	public static void postHijackSendEvent(NginxServerChannel channel, Object message, int off, int len, int flag) {
+	public static void postHijackSendEvent(NginxHttpServerChannel channel, Object message, int off, int len, int flag) {
 		ngx_http_clojure_mem_post_event(
 				makeEventAndSaveIt(POST_EVENT_TYPE_HIJACK_SEND,
 						new HijackEvent(channel, message, off, len , flag)), null, 0);
 	}
 	
-	public static void postHijackSendHeaderEvent(NginxServerChannel channel, int flag) {
+	public static void postHijackSendHeaderEvent(NginxHttpServerChannel channel, int flag) {
 		ngx_http_clojure_mem_post_event(
 				makeEventAndSaveIt(POST_EVENT_TYPE_HIJACK_SEND_HEADER,
 						new HijackHeaderEvent(channel, flag)), null, 0);
 	}
 	
-	public static void postHijackSendResponseEvent(NginxServerChannel channel, NginxResponse resp, long chain, int flag) {
+	public static void postHijackSendResponseEvent(NginxHttpServerChannel channel, NginxResponse resp, long chain) {
 		ngx_http_clojure_mem_post_event(
 				makeEventAndSaveIt(POST_EVENT_TYPE_HIJACK_SEND_RESPONSE,
-						new HijackResponseEvent(channel, resp, chain, flag | NGX_CLOJURE_BUF_LAST_FLAG)), null, 0);
+						new HijackResponseEvent(channel, resp, chain)), null, 0);
 	}
 	
 	private final static byte[] POST_EVENT_BUF = new byte[4096];
@@ -769,13 +771,7 @@ public class NginxClojureRT extends MiniConstants {
 			case POST_EVENT_TYPE_HIJACK_SEND_RESPONSE : {
 				HijackResponseEvent hijackResponseEvent = (HijackResponseEvent)POSTED_EVENTS_DATA.remove(data);
 				NginxRequest request = hijackResponseEvent.channel.request;
-				request.handler().prepareHeaders(request,hijackResponseEvent.response.fetchStatus(NGX_OK) , hijackResponseEvent.response.fetchHeaders());
-				int rc = (int) NginxClojureRT.ngx_http_hijack_send_header(request.nativeRequest(),
-						(hijackResponseEvent.flag & NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG) != 0 ? NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG
-								: 0);
-				if (rc == NGX_OK || rc == NGX_AGAIN) {
-					ngx_http_hijack_send_chain(hijackResponseEvent.channel.request.nativeRequest(), hijackResponseEvent.chain, hijackResponseEvent.flag);
-				}
+				request.channel().sendResponseHelp(hijackResponseEvent.response, hijackResponseEvent.chain);
 				return NGX_OK;
 			}
 			default:
@@ -799,11 +795,16 @@ public class NginxClojureRT extends MiniConstants {
 	private static int handlePostEvent(long event, long pipe) {
 		int tag = (int)((0xff00000000000000L & event) >>> 56);
 		long data = event & 0x00ffffffffffffffL;
+		if (log.isDebugEnabled()) {
+			log.debug("#%s: handlePostEvent tag=%d, len/data=%d", processId, tag, data);
+		}
 		if (tag < POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START) {
 			return handlePostEvent(event, null, 0);
 		} else {
-			if (ngx_http_clojure_mem_read_raw_pipe(pipe, POST_EVENT_BUF,
-					BYTE_ARRAY_OFFSET, data) != data) {
+			long rc = ngx_http_clojure_mem_read_raw_pipe(pipe, POST_EVENT_BUF,
+					BYTE_ARRAY_OFFSET, data);
+			if (rc != data) {
+				log.error("#%s: ngx_http_clojure_mem_read_raw_pipe error, return %d, expect %d", processId, rc, data);
 				return NGX_HTTP_INTERNAL_SERVER_ERROR;
 			}
 			return handlePostEvent(event, POST_EVENT_BUF, 0);
@@ -957,6 +958,9 @@ public class NginxClojureRT extends MiniConstants {
 		}
 		long event = (tag << 56) | len;
 		
+		if (log.isDebugEnabled()) {
+			log.debug("#%s: broadcast event tag=%d, body=%s", processId, tag, new String(body, (int)offset, (int)len), DEFAULT_ENCODING);
+		}
 		if (Thread.currentThread() == NGINX_MAIN_THREAD) {
 			int rt = (int)ngx_http_clojure_mem_broadcast_event(event, body, BYTE_ARRAY_OFFSET + offset, 0);
 			if (rt == 0) {

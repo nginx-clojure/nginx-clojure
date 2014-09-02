@@ -28,7 +28,7 @@ public interface NginxHandler {
 	 * If ignoreFilter is true all data output to channel won't be filtered
    by any nginx HTTP header/body filters such as gzip filter, chucked filter, etc.
 	 */
-	public NginxServerChannel hijack(NginxRequest req, boolean ignoreFilter);
+	public NginxHttpServerChannel hijack(NginxRequest req, boolean ignoreFilter);
 
 	public long buildOutputChain(NginxResponse response);
 

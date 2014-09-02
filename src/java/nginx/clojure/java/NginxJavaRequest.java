@@ -37,7 +37,7 @@ import java.util.Set;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHandler;
 import nginx.clojure.NginxRequest;
-import nginx.clojure.NginxServerChannel;
+import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxSimpleHandler.SimpleEntry;
 import nginx.clojure.RequestVarFetcher;
 import nginx.clojure.java.PickerPoweredIterator.Picker;
@@ -49,7 +49,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	protected NginxJavaRingHandler ringHandler;
 	protected Object[] array;
 	protected boolean hijacked = false;
-	protected NginxServerChannel channel;
+	protected NginxHttpServerChannel channel;
 	
 	public NginxJavaRequest(NginxHandler handler, NginxJavaRingHandler ringHandler, long r, Object[] array) {
 		this.r = r;
@@ -300,7 +300,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	}
 
 	@Override
-	public NginxServerChannel channel() {
+	public NginxHttpServerChannel channel() {
 		if (!hijacked) {
 			NginxClojureRT.UNSAFE.throwException(new IllegalAccessException("not hijacked!"));
 		}

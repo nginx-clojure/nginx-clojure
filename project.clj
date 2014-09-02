@@ -63,8 +63,10 @@
                                 :test-paths ["src/test/clojure"]
                                 :source-paths ["test/clojure" "test/java" "test/nginx-working-dir/coroutine-udfs"]
                                 :compile-path "target/testclasses"
-                                :test-selectors {:default (fn [m] (and (:remote m) (not (:async m))))
+                                :test-selectors {:default (fn [m] (and (:remote m) (not (:async m)) (not (:jdbc m))))
                                                  :async :async
+                                                 :jdbc :jdbc
+                                                 :no-async (fn [m] (and (:remote m) (not (:async m))))
                                                  :all :remote}
                                 :dependencies [
                                               [ring/ring-core "1.2.1"]
@@ -73,6 +75,8 @@
                                               [junit/junit "4.11"]
                                               [org.clojure/java.jdbc "0.3.3"]
                                               [org.clojure/tools.nrepl "0.2.3"]
+                                              ;for test file upload with ring-core which need it
+                                              [javax.servlet/servlet-api "2.5"]
                                               [org.codehaus.jackson/jackson-mapper-asl "1.9.13"]
                                               ;[mysql/mysql-connector-java "5.1.30"]
                                               ]
