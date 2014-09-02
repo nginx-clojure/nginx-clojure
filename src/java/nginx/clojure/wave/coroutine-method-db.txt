@@ -124,8 +124,15 @@ lazyclass:nginx/clojure/Coroutine
   _resumep()V:skip
 
 
-lazyclass:nginx/clojure/clj/LazyRequestMap
-  process()Lnginx/clojure/NginxResponse;:normal
+lazyclass:nginx/clojure/clj/NginxClojureHandler
+  process(Lnginx/clojure/NginxRequest;)Lnginx/clojure/NginxResponse;:normal
+  
+lazyclass:nginx/clojure/java/NginxJavaHandler
+  process(Lnginx/clojure/NginxRequest;)Lnginx/clojure/NginxResponse;:normal
+    
+lazyclass:nginx/clojure/NginxHandler
+#mark from sub nginx/clojure/NginxSimpleHandler
+  process(Lnginx/clojure/NginxRequest;)Lnginx/clojure/NginxResponse;:just_mark
 
 lazyclass:nginx/clojure/net/NginxClojureSocketImpl
 	/connect.*
@@ -145,9 +152,6 @@ fuzzyclass:nginx/clojure/NginxSimpleHandler\$(\d+)
   call()Lnginx/clojure/NginxClojureRT$WorkerResponseContext;:normal
 
 
-lazyclass:nginx/clojure/NginxRequest
-#mark from sub nginx/clojure/clj/LazyRequestMap
-  process()Lnginx/clojure/NginxResponse;:just_mark
   
 lazyclass:nginx/clojure/NginxClojureRT
   coBatchCall([Ljava/util/concurrent/Callable;)[Ljava/lang/Object;:normal

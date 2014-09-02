@@ -84,10 +84,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		}
 	}
 	
-	@Override
-	public void setOption(int optID, Object v) throws SocketException {
-		//now java.net.socket has done safe close check so we can ignore it
-		//checkCreatedAndNotClosed();
+	public static void setOption(NginxClojureAsynSocket as, int optID, Object v)  {
 		NginxClojureRT.getLog().debug("set socket options: %d, val: %s" , optID, v+"");
 		switch (optID) {
 		case SO_TIMEOUT:
@@ -106,9 +103,9 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 			}
 			if (v == null || !(v instanceof Integer)
 					|| ((Integer) v).intValue() < 0) {
-				throw new SocketException(
+				NginxClojureRT.UNSAFE.throwException(new SocketException(
 						"wrong argument for SO_RCVBUF, it must be Integer! But it is "
-								+ ((v == null) ? "null" : v.getClass()));
+								+ ((v == null) ? "null" : v.getClass())));
 			}
 			as.setReceiveBufferSize(((Integer) v).intValue());
 			return;
@@ -128,8 +125,15 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
         	NginxClojureRT.getLog().warn("not supported socket options: %d, val: %s just ignored" , optID, v+"");
         	break;
         default:
-            throw new SocketException("unknown TCP option: " + optID);
+        	NginxClojureRT.UNSAFE.throwException( new SocketException("unknown TCP option: " + optID) );
         }
+	}
+	
+	@Override
+	public void setOption(int optID, Object v) throws SocketException {
+		//now java.net.socket has done safe close check so we can ignore it
+		//checkCreatedAndNotClosed();
+		setOption(as, optID, v);
 	}
 
 	public boolean isClosed() {
@@ -145,10 +149,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		}
 	}
 
-	@Override
-	public Object getOption(int optID) throws SocketException {
-		//now java.net.socket has done safe close check so we can ignore it
-		//checkCreatedAndNotClosed();
+	public static Object getOption(NginxClojureAsynSocket as, int optID) {
 		switch (optID) {
 		case SO_TIMEOUT:
            return Integer.valueOf((int)as.getReadTimeout());
@@ -160,6 +161,13 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 			return Boolean.valueOf(as.getSoKeepAlive() == 1);
 		}
 		return null;
+	}
+	
+	@Override
+	public Object getOption(int optID) throws SocketException {
+		//now java.net.socket has done safe close check so we can ignore it
+		//checkCreatedAndNotClosed();
+		return getOption(as, optID);
 	}
 
 	
@@ -189,8 +197,8 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		as.connect(new StringBuilder(host).append(':').append(port).toString());
 		if (!as.isConnected()) {
 			yieldFlag = YIELD_CONNECT;
-			if (log.isDebugEnabled()) {
-				log.debug("show connect stack trace for debug", new Exception("DEBUG USAGE"));
+			if (log.isTraceEnabled()) {
+				log.trace("show connect stack trace for debug", new Exception("DEBUG USAGE"));
 			}
 			if (status == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_RESOLVE) {
 				throw new NoRouteToHostException(as.buildError(status));
@@ -457,7 +465,11 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 					}
 					s.yieldFlag = YIELD_READ;
 					if (log.isDebugEnabled()) {
-						log.debug(String.format("socket#%d: yield read", s.as.s), new Exception("DEBUG USAGE--yield read"));
+						if (log.isTraceEnabled()) {
+							log.trace(String.format("socket#%d: yield read", s.as.s), new Exception("DEBUG USAGE--yield read"));
+						}else {
+							log.debug(String.format("socket#%d: yield read", s.as.s));
+						}
 					}
 					s.attachCoroutine();
 					Coroutine.yield();
@@ -550,7 +562,12 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 					}
 					s.yieldFlag = YIELD_WRITE;
 					if (log.isDebugEnabled()) {
-						log.debug(String.format("socket#%d: yield write", s.as.s), new Exception("DEBUG USAGE--yield write"));
+						if (log.isTraceEnabled()) {
+							log.trace(String.format("socket#%d: yield write", s.as.s), new Exception("DEBUG USAGE--yield write"));
+						}else {
+							log.debug(String.format("socket#%d: yield write", s.as.s));
+						}
+						
 					}
 					s.attachCoroutine();
 					Coroutine.yield();

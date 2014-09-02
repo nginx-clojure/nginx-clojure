@@ -188,6 +188,12 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 		setReceiveBufferSize(s, size);
 	}
 	
+	/**
+	 * 
+	 * @param url
+	 * e.g. "192.168.2.34:80" , "www.bing.com:80", or unix domain socket "unix:/var/mytest/server.sock"
+	 * @return
+	 */
 	public long connect(String url) {
 		this.url = url;
 		byte[] urlba = url.getBytes(MiniConstants.DEFAULT_ENCODING);
@@ -202,6 +208,7 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	 * @return 0 : EOF, 
 	 *         NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN : try on next event, 
 	 *         NGX_HTTP_CLOJURE_SOCKET_ERR_READ : read error
+	 *         > 0 : the number of bytes read
 	 */
 	public long read(byte[] buf, long off, long size) {
 		checkConnected();
@@ -214,6 +221,7 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	 * @return 0 : EOF, 
 	 *         NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN : try on next event, 
 	 *         NGX_HTTP_CLOJURE_SOCKET_ERR_READ : read error
+	 *         > 0 : the number of bytes read
 	 */
 	public long read(ByteBuffer buf) {
 		long rc;
@@ -236,6 +244,7 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	 * @return 0 : EOF,
 	 *         NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN : try on next event,
 	 *         NGX_HTTP_CLOJURE_SOCKET_ERR_WRITE : write error
+	 *         > 0 : the number of bytes sent
 	 */
 	public long write(byte[] buf, long off, long size) {
 		checkConnected();

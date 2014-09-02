@@ -1,10 +1,14 @@
 (ns nginx.clojure.core
   (:import [nginx.clojure Coroutine Stack NginxClojureRT 
-            NginxRequest NginxServerChannel ChannelListener
+            NginxRequest NginxHttpServerChannel ChannelListener
             AppEventListenerManager AppEventListenerManager$Listener
             AppEventListenerManager$Decoder AppEventListenerManager$PostedEvent])
+  (:import [nginx.clojure.net NginxClojureAsynChannel NginxClojureAsynChannel$CompletionListener
+            NginxClojureAsynSocket])
   (:import [nginx.clojure.clj Constants])
   (:import [java.nio ByteBuffer]))
+
+(def process-id NginxClojureRT/processId)
 
 (defn without-coroutine 
   "wrap a handler f to a new handler which will keep away the coroutine context"
@@ -52,7 +56,7 @@
 
 (defn hijack! 
   "Hijack a nginx request and return a server channel.
-   After being hijacked, the ring handler's result will be ignore.
+   After being hijacked, the ring handler's result will be ignored.
    If ignore-nginx-filter? is true all data output to channel won't be filtered
    by any nginx HTTP header/body filters such as gzip filter, chucked filter, etc.
    We can use this function to implement long poll / Server Sent Events (SSE) easily."
@@ -80,28 +84,118 @@
      ")
   (on-close! [ch attachment listener]
     "Add a close event listener.
-     attachement is a  object which will be passed to listener when close event happens
-     listener is a function like (fn[attachement] ... )")
+     `attachement is a  object which will be passed to listener when close event happens
+     `listener is a function like (fn[attachement] ... )
+     A close event will happen immediately when channel is closed by either of these three cases:
+     (1) channel close function/method is invoked on this channel, e.g. (close! ch)
+     (2) inner unrecoverable error happens with this channel, e.g. not enough memory to read/write
+     (3) remote client connection is closed or broken.")
+  (get-context [ch])
+  (set-context! [ch ctx])
   )
 
-(extend-type NginxServerChannel HttpServerChannel
+(defprotocol AsynchronousChannel
+  (aclose! [ch]
+     "Close the channel")
+  (aconnect! [ch url attachment on-err on-done]
+     "Connect to the remote url.
+      `url can be \"192.168.2.34:80\" , \"www.bing.com:80\", or unix domain socket \"unix:/var/mytest/server.sock\"
+      `on-err and `on-done are  functions which have the form (fn[status,attachment]
+       when passed to `on-err, `status is an error code which range from 
+	NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR to NGX_HTTP_CLOJURE_SOCKET_ERR_OUTOFMEMORY
+       when passed to `on-done `status is always 0. ")
+  (arecv! [ch buf attachment on-err on-done]
+     "receive data from the channel.
+      `buf can be byte[] or ByteBuffer
+      `on-err and `on-done are  functions which have the form (fn[status,attachment]
+       when passed to `on-err, `status is an error code which is eof (0) or range from 
+	NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR to NGX_HTTP_CLOJURE_SOCKET_ERR_OUTOFMEMORY
+       when passed to `on-done `status is always > 0 and means number of bytes received.
+      ")
+  (asend! [ch data attachment on-err on-done]
+     "send data to the channel.
+      `data can be String, byte[] or ByteBuffer
+      `on-err and `on-done are  functions which have the form (fn[status,attachment]
+       when passed to `on-err, `status is an error code which is eof (0) or range from 
+	NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR to NGX_HTTP_CLOJURE_SOCKET_ERR_OUTOFMEMORY
+       when passed to `on-done `status is always > 0 and means number of bytes sent.")
+  (aclosed? [ch])
+  (ashutdown! [ch how]
+   "shutdown some kind of events trigger of the socket
+    `how can be :soft-read :soft-write :soft-both :read :write :both. If we use :soft-xxx it won't 
+    shutdown the physical socket and just turn off the events trigger for better performance.
+    Otherwise it will shutdown the physical socket, more details can be found from http://linux.die.net/man/2/shutdown")
+  (aset-context! [ch ctx])
+  (aget-context [ch])
+  (aset-timeout! [ch connect-timeout read-timeout write-timeout]
+    "The timeout unit is millisecond.
+     if timeout < 0 it will be ignored, if timeout = 0 it means no timeout settings"
+    )
+  (error-str [ch code]
+    "return the error string message from the error code"))
+
+(extend-type NginxHttpServerChannel HttpServerChannel
   (close [ch] (.close ch))
   (send! [ch data flush? last?]
     (cond
       (instance? String data) (.send ch ^String data flush? last?)
-      (instance? ByteBuffer) (.send ch ^ByteBuffer data flush? last?)
+      (instance? ByteBuffer data) (.send ch ^ByteBuffer data flush? last?)
       :else
-      (.send ch ^bytes data 0 (.length ^bytes data) flush? last?)))
+      (.send ch ^bytes data 0 (count data) flush? last?)))
   (send-header! [ch status ^java.util.Map headers flush? last?]
     (.sendHeader ch status (.entrySet headers) flush? last?))
   (send-response! [ch resp]
     (.sendResponse ch resp))
   (on-close! [ch attachment listener]
-    (.addListener ch (proxy [ChannelListener] []
+    (.addListener ch attachment (proxy [ChannelListener] []
                        (onClose [att]
-                         (listener att)))
-      attachment)))
+                         (listener att)))))
+  (get-context [ch]
+    (.getContext ch))
+  (set-context! [ch ctx]
+    (.setContext ch ctx)))
 
+(defn- make-asyn-listener [on-err on-done]
+  (proxy [NginxClojureAsynChannel$CompletionListener] []
+    (onDone [c a] (on-done c a))
+    (onError [c a] (on-err c a))))
+
+(extend-type NginxClojureAsynChannel AsynchronousChannel
+  (aclose! [ch] (.close ch))
+  (aconnect! [ch ^String url attachment on-err on-done]
+    (.connect ch url attachment (make-asyn-listener on-err on-done)))
+  (arecv! [ch buf attachment on-err on-done]
+    (if (instance? ByteBuffer buf)
+      (.read ch ^ByteBuffer buf attachment (make-asyn-listener on-err on-done))
+      (.read ch ^bytes buf 0 (count buf) attachment (make-asyn-listener on-err on-done))))
+  (asend! [ch data attachment on-err on-done]
+    (if (instance? ByteBuffer data)
+      (.write ch ^ByteBuffer data attachment (make-asyn-listener on-err on-done))
+      (if (instance? String data)
+        (let [bs (.getBytes ^String data "utf-8")]
+          (.write ch ^bytes bs 0 (count bs) attachment (make-asyn-listener on-err on-done)))
+        (.write ch ^bytes data 0 (count data) attachment (make-asyn-listener on-err on-done)))))
+  (aclosed? [ch] (.isClosed ch))
+  (ashutdown! [ch how] 
+    (-> ch (.getAsynSocket) 
+      (.shutdown 
+        (how {:read NginxClojureAsynSocket/NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_READ
+              :write NginxClojureAsynSocket/NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_WRITE
+              :both NginxClojureAsynSocket/NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_BOTH
+              :soft-read NginxClojureAsynSocket/NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_SOFT_READ
+              :soft-write NginxClojureAsynSocket/NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_SOFT_WRITE
+              :soft-both NginxClojureAsynSocket/NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_SOFT_BOTH}))))
+  (aset-context! [ch ctx]
+    (.setContext ch ctx))
+  (aget-context [ch]
+    (.getContext ch))
+  (aset-timeout! [ch connect-timeout read-timeout write-timeout]
+    (.setTimeout ch connect-timeout read-timeout write-timeout))
+  (error-str [ch code]
+    (.buildError ch code)))
+
+(defn achannel []
+  (NginxClojureAsynChannel.))
 
 (defn broadcast!
   "Broadcast a  event to all nginx worker processes. 
@@ -141,8 +235,10 @@ on MacosX is 504
                       (onEvent [e] (f (event-clj-wrap e)))))))
 
 (defn on-broadcast-event-decode!
-  "Add a decoder to broadcast event decoder chain.
+  "Add a pair of tester & decoder to broadcast event decoder chain.
    Decoders will be called one by one and the current decode result will be past to the next decoder.
+   Decoders should return decoded event which has the form {:tag tag, :data `any type of data`, :offset offset :length length }
+   offset & `length are meamingless if data is a long integer.
    Function tester is a checker and only if it return true the decoder will be invoked."
   [tester decoder]
   (-> (NginxClojureRT/getAppEventListenerManager)
