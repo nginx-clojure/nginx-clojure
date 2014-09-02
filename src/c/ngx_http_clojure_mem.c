@@ -308,7 +308,7 @@ static ngx_chain_t * ngx_http_clojure_get_and_copy_bufs(ngx_pool_t *p, ngx_chain
 	    	ngx_memcpy((*ll)->buf->pos, src, len);
 	    	for (;  *ll; ll = &(*ll)->next) {
 	    		b = (*ll)->buf;
-	    		if ((*ll)->next) {
+	    		if ((*ll)->next || (len % NGX_CLOJURE_REUSABLE_PAGE_SIZE) == 0) {
 	    			b->last += NGX_CLOJURE_REUSABLE_PAGE_SIZE;
 	    		}else {
 	    			b->last += (len % NGX_CLOJURE_REUSABLE_PAGE_SIZE);
@@ -1760,7 +1760,9 @@ static int ngx_http_clojure_handle_post_event(jlong r) {
 /*	JNIEnv *env;
 	(*jvm)->AttachCurrentThread(jvm, (void**)&env, NULL);
 	*/
-	return (*jvm_env)->CallStaticIntMethod(jvm_env, nc_rt_class,  nc_rt_handle_post_event_mid, r, (jlong)nc_jvm_worker_pipe_fds[0]);
+	int rc = (*jvm_env)->CallStaticIntMethod(jvm_env, nc_rt_class,  nc_rt_handle_post_event_mid, r, (jlong)nc_jvm_worker_pipe_fds[0]);
+	exception_handle(1, jvm_env, return NGX_ERROR);
+	return rc;
 }
 
 
