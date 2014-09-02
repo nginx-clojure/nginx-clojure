@@ -184,12 +184,13 @@ static void ngx_http_clojure_socket_upstream_handler(ngx_event_t *ev) {
 			if (c->fd == -1) {
 				return;
 			}
-		}else {
-			ngx_http_clojure_socket_upstream_connect_handler(u, NGX_HTTP_CLOJURE_SOCKET_ERR_CONNECT);
 			/*when ev->ready is true, we'll give a chance to writing after immediately successful connecting */
 			if (!ev->ready) {
 				return;
 			}
+		}else {
+			ngx_http_clojure_socket_upstream_connect_handler(u, NGX_HTTP_CLOJURE_SOCKET_ERR_CONNECT);
+			return;
 		}
 	}
 
@@ -382,7 +383,9 @@ static void ngx_http_clojure_socket_upstream_connect_inner(ngx_http_clojure_sock
 	}
 
 	/*connected immediately successfully*/
-	ngx_http_clojure_socket_upstream_connect_handler(u, NGX_HTTP_CLOJURE_SOCKET_OK);
+	c->write->ready = 1;
+	//ngx_http_clojure_socket_upstream_connect_handler(u, NGX_HTTP_CLOJURE_SOCKET_OK);
+	ngx_http_clojure_socket_upstream_handler(c->write);
 }
 
 void ngx_http_clojure_socket_upstream_connect(ngx_http_clojure_socket_upstream_t *u, struct sockaddr *addr, socklen_t len) {
