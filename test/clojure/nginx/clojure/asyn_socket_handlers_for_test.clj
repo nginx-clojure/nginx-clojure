@@ -8,7 +8,7 @@
 
 (def ^LoggerService logger (NginxClojureRT/getLog))
 
-(defn connect-handler 
+(defn- connect-handler 
   "handle connect event, as is a NginxClojureAsynSocket, sc is status code"
   [^NginxClojureAsynSocket as, ^long sc]
   (if (not= sc NginxClojureAsynSocket/NGX_HTTP_CLOJURE_SOCKET_OK)
@@ -20,7 +20,7 @@
     (.info logger "connected now!")))
 
 
-(defn write-handler
+(defn- write-handler
   "handle write event, as is a NginxClojureAsynSocket, sc is status code"  
   [^NginxClojureAsynSocket as, ^long sc]
   (if (not= sc NginxClojureAsynSocket/NGX_HTTP_CLOJURE_SOCKET_OK)
@@ -54,7 +54,7 @@
 	                    (.info logger (format "fininsh write total write: %d", wc)))
 	                  (recur wc)))))))))))
 
-(defn read-handler
+(defn- read-handler
   "handle read event, as is a NginxClojureAsynSocket, sc is status code"
   [^NginxClojureAsynSocket as, ^long sc]
   (if (not= sc NginxClojureAsynSocket/NGX_HTTP_CLOJURE_SOCKET_OK)
@@ -93,11 +93,12 @@
 	                    (.info logger (format "read %d, total %d", n, rc))
 	                    (recur rc))))))))))))
 
-(defn release-handler
+(defn- release-handler
   "handle release event, as is a NginxClojureAsynSocket, sc is status code"
   [^NginxClojureAsynSocket as, ^long sc]
   (.info logger (format "on released %d", sc)))
 
+;;ring handler
 (defn async-socket-example-handler [^LazyRequestMap req]
   (let [;request to nginx (downstream client request)
         creq req
@@ -107,7 +108,7 @@
                    :req-sent? false, ;have sent request
                    :creq creq
                    :req (.getBytes (str "GET /apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\n"
-                                        "User-Agent: curl/7.32.0\r\n" 
+                                        "User-Agent: nginx-clojure/0.2.5\r\n" 
                                         "Host: mirror.bit.edu.cn\r\n" 
                                         "Accept: */*\r\n" 
                                         "Connection: close\r\n\r\n"))

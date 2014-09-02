@@ -2,16 +2,17 @@ package nginx.clojure.net;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.util.Map;
 
 import nginx.clojure.NginxClojureRT;
+import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxRequest;
-import nginx.clojure.clj.Constants;
-import nginx.clojure.clj.LazyRequestMap;
+import nginx.clojure.java.ArrayMap;
+import nginx.clojure.java.Constants;
+import nginx.clojure.java.NginxJavaRingHandler;
 import nginx.clojure.logger.LoggerService;
-import clojure.lang.AFn;
-import clojure.lang.PersistentArrayMap;
 
-public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
+public class SimpleHandler4TestNginxClojureAsynSocket implements NginxJavaRingHandler {
 
 	public static class AsynHttpContext {
 		int rc;
@@ -20,7 +21,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 		byte[] req;
 		byte[] buf;
 		ByteArrayOutputStream resp;
-		NginxRequest clientRequest;
+		NginxHttpServerChannel downstreamChannel;
 	}
 	
 	static LoggerService log;
@@ -32,9 +33,9 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 	}
 	
 	@Override
-	public Object invoke(Object r) {
-		LazyRequestMap req = (LazyRequestMap) r;
-		
+	public Object[] invoke(Map<String, Object> request) {
+		NginxRequest req = (NginxRequest) request;
+		NginxHttpServerChannel serverChannel = req.handler().hijack(req, false);
 		NginxClojureAsynSocket asynSocket = new NginxClojureAsynSocket();
 		AsynHttpContext ctx = new AsynHttpContext();
 		ctx.rc = ctx.wc = 0;
@@ -43,10 +44,10 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 //      (2) after send all request, call s.shutdown(NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_WRITE);
 //      here we will use choice (1)
 //		http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt
-		ctx.req = "GET /apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\nUser-Agent: curl/7.32.0\r\nHost: mirror.bit.edu.cn\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes();
+		ctx.req = "GET /apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\nUser-Agent: nginx-clojure/0.2.5\r\nHost: mirror.bit.edu.cn\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes();
 		ctx.buf = new byte[1024];
 		ctx.resp = new ByteArrayOutputStream();
-		ctx.clientRequest = req;
+		ctx.downstreamChannel = serverChannel;
 		asynSocket.setContext(ctx);
 		asynSocket.setHandler(new NginxClojureSocketHandler() {
 			
@@ -56,7 +57,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 					log.error("onWrite error %d", sc);
 					s.close();
 					AsynHttpContext ctx = s.getContext();
-					NginxClojureRT.completeAsyncResponse(ctx.clientRequest, 500);
+					ctx.downstreamChannel.sendResponse(500);
 					return;
 				}
 				AsynHttpContext ctx = s.getContext();
@@ -78,7 +79,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 						}
 						log.error("write error : %s", n);
 						s.close();
-						NginxClojureRT.completeAsyncResponse(ctx.clientRequest, 500);
+						ctx.downstreamChannel.sendResponse(500);
 						return;
 					}else {
 						ctx.wc += n;
@@ -104,7 +105,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 					log.error("onRead error %d", sc);
 					s.close();
 					AsynHttpContext ctx = s.getContext();
-					NginxClojureRT.completeAsyncResponse(ctx.clientRequest, 500);
+					ctx.downstreamChannel.sendResponse(500);
 					return;
 				}
 				AsynHttpContext ctx = s.getContext();
@@ -122,20 +123,16 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 							}
 							log.error("read error : %s", n);
 							s.close();
-							NginxClojureRT.completeAsyncResponse(ctx.clientRequest, 500);
+							ctx.downstreamChannel.sendResponse(500);
 						}else if (n == 0){
 							log.info("fininsh request total read: %d", ctx.rc);
 							s.close();
 							Object[] resps = new Object[] {
-									Constants.STATUS,
 									200,
-									Constants.HEADERS,
-									new PersistentArrayMap(new Object[] {
-											Constants.CONTENT_TYPE.getName(),
-											"text/html" }),
-							Constants.BODY, new ByteArrayInputStream(ctx.resp.toByteArray()) };
+									ArrayMap.create(Constants.CONTENT_TYPE, "text/html"),
+							        new ByteArrayInputStream(ctx.resp.toByteArray()) };
 							//just for test not for good performance and right behavior for a http proxy
-							ctx.clientRequest.handler().completeAsyncResponse(ctx.clientRequest, new PersistentArrayMap(resps));
+							ctx.downstreamChannel.sendResponse(resps);
 						}else {
 							ctx.rc += n;
 							ctx.resp.write(ctx.buf, 0, (int)n);
@@ -151,15 +148,14 @@ public class SimpleHandler4TestNginxClojureAsynSocket extends AFn{
 					log.error("onConnect error %d", sc);
 					s.close();
 					AsynHttpContext ctx = s.getContext();
-					NginxClojureRT.completeAsyncResponse(ctx.clientRequest, 500);
+					ctx.downstreamChannel.sendResponse(500);
 					return;
 				}
 				log.info("connected now!");
 			}
 		});
 		asynSocket.connect("mirror.bit.edu.cn:80");
-		//tell nginx clojure our work isn't done.
-		return Constants.ASYNC_TAG;
+		return null;
 	}
 
 }

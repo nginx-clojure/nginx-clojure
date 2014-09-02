@@ -8,14 +8,15 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.Collections;
+import java.util.Map;
 
 import nginx.clojure.NginxClojureRT;
-import nginx.clojure.clj.Constants;
+import nginx.clojure.java.ArrayMap;
+import nginx.clojure.java.Constants;
+import nginx.clojure.java.NginxJavaRingHandler;
 import nginx.clojure.logger.LoggerService;
-import clojure.lang.AFn;
-import clojure.lang.PersistentArrayMap;
 
-public class SimpleHandler4TestNginxClojureSocket extends AFn {
+public class SimpleHandler4TestNginxClojureSocket implements NginxJavaRingHandler {
 
 	static LoggerService log;
 	
@@ -24,8 +25,9 @@ public class SimpleHandler4TestNginxClojureSocket extends AFn {
 			log = NginxClojureRT.getLog();
 		}
 	}
-
-	public Object invoke(Object r) {
+	
+	@Override
+	public Object[] invoke(Map<String, Object> request) {
 		Socket socket = new Socket();
 		try {
 			//http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt
@@ -38,7 +40,7 @@ public class SimpleHandler4TestNginxClojureSocket extends AFn {
 			log.info("fininsh connect");
 			OutputStream out = socket.getOutputStream();
 //			out.write("GET /ubuntu/dists/trusty/Release HTTP/1.1\r\nUser-Agent: nginx-clojure/0.2.0\r\nHost: mirrors.163.com\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes());
-			out.write("GET /apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\nUser-Agent: curl/7.32.0\r\nHost: mirror.bit.edu.cn\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes());
+			out.write("GET /apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\nUser-Agent: nginx-clojure/0.2.5\r\nHost: mirror.bit.edu.cn\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes());
 			out.flush();
 			log.info("fininsh request");
 //			socket.shutdownOutput();
@@ -53,15 +55,7 @@ public class SimpleHandler4TestNginxClojureSocket extends AFn {
 				bos.write(buf, 0, c);
 			}
 			log.info("fininsh total read: %d", total);
-			Object[] resps = new Object[] {
-					Constants.STATUS,
-					200,
-					Constants.HEADERS,
-					new PersistentArrayMap(new Object[] {
-							Constants.CONTENT_TYPE.getName(),
-							"text/html" }),
-			Constants.BODY, new ByteArrayInputStream(bos.toByteArray()) };
-			return new PersistentArrayMap(resps);
+			return new Object[] {200, ArrayMap.create(Constants.CONTENT_TYPE, "text/html"), new ByteArrayInputStream(bos.toByteArray())};
 		} catch (IOException e) {
 			throw new RuntimeException("error happend!", e);
 		}
@@ -76,11 +70,13 @@ public class SimpleHandler4TestNginxClojureSocket extends AFn {
 	
 	public static void main(String[] args) throws IOException {
 		SimpleHandler4TestNginxClojureSocket ss = new SimpleHandler4TestNginxClojureSocket();
-		PersistentArrayMap resp = (PersistentArrayMap) ss.invoke(Collections.EMPTY_MAP);
-		ByteArrayInputStream bi = (ByteArrayInputStream)resp.get(Constants.BODY);
+		Object[] resp =  ss.invoke(Collections.EMPTY_MAP);
+		ByteArrayInputStream bi = (ByteArrayInputStream)resp[2];
 		byte[] ba = new byte[bi.available()];
 		bi.read(ba);
 		System.out.println(new String(ba));
 	}
+
+
 
 }
