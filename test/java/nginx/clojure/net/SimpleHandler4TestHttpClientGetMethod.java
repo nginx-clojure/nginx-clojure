@@ -4,24 +4,24 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
 
-import nginx.clojure.clj.Constants;
+import nginx.clojure.java.ArrayMap;
+import nginx.clojure.java.Constants;
+import nginx.clojure.java.NginxJavaRingHandler;
 
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 
-import clojure.lang.AFn;
-import clojure.lang.PersistentArrayMap;
-
-public class SimpleHandler4TestHttpClientGetMethod extends AFn {
+public class SimpleHandler4TestHttpClientGetMethod implements NginxJavaRingHandler {
 
 	public SimpleHandler4TestHttpClientGetMethod() {
 	}
 	
 	@Override
-	public Object invoke(Object r) {
+	public Object[] invoke(Map<String, Object> request) {
 		CloseableHttpClient httpclient = HttpClients.createDefault();
 //		HttpGet httpget = new HttpGet("http://cn.bing.com/");
 		HttpGet httpget = new HttpGet("http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt");
@@ -37,14 +37,11 @@ public class SimpleHandler4TestHttpClientGetMethod extends AFn {
 			}
 			in.close();
 			Object[] resps = new Object[] {
-					Constants.STATUS,
 					200,
-					Constants.HEADERS,
-					new PersistentArrayMap(new Object[] {
-							Constants.CONTENT_TYPE.getName(),
-							"text/html" }),
-			Constants.BODY, new ByteArrayInputStream(out.toByteArray()) };
-			return new PersistentArrayMap(resps);
+					ArrayMap.create(Constants.CONTENT_TYPE, "text/html"),
+					new ByteArrayInputStream(out.toByteArray())
+			};
+			return resps;
 		} catch(IOException e) {
 			throw new RuntimeException("ioexception", e);
 		}finally {

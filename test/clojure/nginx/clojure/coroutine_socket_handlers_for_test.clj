@@ -51,7 +51,7 @@
        (let [{:keys [status, headers, body]} (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt" {:socket-timeout 50000})]
          {:status status,  :headers (dissoc headers "transfer-encoding" "server"), :body body}))
   (GET "/" [] {:status 200, :headers {"content-type" "text/plain"}, :body "hello"})
-  (GET "/simple-httpclientget" [:as req] ((SimpleHandler4TestHttpClientGetMethod.) req))
+  (GET "/simple-httpclientget" [:as req] (let [[s h b] (.invoke (SimpleHandler4TestHttpClientGetMethod.) {})] {:status s :headers h :body b}))
   (GET "/simple" [] 
        (let [{:keys [status,headers, body]} (do-simple-selfresume true)]
          {:status status, :headers headers :body body})

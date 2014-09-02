@@ -324,8 +324,30 @@
              (debug-println "=================test-ring-compojure hello=============================")
              (is (= 404 (:status r)))
              (is (= "text/html; charset=utf-8" (h "content-type")))
-             (is (= "<h1>Page not found</h1>" b))))    
+             (is (= "<h1>Page not found</h1>" b))))
+    
+    (testing "sub/pub (by long polling & broadcast)"
+             (let [p (future (client/get (str "http://" *host* ":" *port* "/ringCompojure/sub") {:throw-exceptions false :socket-timeout 10000}))]
+               (client/get (str "http://" *host* ":" *port* "/ringCompojure/pub?good") {:throw-exceptions false :socket-timeout 1000})
+               (is (= "good" (:body @p)))))
+    (testing "sse-sub/sse-pub (by sever sent envets & broadcast)"
+         (let [p (future (client/get (str "http://" *host* ":" *port* "/ringCompojure/sse-sub") {:throw-exceptions false :socket-timeout 20000}))]
+           (client/get (str "http://" *host* ":" *port* "/ringCompojure/sse-pub?good!") {:throw-exceptions false :socket-timeout 10000})
+           (client/get (str "http://" *host* ":" *port* "/ringCompojure/sse-pub?bad!") {:throw-exceptions false :socket-timeout 10000})
+           (client/get (str "http://" *host* ":" *port* "/ringCompojure/sse-pub?finish!") {:throw-exceptions false :socket-timeout 10000})
+           (is (= "retry: 4500\r\ndata: good!\r\n\r\ndata: bad!\r\n\r\ndata: finish!\r\n\r\n" (:body @p)))))
   )
+
+(def remote-socket-content 
+  (delay (let [sf (nginx.clojure.net.SimpleHandler4TestNginxClojureSocket.)
+               r1 (.invoke sf {})
+               b1 (slurp (get r1 2))
+               ] b1)))
+
+(def remote-http-content
+  (delay 
+    (let [r1 (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
+         b1 (r1 :body)] b1)))
 
 (deftest ^{:async true :remote true} test-asyncsocket
     (let [
@@ -338,9 +360,7 @@
                  h (:headers r)
                  b (r :body)
                  bb (subs b (.indexOf b "\r\n\r\n"))
-                 sf (nginx.clojure.net.SimpleHandler4TestNginxClojureSocket.)
-                 r1 (sf {})
-                 b1 (slurp (r1 :body))
+                 b1 @remote-socket-content
                  b1b (subs b1 (.indexOf b1 "\r\n\r\n"))]
              (debug-println "=================asyncsocket simple example =============================")
              (is (= 200 (:status r)))
@@ -348,6 +368,34 @@
              (is (= bb b1b))))
     )
   
+  )
+
+(deftest ^{:async true :remote true} test-asyncchannel
+    (let [b1 @remote-http-content]
+      (testing "asyncchannel --simple example"
+           (let [r (client/get (str "http://" *host* ":" *port* "/asyncchannel") {:throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)
+                 ]
+             (debug-println "=================asyncchannel simple example =============================")
+             (is (= 200 (:status r)))
+             (is (= (.length b) (.length b1)))
+             (is (= b b1))))
+    )
+  )
+
+(deftest ^{:async true :remote true} test-cljasyncchannel
+    (let [b1 @remote-http-content]
+      (testing "cljasyncchannel --simple example"
+           (let [r (client/get (str "http://" *host* ":" *port* "/cljasyncchannel") {:throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)
+                 ]
+             (debug-println "=================cljasyncchannel simple example =============================")
+             (is (= 200 (:status r)))
+             (is (= (.length b) (.length b1)))
+             (is (= b b1))))
+    )
   )
 
 (deftest ^{:async true :remote true} test-cljasyncsocket
@@ -361,9 +409,7 @@
                  h (:headers r)
                  b (r :body)
                  bb (subs b (.indexOf b "\r\n\r\n"))
-                 sf (nginx.clojure.net.SimpleHandler4TestNginxClojureSocket.)
-                 r1 (sf {})
-                 b1 (slurp (r1 :body))
+                 b1 @remote-socket-content
                  b1b (subs b1 (.indexOf b1 "\r\n\r\n"))]
              (debug-println "=================clj asyncsocket simple example =============================")
              (is (= 200 (:status r)))
@@ -375,16 +421,14 @@
 
 ;(comment 
 (deftest ^{:remote true} test-coroutine
-  (let [r1 (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
-        b1 (r1 :body)]
+  (let [
+        b1 @remote-http-content]
       (testing "coroutine based socket--simple example"
            (let [r (client/get (str "http://" *host* ":" *port* "/socket") {:throw-exceptions false})
                  h (:headers r)
                  b (r :body)
                  bb (subs b (.indexOf b "\r\n\r\n"))
-                 sf (nginx.clojure.net.SimpleHandler4TestNginxClojureSocket.)
-                 r1 (sf {})
-                 b1 (slurp (r1 :body))
+                 b1 @remote-socket-content
                  b1b (subs b1 (.indexOf b1 "\r\n\r\n"))]
              (debug-println "=================coroutine based socket simple example =============================")
              (is (= 200 (:status r)))
@@ -407,8 +451,6 @@
             (let [r (client/get (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/simple-httpclientget") {:throw-exceptions false})
                   h (:headers r)
                   b (r :body)
-;                 r1 (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
-;                 b1 (r1 :body)
                 ]
              (debug-println "=================coroutine based socket compojure & httpclient get =============================")
              (is (= 200 (:status r)))
@@ -439,6 +481,13 @@
              (is (= 200 (:status r)))
              (is (= (.length b) (.length b12)))
              (is (= b b12))))       
+    )
+  )
+;)
+
+(deftest ^{:remote true :jdbc true} test-coroutine-jdbc
+  (let [
+        b1 @remote-socket-content]     
      (testing "coroutine based socket--compojure & mysql jdbc"
             (let [cr (client/get (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/mysql-create") {:throw-exceptions false})
                   ir1 (client/put (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/mysql-insert") {:form-params {:name "java" :rank "5"} :throw-exceptions false})
@@ -466,10 +515,8 @@
              (is (= "dropped!" (:body dr)))
              (is (= 500 (:status qad)))
              ))       
-     
     )
   )
-;)
 
 (deftest ^{:remote true} test-nginx-var
   (testing "simple nginx var"

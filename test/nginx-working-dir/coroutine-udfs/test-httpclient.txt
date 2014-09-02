@@ -8,7 +8,7 @@ lazyclass:nginx/clojure/NginxClojureRT
   handleRequest(Lnginx/clojure/LazyRequestMap;)Ljava/util/Map;:normal
 
 lazyclass:nginx/clojure/net/SimpleHandler4TestHttpClientGetMethod
-  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
+  invoke(Ljava/util/Map;)[Ljava/lang/Object;:normal
 
 lazyclass:nginx/clojure/net/SimpleHandler4TestNginxClojureSocket
   invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal

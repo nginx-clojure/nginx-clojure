@@ -13,7 +13,14 @@
   (:require [compojure.route :as route])
   (:require [ring.util.codec :as codec])
   (:import [ring.middleware.session.memory.MemoryStore]
-           [nginx.clojure NginxRequest]))
+           [nginx.clojure NginxRequest]
+           [nginx.clojure.logger LoggerService]
+           [nginx.clojure NginxClojureRT]))
+
+(def ^LoggerService logger (NginxClojureRT/getLog))
+
+(defn- log[fmt & ss]
+  (.info logger (apply (partial format fmt) ss)))
 
 (def my-session-store (cookie-store {:key "my-secrect-key!!"}))
 
@@ -67,13 +74,16 @@
         (assoc e :data (String. data offset length "utf-8"))))
     (on-broadcast! 
       (fn [{:keys [tag data]}]
+        (log "#%s ring_handlers_for_test: onbroadcast {%d %s} %s" process-id tag data @sse-subscribers)
         (condp = tag
           sse-event-tag 
             (doseq [ch (keys @sse-subscribers)]
-              (send! ch (str "data: " data "\r\n\r\n") true false))
+              (send! ch (str "data: " data "\r\n\r\n") true (= "finish!" data) ))
           long-polling-event-tag 
             (doseq [ch (keys @long-polling-subscribers)]
-             (send! ch (str "data: " data "\r\n\r\n") true true)))))))
+              (send-response! ch {:status 200, :headers {"content-type" "text/plain"}, :body data}))
+            nil)))))
+
 
 (defroutes ring-compojure-test-handler
   (GET "/hello2" [] {:status 200, :headers {"content-type" "text/plain"}, :body "Hello World"})
@@ -110,17 +120,30 @@
   ;;server sent events publisher
   (GET "/sse-pub" [] 
        (fn [req]
-         @init-broadcast-event-listener
          (broadcast! {:tag sse-event-tag, :data (:query-string req)})
          {:body "OK"}))
   ;;server sent events subscriber
   (GET "/sse-sub" [] 
        (fn [^NginxRequest req]
+         @init-broadcast-event-listener
          (let [ch (hijack! req true)]
-           (on-close! ch ch #((println "channel closed. id=" (.nativeRequest req))
-                    (swap! sse-subscribers dissoc %)))
+           (on-close! ch ch 
+                      (fn [ch] (log "channel closed. id=%d" (.nativeRequest req))
+                         (log "#%s sse-sub: onclose arg:%s, sse-subscribers=%s" process-id ch (pr-str @sse-subscribers))
+                         (swap! sse-subscribers dissoc ch)))
            (swap! sse-subscribers assoc ch req)
            (send-header! ch 200 {"Content-Type", "text/event-stream"} false false)
-           (send! ch "retry: 4500\r\n" true false)))))
+           (send! ch "retry: 4500\r\n" true false))))
+  (GET "/pub" []
+       (fn [req]
+         (broadcast! {:tag long-polling-event-tag, :data (:query-string req)})
+         {:body "OK"}))
+  (GET "/sub" []
+       (fn [^NginxRequest req]
+         @init-broadcast-event-listener
+         (let [ch (hijack! req true)]
+           (on-close! ch ch #((log "#%s channel closed. id=%d" process-id (.nativeRequest req))
+                    (swap! long-polling-subscribers dissoc %)))
+           (swap! long-polling-subscribers assoc ch req)))))
 
 

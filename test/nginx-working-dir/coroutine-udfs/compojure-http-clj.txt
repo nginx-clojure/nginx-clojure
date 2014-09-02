@@ -140,10 +140,10 @@ fuzzyclass:nginx/clojure/coroutine_socket_handlers_for_test\$fn__(\d+)
   invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
 
 lazyclass:nginx/clojure/net/SimpleHandler4TestHttpClientGetMethod
-  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
+  invoke(Ljava/util/Map;)[Ljava/lang/Object;:normal
 
 lazyclass:nginx/clojure/net/SimpleHandler4TestNginxClojureSocket
-  invoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
+  invoke(Ljava/util/Map;)[Ljava/lang/Object;:normal
 
 lazyclass:org/apache/commons/io/IOUtils
   copy(Ljava/io/InputStream;Ljava/io/OutputStream;)I:normal

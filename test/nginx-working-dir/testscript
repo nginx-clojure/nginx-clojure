@@ -103,11 +103,14 @@ auto/configure --with-cc=cl --builddir=objs --with-debug --prefix= \
 nmake -f Makefile
 
 #win64 build
-
+0. install MingGW msys 
 1. install Visual C++ 2010 Express
 2. install Windows SDK 7.1
 3. install Visual Studio 2010 SP1
 4. install Visual C++ 2010 SP1 Compiler Update for the Windows SDK 7.1
+5. download pcre-8.32 and extract to ${nginx-src}/objs/lib/pcre-8.32
+6. download openssl-1.0.1i and extract to ${nginx-src}/objs/lib/openssl-1.0.1i
+7. download zlib-1.2.8 and extract to ${nginx-src}/objs/lib/zlib-1.2.8
 
 #start visual studio x64  command prompt (2010) 
 (or for vc 2010 express call "c:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\SetEnv.Cmd" /Release /x64)

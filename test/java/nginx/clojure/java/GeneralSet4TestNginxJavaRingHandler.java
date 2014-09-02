@@ -19,7 +19,7 @@ import nginx.clojure.AppEventListenerManager.PostedEvent;
 import nginx.clojure.ChannelListener;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHandler;
-import nginx.clojure.NginxServerChannel;
+import nginx.clojure.NginxHttpServerChannel;
 
 import org.codehaus.jackson.map.ObjectMapper;
 
@@ -60,16 +60,16 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 	public static class Init implements NginxJavaRingHandler, Listener {
 		public static final int LONGPOLL_EVENT = POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START;
 		public static final int SEVER_SENT_EVENTS = LONGPOLL_EVENT + 1;
-		public static Set<NginxServerChannel> longpollSubscribers;
-		public static Set<NginxServerChannel> serverSentEventSubscribers;
+		public static Set<NginxHttpServerChannel> longpollSubscribers;
+		public static Set<NginxHttpServerChannel> serverSentEventSubscribers;
 		
 		public Init() {
 		}
 		
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
-			longpollSubscribers = Collections.newSetFromMap(new ConcurrentHashMap<NginxServerChannel, Boolean>());
-			serverSentEventSubscribers = Collections.newSetFromMap(new ConcurrentHashMap<NginxServerChannel, Boolean>());
+			longpollSubscribers = Collections.newSetFromMap(new ConcurrentHashMap<NginxHttpServerChannel, Boolean>());
+			serverSentEventSubscribers = Collections.newSetFromMap(new ConcurrentHashMap<NginxHttpServerChannel, Boolean>());
 			NginxClojureRT.getAppEventListenerManager().addListener(this);
 			return null;
 		}
@@ -81,14 +81,14 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 			}
 			String message = new String((byte[])event.data, event.offset, event.length, DEFAULT_ENCODING);
 			if (event.tag == LONGPOLL_EVENT) {
-				for (NginxServerChannel channel : longpollSubscribers) {
+				for (NginxHttpServerChannel channel : longpollSubscribers) {
 					channel.sendResponse(new Object[] { NGX_HTTP_OK,
 							ArrayMap.create("content-type", "text/json"),
 							message});
 				}
 				longpollSubscribers.clear();
 			}else if (event.tag == SEVER_SENT_EVENTS) {
-				for (NginxServerChannel channel : serverSentEventSubscribers) {
+				for (NginxHttpServerChannel channel : serverSentEventSubscribers) {
 					if ("shutdown!".equals(message)) {
 						channel.send("data: "+message+"\r\n\r\n", true, true);
 					}else if ("shutdownQuite!".equals(message)) {
@@ -121,7 +121,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
 			NginxJavaRequest r = ((NginxJavaRequest)request);
-			NginxServerChannel channel = r.handler().hijack(r, false);
+			NginxHttpServerChannel channel = r.handler().hijack(r, false);
 			Init.longpollSubscribers.add(channel);
 			//nginx-clojure will ignore this return because we have hijacked the request.
 			return null;
@@ -148,14 +148,18 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		public Object[] invoke(Map<String, Object> request) {
 			NginxJavaRequest r = (NginxJavaRequest) request;
 			NginxHandler handler = r.handler();
-			NginxServerChannel channel = handler.hijack(r, true);
-			channel.addListener(new ChannelListener<NginxServerChannel>() {
+			NginxHttpServerChannel channel = handler.hijack(r, true);
+			channel.addListener(channel, new ChannelListener<NginxHttpServerChannel>() {
 				@Override
-				public void onClose(NginxServerChannel data) {
+				public void onClose(NginxHttpServerChannel data) {
 					Init.serverSentEventSubscribers.remove(data);
 					NginxClojureRT.getLog().info("closing...." + data.request().nativeRequest());
 				}
-			}, channel);
+
+				@Override
+				public void onConnect(long status, NginxHttpServerChannel data) {
+				}
+			});
 			Init.serverSentEventSubscribers.add(channel);
 			channel.sendHeader(200, ArrayMap.create("Content-Type", "text/event-stream").entrySet(), true, false);
 			channel.send("retry: 4500\r\n", true, false);
