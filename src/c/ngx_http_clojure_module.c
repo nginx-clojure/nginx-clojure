@@ -58,6 +58,11 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  
 static ngx_int_t ngx_http_clojure_init_socket(ngx_http_clojure_loc_conf_t  *lcf, ngx_log_t *log);
 
 static ngx_int_t ngx_http_clojure_init_clojure_script(char *type, ngx_str_t *handler_type, ngx_str_t *handler, ngx_str_t *code, ngx_int_t *pcid , ngx_log_t *log);
+
+static char * ngx_http_clojure_jvm_var_post_handler(ngx_conf_t *cf, void *data, void *conf);
+
+static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_loc_conf_t  *lcf, ngx_str_t exp, ngx_pool_t *pool);
+
 static void ngx_http_clojure_client_body_handler(ngx_http_request_t *r);
 
 /* Sadly JNI_CreateJavaVM doesn't always return error code for bad things(e.g initialized memory is too large),
@@ -87,7 +92,9 @@ static ngx_shm_t ngx_http_clojure_shared_memory;
 #endif
 
 
-
+static ngx_conf_post_t ngx_http_clojure_jvm_var_post = {
+	ngx_http_clojure_jvm_var_post_handler
+};
 
 static ngx_command_t ngx_http_clojure_commands[] = {
 	{
@@ -120,7 +127,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 		ngx_conf_set_keyval_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, jvm_vars),
-		NULL
+		&ngx_http_clojure_jvm_var_post
     },
     {
 		ngx_string("jvm_workers"),
@@ -278,8 +285,8 @@ static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_loc_conf_t  *l
 			if (*sp == '#' && sp[1] == '{') {
 				u_char *ev = ngx_strlchr(sp, esp, '}');
 				if (ev != NULL) {
-					sp += 2;
 					ngx_uint_t vn = vars->nelts;
+					sp += 2;
 					while (vn--) {
 						if (ngx_strncmp(kv[vn].key.data, sp, ev - sp) == 0) {
 							ngx_cpystrn(dp, kv[vn].value.data, kv[vn].value.len + 1);
@@ -301,6 +308,15 @@ static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_loc_conf_t  *l
 	}
 }
 
+static char * ngx_http_clojure_jvm_var_post_handler(ngx_conf_t *cf, void *data, void *conf) {
+	ngx_keyval_t *kv = conf;
+	ngx_http_clojure_loc_conf_t *lcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_clojure_module);
+	if (ngx_strnstr(kv->value.data, "#{", sizeof("#{")) != NULL) {
+		kv->value.data = ngx_http_clojure_eval_experssion(lcf, kv->value, cf->pool);
+		kv->value.len = ngx_strlen(kv->value.data);
+	}
+	return NGX_CONF_OK;
+}
 
 static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  *lcf, ngx_log_t *log) {
 	if (ngx_http_clojure_check_jvm() != NGX_HTTP_CLOJURE_JVM_OK){
@@ -504,11 +520,11 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 		if (kv == NULL) {
 			kv = ngx_array_push(mcf->jvm_vars);
 		}
-		kv->key.data = "pno";
-		kv->key.len = strlen("pno");
+		kv->key.data = (u_char*)"pno";
+		kv->key.len = ngx_strlen("pno");
 		kv->value.data = ngx_pcalloc(cycle->pool, 8);
 		ngx_sprintf(kv->value.data, "%d", jvm_num);
-		kv->value.len = strlen(kv->value.data);
+		kv->value.len = ngx_strlen(kv->value.data);
 	}
 
 

@@ -78,7 +78,7 @@ static void ngx_http_clojure_check_broken_connection(ngx_http_request_t *r, ngx_
 
 static void ngx_http_clojure_rd_check_broken_connection(ngx_http_request_t *r);
 
-static void ngx_http_clojure_wt_check_broken_connection(ngx_http_request_t *r);
+/*static void ngx_http_clojure_wt_check_broken_connection(ngx_http_request_t *r);*/
 
 static jlong JNICALL jni_ngx_palloc (JNIEnv *env, jclass cls, jlong pool, jlong size) {
 	return (uintptr_t)ngx_palloc((ngx_pool_t *)(uintptr_t)pool, (size_t)size);
@@ -1145,9 +1145,9 @@ static jlong JNICALL jni_ngx_http_hijack_send_header(JNIEnv *env, jclass cls, jl
 			rc = ngx_http_clojure_hijack_send(r, 0, 0, flag);
 			if (rc != NGX_OK) {
 				ngx_http_finalize_request(r, rc);
-				return rc;
 			}
 		}
+		return rc;
 	}else {
 		ngx_http_finalize_request(r, rc);
 		return rc;
@@ -1318,9 +1318,9 @@ static void ngx_http_clojure_rd_check_broken_connection(ngx_http_request_t *r){
     ngx_http_clojure_check_broken_connection(r, r->connection->read);
 }
 
-static void ngx_http_clojure_wt_check_broken_connection(ngx_http_request_t *r){
+/*static void ngx_http_clojure_wt_check_broken_connection(ngx_http_request_t *r){
     ngx_http_clojure_check_broken_connection(r, r->connection->write);
-}
+}*/
 
 static jlong JNICALL jni_ngx_http_cleanup_add(JNIEnv *env, jclass cls, jlong req, jobject listener, jobject data) {
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t)req;
