@@ -1691,7 +1691,7 @@ static ngx_int_t ngx_http_clojure_broadcast_event(void *e, size_t size, int has_
 	 *see known_issues from http://nginx.org/en/docs/windows.html#known_issues)
 	 *TODO: use shared socket handle between workers to git rid of this limitation*/
 	if (has_self) {
-		return ngx_http_clojure_post_event(nc_jvm_worker_pipe_fds[1], e, 8);
+		return ngx_http_clojure_post_event(nc_jvm_worker_pipe_fds[1], e, size);
 	}
 	return NGX_OK;
 #endif

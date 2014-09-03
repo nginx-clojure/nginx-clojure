@@ -267,6 +267,7 @@ static ngx_int_t ngx_http_clojure_init_clojure_script(char *type, ngx_str_t *han
     return NGX_HTTP_CLOJURE_JVM_OK;
 }
 
+#define NGX_CLOJURE_CONF_LINE_MAX 4096
 
 static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_loc_conf_t  *lcf, ngx_str_t exp, ngx_pool_t *pool) {
 	ngx_array_t *vars = lcf->jvm_vars;
@@ -275,9 +276,9 @@ static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_loc_conf_t  *l
 	} else {
 		u_char *sp = exp.data;
 		u_char *esp = sp + exp.len;
-		u_char tmp[NGX_MAX_PATH];
+		u_char tmp[NGX_CLOJURE_CONF_LINE_MAX];
 		u_char *dp = tmp;
-		u_char *edp = dp + NGX_MAX_PATH;
+		u_char *edp = dp + NGX_CLOJURE_CONF_LINE_MAX;
 		ngx_keyval_t *kv = vars->elts;
 		u_char *rt;
 
@@ -302,6 +303,10 @@ static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_loc_conf_t  *l
 			}
 			*dp++ = *sp++;
 		}
+		if (dp == edp) {
+			return NULL;
+		}
+
 		rt = ngx_palloc(pool, dp-tmp + 1);
 		ngx_cpystrn(rt, tmp, dp-tmp + 1);
 		return rt;
@@ -313,6 +318,12 @@ static char * ngx_http_clojure_jvm_var_post_handler(ngx_conf_t *cf, void *data, 
 	ngx_http_clojure_loc_conf_t *lcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_clojure_module);
 	if (ngx_strnstr(kv->value.data, "#{", sizeof("#{")) != NULL) {
 		kv->value.data = ngx_http_clojure_eval_experssion(lcf, kv->value, cf->pool);
+		if (kv->value.data == NULL) {
+			ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+			                       "too long of jvm_var \"%s\"",
+			                       kv->key);
+			return NGX_CONF_ERROR;
+		}
 		kv->value.len = ngx_strlen(kv->value.data);
 	}
 	return NGX_CONF_OK;
@@ -338,6 +349,13 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  
 
     	for (i = 0; i < len; i++){
     		options[i] = (char *)ngx_http_clojure_eval_experssion(lcf, elts[i], pool);
+    		if (options[i] == NULL) {
+    			ngx_conf_log_error(NGX_LOG_EMERG, ngx_http_clojure_global_ngx_conf, 0,
+    			                                       "too long jvm_options \"%*s...\" started",
+    			                                       10, elts[i].data);
+    			ngx_destroy_pool(pool);
+    			return NGX_HTTP_CLOJURE_JVM_ERR;
+    		}
     	}
 
     	rc = ngx_http_clojure_init_jvm(jvm_path, (char **)options, len);
@@ -479,7 +497,7 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 /*	ngx_http_core_main_conf_t *hcmcf = ngx_http_cycle_get_module_main_conf(cycle, ngx_http_core_module);*/
 	ngx_http_clojure_loc_conf_t *mcf = ctx->loc_conf[ngx_http_clojure_module.ctx_index];
 	ngx_core_conf_t  *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
-	int jvm_num = 0;
+	ngx_int_t jvm_num = 0;
 
 #if !(NGX_WIN32)
 	ngx_setproctitle("worker process");
@@ -488,7 +506,7 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 	ngx_http_clojure_jvm_num = &ngx_http_clojure_jvm_num_ins;
 #endif
 
-	jvm_num = (int)ngx_atomic_fetch_add(ngx_http_clojure_jvm_num, 1);
+	jvm_num = (ngx_int_t)ngx_atomic_fetch_add(ngx_http_clojure_jvm_num, 1);
 
 	if ((ngx_int_t)ngx_atomic_fetch_add(ngx_http_clojure_jvm_be_mad_times, 1) >= ccf->worker_processes) {
 		ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "jvm may be mad for wrong options! See hs_err_pid****.log for detail! restarted %d", *ngx_http_clojure_jvm_be_mad_times);
