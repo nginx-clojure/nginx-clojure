@@ -138,8 +138,8 @@
   (close [ch] (.close ch))
   (send! [ch data flush? last?]
     (cond
-      (instance? String data) (.send ch ^String data flush? last?)
-      (instance? ByteBuffer data) (.send ch ^ByteBuffer data flush? last?)
+      (instance? String data) (.send  ch ^String data ^boolean flush? ^boolean last?)
+      (instance? ByteBuffer data) (.send   ch ^ByteBuffer data ^boolean flush? ^boolean last?)
       :else
       (.send ch ^bytes data 0 (count data) flush? last?)))
   (send-header! [ch status ^java.util.Map headers flush? last?]

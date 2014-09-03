@@ -142,8 +142,9 @@
        (fn [^NginxRequest req]
          @init-broadcast-event-listener
          (let [ch (hijack! req true)]
-           (on-close! ch ch #((log "#%s channel closed. id=%d" process-id (.nativeRequest req))
-                    (swap! long-polling-subscribers dissoc %)))
+           (on-close! ch ch (fn [ch] 
+                              (log "#%s channel closed. id=%d" process-id (.nativeRequest req))
+                              (swap! long-polling-subscribers dissoc ch)))
            (swap! long-polling-subscribers assoc ch req)))))
 
 

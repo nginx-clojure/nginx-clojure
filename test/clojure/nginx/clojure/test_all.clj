@@ -327,11 +327,13 @@
              (is (= "<h1>Page not found</h1>" b))))
     
     (testing "sub/pub (by long polling & broadcast)"
-             (let [p (future (client/get (str "http://" *host* ":" *port* "/ringCompojure/sub") {:throw-exceptions false :socket-timeout 10000}))]
-               (client/get (str "http://" *host* ":" *port* "/ringCompojure/pub?good") {:throw-exceptions false :socket-timeout 1000})
+             (let [p (future (client/get (str "http://" *host* ":" *port* "/ringCompojure/sub") {:throw-exceptions false :socket-timeout 20000}))]
+               (Thread/sleep 5000) ;;let sub succeed
+               (client/get (str "http://" *host* ":" *port* "/ringCompojure/pub?good") {:throw-exceptions false :socket-timeout 10000})
                (is (= "good" (:body @p)))))
     (testing "sse-sub/sse-pub (by sever sent envets & broadcast)"
          (let [p (future (client/get (str "http://" *host* ":" *port* "/ringCompojure/sse-sub") {:throw-exceptions false :socket-timeout 20000}))]
+           (Thread/sleep 5000) ;;let sub succeed
            (client/get (str "http://" *host* ":" *port* "/ringCompojure/sse-pub?good!") {:throw-exceptions false :socket-timeout 10000})
            (client/get (str "http://" *host* ":" *port* "/ringCompojure/sse-pub?bad!") {:throw-exceptions false :socket-timeout 10000})
            (client/get (str "http://" *host* ":" *port* "/ringCompojure/sse-pub?finish!") {:throw-exceptions false :socket-timeout 10000})
