@@ -57,7 +57,9 @@ int ngx_http_clojure_init_jvm(char *jvm_path, char * *opts, size_t len) {
 
 #else
 
-	if ((libVM = dlopen(jvm_path, RTLD_LAZY)) == NULL) {
+    /*append RTLD_GLOBAL flag for Alpine Linux on which OpenJDK 7 libjvm.so 
+     *can not correctly handle cross symbol links from libjava.so, libverify.so*/
+	if ((libVM = dlopen(jvm_path, RTLD_LAZY | RTLD_GLOBAL)) == NULL) {
 		printf("can not open shared lib :%s,\n %s\n", jvm_path, dlerror());
 		return NGX_HTTP_CLOJURE_JVM_ERR_LOAD_LIB;
 	}
