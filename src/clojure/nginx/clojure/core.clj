@@ -59,7 +59,7 @@
    After being hijacked, the ring handler's result will be ignored.
    If ignore-nginx-filter? is true all data output to channel won't be filtered
    by any nginx HTTP header/body filters such as gzip filter, chucked filter, etc.
-   We can use this function to implement long poll / Server Sent Events (SSE) easily."
+   We can use this function to implement long polling / Server Sent Events (SSE) easily."
   [^NginxRequest req ignore-nginx-filter?]
   (-> req (.handler) (.hijack req ignore-nginx-filter?)))
 

@@ -102,6 +102,10 @@ auto/configure --with-cc=cl --builddir=objs --with-debug --prefix= \
 --add-module=Y:/nginx-clojure/src/c
 nmake -f Makefile
 
+#for debug options
+#CFLAGS = -I "C:/Program Files/Java/jdk1.7.0_25/include"         -I "C:/Program Files/Java/jdk1.7.0_25/include/win32"  /Od  -nologo -MT -ZI -DFD_SETSIZE=4096 -DNO_SYS_TYPES_H
+
+
 #win64 build
 0. install MingGW msys 
 1. install Visual C++ 2010 Express
