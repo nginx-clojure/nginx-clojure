@@ -10,7 +10,6 @@
 #include <ngx_http.h>
 
 
-extern ngx_conf_t *ngx_http_clojure_global_ngx_conf;
 extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 
 #define NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_READ 0

@@ -95,7 +95,6 @@ typedef struct {
 #define NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET  offsetof(ngx_chain_t, next)
 
 
-extern ngx_conf_t *ngx_http_clojure_global_ngx_conf;
 extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 
 #define NGX_HTTP_CLOJURE_VARIABLET_SIZE_IDX 19

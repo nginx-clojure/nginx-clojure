@@ -10,7 +10,6 @@
 #include "ngx_http_clojure_mem.h"
 #include "ngx_http_clojure_socket.h"
 
-ngx_conf_t *ngx_http_clojure_global_ngx_conf;
 ngx_cycle_t *ngx_http_clojure_global_cycle;
 
 typedef struct {
@@ -61,7 +60,9 @@ static ngx_int_t ngx_http_clojure_init_clojure_script(char *type, ngx_str_t *han
 
 static char * ngx_http_clojure_jvm_var_post_handler(ngx_conf_t *cf, void *data, void *conf);
 
-static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_loc_conf_t  *lcf, ngx_str_t exp, ngx_pool_t *pool);
+static char * ngx_http_clojure_jvm_options_post_handler(ngx_conf_t *cf, void *data, void *conf);
+
+static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_loc_conf_t  *lcf, ngx_str_t *exp, ngx_pool_t *pool);
 
 static void ngx_http_clojure_client_body_handler(ngx_http_request_t *r);
 
@@ -80,7 +81,7 @@ static ngx_atomic_t *ngx_http_clojure_jvm_num;
 
 #pragma data_seg("ngx_http_clojure_shared_memory")
 ngx_atomic_t ngx_http_clojure_jvm_be_mad_times_ins = 0;
-ngx_atomic_t ngx_http_clojure_jvm_num_ins = 0;
+ngx_atomic_t ngx_http_clojure_jvm_num_ins = 1;
 #pragma data_seg()
 
 #pragma comment(linker, "/Section:ngx_http_clojure_shared_memory,RWS")
@@ -94,6 +95,10 @@ static ngx_shm_t ngx_http_clojure_shared_memory;
 
 static ngx_conf_post_t ngx_http_clojure_jvm_var_post = {
 	ngx_http_clojure_jvm_var_post_handler
+};
+
+static ngx_conf_post_t ngx_http_clojure_jvm_options_post = {
+	ngx_http_clojure_jvm_options_post_handler
 };
 
 static ngx_command_t ngx_http_clojure_commands[] = {
@@ -111,7 +116,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 		ngx_conf_set_str_array_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, jvm_options),
-		NULL
+		&ngx_http_clojure_jvm_options_post
     },
     {
 		ngx_string("jvm_path"),
@@ -243,7 +248,6 @@ ngx_module_t  ngx_http_clojure_module = {
 
 static void * ngx_http_clojure_create_loc_conf(ngx_conf_t *cf) {
 	ngx_http_clojure_loc_conf_t *conf;
-	ngx_http_clojure_global_ngx_conf = cf;
 	conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_clojure_loc_conf_t));
 	if (conf == NULL){
 		return NGX_CONF_ERROR;
@@ -267,15 +271,15 @@ static ngx_int_t ngx_http_clojure_init_clojure_script(char *type, ngx_str_t *han
     return NGX_HTTP_CLOJURE_JVM_OK;
 }
 
-#define NGX_CLOJURE_CONF_LINE_MAX 4096
+#define NGX_CLOJURE_CONF_LINE_MAX 8192
 
-static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_loc_conf_t  *lcf, ngx_str_t exp, ngx_pool_t *pool) {
+static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_loc_conf_t  *lcf, ngx_str_t *exp, ngx_pool_t *pool) {
 	ngx_array_t *vars = lcf->jvm_vars;
 	if (vars == NULL) {
-		return exp.data;
+		return exp->data;
 	} else {
-		u_char *sp = exp.data;
-		u_char *esp = sp + exp.len;
+		u_char *sp = exp->data;
+		u_char *esp = sp + exp->len;
 		u_char tmp[NGX_CLOJURE_CONF_LINE_MAX];
 		u_char *dp = tmp;
 		u_char *edp = dp + NGX_CLOJURE_CONF_LINE_MAX;
@@ -290,6 +294,9 @@ static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_loc_conf_t  *l
 					sp += 2;
 					while (vn--) {
 						if (ngx_strncmp(kv[vn].key.data, sp, ev - sp) == 0) {
+							if ((size_t)(edp - dp) < kv[vn].value.len + 1) {
+								return NULL;
+							}
 							ngx_cpystrn(dp, kv[vn].value.data, kv[vn].value.len + 1);
 							sp = ev + 1;
 							dp += kv[vn].value.len;
@@ -317,14 +324,31 @@ static char * ngx_http_clojure_jvm_var_post_handler(ngx_conf_t *cf, void *data, 
 	ngx_keyval_t *kv = conf;
 	ngx_http_clojure_loc_conf_t *lcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_clojure_module);
 	if (ngx_strnstr(kv->value.data, "#{", sizeof("#{")) != NULL) {
-		kv->value.data = ngx_http_clojure_eval_experssion(lcf, kv->value, cf->pool);
+		kv->value.data = ngx_http_clojure_eval_experssion(lcf, &kv->value, cf->pool);
 		if (kv->value.data == NULL) {
 			ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-			                       "too long of jvm_var \"%s\"",
-			                       kv->key);
+			                       "too long expanded jvm_var \"%s\"",
+			                       kv->key.data);
 			return NGX_CONF_ERROR;
 		}
 		kv->value.len = ngx_strlen(kv->value.data);
+	}
+	return NGX_CONF_OK;
+}
+
+static char * ngx_http_clojure_jvm_options_post_handler(ngx_conf_t *cf, void *data, void *conf) {
+	ngx_str_t *v = conf;
+	ngx_http_clojure_loc_conf_t *lcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_clojure_module);
+	if (ngx_strnstr(v->data, "#{", sizeof("#{")) != NULL) {
+		u_char * ev = ngx_http_clojure_eval_experssion(lcf, v, cf->pool);
+		if (ev == NULL) {
+			ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+					"too long expanded jvm_options \"%*s...\" started",
+					    			                                       10, v->data);
+			return NGX_CONF_ERROR;
+		}
+		v->data = ev;
+		v->len = ngx_strlen(ev);
 	}
 	return NGX_CONF_OK;
 }
@@ -348,10 +372,10 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_loc_conf_t  
     	jvm_path = (char *)lcf->jvm_path.data;
 
     	for (i = 0; i < len; i++){
-    		options[i] = (char *)ngx_http_clojure_eval_experssion(lcf, elts[i], pool);
+    		options[i] = (char *)ngx_http_clojure_eval_experssion(lcf, &elts[i], pool);
     		if (options[i] == NULL) {
-    			ngx_conf_log_error(NGX_LOG_EMERG, ngx_http_clojure_global_ngx_conf, 0,
-    			                                       "too long jvm_options \"%*s...\" started",
+    			ngx_log_error(NGX_LOG_EMERG, log, 0,
+    			                                       "too long expanded jvm_options \"%*s...\" started",
     			                                       10, elts[i].data);
     			ngx_destroy_pool(pool);
     			return NGX_HTTP_CLOJURE_JVM_ERR;
@@ -581,6 +605,7 @@ static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 	ngx_http_core_main_conf_t *cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
 	ngx_http_clojure_loc_conf_t *lcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_clojure_module);
 	ngx_http_handler_pt *h;
+
 
 	if (lcf->jvm_path.len == NGX_CONF_UNSET_SIZE) {
 		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "no jvm_path configured!");
