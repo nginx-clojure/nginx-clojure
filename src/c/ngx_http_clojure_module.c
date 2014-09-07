@@ -279,7 +279,7 @@ static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_loc_conf_t  *l
 		return exp->data;
 	} else {
 		u_char *sp = exp->data;
-		u_char *esp = sp + exp->len;
+		u_char *esp = sp + exp->len + 1;
 		u_char tmp[NGX_CLOJURE_CONF_LINE_MAX];
 		u_char *dp = tmp;
 		u_char *edp = dp + NGX_CLOJURE_CONF_LINE_MAX;
@@ -323,7 +323,7 @@ static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_loc_conf_t  *l
 static char * ngx_http_clojure_jvm_var_post_handler(ngx_conf_t *cf, void *data, void *conf) {
 	ngx_keyval_t *kv = conf;
 	ngx_http_clojure_loc_conf_t *lcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_clojure_module);
-	if (ngx_strnstr(kv->value.data, "#{", sizeof("#{")) != NULL) {
+	if (ngx_strnstr(kv->value.data, "#{", kv->value.len) != NULL) {
 		kv->value.data = ngx_http_clojure_eval_experssion(lcf, &kv->value, cf->pool);
 		if (kv->value.data == NULL) {
 			ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
@@ -339,7 +339,7 @@ static char * ngx_http_clojure_jvm_var_post_handler(ngx_conf_t *cf, void *data, 
 static char * ngx_http_clojure_jvm_options_post_handler(ngx_conf_t *cf, void *data, void *conf) {
 	ngx_str_t *v = conf;
 	ngx_http_clojure_loc_conf_t *lcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_clojure_module);
-	if (ngx_strnstr(v->data, "#{", sizeof("#{")) != NULL) {
+	if (ngx_strnstr(v->data, "#{", v->len) != NULL) {
 		u_char * ev = ngx_http_clojure_eval_experssion(lcf, v, cf->pool);
 		if (ev == NULL) {
 			ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
