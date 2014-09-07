@@ -1,3 +1,20 @@
+Downloads & Release History
+=============
+
+1. [Binaries of Releases](http://sourceforge.net/projects/nginx-clojure/files/)
+1. [Sources of Releases](https://github.com/nginx-clojure/nginx-clojure/releases)
+
+## 0.2.5 (2014-09-07)
+
+1. New Feature: Reference variables in jvm_options & different jvm debug ports for jvm processes (issue #42)
+1. New Feature: Server Sent Events(SSE) & Long polling (issue #41, issue #36)
+1. New Feature: Supports 64-bit JDK on 64-bit Windows (issue #40)
+1. New Feature: Coroutine based socket supports JDK8 (issue #39)
+1. New Feature: More easier to archive Sub/Pub services with Broadcast Events to all Nginx workers (issue #39)
+1. New Feature: Asynchronous Channel a wrapper of asynchronous socket to make the usage easier (issue #37)
+1. Enhancement: Fix--On Windows a little many write events happen and these events seem useless (issue #35)
+
+
 ## 0.2.4 (2014-07-25)
 
 1. New Feature: Support Groovy - another dynamic jvm language (issue #34)
