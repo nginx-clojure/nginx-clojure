@@ -723,13 +723,19 @@ static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t * r) {
 		if (rc != NGX_DONE) {
 			ctx->phrase = -1;
 		}
+		ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0, "ngx clojure rewrite (null ctx) request: %" PRIu64 ", rc: %d", (jlong)(uintptr_t)r, rc);
 		return rc;
 	}else if (++ ctx->handled_couter > 32) { /*reach dead cycle*/
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "too much times by rewrite/access handler %d", ctx->handled_couter);
 		ctx->phrase = -1;
 		return NGX_HTTP_INTERNAL_SERVER_ERROR;
-	}else if (ctx->phrase == NGX_HTTP_REWRITE_PHASE) { /*enter again*/
+	}else if (ctx->phrase == NGX_HTTP_REWRITE_PHASE) { /*enter again but we not finished*/
+		ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0, "ngx clojure rewrite (enter again but we not finished) request: %" PRIu64 ", rc: %d", (jlong)(uintptr_t)r, NGX_DECLINED);
+		return NGX_DONE;
+	} else if (ctx->phrase == ~NGX_HTTP_REWRITE_PHASE) {
 		ctx->phrase = -1;
+		ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0,
+				"ngx clojure rewrite (enter again) request: %" PRIu64 ", rc: %d", (jlong )(uintptr_t )r, NGX_DECLINED);
 		return NGX_DECLINED;
 	}else {
 		ctx->phrase = NGX_HTTP_REWRITE_PHASE;
@@ -737,6 +743,7 @@ static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t * r) {
 		if (rc != NGX_DONE) {
 			ctx->phrase = -1;
 		}
+		ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0, "ngx clojure rewrite (else) request: %" PRIu64 ", rc: %d", (jlong)(uintptr_t)r, rc);
 		return rc;
 	}
 }

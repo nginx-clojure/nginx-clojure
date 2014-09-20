@@ -1471,6 +1471,8 @@ static void JNICALL jni_ngx_http_clojure_mem_inc_req_count(JNIEnv *env, jclass c
 
 static void JNICALL jni_ngx_http_clojure_mem_continue_current_phase(JNIEnv *env, jclass cls, jlong r) {
 	ngx_http_request_t *req = (ngx_http_request_t *)(uintptr_t) r;
+	ngx_http_clojure_module_ctx_t *ctx = ngx_http_get_module_ctx(req, ngx_http_clojure_module);
+	ctx->phrase = ~ctx->phrase;
 	req->write_event_handler(req);
 }
 
@@ -2131,9 +2133,10 @@ int ngx_http_clojure_register_script(ngx_str_t *handler_type, ngx_str_t *handler
 int ngx_http_clojure_eval(int cid, void *r) {
 	JNIEnv *env = jvm_env;
 	int rc;
-	log_debug1(ngx_http_clojure_global_cycle->log, "ngx clojure eval request: %ul", (uintptr_t)r);
+/*	log_debug1(ngx_http_clojure_global_cycle->log, "ngx clojure eval request: %ul", (uintptr_t)r);*/
 	log_debug2(ngx_http_clojure_global_cycle->log, "ngx clojure eval request to jlong: %" PRIu64 ", size: %d", (jlong)(uintptr_t)r, 8);
 	rc = (*env)->CallStaticIntMethod(env, nc_rt_class,  nc_rt_eval_mid, (jint)cid, (jlong)(uintptr_t)r);
+	log_debug2(ngx_http_clojure_global_cycle->log, "ngx clojure eval request to jlong: %" PRIu64 ", rc: %d", (jlong)(uintptr_t)r, rc);
 	exception_handle(1, env, return 500);
 	return rc;
 }
