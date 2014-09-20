@@ -31,6 +31,7 @@ import static nginx.clojure.clj.Constants.URI;
 import java.util.Iterator;
 import java.util.Map;
 
+import nginx.clojure.ChannelListener;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHandler;
 import nginx.clojure.NginxRequest;
@@ -56,14 +57,29 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	protected NginxHandler handler;
 	protected NginxHttpServerChannel channel;
 	protected byte[] hijackTag;
+	protected volatile boolean released = false;
 	
 	public final static LazyRequestMap EMPTY_MAP = new LazyRequestMap(null, 0, null, new Object[0]);
+	
+	private final  static ChannelListener<LazyRequestMap> requestListener  = new  ChannelListener<LazyRequestMap> (){
+		@Override
+		public void onClose(LazyRequestMap data) {
+			data.released = true;
+		}
+		
+		@Override
+		public void onConnect(long status, LazyRequestMap data) {
+		}
+	};
 	
 	public LazyRequestMap(NginxHandler handler, long r, byte[] hijackTag, Object[] array) {
 		this.handler = handler;
 		this.r = r;
 		this.array = array;
 		this.hijackTag = hijackTag;
+		if (r != 0) {
+			NginxClojureRT.ngx_http_cleanup_add(r, requestListener, this);
+		}
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -322,6 +338,11 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	@Override
 	public boolean isHijacked() {
 		return hijackTag != null && hijackTag[0] == 1;
+	}
+
+	@Override
+	public boolean isReleased() {
+		return released;
 	}
 
 }

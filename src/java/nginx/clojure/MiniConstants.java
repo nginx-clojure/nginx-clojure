@@ -5,10 +5,8 @@
 package nginx.clojure;
 
 import java.nio.charset.Charset;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 
 /**
  * Mini constants needed Nginx-Clojure Basic Platform
@@ -332,8 +330,8 @@ public class MiniConstants {
 	public static int NGX_HTTP_CLOJURE_MEM_IDX_END = 255;
 	
 	//nginx clojure java runtime required the lowest version of nginx-clojure c module
-	public final static long NGINX_CLOJURE_RT_REQUIRED_LVER = 2005;
-	public final static long NGINX_CLOJURE_RT_VER = 2005;
+	public final static long NGINX_CLOJURE_RT_REQUIRED_LVER = 2006;
+	public final static long NGINX_CLOJURE_RT_VER = 2006;
 	
 	//ngx_core.h
 	public static int  NGX_OK       =   0;
@@ -469,27 +467,8 @@ public class MiniConstants {
 	
 	public static ResponseTableEltHeaderPusher SERVER_PUSHER;
 	
-	public static final class NginxFakeResponse implements NginxResponse {
-
-		public int fetchStatus(int defaultStatus) {
-			return defaultStatus;
-		}
-		@Override
-		public Collection<Entry<?, ?>> fetchHeaders() {
-			return null;
-		}
-		@Override
-		public Object fetchBody() {
-			return null;
-		}
-		@Override
-		public NginxRequest request() {
-			return null;
-		}
-	}
-	
-	public static final NginxResponse NR_ASYNC_TAG = new NginxFakeResponse();
-	
-	public static final NginxResponse NR_PHRASE_DONE = new NginxFakeResponse();
+	public static final int MODE_DEFAULT = 0;
+	public static final int MODE_THREAD = 1;
+	public static final int MODE_COROUTINE = 2;
 
 }

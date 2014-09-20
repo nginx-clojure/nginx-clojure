@@ -4,6 +4,7 @@ package nginx.clojure;
 public abstract class NginxSimpleResponse implements NginxResponse {
 	
 	protected NginxRequest request;
+	protected int type = TYPE_NORMAL;
 	
 	public NginxSimpleResponse() {
 	}
@@ -17,4 +18,8 @@ public abstract class NginxSimpleResponse implements NginxResponse {
 		return request;
 	}
 	
+	@Override
+	public int type() {
+		return type;
+	}
 }

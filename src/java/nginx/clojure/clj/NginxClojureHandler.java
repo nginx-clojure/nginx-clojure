@@ -7,22 +7,19 @@ package nginx.clojure.clj;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_CHAINT_SIZE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NO_CONTENT;
-import static nginx.clojure.MiniConstants.NR_ASYNC_TAG;
-import static nginx.clojure.MiniConstants.NR_PHRASE_DONE;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
 import static nginx.clojure.NginxClojureRT.ngx_palloc;
 import static nginx.clojure.clj.Constants.ASYNC_TAG;
 import static nginx.clojure.clj.Constants.BODY;
-import static nginx.clojure.clj.Constants.PHRASE_DONE;
 
 import java.io.Closeable;
 import java.util.Map;
 
 import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
+import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxRequest;
 import nginx.clojure.NginxResponse;
-import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxSimpleHandler;
 import nginx.clojure.ResponseHeaderPusher;
 import nginx.clojure.ResponseUnknownHeaderPusher;
@@ -73,7 +70,7 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 		LazyRequestMap r = (LazyRequestMap)req;
 		try{
 			Map resp = (Map) ringHandler.invoke(r);
-			return req.isHijacked() ? NR_ASYNC_TAG : toNginxResponse(r, resp);
+			return req.isHijacked() ? toNginxResponse(r, ASYNC_TAG) : toNginxResponse(r, resp);
 		}finally {
 			int bodyIdx = r.index(BODY);
 			if (bodyIdx > 0 && r.array[bodyIdx] instanceof Closeable) {
@@ -87,12 +84,6 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 	}
 	
 	public  NginxResponse toNginxResponse(NginxRequest req, Object resp) {
-		if (resp == ASYNC_TAG) {
-			return NR_ASYNC_TAG;
-		}
-		if (resp == PHRASE_DONE) {
-			return NR_PHRASE_DONE;
-		}
 		if (resp == null) {
 			return null;
 		}

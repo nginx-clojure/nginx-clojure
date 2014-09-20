@@ -34,10 +34,11 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
+import nginx.clojure.ChannelListener;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHandler;
-import nginx.clojure.NginxRequest;
 import nginx.clojure.NginxHttpServerChannel;
+import nginx.clojure.NginxRequest;
 import nginx.clojure.NginxSimpleHandler.SimpleEntry;
 import nginx.clojure.RequestVarFetcher;
 import nginx.clojure.java.PickerPoweredIterator.Picker;
@@ -50,6 +51,20 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	protected Object[] array;
 	protected boolean hijacked = false;
 	protected NginxHttpServerChannel channel;
+	
+	protected volatile boolean released = false;
+	
+	
+	private final  static ChannelListener<NginxJavaRequest> requestListener  = new  ChannelListener<NginxJavaRequest> (){
+		@Override
+		public void onClose(NginxJavaRequest data) {
+			data.released = true;
+		}
+		
+		@Override
+		public void onConnect(long status, NginxJavaRequest data) {
+		}
+	};
 	
 	public NginxJavaRequest(NginxHandler handler, NginxJavaRingHandler ringHandler, long r, Object[] array) {
 		this.r = r;
@@ -307,4 +322,8 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		return channel;
 	}
 
+	@Override
+	public boolean isReleased() {
+		return released;
+	}
 }

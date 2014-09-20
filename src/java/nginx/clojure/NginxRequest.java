@@ -4,6 +4,8 @@ public interface NginxRequest {
 	
 	public long nativeRequest();
 	
+	public boolean isReleased();
+	
 	 //for safe access with another thread
 	public void	prefetchAll();
 	

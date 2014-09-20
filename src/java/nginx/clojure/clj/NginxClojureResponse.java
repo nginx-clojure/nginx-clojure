@@ -14,6 +14,7 @@ import java.util.Map.Entry;
 
 import nginx.clojure.NginxRequest;
 import nginx.clojure.NginxSimpleResponse;
+import nginx.clojure.clj.Constants;
 
 public class NginxClojureResponse extends NginxSimpleResponse {
 
@@ -25,6 +26,11 @@ public class NginxClojureResponse extends NginxSimpleResponse {
 	public NginxClojureResponse(NginxRequest req, Map response) {
 		super(req);
 		this.response = response;
+		if (response == Constants.ASYNC_TAG) {
+			this.type = TYPE_FAKE_ASYNC_TAG;
+		}else if (response == Constants.PHRASE_DONE) {
+			this.type = TYPE_FAKE_PHRASE_DONE;
+		}
 	}
 
 

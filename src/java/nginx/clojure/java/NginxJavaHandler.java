@@ -5,17 +5,14 @@
 package nginx.clojure.java;
 
 import static nginx.clojure.MiniConstants.BODY;
-import static nginx.clojure.MiniConstants.NR_ASYNC_TAG;
-import static nginx.clojure.MiniConstants.NR_PHRASE_DONE;
 import static nginx.clojure.java.Constants.ASYNC_TAG;
-import static nginx.clojure.java.Constants.PHRASE_DONE;
 
 import java.io.Closeable;
 
 import nginx.clojure.NginxClojureRT;
+import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxRequest;
 import nginx.clojure.NginxResponse;
-import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxSimpleHandler;
 
 public class NginxJavaHandler extends NginxSimpleHandler {
@@ -45,7 +42,7 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 		NginxJavaRequest r = (NginxJavaRequest)req;
 		try{
 			Object resp = ringHandler.invoke(r);
-			return req.isHijacked() ? NR_ASYNC_TAG : toNginxResponse(req, resp);
+			return req.isHijacked() ? toNginxResponse(req, ASYNC_TAG) : toNginxResponse(req, resp);
 		}finally {
 			int bodyIdx = r.index(BODY);
 			if (bodyIdx > 0) {
@@ -63,13 +60,6 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 
 	@Override
 	public  NginxResponse toNginxResponse(NginxRequest req, Object resp) {
-		
-		if (resp == ASYNC_TAG) {
-			return NR_ASYNC_TAG;
-		}
-		if (resp == PHRASE_DONE) {
-			return NR_PHRASE_DONE;
-		}
 		
 		if (resp == null) {
 			return null;

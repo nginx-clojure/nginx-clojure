@@ -21,6 +21,11 @@ public class NginxJavaResponse extends NginxSimpleResponse {
 	public NginxJavaResponse(NginxRequest req, Object[] response) {
 		super(req);
 		this.response = response;
+		if (response == Constants.ASYNC_TAG) {
+			this.type = TYPE_FAKE_ASYNC_TAG;
+		}else if (response == Constants.PHRASE_DONE) {
+			this.type = TYPE_FAKE_PHRASE_DONE;
+		}
 	}
 
 	@Override

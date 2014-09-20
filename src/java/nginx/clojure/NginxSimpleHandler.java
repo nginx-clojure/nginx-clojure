@@ -16,8 +16,6 @@ import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_POOL_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_INTERNAL_SERVER_ERROR;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NO_CONTENT;
 import static nginx.clojure.MiniConstants.NGX_HTTP_OK;
-import static nginx.clojure.MiniConstants.NR_ASYNC_TAG;
-import static nginx.clojure.MiniConstants.NR_PHRASE_DONE;
 import static nginx.clojure.MiniConstants.SERVER_PUSHER;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
 import static nginx.clojure.NginxClojureRT.coroutineEnabled;
@@ -51,6 +49,8 @@ import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 
 import nginx.clojure.NginxClojureRT.WorkerResponseContext;
+import nginx.clojure.java.Constants;
+import nginx.clojure.java.NginxJavaResponse;
 
 
 public abstract class NginxSimpleHandler implements NginxHandler {
@@ -62,7 +62,7 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 		
 		if (r == 0) { //by worker init process
 			NginxResponse resp = handleRequest(makeRequest(0));
-			if (resp != null && resp != NR_ASYNC_TAG && resp.fetchStatus(200) != 200) {
+			if (resp != null && resp.type() == NginxResponse.TYPE_FAKE_ASYNC_TAG && resp.fetchStatus(200) != 200) {
 				log.error("initialize error %s", resp);
 				return NGX_HTTP_INTERNAL_SERVER_ERROR;
 			}
@@ -74,7 +74,7 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 		
 		if (workers == null) {
 			NginxResponse resp = handleRequest(req);
-			if (resp == NR_ASYNC_TAG) {
+			if (resp.type() == NginxResponse.TYPE_FAKE_ASYNC_TAG) {
 				if (phase == -1) { //from content handler invoking 
 					ngx_http_clojure_mem_inc_req_count(r);
 				}
@@ -86,13 +86,15 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 		//for safe access with another thread
 		req.prefetchAll();
 
-		ngx_http_clojure_mem_inc_req_count(r);
+		if (phase == -1) { //from content handler invoking 
+			ngx_http_clojure_mem_inc_req_count(r);
+		}
 		workers.submit(new Callable<NginxClojureRT.WorkerResponseContext>() {
 			@Override
 			public WorkerResponseContext call() throws Exception {
 				NginxResponse resp = handleRequest(req);
 				//let output chain built before entering the main thread
-				return new WorkerResponseContext(resp, resp == NR_PHRASE_DONE || resp == NR_ASYNC_TAG ? 0 : buildOutputChain(resp));
+				return new WorkerResponseContext(resp, req);
 			}
 		});
 		return NGX_DONE;
@@ -110,7 +112,7 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 				if (coroutine.getState() == Coroutine.State.FINISHED) {
 					return coroutineRunner.response;
 				}else {
-					return NR_ASYNC_TAG;
+					return new NginxJavaResponse(req, Constants.ASYNC_TAG);
 				}
 			}else {
 				return req.handler().process(req);
@@ -156,6 +158,11 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 		public NginxUnhandledExceptionResponse(NginxRequest r, Throwable e) {
 			this.err = e;
 			this.r = r;
+			if (r.isReleased()) {
+				this.type = TYPE_FATAL;
+			}else {
+				this.type = TYPE_ERROR;
+			}
 		}
 		
 		@Override

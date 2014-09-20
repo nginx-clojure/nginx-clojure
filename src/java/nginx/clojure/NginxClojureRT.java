@@ -53,6 +53,7 @@ public class NginxClojureRT extends MiniConstants {
 	private static Map<Long, Integer> CODE_MAP = new HashMap<Long, Integer>();
 	
 	
+	public static int MODE =  MODE_DEFAULT;
 	
 	public static ConcurrentHashMap<Long, Object> POSTED_EVENTS_DATA = new ConcurrentHashMap<Long, Object>();
 	
@@ -174,12 +175,22 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public static final class WorkerResponseContext {
 		public final NginxResponse response;
+		public final NginxRequest request;
 		public final long chain;
 		
-		public WorkerResponseContext(NginxResponse response, long chain) {
+		public WorkerResponseContext(NginxResponse resp, NginxRequest req) {
 			super();
-			this.response = response;
-			this.chain = chain;
+			this.response = resp;
+			this.request = req;
+			if (resp.type() >= 0) {
+				if (req.isReleased()) {
+					chain = 0;
+				}else {
+					chain = req.handler().buildOutputChain(resp);
+				}
+			}else {
+				chain = 0;
+			}
 		}
 	}
 	
@@ -238,7 +249,7 @@ public class NginxClojureRT extends MiniConstants {
 				try {
 					Future<WorkerResponseContext> respFuture =  workers.take();
 					WorkerResponseContext ctx = respFuture.get();
-					if (ctx.response == NR_ASYNC_TAG) {
+					if (ctx.response.type() == NginxResponse.TYPE_FAKE_ASYNC_TAG) {
 						continue;
 					}
 					long r = ctx.response.request().nativeRequest();
@@ -249,6 +260,8 @@ public class NginxClojureRT extends MiniConstants {
 					break;
 				} catch (ExecutionException e) {
 					log.error("unexpected ExecutionException!", e);
+				}catch (Throwable  e) {
+					log.error("unexpected Error!", e);
 				}
 			}
 		}
@@ -282,7 +295,7 @@ public class NginxClojureRT extends MiniConstants {
  * e.g. proxyed external http service, so when turn on run tool mode we need thread 
  * pool to make worker not blocked otherwise we can not continue the process of generatation 
  * of coroutine waving configuration.*/				
-				if (n < 1) {
+				if (n < 0) {
 					log.warn("enable thread pool mode for run tool mode so that %s", 
 							"worker won't be blocked when access services provide by the same nginx instance");
 					n = Runtime.getRuntime().availableProcessors() * 2;
@@ -302,11 +315,12 @@ public class NginxClojureRT extends MiniConstants {
 				coroutineEnabled = false;
 			}else {
 				coroutineEnabled = true;
-			}
-			try {
-				Socket.setSocketImplFactory(new NginxClojureSocketFactory());
-			} catch (IOException e) {
-				throw new RuntimeException("can not init NginxClojureSocketFactory!", e);
+				MODE = MODE_COROUTINE;
+				try {
+					Socket.setSocketImplFactory(new NginxClojureSocketFactory());
+				} catch (IOException e) {
+					throw new RuntimeException("can not init NginxClojureSocketFactory!", e);
+				}
 			}
 			return;
 		}
@@ -315,6 +329,8 @@ public class NginxClojureRT extends MiniConstants {
 		}
 		
 		log.info("nginx-clojure run on thread pool mode,  coroutineEnabled=false");
+		
+		MODE = MODE_THREAD;
 		
 		eventDispather = Executors.newSingleThreadExecutor(new ThreadFactory() {
 			@Override
@@ -676,6 +692,11 @@ public class NginxClojureRT extends MiniConstants {
 	public static final int setNGXVariable(long r, String name, String val) {
 		long np = CORE_VARS.containsKey(name) ? CORE_VARS.get(name) : 0;
 		long pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
+		
+		if (pool == 0) {
+			throw new RuntimeException("pool is null, maybe request is finished by wront coroutine configuration!");
+		}
+		
 		if (np == 0) {
 			np = ngx_palloc(pool, NGX_HTTP_CLOJURE_STR_SIZE);
 			pushNGXString(np, name, DEFAULT_ENCODING, pool);
@@ -813,18 +834,31 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public static int handleResponse(long r) {
 		WorkerResponseContext ctx = (WorkerResponseContext) POSTED_EVENTS_DATA.remove(r);
-		if (ctx.response == NR_PHRASE_DONE) {
+		NginxResponse resp = ctx.response;
+		NginxRequest req = ctx.request;
+		
+		if (ctx.request.isReleased()) {
+			if (resp.type() != 0) {
+				log.error("#%d: request is release! and we alos meet an unhandled exception! %s",  req.nativeRequest(), resp.fetchBody());
+			}else {
+				log.error("#%d: request is release! ");
+			}
+			return NGX_HTTP_INTERNAL_SERVER_ERROR;
+		}
+		
+		if (resp.type() == NginxResponse.TYPE_FAKE_PHRASE_DONE) {
 			ngx_http_clojure_mem_continue_current_phase(r);
 			return NGX_OK;
 		}
 		long chain = ctx.chain;
-		NginxRequest req = ctx.response.request();
 		if (chain < 0) {
-			req.handler().prepareHeaders(req, -(int)chain, ctx.response.fetchHeaders());
+			req.handler().prepareHeaders(req, -(int)chain, resp.fetchHeaders());
 			ngx_http_finalize_request(r, -chain);
+		}else if (chain == 0) {
+			ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
 		} else {
 			int status = ctx.response.fetchStatus(NGX_HTTP_OK);
-			req.handler().prepareHeaders(req, status, ctx.response.fetchHeaders());
+			req.handler().prepareHeaders(req, status, resp.fetchHeaders());
 			int rc = (int)ngx_http_send_header(req.nativeRequest());
 			if (rc == NGX_ERROR || rc > NGX_OK) {
 				ngx_http_finalize_request(r, rc);
@@ -839,7 +873,7 @@ public class NginxClojureRT extends MiniConstants {
 		if (Thread.currentThread() != NGINX_MAIN_THREAD) {
 			throw new RuntimeException("handleResponse can not be called out of nginx clojure main thread!");
 		}
-		if (resp == NR_PHRASE_DONE) {
+		if (resp.type() == NginxResponse.TYPE_FAKE_PHRASE_DONE) {
 			return NGX_DECLINED;
 		}
 		
@@ -874,7 +908,7 @@ public class NginxClojureRT extends MiniConstants {
 			return;
 		}
 		
-		if (resp == NR_PHRASE_DONE) {
+		if (resp.type() == NginxResponse.TYPE_FAKE_PHRASE_DONE) {
 			ngx_http_clojure_mem_continue_current_phase(r);
 			return;
 		}
@@ -907,7 +941,7 @@ public class NginxClojureRT extends MiniConstants {
 			handleResponse(req, resp);
 		}else {
 			long r = req.nativeRequest();
-			WorkerResponseContext ctx = new WorkerResponseContext(resp, req.handler().buildOutputChain(resp));
+			WorkerResponseContext ctx = new WorkerResponseContext(resp, req);
 			savePostEventData(r, ctx);
 			ngx_http_clojure_mem_post_event(r, null, 0);
 		}
