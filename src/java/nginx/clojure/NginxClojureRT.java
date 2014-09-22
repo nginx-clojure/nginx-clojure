@@ -512,6 +512,7 @@ public class NginxClojureRT extends MiniConstants {
 		NGINX_CLOJURE_VER = MEM_INDEX[NGINX_CLOJURE_VER_ID];
 		NGINX_VER = MEM_INDEX[NGINX_VER_ID];
 		
+		//now we not use final static to keep it from optimizing to constant integer
 		if (NGINX_CLOJURE_RT_REQUIRED_LVER > NGINX_CLOJURE_VER) {
 			throw new IllegalStateException("NginxClojureRT required version is >=" + formatVer(NGINX_CLOJURE_RT_REQUIRED_LVER) + ", but here is " + formatVer(NGINX_CLOJURE_VER));
 		}

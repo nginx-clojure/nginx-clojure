@@ -290,7 +290,7 @@ static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_loc_conf_t  *l
 			if (*sp == '#' && sp[1] == '{') {
 				u_char *ev = ngx_strlchr(sp, esp, '}');
 				if (ev != NULL) {
-					ngx_uint_t vn = vars->nelts;
+					int vn = (int)vars->nelts;
 					sp += 2;
 					while (vn--) {
 						if (ngx_strncmp(kv[vn].key.data, sp, ev - sp) == 0) {
@@ -303,8 +303,11 @@ static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_loc_conf_t  *l
 							break;
 						}
 					}
-					if (vn) {
+					if (vn > -1) {
 						continue;
+					}else {
+						*dp++ = '#';
+						*dp++ = '{';
 					}
 				}
 			}

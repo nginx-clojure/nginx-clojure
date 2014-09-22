@@ -330,8 +330,8 @@ public class MiniConstants {
 	public static int NGX_HTTP_CLOJURE_MEM_IDX_END = 255;
 	
 	//nginx clojure java runtime required the lowest version of nginx-clojure c module
-	public final static long NGINX_CLOJURE_RT_REQUIRED_LVER = 2006;
-	public final static long NGINX_CLOJURE_RT_VER = 2006;
+	public  static long NGINX_CLOJURE_RT_REQUIRED_LVER = 2006;
+	public  static long NGINX_CLOJURE_RT_VER = 2006;
 	
 	//ngx_core.h
 	public static int  NGX_OK       =   0;
