@@ -4,6 +4,17 @@ Downloads & Release History
 1. [Binaries of Releases](http://sourceforge.net/projects/nginx-clojure/files/)
 1. [Sources of Releases](https://github.com/nginx-clojure/nginx-clojure/releases)
 
+## 0.2.6 (2014-10-10)
+
+1. Fix Bug: rewrite handler does not handle write event correctly with thread pool mode or coroutine mode (issue #43)
+1. Fix Bug: built-in jvm variable #{pno} doesn't work (issue #44)
+1. Fix Bug: rewrite_handler_name does not work without content handler (issue #45). Thanks [Eric Kubacki](https://github.com/ekubacki) for finding this bug.
+1. Fix Bug: rewrite handler does not handle write event correctly with thread pool mode or coroutine mode (issue #43)
+1. Documents : Correct some inaccuracies and add section about logging in Chapter [More about Nginx-Clojure](http://nginx-clojure.github.io/more.html#user-content-37--about-logging)
+1. Binaries: built with The lastest stable Nginx v1.6.2 which released at 2014-09-16.
+
+
+
 ## 0.2.5 (2014-09-07)
 
 1. New Feature: Reference variables in jvm_options & different jvm debug ports for jvm processes (issue #42)
