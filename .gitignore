@@ -24,3 +24,5 @@
 /dist
 /pom.xml
 /pom.xml.asc
+/.lein-failures
+/.lein-repl-history

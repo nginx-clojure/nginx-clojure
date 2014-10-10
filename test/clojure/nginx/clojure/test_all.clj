@@ -530,6 +530,34 @@
              (is (= 200 (:status r)))
              (is (= "Hello,Xfeep!" (:body r))))))
 
+
+(deftest ^{:remote true} test-rewrite-handler
+  (testing "rewritesimple"
+           (let [r (client/get (str "http://" *host* ":" *port* "/rewritesimple") {:follow-redirects false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================rewritesimple=============================")
+             (is (= 200 (:status r)))
+             (is (= "Hello,Xfeep!" (:body r)))))
+    (testing "javarewritesimple"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javarewritesimple") {:follow-redirects false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================javarewritesimple=============================")
+             (is (= 200 (:status r)))
+             (is (= "Hello,Xfeep!" (:body r)))))
+      (testing "rewrite proxy pass"
+           (let [r (client/get (str "http://" *host* ":" *port* "/uptest") {:follow-redirects false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================rewritesimple=============================")
+             (is (= 200 (:status r)))
+             (is (or (= "hello,a!/mytestpath" (:body r)) (= "hello,b!/mytestpath" (:body r))))))
+  )
+
 ;eg. (concurrent-run 10 (run-tests 'nginx.clojure.test-all))
 (defmacro concurrent-run 
   [n, form]

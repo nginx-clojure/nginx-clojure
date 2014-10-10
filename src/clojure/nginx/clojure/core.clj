@@ -40,7 +40,12 @@
     (println (str (:body r1) \"====\\n\" (:body r2) ))
   "
   [& fns]
-  (->> fns (clojure.lang.RT/seqToTypedArray Callable) NginxClojureRT/coBatchCall seq))
+  (let [fns (if  NginxClojureRT/coroutineEnabled  
+                         fns 
+                         (let [bindings (clojure.lang.Var/getThreadBindings)]
+                            (doall  
+                                (for [f fns] #(do (with-bindings* bindings f))))) )]
+    (->> fns (clojure.lang.RT/seqToTypedArray Callable) NginxClojureRT/coBatchCall seq) ) )
 
 (defn get-ngx-var 
   "get nginx variable"

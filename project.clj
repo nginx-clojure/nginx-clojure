@@ -39,9 +39,9 @@
                                   [org.codehaus.groovy/groovy "2.3.4"]
                                   ]}
              :unittest {
-                    :jvm-opts ["-javaagent:target/nginx-clojure-0.2.5.jar=mb"
+                    :jvm-opts ["-javaagent:target/nginx-clojure-0.2.6.jar=mb"
                                "-Dnginx.clojure.wave.udfs=pure-clj.txt,compojure.txt,compojure-http-clj.txt"
-                               "-Xbootclasspath/a:target/nginx-clojure-0.2.4.jar"]
+                               "-Xbootclasspath/a:target/nginx-clojure-0.2.6.jar"]
                     :junit-options {:fork "on"}
                     :java-source-paths ["test/java" "test/clojure"]
                     :test-paths ["src/test/clojure"]
