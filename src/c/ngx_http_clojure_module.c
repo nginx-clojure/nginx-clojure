@@ -430,13 +430,27 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 	conf->jvm_path = prev->jvm_path;
 	conf->jvm_workers = prev->jvm_workers;
 	ngx_conf_merge_value(conf->always_read_body, prev->always_read_body, 0);
+
+#if defined(NGX_CLOJURE_BE_SILENT_WITHOUT_JVM)
+	if (conf->jvm_path.len == NGX_CONF_UNSET_SIZE) {
+		conf->enable = 0;
+		prev->enable = 0;
+	}
+#endif
+
 	return NGX_CONF_OK;
 }
 
 static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
 
 	ngx_core_conf_t  *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
+	ngx_http_conf_ctx_t *ctx = (ngx_http_conf_ctx_t *)ngx_get_conf(cycle->conf_ctx, ngx_http_module);
+	ngx_http_clojure_loc_conf_t *mcf = ctx->loc_conf[ngx_http_clojure_module.ctx_index];
 	ngx_http_clojure_global_cycle = cycle;
+
+	if (mcf->jvm_path.len == NGX_CONF_UNSET_SIZE) {
+		return NGX_OK;
+	}
 
 #if !(NGX_WIN32)
 	ngx_http_clojure_shared_memory.size = 8*2;
@@ -526,6 +540,10 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 	ngx_core_conf_t  *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 	ngx_int_t jvm_num = 0;
 
+	if (mcf->jvm_path.len == NGX_CONF_UNSET_SIZE) {
+		return NGX_OK;
+	}
+
 #if !(NGX_WIN32)
 	ngx_setproctitle("worker process");
 #else
@@ -611,6 +629,9 @@ static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 
 
 	if (lcf->jvm_path.len == NGX_CONF_UNSET_SIZE) {
+#if defined(NGX_CLOJURE_BE_SILENT_WITHOUT_JVM)
+		return NGX_OK;
+#endif
 		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "no jvm_path configured!");
 		return NGX_ERROR ;
 	}
@@ -647,6 +668,12 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
     ngx_http_clojure_module_ctx_t *ctx;
 
     lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
+
+    if (!lcf->enable) {
+    	ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "nginx-clojure context not enabled! Maybe lack of JVM_PATH");
+    	return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
 /*  ngx_http_core_main_conf_t  *cmcf = ngx_http_get_module_main_conf(r, ngx_http_core_module);*/
 
 /*move to init process
