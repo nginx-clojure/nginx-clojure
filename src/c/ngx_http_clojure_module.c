@@ -656,8 +656,41 @@ static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 
 static void ngx_http_clojure_client_body_handler(ngx_http_request_t *r) {
 	ngx_http_clojure_loc_conf_t  *lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
-	int rc = ngx_http_clojure_eval(lcf->handler_id, r);
-	ngx_http_finalize_request (r , rc);
+	ngx_http_clojure_module_ctx_t *ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
+	ngx_int_t handler_id;
+	int rc = NGX_DECLINED;
+	int rewrite_phase = 0;
+	ctx->client_body_done = 1;
+
+	if (!ctx->async_body_read) {
+		ctx->phrase = -1;
+		return;
+	}
+
+	ctx->async_body_read = 0;
+
+	if (ctx->phrase == NGX_HTTP_REWRITE_PHASE) {
+		handler_id = lcf->rewrite_handler_id;
+		rewrite_phase = 1;
+		r->write_event_handler = ngx_http_core_run_phases;
+	}else {
+		handler_id = lcf->handler_id;
+	}
+
+	if (handler_id > 0)  {
+		rc = ngx_http_clojure_eval(handler_id, r);
+		ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0, "ngx clojure rewrite (body done callback) request: %" PRIu64 ", rc: %d", (jlong)(uintptr_t)r, rc);
+	}
+
+	if (rewrite_phase) {
+		r->main->count --;
+		if (rc != NGX_DONE) {
+			ctx->phrase = ~ctx->phrase;
+			r->write_event_handler(r);
+		}
+	}else {
+		ngx_http_finalize_request (r , rc);
+	}
 }
 
 
@@ -706,21 +739,24 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
 		r->request_body_in_single_buf = 1;
 		r->request_body_in_clean_file = 1;
 		r->request_body_in_persistent_file = 1;
+
 		rc = ngx_http_read_client_request_body(r, ngx_http_clojure_client_body_handler);
-    	if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
+    	if (rc == NGX_ERROR || rc >= NGX_HTTP_SPECIAL_RESPONSE) {
     		return rc;
     	}
-    	return NGX_DONE;
+
+    	if (rc == NGX_AGAIN) {
+    		ctx->async_body_read  = 1;
+    		return NGX_DONE;
+    	}
     }else {
     	rc = ngx_http_discard_request_body(r);
     	if (rc != NGX_OK && rc != NGX_AGAIN) {
     	   return rc;
     	}
-    	rc = ngx_http_clojure_eval(lcf->handler_id, r);
     }
-    //for debug
-    //ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "finished one request \n==============================================================\n\n");
 
+    rc = ngx_http_clojure_eval(lcf->handler_id, r);
     return rc;
 }
 
@@ -731,13 +767,43 @@ static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t * r) {
 	ngx_http_clojure_module_ctx_t *ctx;
 	ngx_http_clojure_loc_conf_t  *lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
 
-	if (!lcf->enable || (lcf->rewrite_handler_code.len == 0 && lcf->rewrite_handler_name.len == 0)) {
-		return NGX_DECLINED;
+	if (lcf->enable && (lcf->rewrite_handler_code.len > 0 || lcf->rewrite_handler_name.len > 0)) {
+		rc = ngx_http_clojure_init_clojure_script("rewrite handler", &lcf->handler_type, &lcf->rewrite_handler_name,
+				&lcf->rewrite_handler_code, &lcf->rewrite_handler_id, ngx_http_clojure_global_cycle->log);
+		if (rc != NGX_HTTP_CLOJURE_JVM_OK) {
+			return rc;
+		}
 	}
 
-	rc = ngx_http_clojure_init_clojure_script("rewrite handler", &lcf->handler_type, &lcf->rewrite_handler_name, &lcf->rewrite_handler_code, &lcf->rewrite_handler_id, ngx_http_clojure_global_cycle->log);
-	if (rc != NGX_HTTP_CLOJURE_JVM_OK) {
-			return rc;
+	if (lcf->always_read_body) {
+		if ((ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module)) == NULL) {
+			ctx = ngx_palloc(r->pool, sizeof(ngx_http_clojure_module_ctx_t));
+			if (ctx == NULL) {
+				ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "OutOfMemory of create ngx_http_clojure_module_ctx_t");
+				return NGX_HTTP_INTERNAL_SERVER_ERROR;
+			}
+
+			ngx_http_clojure_init_ctx(ctx, NGX_HTTP_REWRITE_PHASE);
+			ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
+
+			if (!ctx->client_body_done) {
+				r->request_body_in_single_buf = 1;
+				r->request_body_in_clean_file = 1;
+				r->request_body_in_persistent_file = 1;
+				rc = ngx_http_read_client_request_body(r, ngx_http_clojure_client_body_handler);
+		    	if (rc >= NGX_HTTP_SPECIAL_RESPONSE || rc == NGX_ERROR) {
+		    		return rc;
+		    	}
+		    	if (rc == NGX_AGAIN) {
+			    	ctx->async_body_read = 1;
+			    	return NGX_DONE;
+		    	}
+			}
+		}
+	}
+
+	if (!lcf->enable || (lcf->rewrite_handler_code.len == 0 && lcf->rewrite_handler_name.len == 0)) {
+		return NGX_DECLINED;
 	}
 
 	if ((ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module)) == NULL) {

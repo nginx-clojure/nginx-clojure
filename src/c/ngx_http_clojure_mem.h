@@ -25,12 +25,12 @@
 #include <inttypes.h>
 #endif
 
-#define nginx_clojure_ver  2006 /*0.2.6*/
+#define nginx_clojure_ver  2007 /*0.2.7*/
 
 /*the least jar version required*/
 #define nginx_clojure_required_rt_lver 2006
 
-#define NGINX_CLOJURE_VER "nginx clojure/0.2.6"
+#define NGINX_CLOJURE_VER "nginx clojure/0.2.7"
 
 typedef struct {
 	ngx_int_t phrase;
@@ -40,6 +40,8 @@ typedef struct {
 	/*these two members only used by hijack send & read, default is 0*/
 	unsigned last_buf_meeted : 1;
 	unsigned ignore_filters : 1;
+	unsigned async_body_read : 1;
+	unsigned client_body_done : 1;
 } ngx_http_clojure_module_ctx_t;
 
 #define ngx_http_clojure_init_ctx(ctx, p) \
@@ -47,7 +49,9 @@ typedef struct {
 		ctx->phrase = p; \
 		ctx->last_buf_meeted = 0; \
 		ctx->busy = ctx->free = NULL; \
-		ctx->ignore_filters = 0
+		ctx->ignore_filters = 0; \
+		ctx->client_body_done = 0; \
+		ctx->async_body_read = 0
 
 #define NGX_HTTP_CLOJURE_MEM_IDX_START 0
 

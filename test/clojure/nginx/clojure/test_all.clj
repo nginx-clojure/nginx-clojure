@@ -556,6 +556,22 @@
              (debug-println "=================rewritesimple=============================")
              (is (= 200 (:status r)))
              (is (or (= "hello,a!/mytestpath" (:body r)) (= "hello,b!/mytestpath" (:body r))))))
+       (testing "rewrite proxy pass by body -- small body"
+           (let [r (client/post (str "http://" *host* ":" *port* "/javarewritebybodyproxy/") {:follow-redirects false, :body "ub"})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================rewrite proxy pass by body -- small body=============================")
+             (is (= 200 (:status r)))
+             (is  (= "hello,b!/javarewritebybodyproxy/" (:body r)) )))
+        (testing "rewrite proxy pass by body -- large body"
+           (let [r (client/post (str "http://" *host* ":" *port* "/javarewritebybodyproxy/") {:follow-redirects false, :body (clojure.java.io/file "test/nginx-working-dir/post-rewrite-large-body-data")})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================rewritesimple=============================")
+             (is (= 200 (:status r)))
+             (is  (= "hello,b!/javarewritebybodyproxy/" (:body r)) )))
   )
 
 ;eg. (concurrent-run 10 (run-tests 'nginx.clojure.test-all))

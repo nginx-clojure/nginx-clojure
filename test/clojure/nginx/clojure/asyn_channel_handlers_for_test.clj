@@ -44,7 +44,7 @@
                         (ashutdown! upstream :soft-write)
                         (arecv! upstream buf pipe error-handler pipe-handler)
                         )]
-    (aconnect! upstream "mirror.bit.edu.cn:80" nil error-handler
+    (aconnect! upstream "mirror.bit.edu.cn:80" upstream error-handler
                (fn [status att]
                  (.info logger "connected successfully")
                  (asend! upstream (str "GET /apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\n"

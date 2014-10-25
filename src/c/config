@@ -36,6 +36,7 @@ JNI_HEADER_2="${JNI_HEADER_1}/linux"
 
 CFLAGS="-I \"${JNI_HEADER_1}\" \
         -I \"${JNI_HEADER_2}\" \
+        -DNGX_CLOJURE_BE_SILENT_WITHOUT_JVM  \
         $CFLAGS"
 
 #for easy debug on linux or macosx  
