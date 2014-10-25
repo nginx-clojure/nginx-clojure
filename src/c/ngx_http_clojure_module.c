@@ -736,18 +736,20 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
 	}
 
     if (lcf->always_read_body || (r->method & (NGX_HTTP_POST | NGX_HTTP_PUT | NGX_HTTP_PATCH))) {
-		r->request_body_in_single_buf = 1;
-		r->request_body_in_clean_file = 1;
-		r->request_body_in_persistent_file = 1;
+    	if (!ctx->client_body_done) {/*maybe done by rewrite handler*/
+    		r->request_body_in_single_buf = 1;
+    		r->request_body_in_clean_file = 1;
+    		r->request_body_in_persistent_file = 1;
 
-		rc = ngx_http_read_client_request_body(r, ngx_http_clojure_client_body_handler);
-    	if (rc == NGX_ERROR || rc >= NGX_HTTP_SPECIAL_RESPONSE) {
-    		return rc;
-    	}
+    		rc = ngx_http_read_client_request_body(r, ngx_http_clojure_client_body_handler);
+        	if (rc == NGX_ERROR || rc >= NGX_HTTP_SPECIAL_RESPONSE) {
+        		return rc;
+        	}
 
-    	if (rc == NGX_AGAIN) {
-    		ctx->async_body_read  = 1;
-    		return NGX_DONE;
+        	if (rc == NGX_AGAIN) {
+        		ctx->async_body_read  = 1;
+        		return NGX_DONE;
+        	}
     	}
     }else {
     	rc = ngx_http_discard_request_body(r);
