@@ -94,6 +94,7 @@ public class MiniConstants {
 	
 	
 	public static int BYTE_ARRAY_OFFSET;
+	public static long STRING_CHAR_ARRAY_OFFSET;
 	
 	public static int NGX_HTTP_CLOJURE_MEM_IDX_START = 0;
 
@@ -326,12 +327,14 @@ public class MiniConstants {
 	public static long NGINX_CLOJURE_VER;
 	public static String NGINX_CLOJURE_FULL_VER;
 
+	//TODO :  client header buffer size & large_client_header_buffers
+	public static int NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE = 1024 * 4;
 	
 	public static int NGX_HTTP_CLOJURE_MEM_IDX_END = 255;
 	
 	//nginx clojure java runtime required the lowest version of nginx-clojure c module
-	public  static long NGINX_CLOJURE_RT_REQUIRED_LVER = 2006;
-	public  static long NGINX_CLOJURE_RT_VER = 2006;
+	public  static long NGINX_CLOJURE_RT_REQUIRED_LVER = 2007;
+	public  static long NGINX_CLOJURE_RT_VER = 2007;
 	
 	//ngx_core.h
 	public static int  NGX_OK       =   0;

@@ -7,6 +7,7 @@ package nginx.clojure.net;
 import java.nio.ByteBuffer;
 
 import sun.nio.ch.DirectBuffer;
+import nginx.clojure.HackUtils;
 import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
 
@@ -196,8 +197,8 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	 */
 	public long connect(String url) {
 		this.url = url;
-		byte[] urlba = url.getBytes(MiniConstants.DEFAULT_ENCODING);
-		return connect(s, urlba, MiniConstants.BYTE_ARRAY_OFFSET, urlba.length);
+		ByteBuffer b = HackUtils.encode(url, MiniConstants.DEFAULT_ENCODING, NginxClojureRT.pickByteBuffer());
+		return connect(s, b.array(), MiniConstants.BYTE_ARRAY_OFFSET, b.remaining());
 	}
 	
 	/**

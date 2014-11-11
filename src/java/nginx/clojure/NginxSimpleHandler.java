@@ -5,9 +5,6 @@ import static nginx.clojure.MiniConstants.CONTENT_TYPE;
 import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
 import static nginx.clojure.MiniConstants.NGINX_CLOJURE_FULL_VER;
 import static nginx.clojure.MiniConstants.NGX_DONE;
-import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_CHAINT_SIZE;
-import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_CHAIN_BUF_OFFSET;
-import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_LEN_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET;
@@ -17,19 +14,17 @@ import static nginx.clojure.MiniConstants.NGX_HTTP_INTERNAL_SERVER_ERROR;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NO_CONTENT;
 import static nginx.clojure.MiniConstants.NGX_HTTP_OK;
 import static nginx.clojure.MiniConstants.SERVER_PUSHER;
+import static nginx.clojure.MiniConstants.STRING_CHAR_ARRAY_OFFSET;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
 import static nginx.clojure.NginxClojureRT.coroutineEnabled;
 import static nginx.clojure.NginxClojureRT.handleResponse;
 import static nginx.clojure.NginxClojureRT.log;
-import static nginx.clojure.NginxClojureRT.ngx_create_file_buf;
-import static nginx.clojure.NginxClojureRT.ngx_create_temp_buf;
-import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_copy_to_addr;
+import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_build_file_chain;
+import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_build_temp_chain;
 import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_module_ctx_phase;
 import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_inc_req_count;
-import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_init_ngx_buf;
 import static nginx.clojure.NginxClojureRT.ngx_http_set_content_type;
-import static nginx.clojure.NginxClojureRT.ngx_palloc;
-import static nginx.clojure.NginxClojureRT.ngx_pcalloc;
+import static nginx.clojure.NginxClojureRT.pickByteBuffer;
 import static nginx.clojure.NginxClojureRT.pushNGXInt;
 import static nginx.clojure.NginxClojureRT.pushNGXSizet;
 import static nginx.clojure.NginxClojureRT.pushNGXString;
@@ -40,6 +35,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.CoderResult;
+import java.nio.charset.CodingErrorAction;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
@@ -51,6 +51,7 @@ import java.util.concurrent.Callable;
 import nginx.clojure.NginxClojureRT.WorkerResponseContext;
 import nginx.clojure.java.Constants;
 import nginx.clojure.java.NginxJavaResponse;
+import sun.nio.cs.ThreadLocalCoders;
 
 
 public abstract class NginxSimpleHandler implements NginxHandler {
@@ -298,20 +299,11 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 			long chain = 0;
 			
 			if (body != null) {
-				chain = ngx_palloc(pool, NGX_HTTP_CLOJURE_CHAINT_SIZE);
+				chain = buildResponseItemBuf(r, body, chain);
 				if (chain == 0) {
 					return -NGX_HTTP_INTERNAL_SERVER_ERROR;
-				}
-				long tailChain = buildResponseItemBuf(r, pool, body, MiniConstants.NGX_CLOJURE_BUF_LAST_OF_RESPONSE, chain);
-				if (tailChain == 0) {
-					return -NGX_HTTP_INTERNAL_SERVER_ERROR;
-				}else if (tailChain < 0 && tailChain != -204) {
-					return tailChain;
-				}
-				if (tailChain == -NGX_HTTP_NO_CONTENT) {
-					chain = -NGX_HTTP_NO_CONTENT;
-				}else {
-					UNSAFE.putAddress(tailChain + NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET, 0);
+				}else if (chain < 0 && chain != -204) {
+					return chain;
 				}
 			}else {
 				chain = -NGX_HTTP_NO_CONTENT;
@@ -332,33 +324,27 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 		}
 	}
 	
-	protected  long buildResponseFileBuf(File f, long r, long pool, int isLast, long chain) {
-		byte[] bytes = f.getPath().getBytes();
-		long file = ngx_pcalloc(pool, bytes.length + 1);
-		ngx_http_clojure_mem_copy_to_addr(bytes, BYTE_ARRAY_OFFSET, file, bytes.length);
-		long rc = ngx_create_file_buf(r, file, bytes.length, isLast);
-		
-		if (rc <= 0) {
-			return rc;
+	protected  long buildResponseFileBuf(File f, long r, long chain) {
+		ByteBuffer b = HackUtils.encode(f.getPath(), DEFAULT_ENCODING, pickByteBuffer());
+		if (b.remaining() < b.capacity()) {
+			b.array()[b.remaining()] = 0; // for file name in c language is ended with '\0'
 		}
-		
-		UNSAFE.putAddress(chain + NGX_HTTP_CLOJURE_CHAIN_BUF_OFFSET, rc);
-		
+		chain = ngx_http_clojure_mem_build_file_chain(r, chain, b.array(), BYTE_ARRAY_OFFSET, b.remaining());
+		if (chain <= 0) {
+			return chain;
+		}
 		return chain;
 	}
 	
 	//TODO: optimize handling inputstream with large lazy data
-	protected  long buildResponseInputStreamBuf(InputStream in, long r, long pool, int isLast, long chain) {
+	protected  long buildResponseInputStreamBuf(InputStream in, long r,  final long preChain) {
 		try {
-			long lastBuf = 0;
-			long lastChain = 0;
-			
+			long chain = preChain;
+			long first = 0;
+			byte[] buf = pickByteBuffer().array();
 			while (true) {
-				//TODO: buffer size should be the same as nginx buffer size
-				byte[] buf = new byte[1024 * 32];
 				int c = 0;
 				int pos = 0;
-				
 				do {
 					c = in.read(buf, pos, buf.length - pos);
 					if (c > 0) {
@@ -367,46 +353,21 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 				}while (c >= 0 && pos < buf.length);
 				
 				if (pos > 0) {
-					lastBuf = ngx_create_temp_buf(r, pos);
-					if (lastBuf <= 0) {
-						return lastBuf;
+					chain = ngx_http_clojure_mem_build_temp_chain(r, chain, buf, BYTE_ARRAY_OFFSET, pos);
+					if (chain <= 0) {
+						return chain;
 					}
-					ngx_http_clojure_mem_init_ngx_buf(lastBuf, buf, BYTE_ARRAY_OFFSET, pos, MiniConstants.NGX_CLOJURE_BUF_LAST_OF_NONE);
-					
-					if (lastChain != 0) {
-						chain = ngx_palloc(pool, NGX_HTTP_CLOJURE_CHAINT_SIZE);
-						if (chain == 0) {
-							return 0;
-						}
+					if (first == 0) {
+						first = chain;
 					}
-					
-					UNSAFE.putAddress(chain + NGX_HTTP_CLOJURE_CHAIN_BUF_OFFSET, lastBuf);
-					
-					if (lastChain != 0) {
-						UNSAFE.putAddress(lastChain + NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET, chain);
-					}
-					lastChain = chain;
 				}
 				
 				if (c < 0) {
 					break;
 				}
-				
-				
 			}
 			
-			if (isLast != MiniConstants.NGX_CLOJURE_BUF_LAST_OF_NONE && lastBuf > 0) {
-				//only set last buffer flag 
-				ngx_http_clojure_mem_init_ngx_buf(lastBuf, null, 0, 0, isLast);
-			}
-			
-			//empty InputStream
-			if (lastChain == 0) {
-				return -NGX_HTTP_NO_CONTENT;
-			}
-			
-			return lastChain;
-			
+			return preChain == 0 ? (first == 0 ? -NGX_HTTP_NO_CONTENT : first)  : chain;
 		}catch(IOException e) {
 			log.error("can not read from InputStream", e);
 			return -500; 
@@ -419,30 +380,71 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 		}
 	}
 	
-	protected  long buildResponseStringBuf(String s, long r, long pool, int isLast, long chain) {
+	protected long buildResponseStringBuf(String s, long r,  final long preChain) {
 		if (s == null) {
 			return 0;
 		}
-		
+
 		if (s.length() == 0) {
-			return -204;
+			return -NGX_HTTP_NO_CONTENT;
 		}
-		
-		byte[] bytes = s.getBytes(DEFAULT_ENCODING);
-		long b = ngx_create_temp_buf(r, bytes.length);
-		
-		if (b <= 0) {
-			return b;
+
+		CharsetEncoder charsetEncoder = ThreadLocalCoders.encoderFor(DEFAULT_ENCODING)
+				.onMalformedInput(CodingErrorAction.REPLACE).onUnmappableCharacter(CodingErrorAction.REPLACE);
+		ByteBuffer bb = pickByteBuffer();
+		CharBuffer cb = CharBuffer.wrap((char[]) UNSAFE.getObject(s, STRING_CHAR_ARRAY_OFFSET));
+		charsetEncoder.reset();
+		CoderResult result = CoderResult.UNDERFLOW;
+		long first = 0;
+		long chain = preChain;
+		do {
+			result = charsetEncoder.encode(cb, bb, true);
+			if (result == CoderResult.OVERFLOW) {
+				bb.flip();
+				chain = ngx_http_clojure_mem_build_temp_chain(r, chain, bb.array(), BYTE_ARRAY_OFFSET, bb.remaining());
+				if (chain <= 0) {
+					return chain;
+				}
+				bb.clear();
+				if (first == 0) {
+					first = chain;
+				}
+			} else if (result == CoderResult.UNDERFLOW) {
+				break;
+			} else {
+				log.error("%s can not decode string : %s", result.toString(), s);
+				return -NGX_HTTP_INTERNAL_SERVER_ERROR;
+			}
+		} while (true);
+
+		while (charsetEncoder.flush(bb) == CoderResult.OVERFLOW) {
+			bb.flip();
+			chain = ngx_http_clojure_mem_build_temp_chain(r, chain, bb.array(), BYTE_ARRAY_OFFSET, bb.remaining());
+			if (chain <= 0) {
+				return chain;
+			}
+			if (first == 0) {
+				first = chain;
+			}
+			bb.clear();
 		}
-		
-		ngx_http_clojure_mem_init_ngx_buf(b, bytes, BYTE_ARRAY_OFFSET, bytes.length, isLast);
-		
-		UNSAFE.putAddress(chain + NGX_HTTP_CLOJURE_CHAIN_BUF_OFFSET, b);
-		
-		return chain;
+
+		if (bb.hasRemaining()) {
+			bb.flip();
+			chain = ngx_http_clojure_mem_build_temp_chain(r, chain, bb.array(), BYTE_ARRAY_OFFSET, bb.remaining());
+			if (chain <= 0) {
+				return chain;
+			}
+			if (first == 0) {
+				first = chain;
+			}
+			bb.clear();
+		}
+
+		return preChain == 0 ? first : chain ;
 	}
 	
-	protected  long buildResponseIterableBuf(Iterable iterable, long r, long pool, int isLast, long chain) {
+	protected  long buildResponseIterableBuf(Iterable iterable, long r,  long preChain) {
 		if (iterable == null) {
 			return 0;
 		}
@@ -452,59 +454,48 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 			return -204;
 		}
 
-		long lastChain = 0;
+		long chain = preChain;
+		long first = 0;
 		while (i.hasNext()) {
 			Object o = i.next();
 			if (o != null) {
-				
-				if (lastChain != 0) {
-					chain = ngx_palloc(pool, NGX_HTTP_CLOJURE_CHAINT_SIZE);
-					if (chain == 0) {
-						return 0;
+				long rc  = buildResponseItemBuf(r, o, chain);
+				if (rc <= 0) {
+					if (rc != -NGX_HTTP_NO_CONTENT) {
+						return rc;
 					}
-				}
-				
-				long subTail = 0;
-				if (isLast != MiniConstants.NGX_CLOJURE_BUF_LAST_OF_NONE && !i.hasNext()) {
-					subTail = buildResponseItemBuf(r, pool, o, isLast, chain);
 				}else {
-					subTail = buildResponseItemBuf(r, pool, o, MiniConstants.NGX_CLOJURE_BUF_LAST_OF_NONE, chain);
-				}
-				if (subTail <= 0 && subTail != -NGX_HTTP_NO_CONTENT) {
-					return subTail;
-				}
-				if (lastChain != 0 && subTail != -NGX_HTTP_NO_CONTENT) {
-					UNSAFE.putAddress(lastChain + NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET, chain);
-				}
-				if (subTail != -NGX_HTTP_NO_CONTENT) {
-					lastChain = subTail;
+					chain = rc;
+					if (first == 0) {
+						first = chain;
+					}
 				}
 			}
 		}
-		return lastChain;
+		return preChain == 0 ? (first == 0 ? -NGX_HTTP_NO_CONTENT : first)  : chain;
 	}
 	
 	
-	protected  long buildResponseItemBuf(long r, long pool, Object item, int isLast, long chain) {
+	protected  long buildResponseItemBuf(long r, Object item, long chain) {
 
 		if (item instanceof File) {
-			return buildResponseFileBuf((File)item, r, pool, isLast, chain);
+			return buildResponseFileBuf((File)item, r, chain);
 		}else if (item instanceof InputStream) {
-			return buildResponseInputStreamBuf((InputStream)item, r, pool, isLast, chain);
+			return buildResponseInputStreamBuf((InputStream)item, r, chain);
 		}else if (item instanceof String) {
-			return buildResponseStringBuf((String)item, r, pool, isLast, chain);
+			return buildResponseStringBuf((String)item, r, chain);
 		} 
-		return buildResponseComplexItemBuf(r, pool, item, isLast, chain);
+		return buildResponseComplexItemBuf(r, item, chain);
 	}
 	
-	protected long buildResponseComplexItemBuf(long r, long pool, Object item, int isLast, long chain) {
+	protected long buildResponseComplexItemBuf(long r, Object item, long chain) {
 		if (item == null) {
 			return 0;
 		}
 		if (item instanceof Iterable) {
-			return buildResponseIterableBuf((Iterable)item, r, pool, isLast, chain);
+			return buildResponseIterableBuf((Iterable)item, r, chain);
 		}else if (item.getClass().isArray()) {
-			return buildResponseIterableBuf(Arrays.asList((Object[])item), r, pool, isLast, chain);
+			return buildResponseIterableBuf(Arrays.asList((Object[])item), r, chain);
 		}
 		return -NGX_HTTP_INTERNAL_SERVER_ERROR;
 	}

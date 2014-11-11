@@ -31,6 +31,8 @@ curl -r 0-128 -v "http://${testhost}:8080/testfiles/small.html"
 
 curl --header "accept-encoding: gzip" -r 0-128 -v "http://${testhost}:8080/testfiles/small.html"
 
+curl   -v  -X MYUPLOAD  --upload-file "/home/who/git/nginx-clojure/test/nginx-working-dir/post-test-large-data" http://localhost:8080/echoUploadfileIgnoreRequestMethod
+
 #test put text file
 curl -v --data-binary @post-test-data  "http://${testhost}:8080/echoUploadfile"
 #test multipart/form-data
@@ -104,6 +106,8 @@ nmake -f Makefile
 
 #for debug options
 #CFLAGS = -I "C:/Program Files/Java/jdk1.7.0_25/include"         -I "C:/Program Files/Java/jdk1.7.0_25/include/win32"  /Od  -nologo -MT -ZI -DFD_SETSIZE=4096 -DNO_SYS_TYPES_H
+
+remove objs/ngx_config.pch
 
 
 #win64 build

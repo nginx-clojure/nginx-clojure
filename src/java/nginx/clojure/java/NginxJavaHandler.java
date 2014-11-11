@@ -5,6 +5,7 @@
 package nginx.clojure.java;
 
 import static nginx.clojure.MiniConstants.BODY;
+import static nginx.clojure.MiniConstants.NGX_HTTP_NOT_FOUND;
 import static nginx.clojure.java.Constants.ASYNC_TAG;
 
 import java.io.Closeable;
@@ -18,6 +19,8 @@ import nginx.clojure.NginxSimpleHandler;
 public class NginxJavaHandler extends NginxSimpleHandler {
 
 	protected NginxJavaRingHandler ringHandler;
+	
+	public static Object[] NOT_FOUND_RESPONSE = new Object[] {NGX_HTTP_NOT_FOUND, null, null};
 	
 	public NginxJavaHandler() {
 	}
@@ -62,7 +65,7 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 	public  NginxResponse toNginxResponse(NginxRequest req, Object resp) {
 		
 		if (resp == null) {
-			return null;
+			return new NginxJavaResponse(req, NOT_FOUND_RESPONSE);
 		}
 		
 		if (resp instanceof NginxResponse) {

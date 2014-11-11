@@ -4,6 +4,13 @@ Downloads & Release History
 1. [Binaries of Releases](http://sourceforge.net/projects/nginx-clojure/files/)
 1. [Sources of Releases](https://github.com/nginx-clojure/nginx-clojure/releases)
 
+## 0.2.7 (2014-11-11)
+
+1. New Feature: Compiling option for  disabling all functions silently when JVM_PATH not configured. (issue #47)
+1. New Feature: Access request BODY in rewrite handler (issue #49)
+1. Enhancement : Optimization of encoding String to Nginx temp buffer chain to reduce  Java heap memory usage and improve the performance.
+
+
 ## 0.2.6 (2014-10-10)
 
 1. Fix Bug: rewrite handler does not handle write event correctly with thread pool mode or coroutine mode (issue #43)

@@ -5,7 +5,6 @@
 package nginx.clojure;
 
 import static nginx.clojure.MiniConstants.CORE_VARS;
-import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_POOL_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_UINT_SIZE;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
@@ -50,7 +49,7 @@ public  class RequestKnownNameVarFetcher implements RequestVarFetcher {
 //				System.out.println("name:" + entry.getKey() + ", len:" + len);
 //			}
 //		}
-		return fetchString(varValPtr + NGX_HTTP_CLOJURE_UINT_SIZE, len, DEFAULT_ENCODING);
+		return fetchString(varValPtr + NGX_HTTP_CLOJURE_UINT_SIZE, len, encoding);
 	}
 	
 	public InputStream fetchAsStream(long r) {

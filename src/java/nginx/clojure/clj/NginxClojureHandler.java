@@ -4,18 +4,15 @@
  */
 package nginx.clojure.clj;
 
-import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_CHAINT_SIZE;
-import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_NOT_FOUND;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NO_CONTENT;
-import static nginx.clojure.NginxClojureRT.UNSAFE;
-import static nginx.clojure.NginxClojureRT.ngx_palloc;
 import static nginx.clojure.clj.Constants.ASYNC_TAG;
 import static nginx.clojure.clj.Constants.BODY;
+import static nginx.clojure.clj.Constants.STATUS;
 
 import java.io.Closeable;
 import java.util.Map;
 
-import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxRequest;
@@ -23,6 +20,7 @@ import nginx.clojure.NginxResponse;
 import nginx.clojure.NginxSimpleHandler;
 import nginx.clojure.ResponseHeaderPusher;
 import nginx.clojure.ResponseUnknownHeaderPusher;
+import nginx.clojure.java.ArrayMap;
 import clojure.lang.IFn;
 import clojure.lang.ISeq;
 import clojure.lang.Keyword;
@@ -31,6 +29,8 @@ import clojure.lang.Seqable;
 
 public class NginxClojureHandler extends NginxSimpleHandler {
 
+	public static ArrayMap<Keyword, Object> NOT_FOUND_RESPONSE = ArrayMap.create(STATUS, NGX_HTTP_NOT_FOUND);
+	
 	private IFn ringHandler;
 	
 	public NginxClojureHandler() {
@@ -85,7 +85,7 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 	
 	public  NginxResponse toNginxResponse(NginxRequest req, Object resp) {
 		if (resp == null) {
-			return null;
+			return new NginxClojureResponse(req, NOT_FOUND_RESPONSE );
 		}
 		if (resp instanceof NginxResponse) {
 			return (NginxResponse) resp;
@@ -108,43 +108,31 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 	}
 	
 	@Override
-	protected long buildResponseComplexItemBuf(long r, long pool, Object item,
-			int isLast, long chain) {
+	protected long buildResponseComplexItemBuf(long r, Object item, long preChain) {
 		if ((item instanceof ISeq) || (item instanceof Seqable) || (item instanceof Iterable)) {
 			ISeq seq = RT.seq(item);
-			long lastChain = 0;
+			long chain = preChain;
+			long first = 0;
 			while (seq != null) {
 				Object o = seq.first();
 				if (o != null) {
-					
-					if (lastChain != 0) {
-						chain = ngx_palloc(pool, NGX_HTTP_CLOJURE_CHAINT_SIZE);
-						if (chain == 0) {
-							return 0;
+					long rc  = buildResponseItemBuf(r, o, chain);
+					if (rc <= 0) {
+						if (rc != -NGX_HTTP_NO_CONTENT) {
+							return rc;
+						}
+					}else {
+						chain = rc;
+						if (first == 0) {
+							first = chain;
 						}
 					}
-					
 					seq = seq.next();
-					long subTail = 0;
-					if (isLast != MiniConstants.NGX_CLOJURE_BUF_LAST_OF_NONE && seq == null) {
-						subTail = buildResponseItemBuf(r, pool, o, isLast, chain);
-					}else {
-						subTail = buildResponseItemBuf(r, pool, o, MiniConstants.NGX_CLOJURE_BUF_LAST_OF_NONE, chain);
-					}
-					if (subTail <= 0 && subTail != -NGX_HTTP_NO_CONTENT) {
-						return subTail;
-					}
-					if (lastChain != 0 && subTail != -NGX_HTTP_NO_CONTENT) {
-						UNSAFE.putAddress(lastChain + NGX_HTTP_CLOJURE_CHAIN_NEXT_OFFSET, chain);
-					}
-					if (subTail != -NGX_HTTP_NO_CONTENT) {
-						lastChain = subTail;
-					}
 				}
 			}
-			return lastChain;
+			return preChain == 0 ? (first == 0 ? -NGX_HTTP_NO_CONTENT : first)  : chain;
 		}
-		return super.buildResponseComplexItemBuf(r, pool, item, isLast, chain);
+		return super.buildResponseComplexItemBuf(r, item, preChain);
 	}
 
 	@Override

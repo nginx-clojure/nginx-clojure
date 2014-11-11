@@ -117,6 +117,7 @@
                                    :headers {"rmap" (pr-str (dissoc params "myfile")), "content-type" "text/plain"}
                                    :body (java.io.File. filename)})))))
   (GET "/not-found" [] (route/not-found "<h1>Page not found</h1>"))
+  (GET "/exception" [] (throw (Exception. "my exception")))
   ;;server sent events publisher
   (GET "/sse-pub" [] 
        (fn [req]

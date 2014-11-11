@@ -4,13 +4,23 @@
  */
 package nginx.clojure;
 
+import static nginx.clojure.MiniConstants.STRING_CHAR_ARRAY_OFFSET;
+
 import java.lang.ref.Reference;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.CoderResult;
+import java.nio.charset.CodingErrorAction;
 import java.security.AccessControlContext;
 
 import sun.misc.Unsafe;
+import sun.nio.cs.ThreadLocalCoders;
 
 public class HackUtils {
 
@@ -163,5 +173,57 @@ public class HackUtils {
         if (inheritedAccessControlContextOffset >= 0)
             UNSAFE.putObject(thread, inheritedAccessControlContextOffset, accessControlContext);
     }
+    
+    public static ByteBuffer encode(String s, Charset cs, ByteBuffer bb)  {
+		CharsetEncoder ce =  ThreadLocalCoders.encoderFor(cs)
+				.onMalformedInput(CodingErrorAction.REPLACE)
+				.onUnmappableCharacter(CodingErrorAction.REPLACE);
+		CharBuffer cb = CharBuffer.wrap((char[])UNSAFE.getObject(s, STRING_CHAR_ARRAY_OFFSET));
+		ce.reset();
+		CoderResult rt = ce.encode(cb, bb, true);
+		if (rt == CoderResult.OVERFLOW) {
+			bb.flip();
+			ByteBuffer lbb = ByteBuffer.allocate((int)(s.length() * (double)ce.maxBytesPerChar()));
+			lbb.put(bb);
+			bb = lbb;
+			rt = ce.encode(cb, bb, true);
+		}
+		if (rt != CoderResult.UNDERFLOW) {
+			throw new RuntimeException(rt.toString());
+		}
+		rt = ce.flush(bb);
+		if (rt != CoderResult.UNDERFLOW) {
+			throw new RuntimeException(rt.toString());
+		}
+		bb.flip();
+		return bb;
+    }
+    
+    public static String decode(ByteBuffer bb, Charset cs, CharBuffer cb)  {
+    	CharsetDecoder de = ThreadLocalCoders.decoderFor(cs)
+    			.onMalformedInput(CodingErrorAction.REPLACE)
+				.onUnmappableCharacter(CodingErrorAction.REPLACE);
+    	de.reset();
+    	int len = bb.remaining();
+    	CoderResult rt = de.decode(bb, cb, true);
+    	if (rt == CoderResult.OVERFLOW) {
+    		cb.flip();
+    		CharBuffer lcb = CharBuffer.allocate((int)(len * (double)de.maxCharsPerByte()));
+    		lcb.put(cb);
+    		cb = lcb;
+    		rt = de.decode(bb, cb, true);
+    	}
+    	
+		if (rt != CoderResult.UNDERFLOW) {
+			throw new RuntimeException(rt.toString());
+		}
+		rt = de.flush(cb);
+		if (rt != CoderResult.UNDERFLOW) {
+			throw new RuntimeException(rt.toString());
+		}
+		cb.flip();
+		return cb.toString();
+    }
+    
 
 }

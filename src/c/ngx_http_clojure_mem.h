@@ -28,7 +28,7 @@
 #define nginx_clojure_ver  2007 /*0.2.7*/
 
 /*the least jar version required*/
-#define nginx_clojure_required_rt_lver 2006
+#define nginx_clojure_required_rt_lver 2007
 
 #define NGINX_CLOJURE_VER "nginx clojure/0.2.7"
 

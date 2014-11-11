@@ -11,11 +11,10 @@ import java.lang.management.ManagementFactory;
 import java.lang.reflect.Field;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ConcurrentHashMap;
@@ -50,7 +49,7 @@ public class NginxClojureRT extends MiniConstants {
 	private static List<NginxHandler>  HANDLERS = new ArrayList<NginxHandler>();
 	
 	//mapping clojure code pointer address to clojure code id 
-	private static Map<Long, Integer> CODE_MAP = new HashMap<Long, Integer>();
+//	private static Map<Long, Integer> CODE_MAP = new HashMap<Long, Integer>();
 	
 	
 	public static int MODE =  MODE_DEFAULT;
@@ -89,6 +88,10 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public native static long ngx_create_temp_buf(long r, long size);
 	
+	public native static long ngx_create_temp_buf_by_jstring(long r, String s, int last_buf);
+	
+	public native static long ngx_create_temp_buf_by_obj(long r, Object obj, long offset, long len, int last_buf);
+	
 	public native static long ngx_create_file_buf(long r, long file, long name_len, int last_buf);
 	
 	public native static long ngx_http_set_content_type(long r);
@@ -103,6 +106,10 @@ public class NginxClojureRT extends MiniConstants {
 	 * last_buf can be either of {@link MiniConstants#NGX_CLOJURE_BUF_LAST_OF_NONE} {@link MiniConstants#NGX_CLOJURE_BUF_LAST_OF_CHAIN}, {@link MiniConstants#NGX_CLOJURE_BUF_LAST_OF_RESPONSE}
 	 */
 	public native static long ngx_http_clojure_mem_init_ngx_buf(long buf, Object obj, long offset, long len, int last_buf);
+	
+	public native static long  ngx_http_clojure_mem_build_temp_chain(long req, long preChain,  Object obj, long offset, long len);
+	
+	public native static long  ngx_http_clojure_mem_build_file_chain(long req, long preChain,  Object path, long offset, long len);
 	
 	public native static long ngx_http_clojure_mem_get_obj_addr(Object obj);
 	
@@ -149,6 +156,16 @@ public class NginxClojureRT extends MiniConstants {
 //	public native static long ngx_http_clojure_mem_get_body_tmp_file(long r);
 	
 	private static AppEventListenerManager appEventListenerManager;
+	
+	//for default or coroutine mode
+	private static ByteBuffer defaultByteBuffer;
+	private static CharBuffer defaultCharBuffer;
+	
+	//for thread pool mode
+	private static ThreadLocal<ByteBuffer> threadLocalByteBuffers;
+	private static ThreadLocal<CharBuffer> threadLocalCharBuffers;
+	
+
 	
 	static {
 		//be friendly to lein ring testing
@@ -322,15 +339,22 @@ public class NginxClojureRT extends MiniConstants {
 					throw new RuntimeException("can not init NginxClojureSocketFactory!", e);
 				}
 			}
+			defaultByteBuffer = ByteBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
+			defaultCharBuffer = CharBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
 			return;
 		}
 		if (n < 0) {
+			defaultByteBuffer = ByteBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
+			defaultCharBuffer = CharBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
 			return;
 		}
 		
 		log.info("nginx-clojure run on thread pool mode,  coroutineEnabled=false");
 		
 		MODE = MODE_THREAD;
+		
+		threadLocalByteBuffers = new ThreadLocal<ByteBuffer>();
+		threadLocalCharBuffers = new ThreadLocal<CharBuffer>();
 		
 		eventDispather = Executors.newSingleThreadExecutor(new ThreadFactory() {
 			@Override
@@ -377,6 +401,11 @@ public class NginxClojureRT extends MiniConstants {
 		NGINX_MAIN_THREAD = Thread.currentThread();
 		
 	    BYTE_ARRAY_OFFSET = UNSAFE.arrayBaseOffset(byte[].class);
+	    try {
+			STRING_CHAR_ARRAY_OFFSET = UNSAFE.objectFieldOffset(String.class.getDeclaredField("value"));
+		} catch (Throwable e) { // never happen!
+			UNSAFE.throwException(e);
+		} 
 	    
 	    long[] index = new long[NGX_HTTP_CLOJURE_MEM_IDX_END + 1];
 	    for (int i = 0; i < NGX_HTTP_CLOJURE_MEM_IDX_END + 1; i++) {
@@ -546,7 +575,9 @@ public class NginxClojureRT extends MiniConstants {
 
 		KNOWN_REQ_HEADERS.put("cookie", NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET);
 		
-		
+		/*temp setting only for CORE_VARS initialization*/
+		defaultByteBuffer = ByteBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
+		defaultCharBuffer = CharBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
 
 		for (int i = 0; i < NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN; i++) {
 			long addr = NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR + i * NGX_HTTP_CLOJURE_STR_SIZE;
@@ -565,7 +596,7 @@ public class NginxClojureRT extends MiniConstants {
 //		HEADER_FETCHER = new RequestHeadersFetcher();
 		BODY_FETCHER = new RequestBodyFetcher();
 		
-		KNOWN_RESP_HEADERS.put("server", SERVER_PUSHER = new ResponseTableEltHeaderPusher("server", NGX_HTTP_CLOJURE_HEADERSO_SERVER_OFFSET));
+		KNOWN_RESP_HEADERS.put("server", SERVER_PUSHER = new ResponseTableEltHeaderPusher("Server", NGX_HTTP_CLOJURE_HEADERSO_SERVER_OFFSET));
 		KNOWN_RESP_HEADERS.put("date", new ResponseTableEltHeaderPusher("date", NGX_HTTP_CLOJURE_HEADERSO_DATE_OFFSET));
 		KNOWN_RESP_HEADERS.put("content-length", new ResponseTableEltHeaderPusher("content-length", NGX_HTTP_CLOJURE_HEADERSO_CONTENT_LENGTH_OFFSET));
 		KNOWN_RESP_HEADERS.put("content-encoding", new ResponseTableEltHeaderPusher("content-encoding", NGX_HTTP_CLOJURE_HEADERSO_CONTENT_ENCODING_OFFSET));
@@ -579,6 +610,9 @@ public class NginxClojureRT extends MiniConstants {
 		KNOWN_RESP_HEADERS.put("etag", new ResponseTableEltHeaderPusher("etag", NGX_HTTP_CLOJURE_HEADERSO_ETAG_OFFSET));
 		KNOWN_RESP_HEADERS.put("cache-control", new ResponseArrayHeaderPusher("cache-control", NGX_HTTP_CLOJURE_HEADERSO_CACHE_CONTROL_OFFSET));
 		
+		/*clear all to let initWorkers initializing them correctly*/
+		defaultByteBuffer = null;
+		defaultCharBuffer = null;
 		initWorkers((int)NGINX_CLOJURE_RT_WORKERS);
 		
 		//set system properties for build-in nginx handler factories
@@ -596,13 +630,13 @@ public class NginxClojureRT extends MiniConstants {
 	
 	
 	public static synchronized int registerCode(long typeNStr, long nameNStr, long codeNStr) {
-		if (CODE_MAP.containsKey(codeNStr)) {
-			return CODE_MAP.get(codeNStr);
-		}
-		
-		if (CODE_MAP.containsKey(nameNStr)) {
-			return CODE_MAP.get(nameNStr);
-		}
+//		if (CODE_MAP.containsKey(codeNStr)) {
+//			return CODE_MAP.get(codeNStr);
+//		}
+//		
+//		if (CODE_MAP.containsKey(nameNStr)) {
+//			return CODE_MAP.get(nameNStr);
+//		}
 		
 		String type = fetchNGXString(typeNStr, DEFAULT_ENCODING);
 		String name = fetchNGXString(nameNStr, DEFAULT_ENCODING);
@@ -666,21 +700,27 @@ public class NginxClojureRT extends MiniConstants {
 	}
 	
 	
-	//TODO: for better performance to use direct encoder instead of bytes copy
+	
 	public static final String fetchString(long address, int size, Charset encoding) {
-		byte[] buf = new byte[size];
-		ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(address), buf, BYTE_ARRAY_OFFSET, size);
-		return new String(buf, encoding);
-
+		ByteBuffer bb = pickByteBuffer();
+		CharBuffer cb = pickCharBuffer();
+		if (size > bb.capacity()) {
+			bb = ByteBuffer.allocate(size);
+		}
+		ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(address), bb.array(), BYTE_ARRAY_OFFSET, size);
+		bb.limit(size);
+		return HackUtils.decode(bb, encoding, cb);
 	}
 	
 	
 	public static final int pushString(long address, String val, Charset encoding, long pool) {
-		byte[] bytes = val.getBytes(encoding);
-		long strAddr = ngx_palloc(pool, bytes.length);
+		ByteBuffer bb = pickByteBuffer();
+		bb = HackUtils.encode(val, encoding, bb);
+		int len = bb.remaining();
+		long strAddr = ngx_palloc(pool, len);
 		UNSAFE.putAddress(address, strAddr);
-		ngx_http_clojure_mem_copy_to_addr(bytes, BYTE_ARRAY_OFFSET, strAddr, bytes.length);
-		return bytes.length;
+		ngx_http_clojure_mem_copy_to_addr(bb.array(), BYTE_ARRAY_OFFSET , strAddr, len);
+		return len;
 	}
 	
 	public static final String getNGXVariable(long r, String name) {
@@ -842,7 +882,7 @@ public class NginxClojureRT extends MiniConstants {
 			if (resp.type() != 0) {
 				log.error("#%d: request is release! and we alos meet an unhandled exception! %s",  req.nativeRequest(), resp.fetchBody());
 			}else {
-				log.error("#%d: request is release! ");
+				log.error("#%d: request is release! ", req.nativeRequest());
 			}
 			return NGX_HTTP_INTERNAL_SERVER_ERROR;
 		}
@@ -874,13 +914,13 @@ public class NginxClojureRT extends MiniConstants {
 		if (Thread.currentThread() != NGINX_MAIN_THREAD) {
 			throw new RuntimeException("handleResponse can not be called out of nginx clojure main thread!");
 		}
-		if (resp.type() == NginxResponse.TYPE_FAKE_PHRASE_DONE) {
-			return NGX_DECLINED;
-		}
 		
-
 		if (resp == null) {
 			return NGX_HTTP_NOT_FOUND;
+		}
+		
+		if (resp.type() == NginxResponse.TYPE_FAKE_PHRASE_DONE) {
+			return NGX_DECLINED;
 		}
 		
 		NginxHandler handler = r.handler();
@@ -1121,5 +1161,35 @@ public class NginxClojureRT extends MiniConstants {
 			}
 		}
 		return results;
+	}
+	
+	public  static ByteBuffer pickByteBuffer() {
+		if (defaultByteBuffer  != null) {
+			defaultByteBuffer.clear();
+			return defaultByteBuffer;	
+		}
+		
+		ByteBuffer bb = threadLocalByteBuffers.get();
+		if (bb == null) {
+			threadLocalByteBuffers.set(bb = ByteBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE));
+		}else {
+			bb.clear();
+		}
+		return bb;
+	}
+	
+	public static CharBuffer pickCharBuffer() {
+		if (defaultCharBuffer  != null) {
+			defaultCharBuffer.clear();
+			return defaultCharBuffer;	
+		}
+		
+		CharBuffer cb = threadLocalCharBuffers.get();
+		if (cb == null) {
+			threadLocalCharBuffers.set(cb = CharBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE));
+		}else {
+			cb.clear();
+		}
+		return cb;
 	}
 }

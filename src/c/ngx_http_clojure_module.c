@@ -631,9 +631,10 @@ static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 	if (lcf->jvm_path.len == NGX_CONF_UNSET_SIZE) {
 #if defined(NGX_CLOJURE_BE_SILENT_WITHOUT_JVM)
 		return NGX_OK;
-#endif
+#else
 		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "no jvm_path configured!");
 		return NGX_ERROR ;
+#endif
 	}
 
 	if (lcf->jvm_options == NGX_CONF_UNSET_PTR) {
@@ -663,6 +664,10 @@ static void ngx_http_clojure_client_body_handler(ngx_http_request_t *r) {
 	ctx->client_body_done = 1;
 
 	if (!ctx->async_body_read) {
+/*	if (ctx->phrase == NGX_HTTP_REWRITE_PHASE) {
+			r->write_event_handler = ngx_http_core_run_phases;
+		}*/
+		r->main->count --;
 		ctx->phrase = -1;
 		return;
 	}
@@ -672,7 +677,7 @@ static void ngx_http_clojure_client_body_handler(ngx_http_request_t *r) {
 	if (ctx->phrase == NGX_HTTP_REWRITE_PHASE) {
 		handler_id = lcf->rewrite_handler_id;
 		rewrite_phase = 1;
-		r->write_event_handler = ngx_http_core_run_phases;
+/*	r->write_event_handler = ngx_http_core_run_phases;*/
 	}else {
 		handler_id = lcf->handler_id;
 	}
@@ -686,7 +691,8 @@ static void ngx_http_clojure_client_body_handler(ngx_http_request_t *r) {
 		r->main->count --;
 		if (rc != NGX_DONE) {
 			ctx->phrase = ~ctx->phrase;
-			r->write_event_handler(r);
+/*		r->write_event_handler(r);*/
+			ngx_http_core_run_phases(r);
 		}
 	}else {
 		ngx_http_finalize_request (r , rc);
@@ -766,7 +772,7 @@ static ngx_int_t ngx_http_clojure_handler(ngx_http_request_t * r) {
 
 static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t * r) {
 	ngx_int_t rc;
-	ngx_http_clojure_module_ctx_t *ctx;
+	ngx_http_clojure_module_ctx_t *ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
 	ngx_http_clojure_loc_conf_t  *lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
 
 	if (lcf->enable && (lcf->rewrite_handler_code.len > 0 || lcf->rewrite_handler_name.len > 0)) {
@@ -778,7 +784,7 @@ static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t * r) {
 	}
 
 	if (lcf->always_read_body) {
-		if ((ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module)) == NULL) {
+		if (ctx== NULL) {
 			ctx = ngx_palloc(r->pool, sizeof(ngx_http_clojure_module_ctx_t));
 			if (ctx == NULL) {
 				ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "OutOfMemory of create ngx_http_clojure_module_ctx_t");
@@ -805,10 +811,15 @@ static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t * r) {
 	}
 
 	if (!lcf->enable || (lcf->rewrite_handler_code.len == 0 && lcf->rewrite_handler_name.len == 0)) {
+		if (ctx != NULL && ctx->phrase == ~NGX_HTTP_REWRITE_PHASE) {
+			ctx->phrase = -1;
+					ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0,
+							"ngx clojure rewrite (enter again but without real nginx-clojure rewriter) request: %" PRIu64 ", rc: %d", (jlong )(uintptr_t )r, NGX_DECLINED);
+		}
 		return NGX_DECLINED;
 	}
 
-	if ((ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module)) == NULL) {
+	if (ctx == NULL) {
 		ctx = ngx_palloc(r->pool, sizeof(ngx_http_clojure_module_ctx_t));
 		if (ctx == NULL) {
 			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "OutOfMemory of create ngx_http_clojure_module_ctx_t");

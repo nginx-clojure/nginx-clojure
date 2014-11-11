@@ -133,6 +133,83 @@ static jlong JNICALL jni_ngx_create_temp_buf (JNIEnv *env, jclass cls, jlong r, 
 	return (uintptr_t)ngx_create_temp_buf(req->pool, (size_t)size);
 }
 
+static jlong JNICALL jni_ngx_create_temp_buf_by_jstring (JNIEnv *env, jclass cls, jlong req, jstring jstr,  jint last_buf) {
+	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t) req;
+
+	jsize ch_size = (*env)->GetStringLength(env, jstr);
+	jsize utf8_size = (*env)->GetStringUTFLength(env, jstr);
+	ngx_buf_t *b = ngx_create_temp_buf(r->pool, (size_t)utf8_size);
+
+	if (b == NULL) {
+		return 0;
+	}
+
+	(*env)->GetStringUTFRegion(env, jstr, 0, ch_size, (char *)b->pos);
+	b->last = b->pos + utf8_size;
+
+	if (last_buf & NGX_BUF_LAST_OF_RESPONSE) {
+		b->last_buf = b->last_in_chain = 1;
+	}else {
+		b->last_in_chain = last_buf & NGX_BUF_LAST_OF_CHAIN;
+	}
+
+	if (r->headers_out.content_length_n < 0 ) {
+		r->headers_out.content_length_n = utf8_size;
+	}else {
+		r->headers_out.content_length_n += utf8_size;
+	}
+
+	/*
+	 * If File and String are in the same ISeq of one response body,
+	 * we should clear the last_modified_time.
+	 */
+	r->headers_out.last_modified_time = -2;
+	r->headers_out.last_modified = NULL;
+
+	return (uintptr_t)b;
+}
+
+
+static jlong JNICALL jni_ngx_create_temp_buf_by_obj(JNIEnv *env, jclass cls, jlong req, jobject obj, jlong off, jlong len,  jint last_buf) {
+	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t) req;
+	ngx_buf_t *b;
+
+	if (len == 0) {
+		return 0;
+	}
+
+    b = ngx_calloc_buf(r->pool);
+    if (b == NULL) {
+        return 0;
+    }
+
+	b->start = (u_char *)ngx_http_clojure_abs_off_addr(obj, off);
+    b->pos = b->start;
+    b->last = b->start + len;
+    b->end = b->last;
+    b->memory = 1;
+
+	if (last_buf & NGX_BUF_LAST_OF_RESPONSE) {
+		b->last_buf = b->last_in_chain = 1;
+	}else {
+		b->last_in_chain = last_buf & NGX_BUF_LAST_OF_CHAIN;
+	}
+
+	if (r->headers_out.content_length_n < 0 ) {
+		r->headers_out.content_length_n = len;
+	}else {
+		r->headers_out.content_length_n += len;
+	}
+
+	/*
+	 * If File and String are in the same ISeq of one response body,
+	 * we should clear the last_modified_time.
+	 */
+	r->headers_out.last_modified_time = -2;
+	r->headers_out.last_modified = NULL;
+
+	return (uintptr_t)b;
+}
 
 static jlong JNICALL jni_ngx_create_file_buf (JNIEnv *env, jclass cls, jlong r, jlong file, jlong name_len, jint last_buf) {
 	ngx_http_request_t *req = (ngx_http_request_t *) (uintptr_t)r;
@@ -1353,6 +1430,204 @@ static jlong JNICALL jni_ngx_http_clojure_mem_init_ngx_buf(JNIEnv *env, jclass c
 	return (uintptr_t)b;
 }
 
+static jlong JNICALL jni_ngx_http_clojure_mem_build_temp_chain(JNIEnv *env, jclass cls, jlong req , jlong prevChain, jobject obj, jlong offset, jlong len) {
+	ngx_chain_t *pre = (ngx_chain_t*)(uintptr_t)prevChain;
+	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t)req;
+	ngx_buf_t *b;
+	ngx_chain_t *cl;
+
+	if (pre != NULL) {
+		while (pre->next != NULL) {
+			pre = pre->next;
+		}
+	}
+
+	if (r->headers_out.content_length_n < 0 ) {
+		r->headers_out.content_length_n = len;
+	}else {
+		r->headers_out.content_length_n += len;
+	}
+
+	/*
+	 * If File and String are in the same ISeq of one response body,
+	 * we should clear the last_modified_time.
+	 */
+	r->headers_out.last_modified_time = -2;
+	r->headers_out.last_modified = NULL;
+
+	b = ngx_create_temp_buf(r->pool, (size_t)len);
+	if (b == NULL){
+		return 0;
+	}
+
+	 cl = ngx_palloc(r->pool, sizeof(ngx_chain_t));
+	 if (cl == NULL) {
+		 return 0;
+	 }
+
+	 cl->buf = b;
+
+	 if (len > 0) {
+		 ngx_memcpy(b->pos, ngx_http_clojure_abs_off_addr(obj, offset), len);
+		 b->last = b->pos + len;
+	 }
+
+	 if (pre != NULL) {
+		 cl->next = pre->next;
+		 pre->next = cl;
+		 b->last_in_chain = pre->buf->last_in_chain;
+		 b->last_buf = pre->buf->last_buf;
+		 pre->buf->last_in_chain = 0;
+		 pre->buf->last_buf = 0;
+	 }else {
+		 cl->next = NULL;
+		 b->last_in_chain = 1;
+		 b->last_buf = 1;
+	 }
+
+	 return (uintptr_t)cl;
+}
+
+
+static jlong JNICALL jni_ngx_http_clojure_mem_build_file_chain(JNIEnv *env, jclass cls, jlong req , jlong prevChain, jobject  file, jlong offset, jlong len) {
+	ngx_chain_t *pre = (ngx_chain_t*)(uintptr_t)prevChain;
+	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t)req;
+	ngx_buf_t *b;
+	ngx_chain_t *cl;
+	ngx_str_t path; // = {(ngx_int_t)name_len, (u_char *)file};
+	ngx_open_file_info_t of;
+	ngx_http_core_loc_conf_t  *clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
+	ngx_uint_t level;
+	ngx_log_t *log = r->connection->log;
+
+	if (pre != NULL) {
+		while (pre->next != NULL) {
+			pre = pre->next;
+		}
+	}
+
+	/*make VS 2010 happy*/
+	path.data = (u_char *)ngx_http_clojure_abs_off_addr(file, offset);
+	path.len = (ngx_int_t)len;
+
+	/*just like http_static module */
+
+	ngx_memzero(&of, sizeof(ngx_open_file_info_t));
+
+	of.read_ahead = clcf->read_ahead;
+	of.directio = clcf->directio;
+	of.valid = clcf->open_file_cache_valid;
+	of.min_uses = clcf->open_file_cache_min_uses;
+	of.errors = clcf->open_file_cache_errors;
+	of.events = clcf->open_file_cache_events;
+
+	if (ngx_open_cached_file(clcf->open_file_cache, &path, &of, r->pool) != NGX_OK) {
+		ngx_int_t rc = 0;
+
+		switch (of.err) {
+
+		case 0:
+			return -NGX_HTTP_INTERNAL_SERVER_ERROR;
+
+		case NGX_ENOENT:
+		case NGX_ENOTDIR:
+		case NGX_ENAMETOOLONG:
+
+			level = NGX_LOG_ERR;
+			rc = NGX_HTTP_NOT_FOUND;
+			break;
+
+		case NGX_EACCES:
+
+			level = NGX_LOG_ERR;
+			rc = NGX_HTTP_FORBIDDEN;
+			break;
+
+		default:
+
+			level = NGX_LOG_CRIT;
+			rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+			break;
+		}
+
+		if (rc != NGX_HTTP_NOT_FOUND || clcf->log_not_found) {
+			ngx_log_error(level, log, of.err, "%s \"%s\" failed", of.failed,
+					path.data);
+		}
+
+		return -rc;
+	}
+
+	if (of.is_dir) {
+		return -NGX_HTTP_NOT_FOUND;
+	}
+
+#if !(NGX_WIN32) /* the not regular files are probably Unix specific */
+
+    if (!of.is_file) {
+        ngx_log_error(NGX_LOG_CRIT, log, 0,
+                      "\"%s\" is not a regular file", path.data);
+
+        return -NGX_HTTP_NOT_FOUND;
+    }
+
+#endif
+
+    r->allow_ranges = 1;
+
+    b = ngx_pcalloc(r->pool, sizeof(ngx_buf_t));
+    if (b == NULL) {
+        return -NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    b->file = ngx_pcalloc(r->pool, sizeof(ngx_file_t));
+    if (b->file == NULL) {
+        return -NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    b->file_pos = 0;
+    b->file_last = of.size;
+
+    b->in_file = b->file_last ? 1: 0;
+
+    b->file->fd = of.fd;
+    b->file->name = path;
+    b->file->log = log;
+    b->file->directio = of.is_directio;
+
+    if (r->headers_out.content_length_n < 0) {
+		r->headers_out.content_length_n = of.size;
+	} else {
+		r->headers_out.content_length_n += of.size;
+	}
+
+    if (r->headers_out.last_modified_time != -2 && r->headers_out.last_modified_time < of.mtime) {
+    	r->headers_out.last_modified_time = of.mtime;
+    }
+
+	 cl = ngx_palloc(r->pool, sizeof(ngx_chain_t));
+	 if (cl == NULL) {
+		 return 0;
+	 }
+
+	 cl->buf = b;
+
+	 if (pre != NULL) {
+		 cl->next = pre->next;
+		 pre->next = cl;
+		 b->last_in_chain = pre->buf->last_in_chain;
+		 b->last_buf = pre->buf->last_buf;
+		 pre->buf->last_in_chain = 0;
+		 pre->buf->last_buf = 0;
+	 }else {
+		 cl->next = NULL;
+		 b->last_in_chain = 1;
+		 b->last_buf = 1;
+	 }
+
+	 return (uintptr_t)cl;
+}
+
 static jlong JNICALL jni_ngx_http_clojure_mem_get_obj_addr(JNIEnv *env, jclass cls, jobject obj){
 	return obj ? (*(uintptr_t*)obj) : 0;
 }
@@ -1473,7 +1748,7 @@ static void JNICALL jni_ngx_http_clojure_mem_continue_current_phase(JNIEnv *env,
 	ngx_http_request_t *req = (ngx_http_request_t *)(uintptr_t) r;
 	ngx_http_clojure_module_ctx_t *ctx = ngx_http_get_module_ctx(req, ngx_http_clojure_module);
 	ctx->phrase = ~ctx->phrase;
-	req->write_event_handler(req);
+	ngx_http_core_run_phases(req);
 }
 
 static jlong JNICALL jni_ngx_http_clojure_mem_get_module_ctx_phase(JNIEnv *env, jclass cls, jlong r) {
@@ -1889,12 +2164,16 @@ int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log) {
 			{"ngx_list_init", "(JJJJ)J", jni_ngx_list_init},
 			{"ngx_list_push", "(J)J", jni_ngx_list_push},
 			{"ngx_create_temp_buf", "(JJ)J", jni_ngx_create_temp_buf},
+			{"ngx_create_temp_buf_by_jstring", "(JLjava/lang/String;I)J" , jni_ngx_create_temp_buf_by_jstring},
+			{"ngx_create_temp_buf_by_obj", "(JLjava/lang/Object;JJI)J", jni_ngx_create_temp_buf_by_obj}, //JNIEnv *env, jclass cls, jlong req, jobject obj, jlong offset, jlong len,  jint last_buf
 			{"ngx_create_file_buf", "(JJJI)J", jni_ngx_create_file_buf},
 			{"ngx_http_set_content_type", "(J)J", jni_ngx_http_set_content_type},
 			{"ngx_http_send_header", "(J)J", jni_ngx_http_send_header},
 			{"ngx_http_output_filter", "(JJ)J", jni_ngx_http_output_filter},
 			{"ngx_http_finalize_request", "(JJ)V", jni_ngx_http_finalize_request},
 			{"ngx_http_clojure_mem_init_ngx_buf", "(JLjava/lang/Object;JJI)J", jni_ngx_http_clojure_mem_init_ngx_buf}, //jlong buf, jlong obj, jlong offset, jlong len, jint last_buf
+			{"ngx_http_clojure_mem_build_temp_chain", "(JJLjava/lang/Object;JJ)J", jni_ngx_http_clojure_mem_build_temp_chain},
+			{"ngx_http_clojure_mem_build_file_chain", "(JJLjava/lang/Object;JJ)J", jni_ngx_http_clojure_mem_build_file_chain} ,
 			{"ngx_http_clojure_mem_get_obj_addr", "(Ljava/lang/Object;)J", jni_ngx_http_clojure_mem_get_obj_addr},
 			{"ngx_http_clojure_mem_get_list_size", "(J)J", jni_ngx_http_clojure_mem_get_list_size},
 			{"ngx_http_clojure_mem_get_list_item", "(JJ)J", jni_ngx_http_clojure_mem_get_list_item},
