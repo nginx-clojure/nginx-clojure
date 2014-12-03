@@ -15,4 +15,6 @@ public interface NginxRequest {
 	
 	public boolean isHijacked();
 	
+	public int phase();
+	
 }

@@ -13,7 +13,8 @@ public abstract class  NginxHandlerFactory {
 	
 	private static Map<String, NginxHandlerFactory> handlerFactoryMap = new HashMap<String, NginxHandlerFactory>();
 	
-	public abstract NginxHandler newInstance(String name, String code);
+	public abstract NginxHandler newInstance(int phase, String name, String code);
+	
 	
 	public static synchronized void register(String type,  NginxHandlerFactory factory) {
 		handlerFactoryMap.put(type, factory);
@@ -37,11 +38,12 @@ public abstract class  NginxHandlerFactory {
 		return factory;
 	}
 	
-	public static NginxHandler fetchHandler(String type, String name, String code) {
+	public static NginxHandler fetchHandler(int phase, String type, String name, String code) {
 		NginxHandlerFactory factory = fetchFactory(type);
 		if (factory == null) {
 			throw new RuntimeException("can not find subclass of NginxHandlerFactory for type : " + type);
 		}
-		return factory.newInstance(name, code);
+		return factory.newInstance(phase, name, code);
 	}
+	
 }

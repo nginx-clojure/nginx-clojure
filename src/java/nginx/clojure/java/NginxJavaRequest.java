@@ -39,6 +39,7 @@ import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHandler;
 import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxRequest;
+import nginx.clojure.NginxSimpleHandler;
 import nginx.clojure.NginxSimpleHandler.SimpleEntry;
 import nginx.clojure.RequestVarFetcher;
 import nginx.clojure.java.PickerPoweredIterator.Picker;
@@ -51,7 +52,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	protected Object[] array;
 	protected boolean hijacked = false;
 	protected NginxHttpServerChannel channel;
-	
+	protected int phase = -1;
 	protected volatile boolean released = false;
 	
 	
@@ -71,6 +72,9 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		this.handler = handler;
 		this.array = array;
 		this.ringHandler = ringHandler;
+		if (r != 0) {
+			NginxClojureRT.ngx_http_cleanup_add(r, requestListener, this);
+		}
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -132,10 +136,17 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	}
 
 	public SimpleEntry<String, Object> entry(int i) {
-		return new SimpleEntry<String, Object>(key(i), val(i));
+		return new SimpleEntry<String, Object>(key(i), val(i), NginxSimpleHandler.readOnlyEntrySetter);
 	}
 	
 
+	public int setVariable(String name, String value) {
+		return NginxClojureRT.setNGXVariable(r, name, value);
+	}
+	
+	public String getVariable(String name) {
+		return NginxClojureRT.getNGXVariable(r, name);
+	}
 	
 	public long nativeRequest() {
 		return r;
@@ -325,5 +336,15 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	@Override
 	public boolean isReleased() {
 		return released;
+	}
+	
+	@Override
+	public int phase() {
+		return phase;
+	}
+	
+	protected NginxJavaRequest phase(int phase) {
+		this.phase = phase;
+		return this;
 	}
 }

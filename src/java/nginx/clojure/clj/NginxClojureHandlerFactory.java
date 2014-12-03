@@ -4,6 +4,8 @@
  */
 package nginx.clojure.clj;
 
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_CACHE_CONTROL_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET;
 import static nginx.clojure.clj.Constants.HEADER_FETCHER;
 import static nginx.clojure.clj.Constants.KNOWN_RESP_HEADERS;
 import static nginx.clojure.clj.Constants.REQUEST_METHOD_FETCHER;
@@ -19,11 +21,12 @@ public class NginxClojureHandlerFactory extends NginxHandlerFactory {
 		HEADER_FETCHER = new RequestHeadersFetcher();
 		REQUEST_METHOD_FETCHER = new RequestMethodFetcher();
 		KNOWN_RESP_HEADERS.putAll(MiniConstants.KNOWN_RESP_HEADERS);
-		KNOWN_RESP_HEADERS.put("cache-control", new ResponseSeqHeaderPusher("cache-control", MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_CACHE_CONTROL_OFFSET));
+		KNOWN_RESP_HEADERS.put("Cache-Control", new SeqHeaderHolder("Cache-Control",
+				NGX_HTTP_CLOJURE_HEADERSO_CACHE_CONTROL_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
 	}
 	
 	@Override
-	public NginxHandler newInstance(String name, String code) {
+	public NginxHandler newInstance(int phase, String name, String code) {
 		if (name != null) {
 			int d = name.lastIndexOf('/');
 			if (d > 0) {

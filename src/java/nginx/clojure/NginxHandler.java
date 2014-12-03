@@ -16,9 +16,9 @@ import java.util.Map.Entry;
  */
 public interface NginxHandler {
 
-	public int execute(long request);
+	public int execute(long request, long chain);
 	
-	public ResponseHeaderPusher fetchResponseHeaderPusher(String name);
+	public NginxHeaderHolder fetchResponseHeaderPusher(String name);
 	
 	public NginxResponse toNginxResponse(NginxRequest req, Object resp);
 	

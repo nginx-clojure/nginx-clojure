@@ -4,6 +4,8 @@
  */
 package nginx.clojure.java;
 
+import static nginx.clojure.MiniConstants.NGX_HTTP_BODY_FILTER_PHASE;
+import static nginx.clojure.MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE;
 import static nginx.clojure.java.Constants.HEADER_FETCHER;
 import nginx.clojure.NginxHandler;
 import nginx.clojure.NginxHandlerFactory;
@@ -15,11 +17,18 @@ public class NginxJavaHandlerFactory extends NginxHandlerFactory {
 	}
 	
 	@Override
-	public NginxHandler newInstance(String name, String code) {
+	public NginxHandler newInstance(int phase, String name, String code) {
 		try {
 			name = name.trim();
-			NginxJavaRingHandler ringHandler = (NginxJavaRingHandler) Thread.currentThread().getContextClassLoader().loadClass(name).newInstance();
-			return new NginxJavaHandler(ringHandler);
+			Object handler = Thread.currentThread().getContextClassLoader().loadClass(name).newInstance();
+			switch (phase) {
+			case NGX_HTTP_HEADER_FILTER_PHASE:
+				return new NginxJavaHandler((NginxJavaHeaderFilter) handler);
+			case NGX_HTTP_BODY_FILTER_PHASE:
+				throw new UnsupportedOperationException("body filter has not been supported yet!");
+			default:
+				return new NginxJavaHandler((NginxJavaRingHandler) handler);
+			}
 		} catch (Throwable e) {
 			throw new RuntimeException("can not create nginx handler for name : " + name, e);
 		} 

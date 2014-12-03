@@ -6,20 +6,24 @@ package nginx.clojure.clj;
 
 import static nginx.clojure.MiniConstants.NGX_HTTP_NOT_FOUND;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NO_CONTENT;
+import static nginx.clojure.NginxClojureRT.log;
+import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_module_ctx_phase;
+import static nginx.clojure.NginxClojureRT.processId;
 import static nginx.clojure.clj.Constants.ASYNC_TAG;
 import static nginx.clojure.clj.Constants.BODY;
+import static nginx.clojure.clj.Constants.KNOWN_RESP_HEADERS;
 import static nginx.clojure.clj.Constants.STATUS;
+import static nginx.clojure.clj.Constants.URI;
 
 import java.io.Closeable;
 import java.util.Map;
 
 import nginx.clojure.NginxClojureRT;
+import nginx.clojure.NginxHeaderHolder;
 import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxRequest;
 import nginx.clojure.NginxResponse;
 import nginx.clojure.NginxSimpleHandler;
-import nginx.clojure.ResponseHeaderPusher;
-import nginx.clojure.ResponseUnknownHeaderPusher;
 import nginx.clojure.java.ArrayMap;
 import clojure.lang.IFn;
 import clojure.lang.ISeq;
@@ -49,7 +53,7 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 		}else {
 			name = nameObj.toString();
 		}
-		return name == null ? null : name.toLowerCase();
+		return name;
 	}
 	
 	@Override
@@ -58,11 +62,11 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 	}
 
 	@Override
-	public NginxRequest makeRequest(long r) {
+	public NginxRequest makeRequest(long r,  long c) {
 		if (r == 0) {
 			return new LazyRequestMap(this, r, null, new Object[0]); 
 		}
-		return new LazyRequestMap(this, r);
+		return new LazyRequestMap(this, r).phase((int)ngx_http_clojure_mem_get_module_ctx_phase(r));
 	}
 	
 	@Override
@@ -77,7 +81,7 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 				try {
 					((Closeable)r.array[bodyIdx]).close();
 				} catch (Throwable e) {
-					NginxClojureRT.log.error("can not close Closeable object such as FileInputStream!", e);
+					log.error("can not close Closeable object such as FileInputStream!", e);
 				}
 			}
 		}
@@ -99,8 +103,8 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 	}
 
 	@Override
-	public ResponseHeaderPusher fetchResponseHeaderPusher(String name) {
-		ResponseHeaderPusher pusher = Constants.KNOWN_RESP_HEADERS.get(name);
+	public NginxHeaderHolder fetchResponseHeaderPusher(String name) {
+		NginxHeaderHolder pusher = KNOWN_RESP_HEADERS.get(name);
 		if (pusher == null) {
 			pusher = new ResponseUnknownHeaderPusher(name);
 		}
@@ -137,8 +141,8 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 
 	@Override
 	public NginxHttpServerChannel hijack(NginxRequest req, boolean ignoreFilter) {
-		if (NginxClojureRT.log.isDebugEnabled()) {
-			NginxClojureRT.log.debug("#%s: hijack at %s", NginxClojureRT.processId, ((LazyRequestMap)req).valAt(Constants.URI));
+		if (log.isDebugEnabled()) {
+			log.debug("#%s: hijack at %s", processId, ((LazyRequestMap)req).valAt(URI));
 		}
 		((LazyRequestMap)req).hijackTag[0] = 1;
 		return ((LazyRequestMap)req).channel = new NginxHttpServerChannel(req, ignoreFilter);

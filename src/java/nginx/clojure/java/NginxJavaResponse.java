@@ -24,7 +24,7 @@ public class NginxJavaResponse extends NginxSimpleResponse {
 		if (response == Constants.ASYNC_TAG) {
 			this.type = TYPE_FAKE_ASYNC_TAG;
 		}else if (response == Constants.PHRASE_DONE) {
-			this.type = TYPE_FAKE_PHRASE_DONE;
+			this.type = TYPE_FAKE_PHASE_DONE;
 		}
 	}
 

@@ -3,17 +3,17 @@ package nginx.clojure;
 import static nginx.clojure.MiniConstants.BYTE_ARRAY_OFFSET;
 import static nginx.clojure.MiniConstants.CONTENT_TYPE;
 import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
-import static nginx.clojure.MiniConstants.NGINX_CLOJURE_FULL_VER;
+import static nginx.clojure.MiniConstants.KNOWN_RESP_HEADERS;
 import static nginx.clojure.MiniConstants.NGX_DONE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_LEN_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_POOL_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_INTERNAL_SERVER_ERROR;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NO_CONTENT;
 import static nginx.clojure.MiniConstants.NGX_HTTP_OK;
-import static nginx.clojure.MiniConstants.SERVER_PUSHER;
 import static nginx.clojure.MiniConstants.STRING_CHAR_ARRAY_OFFSET;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
 import static nginx.clojure.NginxClojureRT.coroutineEnabled;
@@ -21,7 +21,6 @@ import static nginx.clojure.NginxClojureRT.handleResponse;
 import static nginx.clojure.NginxClojureRT.log;
 import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_build_file_chain;
 import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_build_temp_chain;
-import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_module_ctx_phase;
 import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_inc_req_count;
 import static nginx.clojure.NginxClojureRT.ngx_http_set_content_type;
 import static nginx.clojure.NginxClojureRT.pickByteBuffer;
@@ -56,13 +55,13 @@ import sun.nio.cs.ThreadLocalCoders;
 
 public abstract class NginxSimpleHandler implements NginxHandler {
 
-	public abstract NginxRequest makeRequest(long r);
+	public abstract NginxRequest makeRequest(long r, long c);
 	
 	@Override
-	public int execute(final long r) {
+	public int execute(final long r, final long c) {
 		
 		if (r == 0) { //by worker init process
-			NginxResponse resp = handleRequest(makeRequest(0));
+			NginxResponse resp = handleRequest(makeRequest(0, 0));
 			if (resp != null && resp.type() == NginxResponse.TYPE_FAKE_ASYNC_TAG && resp.fetchStatus(200) != 200) {
 				log.error("initialize error %s", resp);
 				return NGX_HTTP_INTERNAL_SERVER_ERROR;
@@ -70,8 +69,8 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 			return NGX_HTTP_OK;
 		}
 		
-		final NginxRequest req = makeRequest(r);
-		int phase = (int)ngx_http_clojure_mem_get_module_ctx_phase(r);
+		final NginxRequest req = makeRequest(r, c);
+		int phase = req.phase();
 		
 		if (workers == null) {
 			NginxResponse resp = handleRequest(req);
@@ -124,14 +123,26 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 		}
 	}
 	
+	public static interface SimpleEntrySetter {
+		public  Object setValue(Object value);
+	}
+	
+	public final static SimpleEntrySetter readOnlyEntrySetter = new SimpleEntrySetter() {
+		public Object setValue(Object value) {
+			throw new UnsupportedOperationException("read only entry can not set!");
+		}
+	};
+	
 	public static class SimpleEntry<K, V> implements Entry<K, V> {
 
 		public K key;
 		public V value;
+		public SimpleEntrySetter setter;
 		
-		public SimpleEntry(K key, V value) {
+		public SimpleEntry(K key, V value, SimpleEntrySetter simpleEntrySetter) {
 			this.key = key;
 			this.value = value;
+			this.setter = simpleEntrySetter;
 		}
 		
 		@Override
@@ -146,10 +157,10 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 
 		@Override
 		public V setValue(V value) {
-			return value;
+			return (V)setter.setValue(value);
 		}
-		
 	}
+	
 	
 	public static class NginxUnhandledExceptionResponse extends NginxSimpleResponse {
 		
@@ -173,7 +184,7 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 		
 		@Override
 		public <K, V> Collection<Entry<K, V>> fetchHeaders() {
-			return (List)Arrays.asList(new SimpleEntry(CONTENT_TYPE, "text/plain"));
+			return (List)Arrays.asList(new SimpleEntry(CONTENT_TYPE, "text/plain", readOnlyEntrySetter));
 		}
 		@Override
 		public Object fetchBody() {
@@ -222,10 +233,10 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 	}
 	
 	@Override
-	public ResponseHeaderPusher fetchResponseHeaderPusher(String name) {
-		ResponseHeaderPusher pusher = MiniConstants.KNOWN_RESP_HEADERS.get(name);
+	public NginxHeaderHolder fetchResponseHeaderPusher(String name) {
+		NginxHeaderHolder pusher = KNOWN_RESP_HEADERS.get(name);
 		if (pusher == null) {
-			pusher = new ResponseUnknownHeaderPusher(name);
+			pusher = new UnknownHeaderHolder(name, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET);
 		}
 		return pusher;
 	}
@@ -233,7 +244,7 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 	@Override
 	public <K, V> long prepareHeaders(NginxRequest req, long status, Collection<Map.Entry<K, V>> headers) {
 		long r = req.nativeRequest();
-		long pool = NginxClojureRT.UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
+		long pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
 		long headers_out = r + NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
 		
 		String contentType = null;
@@ -248,31 +259,17 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 				}
 				
 				String name = normalizeHeaderName(nameObj);
-				
-				if (name == null || name.length() == 0 || "content-length".equals(name)) {
+				if (name == null || name.length() == 0) {
 					continue;
 				}
 				
-				if ("content-type".equals(name)) {
-					if (val != null) {
-						contentType = (String)val;
-					}
-					continue;
-				}else if ("server".equals(name)) {
-					server = (String)val;
-					continue;
+				NginxHeaderHolder pusher = fetchResponseHeaderPusher(name);
+				if (pusher == KNOWN_RESP_HEADERS.get("Content-Type")) {
+					contentType = (String)val;
 				}
-				
-				ResponseHeaderPusher pusher = fetchResponseHeaderPusher(name);
 				pusher.push(headers_out, pool, val);
 			}
 		}
-		
-		if (server == null) {
-			server = NGINX_CLOJURE_FULL_VER;
-		}
-		
-		SERVER_PUSHER.push(headers_out, pool, server);
 		
 		if (contentType == null){
 			ngx_http_set_content_type(r);
@@ -505,14 +502,6 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 	}
 
 	public static String normalizeHeaderNameHelper(Object nameObj) {
-
-		String name;
-		if (nameObj instanceof String) {
-			name = (String)nameObj;
-		}else {
-			name = nameObj.toString();
-		}
-		return name == null ? null : name.toLowerCase();
-	
+		return nameObj instanceof String ? (String)nameObj : nameObj.toString();
 	}
 }
