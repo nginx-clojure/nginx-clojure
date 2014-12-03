@@ -5,35 +5,30 @@
 package nginx.clojure.clj;
 
 import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
+import static nginx.clojure.MiniConstants.HEADERS_NAMES;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_HASH_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_KEY_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET;
-import nginx.clojure.NginxClojureRT;
-import nginx.clojure.ResponseHeaderPusher;
+import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_shadow_copy_ngx_str;
+import static nginx.clojure.NginxClojureRT.ngx_list_push;
+import static nginx.clojure.NginxClojureRT.pushNGXInt;
+import static nginx.clojure.NginxClojureRT.pushNGXString;
 import clojure.lang.ArraySeq;
 import clojure.lang.ISeq;
 
-public class ResponseUnknownHeaderPusher implements ResponseHeaderPusher {
+public class ResponseUnknownHeaderPusher extends nginx.clojure.UnknownHeaderHolder {
 
-	protected String name;
 	
 	public ResponseUnknownHeaderPusher(String name) {
-		this.name = name;
+		super(name, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET);
 	}
 	
-	@Override
-	public String name() {
-		return name;
-	}
-	
-	@Override
-	public long knownOffset() {
-		return -1;
-	}
 
 	@Override
 	public void push(long h, long pool, Object v) {
+		
+		clear(h);
 		
 		ISeq seq = null;
 		if (v instanceof String) {
@@ -48,19 +43,31 @@ public class ResponseUnknownHeaderPusher implements ResponseHeaderPusher {
 			return;
 		}
 		
+		long lpname = 0;
+		Long  pname = HEADERS_NAMES.get(name);
+		if (pname != null) {
+			lpname = pname;
+		}
 		
 		for (int i = 0; i < c; i++) {
 			String val = (String) seq.first();
 			seq = seq.next();
+
 			if (val != null) {
-				long p = NginxClojureRT.ngx_list_push(h + NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET);
+				long p = ngx_list_push(h + headersOffset);
 				if (p == 0) {
 					throw new RuntimeException("can not push ngx list for headers");
 				}
-				NginxClojureRT.pushNGXInt(p + NGX_HTTP_CLOJURE_TEL_HASH_OFFSET, 1);
-				NginxClojureRT.pushNGXString(p + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET, name, DEFAULT_ENCODING, pool);
-				NginxClojureRT.pushNGXString(p + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, val, DEFAULT_ENCODING, pool);
+				pushNGXInt(p + NGX_HTTP_CLOJURE_TEL_HASH_OFFSET, 1);
+				if (lpname != 0) {
+					ngx_http_clojure_mem_shadow_copy_ngx_str(lpname,  p + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET);
+				}else {
+					pushNGXString(p + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET, name, DEFAULT_ENCODING, pool);
+					lpname = p + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET; //UNSAFE.getAddress();
+				}
+				pushNGXString(p + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, val, DEFAULT_ENCODING, pool);
 			}
+		
 		}
 	}
 

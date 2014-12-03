@@ -59,6 +59,8 @@
 
 (def phrase-done Constants/PHRASE_DONE)
 
+(def phase-done phrase-done)
+
 (defn hijack! 
   "Hijack a nginx request and return a server channel.
    After being hijacked, the ring handler's result will be ignored.

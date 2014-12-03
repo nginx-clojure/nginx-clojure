@@ -15,6 +15,7 @@ import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ConcurrentHashMap;
@@ -76,6 +77,8 @@ public class NginxClojureRT extends MiniConstants {
 	public native static long ngx_array_create(long pool, long n, long size);
 
 	public native static long ngx_array_init(long array, long pool, long n, long size);
+	
+	public native static void ngx_array_destory(long array);
 
 	public native static long ngx_array_push_n(long array, long n);
 
@@ -98,9 +101,15 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public native static long ngx_http_send_header(long r);
 	
+	public native static void ngx_http_clear_header_and_reset_ctx_phase(long r, long phase);
+	
 	public native static long ngx_http_output_filter(long r, long chain);
 	
 	public native static void ngx_http_finalize_request(long r, long rc);
+	
+	public native static void ngx_http_filter_finalize_request(long r, long rc);
+	
+	public native static long ngx_http_filter_continue_next(long r, long chain);
 
 	/**
 	 * last_buf can be either of {@link MiniConstants#NGX_CLOJURE_BUF_LAST_OF_NONE} {@link MiniConstants#NGX_CLOJURE_BUF_LAST_OF_CHAIN}, {@link MiniConstants#NGX_CLOJURE_BUF_LAST_OF_RESPONSE}
@@ -117,11 +126,17 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public native static long ngx_http_clojure_mem_get_list_item(long l, long i);
 	
+	public native static long ngx_http_clojure_mem_get_headers_size(long header, int flag);
+	
+	public native static long ngx_http_clojure_mem_get_headers_items(long header, long i,  int flag,  Object buf,   long off, long maxoff); 
+	
 	public native static void ngx_http_clojure_mem_copy_to_obj(long src, Object obj, long offset, long len);
 	
 	public native static void ngx_http_clojure_mem_copy_to_addr(Object obj, long offset, long dest, long len);
 	
-	public native static long ngx_http_clojure_mem_get_header(long headers_in, long name, long len);
+	public native static void ngx_http_clojure_mem_shadow_copy_ngx_str(long s, long t);
+	
+	public native static long ngx_http_clojure_mem_get_header(long headers, Object buf, long nameOffset,  long nameLen, long valueOffset, long bufMaxOffset);
 	
 	public native static long ngx_http_clojure_mem_get_variable(long r, long name, long varlenPtr);
 	
@@ -129,7 +144,7 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public native static void ngx_http_clojure_mem_inc_req_count(long r);
 	
-	public native static void ngx_http_clojure_mem_continue_current_phase(long r);
+	public native static void ngx_http_clojure_mem_continue_current_phase(long r, long rc);
 	
 	public native static long ngx_http_clojure_mem_get_module_ctx_phase(long r);
 	
@@ -385,6 +400,24 @@ public class NginxClojureRT extends MiniConstants {
 		return threadPoolOnlyForTestingUsage;
 	}
 	
+	private static NginxHeaderHolder safeBuildKnownTableEltHeaderHolder(String name, long offset, long headersOffset) {
+		if (offset >= 0) {
+			return new TableEltHeaderHolder(name, offset, headersOffset);
+		}
+		return new UnknownHeaderHolder(name, headersOffset);
+	}
+	
+	public static void initStringAddrMapsByNativeAddr(Map<String, Long> map, long addr) {
+			while (true)  {
+				String var = fetchNGXString(addr, DEFAULT_ENCODING);
+				if (var == null) {
+					break;
+				}
+				map.put(var, addr);
+				addr += NGX_HTTP_CLOJURE_STR_SIZE;
+			}
+	}
+	
 	public static synchronized void initMemIndex(long idxpt) {
 		getLog();
 		initUnsafe();
@@ -444,7 +477,7 @@ public class NginxClojureRT extends MiniConstants {
 		
 		NGX_HTTP_CLOJURE_VARIABLET_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_VARIABLET_SIZE_IDX];
 		NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR = MEM_INDEX[NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR_IDX];
-		NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN = MEM_INDEX[NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN_IDX];
+		NGX_HTTP_CLOJURE_HEADERS_NAMES_ADDR = MEM_INDEX[NGX_HTTP_CLOJURE_HEADERS_NAMES_ADDR_IDX];
 		
 		
 		NGX_HTTP_CLOJURE_ARRAYT_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_ARRAYT_SIZE_IDX];
@@ -547,42 +580,40 @@ public class NginxClojureRT extends MiniConstants {
 		}
 		NGINX_CLOJURE_FULL_VER = "nginx-clojure/" + formatVer(NGINX_VER) + "-" + formatVer(NGINX_CLOJURE_RT_VER);
 		
-		KNOWN_REQ_HEADERS.put("host", NGX_HTTP_CLOJURE_HEADERSI_HOST_OFFSET);
-		KNOWN_REQ_HEADERS.put("connection", NGX_HTTP_CLOJURE_HEADERSI_CONNECTION_OFFSET);
-		KNOWN_REQ_HEADERS.put("if-modified-since", NGX_HTTP_CLOJURE_HEADERSI_IF_MODIFIED_SINCE_OFFSET);
-		KNOWN_REQ_HEADERS.put("if-unmodified-since", NGX_HTTP_CLOJURE_HEADERSI_IF_UNMODIFIED_SINCE_OFFSET);
-		KNOWN_REQ_HEADERS.put("user-agent", NGX_HTTP_CLOJURE_HEADERSI_USER_AGENT_OFFSET);
-		KNOWN_REQ_HEADERS.put("referer", NGX_HTTP_CLOJURE_HEADERSI_REFERER_OFFSET);
-		KNOWN_REQ_HEADERS.put("content-length", NGX_HTTP_CLOJURE_HEADERSI_CONTENT_LENGTH_OFFSET);
-		KNOWN_REQ_HEADERS.put("content-type", NGX_HTTP_CLOJURE_HEADERSI_CONTENT_TYPE_OFFSET);
-		KNOWN_REQ_HEADERS.put("range", NGX_HTTP_CLOJURE_HEADERSI_RANGE_OFFSET);
-		KNOWN_REQ_HEADERS.put("if-range", NGX_HTTP_CLOJURE_HEADERSI_IF_RANGE_OFFSET);
-		KNOWN_REQ_HEADERS.put("transfer-encoding", NGX_HTTP_CLOJURE_HEADERSI_TRANSFER_ENCODING_OFFSET);
-		KNOWN_REQ_HEADERS.put("expect", NGX_HTTP_CLOJURE_HEADERSI_EXPECT_OFFSET);
-		KNOWN_REQ_HEADERS.put("accept-encoding", NGX_HTTP_CLOJURE_HEADERSI_ACCEPT_ENCODING_OFFSET);
-		KNOWN_REQ_HEADERS.put("via", NGX_HTTP_CLOJURE_HEADERSI_VIA_OFFSET);
-		KNOWN_REQ_HEADERS.put("authorization", NGX_HTTP_CLOJURE_HEADERSI_AUTHORIZATION_OFFSET);
-		KNOWN_REQ_HEADERS.put("keep-alive", NGX_HTTP_CLOJURE_HEADERSI_KEEP_ALIVE_OFFSET);
-		KNOWN_REQ_HEADERS.put("x-forwarded-for", NGX_HTTP_CLOJURE_HEADERSI_X_FORWARDED_FOR_OFFSET);
-		KNOWN_REQ_HEADERS.put("x-real-ip", NGX_HTTP_CLOJURE_HEADERSI_X_REAL_IP_OFFSET);
-		KNOWN_REQ_HEADERS.put("accept", NGX_HTTP_CLOJURE_HEADERSI_ACCEPT_OFFSET);
+		KNOWN_REQ_HEADERS.put("Host", safeBuildKnownTableEltHeaderHolder("Host", NGX_HTTP_CLOJURE_HEADERSI_HOST_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("Connection", safeBuildKnownTableEltHeaderHolder("Connection", NGX_HTTP_CLOJURE_HEADERSI_CONNECTION_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("If-Modified-Since",safeBuildKnownTableEltHeaderHolder("If-Modified-Since", NGX_HTTP_CLOJURE_HEADERSI_IF_MODIFIED_SINCE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("If-Unmodified-Since", safeBuildKnownTableEltHeaderHolder("If-Unmodified-Since", NGX_HTTP_CLOJURE_HEADERSI_IF_UNMODIFIED_SINCE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("User-Agent", safeBuildKnownTableEltHeaderHolder("User-Agent", NGX_HTTP_CLOJURE_HEADERSI_USER_AGENT_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("Referer", safeBuildKnownTableEltHeaderHolder("Referer", NGX_HTTP_CLOJURE_HEADERSI_REFERER_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("Content-Length", new OffsetHeaderHolder("Content-Length", NGX_HTTP_CLOJURE_HEADERSI_CONTENT_LENGTH_N_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("Content-Type",  safeBuildKnownTableEltHeaderHolder("Content-Type", NGX_HTTP_CLOJURE_HEADERSI_CONTENT_TYPE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("Range", safeBuildKnownTableEltHeaderHolder("Range", NGX_HTTP_CLOJURE_HEADERSI_RANGE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("If-Range", safeBuildKnownTableEltHeaderHolder("If-Range", NGX_HTTP_CLOJURE_HEADERSI_IF_RANGE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("Transfer-Encoding", safeBuildKnownTableEltHeaderHolder("Transfer-Encoding", NGX_HTTP_CLOJURE_HEADERSI_TRANSFER_ENCODING_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("Expect", safeBuildKnownTableEltHeaderHolder("Expect", NGX_HTTP_CLOJURE_HEADERSI_EXPECT_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("Accept-Encoding", safeBuildKnownTableEltHeaderHolder("Accept-Encoding", NGX_HTTP_CLOJURE_HEADERSI_ACCEPT_ENCODING_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("Via",  safeBuildKnownTableEltHeaderHolder("Via", NGX_HTTP_CLOJURE_HEADERSI_VIA_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("Authorization", safeBuildKnownTableEltHeaderHolder("Authorization", NGX_HTTP_CLOJURE_HEADERSI_AUTHORIZATION_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("Keep-Alive", safeBuildKnownTableEltHeaderHolder("Keep-Alive", NGX_HTTP_CLOJURE_HEADERSI_KEEP_ALIVE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("X-Forwarded-For", safeBuildKnownTableEltHeaderHolder("X-Forwarded-For", NGX_HTTP_CLOJURE_HEADERSI_X_FORWARDED_FOR_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("X-Real-Ip", safeBuildKnownTableEltHeaderHolder("X-Real-Ip", NGX_HTTP_CLOJURE_HEADERSI_X_REAL_IP_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("Accept", safeBuildKnownTableEltHeaderHolder("Accept", NGX_HTTP_CLOJURE_HEADERSI_ACCEPT_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 
-		KNOWN_REQ_HEADERS.put("accept-language", NGX_HTTP_CLOJURE_HEADERSI_ACCEPT_LANGUAGE_OFFSET);
-		KNOWN_REQ_HEADERS.put("depth", NGX_HTTP_CLOJURE_HEADERSI_DEPTH_OFFSET);
-		KNOWN_REQ_HEADERS.put("destination", NGX_HTTP_CLOJURE_HEADERSI_DESTINATION_OFFSET);
-		KNOWN_REQ_HEADERS.put("overwrite", NGX_HTTP_CLOJURE_HEADERSI_OVERWRITE_OFFSET);
-		KNOWN_REQ_HEADERS.put("date", NGX_HTTP_CLOJURE_HEADERSI_DATE_OFFSET);
+		KNOWN_REQ_HEADERS.put("Accept-Language", safeBuildKnownTableEltHeaderHolder("Accept-Language", NGX_HTTP_CLOJURE_HEADERSI_ACCEPT_LANGUAGE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("Depth", safeBuildKnownTableEltHeaderHolder("Depth", NGX_HTTP_CLOJURE_HEADERSI_DEPTH_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("Destination", safeBuildKnownTableEltHeaderHolder("Destination", NGX_HTTP_CLOJURE_HEADERSI_DESTINATION_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("Overwrite", safeBuildKnownTableEltHeaderHolder("Overwrite", NGX_HTTP_CLOJURE_HEADERSI_OVERWRITE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("Date", safeBuildKnownTableEltHeaderHolder("Date", NGX_HTTP_CLOJURE_HEADERSI_DATE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 
-		KNOWN_REQ_HEADERS.put("cookie", NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET);
+		KNOWN_REQ_HEADERS.put("Cookie", new ArrayHeaderHolder("Cookie", NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 		
 		/*temp setting only for CORE_VARS initialization*/
 		defaultByteBuffer = ByteBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
 		defaultCharBuffer = CharBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
 
-		for (int i = 0; i < NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN; i++) {
-			long addr = NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR + i * NGX_HTTP_CLOJURE_STR_SIZE;
-			CORE_VARS.put(fetchNGXString(addr, DEFAULT_ENCODING), addr);
-		}
+		initStringAddrMapsByNativeAddr(CORE_VARS,  NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR);
+		initStringAddrMapsByNativeAddr(HEADERS_NAMES,  NGX_HTTP_CLOJURE_HEADERS_NAMES_ADDR);
 		
 		SERVER_PORT_FETCHER = new RequestKnownNameVarFetcher("server_port");
 		SERVER_NAME_FETCHER = new RequestKnownNameVarFetcher("server_name");
@@ -596,19 +627,20 @@ public class NginxClojureRT extends MiniConstants {
 //		HEADER_FETCHER = new RequestHeadersFetcher();
 		BODY_FETCHER = new RequestBodyFetcher();
 		
-		KNOWN_RESP_HEADERS.put("server", SERVER_PUSHER = new ResponseTableEltHeaderPusher("Server", NGX_HTTP_CLOJURE_HEADERSO_SERVER_OFFSET));
-		KNOWN_RESP_HEADERS.put("date", new ResponseTableEltHeaderPusher("date", NGX_HTTP_CLOJURE_HEADERSO_DATE_OFFSET));
-		KNOWN_RESP_HEADERS.put("content-length", new ResponseTableEltHeaderPusher("content-length", NGX_HTTP_CLOJURE_HEADERSO_CONTENT_LENGTH_OFFSET));
-		KNOWN_RESP_HEADERS.put("content-encoding", new ResponseTableEltHeaderPusher("content-encoding", NGX_HTTP_CLOJURE_HEADERSO_CONTENT_ENCODING_OFFSET));
-		KNOWN_RESP_HEADERS.put("location", new ResponseTableEltHeaderPusher("location", NGX_HTTP_CLOJURE_HEADERSO_LOCATION_OFFSET));
-		KNOWN_RESP_HEADERS.put("refresh", new ResponseTableEltHeaderPusher("refresh", NGX_HTTP_CLOJURE_HEADERSO_REFRESH_OFFSET));
-		KNOWN_RESP_HEADERS.put("last-modified", new ResponseTableEltHeaderPusher("last-modified", NGX_HTTP_CLOJURE_HEADERSO_LAST_MODIFIED_OFFSET));
-		KNOWN_RESP_HEADERS.put("content-range", new ResponseTableEltHeaderPusher("content-range", NGX_HTTP_CLOJURE_HEADERSO_CONTENT_RANGE_OFFSET));
-		KNOWN_RESP_HEADERS.put("accept-ranges", new ResponseTableEltHeaderPusher("accept-ranges", NGX_HTTP_CLOJURE_HEADERSO_ACCEPT_RANGES_OFFSET));
-		KNOWN_RESP_HEADERS.put("www-authenticate", new ResponseTableEltHeaderPusher("www-authenticate", NGX_HTTP_CLOJURE_HEADERSO_WWW_AUTHENTICATE_OFFSET));
-		KNOWN_RESP_HEADERS.put("expires", new ResponseTableEltHeaderPusher("expires", NGX_HTTP_CLOJURE_HEADERSO_EXPIRES_OFFSET));
-		KNOWN_RESP_HEADERS.put("etag", new ResponseTableEltHeaderPusher("etag", NGX_HTTP_CLOJURE_HEADERSO_ETAG_OFFSET));
-		KNOWN_RESP_HEADERS.put("cache-control", new ResponseArrayHeaderPusher("cache-control", NGX_HTTP_CLOJURE_HEADERSO_CACHE_CONTROL_OFFSET));
+		KNOWN_RESP_HEADERS.put("Server", safeBuildKnownTableEltHeaderHolder("Server", NGX_HTTP_CLOJURE_HEADERSO_SERVER_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
+		KNOWN_RESP_HEADERS.put("Date", safeBuildKnownTableEltHeaderHolder("Date", NGX_HTTP_CLOJURE_HEADERSO_DATE_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
+		KNOWN_RESP_HEADERS.put("Content-Encoding", safeBuildKnownTableEltHeaderHolder("Content-Encoding", NGX_HTTP_CLOJURE_HEADERSO_CONTENT_ENCODING_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
+		KNOWN_RESP_HEADERS.put("Location", safeBuildKnownTableEltHeaderHolder("Location", NGX_HTTP_CLOJURE_HEADERSO_LOCATION_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
+		KNOWN_RESP_HEADERS.put("Refresh", safeBuildKnownTableEltHeaderHolder("Refresh", NGX_HTTP_CLOJURE_HEADERSO_REFRESH_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
+		KNOWN_RESP_HEADERS.put("Last-Modified", safeBuildKnownTableEltHeaderHolder("Last-Modified", NGX_HTTP_CLOJURE_HEADERSO_LAST_MODIFIED_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
+		KNOWN_RESP_HEADERS.put("Content-Range", safeBuildKnownTableEltHeaderHolder("Content-Range", NGX_HTTP_CLOJURE_HEADERSO_CONTENT_RANGE_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
+		KNOWN_RESP_HEADERS.put("Accept-Ranges", safeBuildKnownTableEltHeaderHolder("Accept-Ranges", NGX_HTTP_CLOJURE_HEADERSO_ACCEPT_RANGES_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
+		KNOWN_RESP_HEADERS.put("WWW-Authenticate", safeBuildKnownTableEltHeaderHolder("WWW-Authenticate", NGX_HTTP_CLOJURE_HEADERSO_WWW_AUTHENTICATE_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
+		KNOWN_RESP_HEADERS.put("Expires", safeBuildKnownTableEltHeaderHolder("Expires", NGX_HTTP_CLOJURE_HEADERSO_EXPIRES_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
+		KNOWN_RESP_HEADERS.put("Etag", safeBuildKnownTableEltHeaderHolder("Etag", NGX_HTTP_CLOJURE_HEADERSO_ETAG_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
+		KNOWN_RESP_HEADERS.put("Cache-Control", new ArrayHeaderHolder("Cache-Control", NGX_HTTP_CLOJURE_HEADERSO_CACHE_CONTROL_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
+		KNOWN_RESP_HEADERS.put("Content-Type", new NgxStringHeaderHolder("Content-Type", NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
+		KNOWN_RESP_HEADERS.put("Content-Length", new ResponseContentTypeHolder());
 		
 		/*clear all to let initWorkers initializing them correctly*/
 		defaultByteBuffer = null;
@@ -629,7 +661,7 @@ public class NginxClojureRT extends MiniConstants {
 	}
 	
 	
-	public static synchronized int registerCode(long typeNStr, long nameNStr, long codeNStr) {
+	public static synchronized int registerCode(int phase, long typeNStr, long nameNStr, long codeNStr) {
 //		if (CODE_MAP.containsKey(codeNStr)) {
 //			return CODE_MAP.get(codeNStr);
 //		}
@@ -642,7 +674,7 @@ public class NginxClojureRT extends MiniConstants {
 		String name = fetchNGXString(nameNStr, DEFAULT_ENCODING);
 		String code = fetchNGXString(codeNStr,  DEFAULT_ENCODING);
 		
-		NginxHandler handler = NginxHandlerFactory.fetchHandler(type, name, code);
+		NginxHandler handler = NginxHandlerFactory.fetchHandler(phase, type, name, code);
 		HANDLERS.add(handler);
 		return HANDLERS.size() - 1;
 	}
@@ -662,13 +694,42 @@ public class NginxClojureRT extends MiniConstants {
 		return fetchString(address + NGX_HTTP_CLOJURE_STR_DATA_OFFSET, len, encoding);
 	}
 	
+	/**
+	 * convert ngx_str_t to  java String
+	 */
+	public static final String fetchNGXString(long address, Charset encoding, ByteBuffer bb,  CharBuffer cb) {
+		if (address == 0){
+			return null;
+		}
+		long lenAddr = address + NGX_HTTP_CLOJURE_STR_LEN_OFFSET;
+		int len = fetchNGXInt(lenAddr);
+		if (len <= 0){
+			return null;
+		}
+		return fetchString(address + NGX_HTTP_CLOJURE_STR_DATA_OFFSET, len, encoding, bb, cb);
+	}
+	
 	public static final int pushNGXString(long address, String val, Charset encoding, long pool){
 			long lenAddr = address + NGX_HTTP_CLOJURE_STR_LEN_OFFSET;
 			long dataAddr = address + NGX_HTTP_CLOJURE_STR_DATA_OFFSET;
-			int len = pushString(dataAddr, val, encoding, pool);
-			pushNGXInt(lenAddr, len);
-			return len;
+			if (val == null) {
+				UNSAFE.putAddress(dataAddr, 0);
+				pushNGXInt(lenAddr, 0);
+				return 0;
+			}else {
+				int len = pushString(dataAddr, val, encoding, pool);
+				pushNGXInt(lenAddr, len);
+				return len;
+			}
 	}
+	
+	public static final int pushNGXLowcaseString(long address, String val, Charset encoding, long pool){
+		long lenAddr = address + NGX_HTTP_CLOJURE_STR_LEN_OFFSET;
+		long dataAddr = address + NGX_HTTP_CLOJURE_STR_DATA_OFFSET;
+		int len = pushLowcaseString(dataAddr, val, encoding, pool);
+		pushNGXInt(lenAddr, len);
+		return len;
+}
 	
 	
 	public static final int fetchNGXInt(long address){
@@ -683,9 +744,13 @@ public class NginxClojureRT extends MiniConstants {
 		}
 	}
 	
-	public static final void pushNGXOfft(long address, int val){
+	public static final long fetchNGXOfft(long address){
+		return NGX_HTTP_CLOJURE_OFFT_SIZE == 4 ? UNSAFE.getInt(address) : UNSAFE.getLong(address);
+	}
+	
+	public static final void pushNGXOfft(long address, long val){
 		if (NGX_HTTP_CLOJURE_OFFT_SIZE == 4){
-			UNSAFE.putInt(address, val);
+			UNSAFE.putInt(address, (int)val);
 		}else {
 			UNSAFE.putLong(address, val);
 		}
@@ -699,7 +764,14 @@ public class NginxClojureRT extends MiniConstants {
 		}
 	}
 	
-	
+	public static final String fetchString(long address, int size, Charset encoding, ByteBuffer bb,  CharBuffer cb) {
+		if (size > bb.limit()) {
+			size = bb.limit();
+		}
+		ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(address), bb.array(), BYTE_ARRAY_OFFSET, size);
+		bb.limit(size);
+		return HackUtils.decode(bb, encoding, cb);
+	}
 	
 	public static final String fetchString(long address, int size, Charset encoding) {
 		ByteBuffer bb = pickByteBuffer();
@@ -712,6 +784,15 @@ public class NginxClojureRT extends MiniConstants {
 		return HackUtils.decode(bb, encoding, cb);
 	}
 	
+	public static final int pushLowcaseString(long address, String val, Charset encoding, long pool) {
+		ByteBuffer bb = pickByteBuffer();
+		bb = HackUtils.encodeLowcase(val, encoding, bb);
+		int len = bb.remaining();
+		long strAddr = ngx_palloc(pool, len);
+		UNSAFE.putAddress(address, strAddr);
+		ngx_http_clojure_mem_copy_to_addr(bb.array(), BYTE_ARRAY_OFFSET , strAddr, len);
+		return len;
+	}
 	
 	public static final int pushString(long address, String val, Charset encoding, long pool) {
 		ByteBuffer bb = pickByteBuffer();
@@ -724,6 +805,9 @@ public class NginxClojureRT extends MiniConstants {
 	}
 	
 	public static final String getNGXVariable(long r, String name) {
+		if (r == 0) {
+			throw new RuntimeException("invalid request which address is 0!");
+		}
 		if (CORE_VARS.containsKey(name)) {
 			return (String) new RequestKnownNameVarFetcher(name).fetch(r, DEFAULT_ENCODING);
 		}
@@ -731,29 +815,35 @@ public class NginxClojureRT extends MiniConstants {
 	}
 	
 	public static final int setNGXVariable(long r, String name, String val) {
+		if (r == 0) {
+			throw new RuntimeException("invalid request which address is 0!");
+		}
+		
 		long np = CORE_VARS.containsKey(name) ? CORE_VARS.get(name) : 0;
 		long pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
 		
 		if (pool == 0) {
-			throw new RuntimeException("pool is null, maybe request is finished by wront coroutine configuration!");
+			throw new RuntimeException("pool is null, maybe request is finished by wrong coroutine configuration!");
 		}
 		
 		if (np == 0) {
 			np = ngx_palloc(pool, NGX_HTTP_CLOJURE_STR_SIZE);
-			pushNGXString(np, name, DEFAULT_ENCODING, pool);
+			pushNGXLowcaseString(np, name, DEFAULT_ENCODING, pool);
 		}
-		byte[] bytes = val.getBytes(DEFAULT_ENCODING);
-		long strAddr = ngx_palloc(pool, bytes.length);
+		
+		ByteBuffer vbb = HackUtils.encode(val, DEFAULT_ENCODING,  pickByteBuffer());
+		int vlen = vbb.remaining();
+		long strAddr = ngx_palloc(pool, vbb.remaining());
 		if (strAddr == 0) {
 			throw new OutOfMemoryError("nginx OutOfMemoryError");
 		}
-		ngx_http_clojure_mem_copy_to_addr(bytes, BYTE_ARRAY_OFFSET, strAddr, bytes.length);
-		return (int)ngx_http_clojure_mem_set_variable(r, np, strAddr, bytes.length);
+		ngx_http_clojure_mem_copy_to_addr(vbb.array(), BYTE_ARRAY_OFFSET, strAddr, vlen);
+		return (int)ngx_http_clojure_mem_set_variable(r, np, strAddr, vlen);
 	}
 	
 	
-	public static int eval(final int codeId, final long r) {
-		return HANDLERS.get(codeId).execute(r);
+	public static int eval(final int codeId, final long r, final long c) {
+		return HANDLERS.get(codeId).execute(r, c);
 	}
 	
 	public static LoggerService getLog() {
@@ -806,7 +896,7 @@ public class NginxClojureRT extends MiniConstants {
 		if (tag <= POST_EVENT_TYPE_SYSTEM_EVENT_IDX_END) {
 			switch (tag) {
 			case POST_EVENT_TYPE_HANDLE_RESPONSE:
-				return handleResponse(data);
+				return handlePostedResponse(data);
 			case POST_EVENT_TYPE_CLOSE_SOCKET:
 				try {
 					NginxClojureSocketImpl s = (NginxClojureSocketImpl) POSTED_EVENTS_DATA.remove(data);
@@ -873,7 +963,7 @@ public class NginxClojureRT extends MiniConstants {
 		}
 	}
 	
-	public static int handleResponse(long r) {
+	public static int handlePostedResponse(long r) {
 		WorkerResponseContext ctx = (WorkerResponseContext) POSTED_EVENTS_DATA.remove(r);
 		NginxResponse resp = ctx.response;
 		NginxRequest req = ctx.request;
@@ -887,27 +977,50 @@ public class NginxClojureRT extends MiniConstants {
 			return NGX_HTTP_INTERNAL_SERVER_ERROR;
 		}
 		
-		if (resp.type() == NginxResponse.TYPE_FAKE_PHRASE_DONE) {
-			ngx_http_clojure_mem_continue_current_phase(r);
+		if (resp.type() == NginxResponse.TYPE_FAKE_PHASE_DONE) {
+			ngx_http_clojure_mem_continue_current_phase(r, NGX_DECLINED);
 			return NGX_OK;
 		}
 		long chain = ctx.chain;
+		long rc = NGX_OK;
+		int phase = req.phase();
+		long nr = req.nativeRequest();
 		if (chain < 0) {
 			req.handler().prepareHeaders(req, -(int)chain, resp.fetchHeaders());
-			ngx_http_finalize_request(r, -chain);
+			rc = -chain;
 		}else if (chain == 0) {
-			ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
+			rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
 		} else {
 			int status = ctx.response.fetchStatus(NGX_HTTP_OK);
 			req.handler().prepareHeaders(req, status, resp.fetchHeaders());
-			int rc = (int)ngx_http_send_header(req.nativeRequest());
+			rc = ngx_http_send_header(nr);
 			if (rc == NGX_ERROR || rc > NGX_OK) {
-				ngx_http_finalize_request(r, rc);
 			}else {
-				ngx_http_finalize_request(r, ngx_http_output_filter(r, chain));
+				rc = ngx_http_output_filter(r, chain);
+				if (phase != -1) {
+					rc = handleReturnCodeFromHandler(nr, phase, rc);
+				}
 			}
 		}
+		
+		if (phase == -1) {
+			ngx_http_finalize_request(r, rc);
+		}else {
+			ngx_http_clojure_mem_continue_current_phase(r,  rc);
+		}
 		return NGX_OK;
+	}
+	
+	private static long handleReturnCodeFromHandler(long r, int phase, long rc) {
+		if (phase == -1 || rc == NGX_ERROR ) {
+			return rc;
+		}
+		
+		ngx_http_finalize_request(r, rc);
+		if (phase == NGX_HTTP_ACCESS_PHASE || phase == NGX_HTTP_REWRITE_PHASE || phase == NGX_HTTP_HEADER_FILTER_PHASE) {
+			return NGX_DONE;
+		}
+		return rc;
 	}
 	
 	public static int handleResponse(NginxRequest r, final NginxResponse resp) {
@@ -918,9 +1031,12 @@ public class NginxClojureRT extends MiniConstants {
 		if (resp == null) {
 			return NGX_HTTP_NOT_FOUND;
 		}
-		
-		if (resp.type() == NginxResponse.TYPE_FAKE_PHRASE_DONE) {
-			return NGX_DECLINED;
+		int phase = r.phase();
+		if (resp.type() == NginxResponse.TYPE_FAKE_PHASE_DONE) {
+			if (phase == NGX_HTTP_REWRITE_PHASE || phase == NGX_HTTP_ACCESS_PHASE) {
+				return NGX_DECLINED;
+			}
+			return  (int)ngx_http_filter_continue_next(r.nativeRequest(), 0);
 		}
 		
 		NginxHandler handler = r.handler();
@@ -932,11 +1048,16 @@ public class NginxClojureRT extends MiniConstants {
 			return status;
 		}
 		handler.prepareHeaders(r, status, resp.fetchHeaders());
-		int rc = (int)ngx_http_send_header(r.nativeRequest());
-		if (rc == NGX_ERROR || rc > NGX_OK) {
-			return rc;
+		long nr = r.nativeRequest();
+		if (phase == NGX_HTTP_HEADER_FILTER_PHASE) {
+			ngx_http_clear_header_and_reset_ctx_phase(nr, ~phase);
 		}
-		return (int)ngx_http_output_filter(r.nativeRequest(), chain);
+		long rc = ngx_http_send_header(r.nativeRequest());
+		if (rc == NGX_ERROR || rc > NGX_OK) {
+			return (int) rc;
+		}
+		rc =  ngx_http_output_filter(r.nativeRequest(), chain);
+		return (int)handleReturnCodeFromHandler(nr, phase, rc);
 	}
 
 	public static void completeAsyncResponse(NginxRequest req, final NginxResponse resp) {
@@ -949,13 +1070,17 @@ public class NginxClojureRT extends MiniConstants {
 			return;
 		}
 		
-		if (resp.type() == NginxResponse.TYPE_FAKE_PHRASE_DONE) {
-			ngx_http_clojure_mem_continue_current_phase(r);
+		if (resp.type() == NginxResponse.TYPE_FAKE_PHASE_DONE) {
+			ngx_http_clojure_mem_continue_current_phase(r, NGX_DECLINED);
 			return;
 		}
 		
-		int rc = handleResponse(req, resp);
-		ngx_http_finalize_request(r, rc);
+		long rc = handleResponse(req, resp);
+		if (req.phase() == -1) {
+			ngx_http_finalize_request(r, rc);
+		}else {
+			ngx_http_clojure_mem_continue_current_phase(r, rc);
+		}
 	}
 	
 	public static void completeAsyncResponse(NginxRequest r, int rc) {

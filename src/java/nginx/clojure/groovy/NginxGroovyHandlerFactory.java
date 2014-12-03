@@ -23,7 +23,7 @@ public class NginxGroovyHandlerFactory extends NginxJavaHandlerFactory {
 	}
 	
 	@Override
-	public NginxHandler newInstance(String name, String code) {
+	public NginxHandler newInstance(int phase, String name, String code) {
 		
 		try {
 			NginxJavaRingHandler ringHandler;

@@ -34,8 +34,8 @@ import java.util.Map;
 import nginx.clojure.ChannelListener;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHandler;
-import nginx.clojure.NginxRequest;
 import nginx.clojure.NginxHttpServerChannel;
+import nginx.clojure.NginxRequest;
 import nginx.clojure.RequestVarFetcher;
 import clojure.lang.AFn;
 import clojure.lang.ASeq;
@@ -57,6 +57,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	protected NginxHandler handler;
 	protected NginxHttpServerChannel channel;
 	protected byte[] hijackTag;
+	protected int phase = -1;
 	protected volatile boolean released = false;
 	
 	public final static LazyRequestMap EMPTY_MAP = new LazyRequestMap(null, 0, null, new Object[0]);
@@ -345,4 +346,13 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		return released;
 	}
 
+	@Override
+	public int phase() {
+		return phase;
+	}
+	
+	protected LazyRequestMap phase(int phase) {
+		this.phase = phase;
+		return this;
+	}
 }

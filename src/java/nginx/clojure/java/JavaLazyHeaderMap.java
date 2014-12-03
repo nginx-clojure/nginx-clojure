@@ -7,43 +7,59 @@ package nginx.clojure.java;
 import static nginx.clojure.MiniConstants.BYTE_ARRAY_OFFSET;
 import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
 import static nginx.clojure.MiniConstants.KNOWN_REQ_HEADERS;
-import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET;
+import static nginx.clojure.MiniConstants.KNOWN_RESP_HEADERS;
+import static nginx.clojure.MiniConstants.NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_GET_HEADER_FLAG_MERGE_KEY;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_HEADERS_IN_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_POOL_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_KEY_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
 import static nginx.clojure.NginxClojureRT.fetchNGXString;
-import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_header;
-import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_list_item;
-import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_list_size;
-import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_obj_addr;
+import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_headers_items;
+import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_headers_size;
+import static nginx.clojure.NginxClojureRT.pickByteBuffer;
+import static nginx.clojure.NginxClojureRT.pickCharBuffer;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.LongBuffer;
 import java.util.AbstractSet;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
+import nginx.clojure.NginxClojureRT;
+import nginx.clojure.NginxHeaderHolder;
 import nginx.clojure.NginxSimpleHandler;
 import nginx.clojure.NginxSimpleHandler.SimpleEntry;
-import nginx.clojure.RequestKnownHeaderFetcher;
+import nginx.clojure.UnknownHeaderHolder;
 import nginx.clojure.java.PickerPoweredIterator.Picker;
 
 
-public class JavaLazyHeaderMap implements Map<String, Object>, Iterable<Entry<String, Object>>  {
+public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 	
-	private long headersPointer;
-	private int size;
+	protected long headers;
+	protected int size;
+	protected int flag;
+	protected long pool;
 	
-	public JavaLazyHeaderMap(long headersPointer) {
-		this.headersPointer = headersPointer;
-		this.size = (int)ngx_http_clojure_mem_get_list_size(headersPointer + NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET);
+	public JavaLazyHeaderMap(long r, boolean headersOut) {
+		this.headers = r
+				+ (headersOut ? NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET 
+						: NGX_HTTP_CLOJURE_REQ_HEADERS_IN_OFFSET );
+		this.flag =  NGX_HTTP_CLOJURE_GET_HEADER_FLAG_MERGE_KEY | (headersOut ? NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT : 0);
+		this.size = (int) ngx_http_clojure_mem_get_headers_size(headers, flag);
+		this.pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
 	}
 	
 	@Override
-	public Iterator<Entry<String, Object>> iterator() {
+	public Iterator iterator() {
 		return new PickerPoweredIterator<Map.Entry<String,Object>>(new Picker<Entry<String, Object>>() {
 			@Override
 			public java.util.Map.Entry<String, Object> pick(int i) {
@@ -60,42 +76,104 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable<Entry<St
 		if (i >= size) {
 			return null;
 		}
-		long itemAddr = ngx_http_clojure_mem_get_list_item(headersPointer + NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET, i);
-//		System.out.println("LazyHeaderMap: i = " + i + ", addr:" + itemAddr + ", total=" + size);
-		String key = fetchNGXString(itemAddr + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET, DEFAULT_ENCODING).toLowerCase();
-		String val = fetchNGXString(itemAddr + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
-//		System.out.println("LazyHeaderMap: i = " + i + ", key:" + key + ", val:" + val);
-		return new SimpleEntry(key, val);
+		ByteBuffer bb = pickByteBuffer();
+		int valuesOffset = NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE + BYTE_ARRAY_OFFSET;
+		int c = (int)ngx_http_clojure_mem_get_headers_items(headers, i,  flag,  bb.array(),  valuesOffset,  bb.capacity());
+		bb.position(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE);
+		LongBuffer lbb =bb.order(ByteOrder.nativeOrder()).asLongBuffer();
+		bb.clear();
+		Object v;
+		long tp;
+		if (c == 0){
+			throw new IllegalStateException("[JavaLazyHeaderMap] no entry at position : " + i);
+		}else if (c == 1) {
+			bb.limit(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE);
+			tp = lbb.get(0);
+			v =  fetchNGXString(tp + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING,  bb ,  pickCharBuffer());
+		}else {
+			String[] vals = new String[c];
+			valuesOffset = 0;
+			tp = lbb.get(0);
+			for (int j = 0; j < c; j++) {
+				bb.clear();
+				bb.limit(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE);
+				vals[j] = fetchNGXString(lbb.get(j)+ NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING, bb ,  pickCharBuffer());
+			}
+			v = vals;
+		}
+		
+		//TODO: support setter of entry
+		bb.clear();
+		return new SimpleEntry<String, Object>(fetchNGXString(tp + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET, DEFAULT_ENCODING, bb ,  pickCharBuffer()), v,  NginxSimpleHandler.readOnlyEntrySetter);
 	}
 	
 	public String key(int i) {
 		if (i >= size) {
 			return null;
 		}
-		long itemAddr = ngx_http_clojure_mem_get_list_item(headersPointer + NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET, i);
-		return fetchNGXString(itemAddr + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET, DEFAULT_ENCODING).toLowerCase();
+		ByteBuffer bb = pickByteBuffer();
+		int valuesOffset = NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE + BYTE_ARRAY_OFFSET;
+		int c = (int)ngx_http_clojure_mem_get_headers_items(headers, i,  flag,  bb.array(),  valuesOffset,  valuesOffset + 8);
+		bb.position(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE);
+		LongBuffer lbb =bb.order(ByteOrder.nativeOrder()).asLongBuffer();
+		bb.clear();
+		if (c == 0){
+			throw new IllegalStateException("[JavaLazyHeaderMap] no entry at position : " + i);
+		}
+		bb.limit(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE);
+		return  fetchNGXString(lbb.get(0)+ NGX_HTTP_CLOJURE_TEL_KEY_OFFSET, DEFAULT_ENCODING,  bb ,  pickCharBuffer());
 	}
 	
-	public String val(int i) {
+	public Object val(int i) {
 		if (i >= size) {
 			return null;
 		}
-		long itemAddr = ngx_http_clojure_mem_get_list_item(headersPointer + NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET, i);
-		return fetchNGXString(itemAddr + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
+		ByteBuffer bb = pickByteBuffer();
+		int valuesOffset = NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE + BYTE_ARRAY_OFFSET;
+		int c = (int)ngx_http_clojure_mem_get_headers_items(headers, i,  flag,  bb.array(),  valuesOffset,  bb.capacity());
+		bb.position(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE);
+		LongBuffer lbb =bb.order(ByteOrder.nativeOrder()).asLongBuffer();
+		bb.clear();
+		Object v;
+		if (c == 0){
+			throw new IllegalStateException("[JavaLazyHeaderMap] no entry at position : " + i);
+		}else if (c == 1) {
+			bb.limit(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE);
+			v =  fetchNGXString( lbb.get(0)+ NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING,  bb ,  pickCharBuffer());
+		}else {
+			String[] vals = new String[c];
+			valuesOffset = 0;
+			for (int j = 0; j < c; j++) {
+				bb.clear();
+				bb.limit(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE);
+				vals[j] = fetchNGXString(lbb.get(j)+ NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING, bb ,  pickCharBuffer());
+			}
+			v = vals;
+		}
+		return v;
 	}
 
 	@Override
 	public boolean containsKey(Object keyObj) {
-		String key = NginxSimpleHandler.normalizeHeaderNameHelper(keyObj);
-		if (key == null) {
+//		String key = NginxSimpleHandler.normalizeHeaderNameHelper(keyObj);
+		if (keyObj == null) {
 			return false;
 		}
-		Long p = KNOWN_REQ_HEADERS.get(key);
-		if (p != null && p.longValue() != -1) {
-			return true;
+		
+		NginxHeaderHolder holder = null;
+		if ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0) {
+			holder = KNOWN_RESP_HEADERS.get( keyObj);
+		}else {
+			holder = KNOWN_REQ_HEADERS.get( keyObj);
 		}
-		byte[] kbs = key.toString().getBytes();
-		return 0 != ngx_http_clojure_mem_get_header(headersPointer, ngx_http_clojure_mem_get_obj_addr(kbs) + BYTE_ARRAY_OFFSET , kbs.length);
+		
+		if (holder == null) {
+			holder = new UnknownHeaderHolder((String) keyObj,
+					(NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0 ? NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET
+							: NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET);
+		}
+		
+		return holder.exists(headers);
 	}
 
 
@@ -121,54 +199,87 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable<Entry<St
 
 	@Override
 	public Object get(Object keyObj) {
-
 		if (keyObj == null) {
-			return null;
+			return false;
 		}
-		String key = NginxSimpleHandler.normalizeHeaderNameHelper(keyObj);
-		if (key == null) {
-			return null;
-		}
-		Long p = KNOWN_REQ_HEADERS.get(key);
-		String val = null;
-		if (p != null && p.longValue() != -1) {
-			if (p.longValue() == NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET) {
-				val = (String)RequestKnownHeaderFetcher.cookieFetcher.fetch(headersPointer - NGX_HTTP_CLOJURE_REQ_HEADERS_IN_OFFSET, DEFAULT_ENCODING);
-			}else {
-				long hp = UNSAFE.getAddress(headersPointer + p.longValue());
-				if (hp != 0) {
-					val = fetchNGXString(hp + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
-				}
-			}
+		
+		NginxHeaderHolder holder = null;
+		if ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0) {
+			holder = KNOWN_RESP_HEADERS.get( keyObj);
 		}else {
-			byte[] kbs = key.getBytes();
-			long hp = ngx_http_clojure_mem_get_header(headersPointer, ngx_http_clojure_mem_get_obj_addr(kbs) + BYTE_ARRAY_OFFSET , kbs.length);
-			if (hp != 0) {
-				val = fetchNGXString(hp + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
-			}
+			holder = KNOWN_REQ_HEADERS.get( keyObj);
 		}
-		return val;
-	
+		
+		if (holder == null) {
+			holder = new UnknownHeaderHolder((String) keyObj,
+					(NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0 ? NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET
+							: NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET);
+		}
+		
+		return holder.fetch(headers);
 	}
 
 	@Override
 	public Object put(String key, Object value) {
-		throw new UnsupportedOperationException("put not supported now!");
+		if ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0) {
+			NginxHeaderHolder holder = KNOWN_RESP_HEADERS.get(key);
+			if (holder == null) {
+				holder = new UnknownHeaderHolder(key,
+						(NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0 ? NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET
+								: NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET);
+			}
+			Object old = holder.fetch(headers);
+			holder.push(headers, pool, value);
+			if (old == null) {
+				size ++;
+			}
+			return old;
+		}else {
+			throw new UnsupportedOperationException("put request header  not supported now!");
+		}
 	}
 
 	@Override
 	public Object remove(Object key) {
-		throw new UnsupportedOperationException("remove not supported now!");
+		if ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) == 0) {
+			throw new UnsupportedOperationException("remove request header  not supported now!");
+		}
+		if (key == null) {
+			return null;
+		}
+		NginxHeaderHolder holder = KNOWN_RESP_HEADERS.get(key);
+		if (holder == null) {
+			holder = new UnknownHeaderHolder((String)key,
+					(NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0 ? NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET
+							: NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET);
+		}
+		Object old = holder.fetch(headers);
+		if (old != null) {
+			holder.clear(headers);
+			size --;
+		}
+		return old;
+	
 	}
 
 	@Override
 	public void putAll(Map<? extends String, ? extends Object> m) {
-		throw new UnsupportedOperationException("putAll not supported now!");
+		if ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) == 0) {
+			throw new UnsupportedOperationException("putAll request header  not supported now!");
+		}
+		for (Entry en : m.entrySet()) {
+			put(en.getKey().toString(), en.getValue());
+		}
+		size = (int) ngx_http_clojure_mem_get_headers_size(headers, flag);
 	}
 
 	@Override
 	public void clear() {
-		throw new UnsupportedOperationException("clear not supported now!");
+		if ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) == 0) {
+			throw new UnsupportedOperationException("clear request header  not supported now!");
+		}	
+		NginxClojureRT.ngx_http_clear_header_and_reset_ctx_phase(headers - NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET, 0);
+		size = 0;
 	}
 	
 	private class KeySet extends AbstractSet<String> {
@@ -194,13 +305,13 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable<Entry<St
 		
 	}
 	
-	private class ValueSet extends AbstractSet<String> {
+	private class ValueSet extends AbstractSet<Object> {
 
 		@Override
-		public Iterator<String> iterator() {
-			return new PickerPoweredIterator<String>(new Picker<String>() {
+		public Iterator<Object> iterator() {
+			return new PickerPoweredIterator<Object>(new Picker<Object>() {
 				@Override
-				public String pick(int i) {
+				public Object pick(int i) {
 					return val(i);
 				}
 				@Override

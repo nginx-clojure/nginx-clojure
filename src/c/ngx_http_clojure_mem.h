@@ -25,15 +25,24 @@
 #include <inttypes.h>
 #endif
 
-#define nginx_clojure_ver  2007 /*0.2.7*/
+#define nginx_clojure_ver  3000 /*0.3.0*/
 
 /*the least jar version required*/
-#define nginx_clojure_required_rt_lver 2007
+#define nginx_clojure_required_rt_lver 3000
 
-#define NGINX_CLOJURE_VER "nginx clojure/0.2.7"
+#define NGINX_CLOJURE_VER_NUM_STR "0.3.0"
+
+#define NGINX_CLOJURE_VER "nginx-clojure/" NGINX_CLOJURE_VER_NUM_STR
+
+/*fake phase for filter*/
+#define NGX_HTTP_INIT_PROCESS_PHASE  17
+#define NGX_HTTP_HEADER_FILTER_PHASE  18
+#define NGX_HTTP_BODY_FILTER_PHASE  19
+#define NGX_HTTP_EXIT_PROCESS_PHASE  20
 
 typedef struct {
-	ngx_int_t phrase;
+	ngx_int_t phase;
+	ngx_int_t phase_rc;
 	ngx_int_t handled_couter;
 	ngx_chain_t *free;
 	ngx_chain_t *busy;
@@ -46,12 +55,15 @@ typedef struct {
 
 #define ngx_http_clojure_init_ctx(ctx, p) \
 		ctx->handled_couter = 1; \
-		ctx->phrase = p; \
+		ctx->phase = p; \
 		ctx->last_buf_meeted = 0; \
 		ctx->busy = ctx->free = NULL; \
 		ctx->ignore_filters = 0; \
 		ctx->client_body_done = 0; \
 		ctx->async_body_read = 0
+
+#define NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT 1
+#define NGX_HTTP_CLOJURE_GET_HEADER_FLAG_MERGE_KEY 2
 
 #define NGX_HTTP_CLOJURE_MEM_IDX_START 0
 
@@ -104,9 +116,9 @@ extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 #define NGX_HTTP_CLOJURE_VARIABLET_SIZE_IDX 19
 #define NGX_HTTP_CLOJURE_VARIABLET_SIZE sizeof(ngx_http_variable_t)
 #define NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR_IDX 20
-#define NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR (ngx_uint_t)ngx_http_clojure_core_variables_names
-#define NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN_IDX 21
-#define NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN (sizeof(ngx_http_clojure_core_variables_names)/ sizeof (ngx_str_t))
+#define NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR (uintptr_t)ngx_http_clojure_core_variables_names
+#define NGX_HTTP_CLOJURE_HEADERS_NAMES_ADDR_IDX 21
+#define NGX_HTTP_CLOJURE_HEADERS_NAMES_ADDR (uintptr_t)ngx_http_clojure_headers_names
 
 
 
@@ -311,8 +323,13 @@ int ngx_http_clojure_pipe_init_by_master(int workers);
  */
 int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log);
 
-int ngx_http_clojure_register_script(ngx_str_t *handler_type, ngx_str_t *handler, ngx_str_t *code, ngx_int_t *pcid);
+int ngx_http_clojure_register_script(ngx_int_t phase, ngx_str_t *handler_type, ngx_str_t *handler, ngx_str_t *code, ngx_int_t *pcid);
 
-int ngx_http_clojure_eval(int handle, void *r);
+int ngx_http_clojure_eval(int cid, ngx_http_request_t *r, ngx_chain_t *c);
+
+extern ngx_module_t  ngx_http_clojure_module;
+
+extern ngx_http_output_header_filter_pt ngx_http_clojure_next_header_filter;
+extern ngx_http_output_body_filter_pt ngx_http_clojure_next_body_filter;
 
 #endif /* NGX_HTTP_CLOJURE_MEM_H_ */

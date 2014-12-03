@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 
 import nginx.clojure.NginxSimpleHandler.SimpleEntry;
+import nginx.clojure.NginxSimpleHandler.SimpleEntrySetter;
 import nginx.clojure.java.PickerPoweredIterator.Picker;
 
 public class ArrayMap<K, V> implements Map<K, V> {
@@ -48,8 +49,14 @@ public class ArrayMap<K, V> implements Map<K, V> {
 		return (V)array[(i << 1) + 1];
 	}
 
-	public SimpleEntry<K, V> entry(int i) {
-		return new SimpleEntry<K, V>(key(i), val(i));
+	public SimpleEntry<K, V> entry(final int i) {
+		return new SimpleEntry(key(i), val(i), new SimpleEntrySetter() {
+			public Object setValue(Object value) {
+				Object old = array[(i << 1) + 1];
+				 array[(i << 1) + 1] = value;
+				return old;
+			}
+		});
 	}
 	
 

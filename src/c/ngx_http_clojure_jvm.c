@@ -112,6 +112,11 @@ int ngx_http_clojure_init_jvm(char *jvm_path, char * *opts, size_t len) {
 int ngx_http_clojure_close_jvm() {
 	jclass systemClass = NULL;
 	jmethodID exitMethod = NULL;
+
+	if (jvm == NULL ||  jvm_env == NULL) {
+		return NGX_HTTP_CLOJURE_JVM_OK;
+	}
+
 	systemClass = (*jvm_env)->FindClass(jvm_env, "java/lang/System");
 	exitMethod = (*jvm_env)->GetStaticMethodID(jvm_env, systemClass, "exit", "(I)V");
 	(*jvm_env)->CallStaticVoidMethod(jvm_env, systemClass, exitMethod, 0);

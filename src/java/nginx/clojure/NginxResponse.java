@@ -5,7 +5,7 @@ import java.util.Map;
 
 public interface NginxResponse {
 	
-	public static int TYPE_FAKE_PHRASE_DONE = -5000;
+	public static int TYPE_FAKE_PHASE_DONE = -5000;
 	public static int TYPE_FAKE_ASYNC_TAG = -5001;
 	public static int TYPE_NORMAL = 0;
 	public static int TYPE_ERROR = 1;

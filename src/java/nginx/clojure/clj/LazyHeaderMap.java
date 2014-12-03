@@ -4,27 +4,14 @@
  */
 package nginx.clojure.clj;
 
-import static nginx.clojure.MiniConstants.BYTE_ARRAY_OFFSET;
-import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
-import static nginx.clojure.MiniConstants.KNOWN_REQ_HEADERS;
-import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET;
-import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET;
-import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_HEADERS_IN_OFFSET;
-import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_KEY_OFFSET;
-import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET;
-import static nginx.clojure.NginxClojureRT.UNSAFE;
-import static nginx.clojure.NginxClojureRT.fetchNGXString;
-import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_header;
-import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_list_item;
-import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_list_size;
-import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_obj_addr;
-
 import java.util.Iterator;
 
-import nginx.clojure.RequestKnownHeaderFetcher;
-import clojure.lang.AFn;
+import nginx.clojure.NginxSimpleHandler.SimpleEntry;
+import nginx.clojure.java.JavaLazyHeaderMap;
 import clojure.lang.ASeq;
+import clojure.lang.ArityException;
 import clojure.lang.Counted;
+import clojure.lang.IFn;
 import clojure.lang.IMapEntry;
 import clojure.lang.IPersistentCollection;
 import clojure.lang.IPersistentMap;
@@ -32,19 +19,19 @@ import clojure.lang.ISeq;
 import clojure.lang.MapEntry;
 import clojure.lang.Obj;
 import clojure.lang.PersistentArrayMap;
+import clojure.lang.RT;
+import clojure.lang.Util;
 
-public class LazyHeaderMap extends AFn implements IPersistentMap  {
+@SuppressWarnings("unchecked")
+public class LazyHeaderMap extends JavaLazyHeaderMap implements IPersistentMap, IFn  {
 	
-	private long headersPointer;
-	private int size;
 	
-	public LazyHeaderMap(long headersPointer) {
-		this.headersPointer = headersPointer;
-		this.size = (int)ngx_http_clojure_mem_get_list_size(headersPointer + NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET);
+	public LazyHeaderMap(long r, boolean headersOut) {
+		super(r, headersOut);
 	}
 	
 	@Override
-	public Iterator<MapEntry> iterator() {
+	public Iterator iterator() {
 		return new Iterator<MapEntry>() {
 			int i = 0;
 			@Override
@@ -66,29 +53,17 @@ public class LazyHeaderMap extends AFn implements IPersistentMap  {
 	}
 	
 	public MapEntry element(int i) {
-		if (i >= size) {
-			return null;
+		SimpleEntry se = entry(i);
+		if (se.value != null && se.value.getClass().isArray()) {
+			se.value = RT.seq(se.value);
 		}
-		long itemAddr = ngx_http_clojure_mem_get_list_item(headersPointer + NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET, i);
-//		System.out.println("LazyHeaderMap: i = " + i + ", addr:" + itemAddr + ", total=" + size);
-		String key = fetchNGXString(itemAddr + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET, DEFAULT_ENCODING).toLowerCase();
-		String val = fetchNGXString(itemAddr + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
-//		System.out.println("LazyHeaderMap: i = " + i + ", key:" + key + ", val:" + val);
-		return new MapEntry(key, val);
+		return new MapEntry(se.key, se.value);
 	}
 
 	@Override
 	public boolean containsKey(Object keyObj) {
 		String key = NginxClojureHandler.normalizeHeaderNameHelper(keyObj);
-		if (key == null) {
-			return false;
-		}
-		Long p = KNOWN_REQ_HEADERS.get(key);
-		if (p != null && p.longValue() != -1) {
-			return true;
-		}
-		byte[] kbs = key.toString().getBytes();
-		return 0 != ngx_http_clojure_mem_get_header(headersPointer, ngx_http_clojure_mem_get_obj_addr(kbs) + BYTE_ARRAY_OFFSET , kbs.length);
+		return super.containsKey(keyObj);
 	}
 
 	@Override
@@ -159,32 +134,12 @@ public class LazyHeaderMap extends AFn implements IPersistentMap  {
 
 	@Override
 	public Object valAt(Object keyObj) {
-		if (keyObj == null) {
-			return null;
-		}
 		String key = NginxClojureHandler.normalizeHeaderNameHelper(keyObj);
-		if (key == null) {
-			return null;
+		Object v = super.get(key);
+		if (v != null && v.getClass().isArray()) {
+			return RT.seq(v);
 		}
-		Long p = KNOWN_REQ_HEADERS.get(key);
-		String val = null;
-		if (p != null && p.longValue() != -1) {
-			if (p.longValue() == NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET) {
-				val = (String)RequestKnownHeaderFetcher.cookieFetcher.fetch(headersPointer - NGX_HTTP_CLOJURE_REQ_HEADERS_IN_OFFSET, DEFAULT_ENCODING);
-			}else {
-				long hp = UNSAFE.getAddress(headersPointer + p.longValue());
-				if (hp != 0) {
-					val = fetchNGXString(hp + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
-				}
-			}
-		}else {
-			byte[] kbs = key.getBytes();
-			long hp = ngx_http_clojure_mem_get_header(headersPointer, ngx_http_clojure_mem_get_obj_addr(kbs) + BYTE_ARRAY_OFFSET , kbs.length);
-			if (hp != 0) {
-				val = fetchNGXString(hp + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
-			}
-		}
-		return val;
+		return v;
 	}
 
 	@Override
@@ -195,7 +150,7 @@ public class LazyHeaderMap extends AFn implements IPersistentMap  {
 
 	@Override
 	public IPersistentMap assoc(Object key, Object val) {
-		throw new UnsupportedOperationException("assoc not supported now!");
+			throw new UnsupportedOperationException("assoc not supported now!");
 	}
 
 	@Override
@@ -208,9 +163,166 @@ public class LazyHeaderMap extends AFn implements IPersistentMap  {
 		throw new UnsupportedOperationException("without not supported now!");
 	}
 	
-	@Override
-	public  Object invoke(Object key) {
-		return valAt(key);
+
+	public Object call() {
+		return invoke();
 	}
+
+	public void run(){
+		try
+			{
+			invoke();
+			}
+		catch(Exception e)
+			{
+			throw Util.sneakyThrow(e);
+			}
+	}
+
+
+
+	public Object invoke() {
+		return throwArity(0);
+	}
+
+	public Object invoke(Object keyObj) {
+		return valAt(keyObj);
+	}
+
+	public Object invoke(Object keyObj, Object notFound) {
+		return valAt(keyObj, notFound);
+	}
+
+	public Object invoke(Object arg1, Object arg2, Object arg3) {
+		return throwArity(3);
+	}
+
+	public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4) {
+		return throwArity(4);
+	}
+
+	public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4, Object arg5) {
+		return throwArity(5);
+	}
+
+	public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4, Object arg5, Object arg6) {
+		return throwArity(6);
+	}
+
+	public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4, Object arg5, Object arg6, Object arg7)
+			{
+		return throwArity(7);
+	}
+
+	public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4, Object arg5, Object arg6, Object arg7,
+	                     Object arg8) {
+		return throwArity(8);
+	}
+
+	public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4, Object arg5, Object arg6, Object arg7,
+	                     Object arg8, Object arg9) {
+		return throwArity(9);
+	}
+
+	public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4, Object arg5, Object arg6, Object arg7,
+	                     Object arg8, Object arg9, Object arg10) {
+		return throwArity(10);
+	}
+
+	public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4, Object arg5, Object arg6, Object arg7,
+	                     Object arg8, Object arg9, Object arg10, Object arg11) {
+		return throwArity(11);
+	}
+
+	public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4, Object arg5, Object arg6, Object arg7,
+	                     Object arg8, Object arg9, Object arg10, Object arg11, Object arg12) {
+		return throwArity(12);
+	}
+
+	public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4, Object arg5, Object arg6, Object arg7,
+	                     Object arg8, Object arg9, Object arg10, Object arg11, Object arg12, Object arg13)
+			{
+		return throwArity(13);
+	}
+
+	public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4, Object arg5, Object arg6, Object arg7,
+	                     Object arg8, Object arg9, Object arg10, Object arg11, Object arg12, Object arg13, Object arg14)
+			{
+		return throwArity(14);
+	}
+
+	public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4, Object arg5, Object arg6, Object arg7,
+	                     Object arg8, Object arg9, Object arg10, Object arg11, Object arg12, Object arg13, Object arg14,
+	                     Object arg15) {
+		return throwArity(15);
+	}
+
+	public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4, Object arg5, Object arg6, Object arg7,
+	                     Object arg8, Object arg9, Object arg10, Object arg11, Object arg12, Object arg13, Object arg14,
+	                     Object arg15, Object arg16) {
+		return throwArity(16);
+	}
+
+	public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4, Object arg5, Object arg6, Object arg7,
+	                     Object arg8, Object arg9, Object arg10, Object arg11, Object arg12, Object arg13, Object arg14,
+	                     Object arg15, Object arg16, Object arg17) {
+		return throwArity(17);
+	}
+
+	public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4, Object arg5, Object arg6, Object arg7,
+	                     Object arg8, Object arg9, Object arg10, Object arg11, Object arg12, Object arg13, Object arg14,
+	                     Object arg15, Object arg16, Object arg17, Object arg18) {
+		return throwArity(18);
+	}
+
+	public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4, Object arg5, Object arg6, Object arg7,
+	                     Object arg8, Object arg9, Object arg10, Object arg11, Object arg12, Object arg13, Object arg14,
+	                     Object arg15, Object arg16, Object arg17, Object arg18, Object arg19) {
+		return throwArity(19);
+	}
+
+	public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4, Object arg5, Object arg6, Object arg7,
+	                     Object arg8, Object arg9, Object arg10, Object arg11, Object arg12, Object arg13, Object arg14,
+	                     Object arg15, Object arg16, Object arg17, Object arg18, Object arg19, Object arg20)
+			{
+		return throwArity(20);
+	}
+
+
+	public Object invoke(Object arg1, Object arg2, Object arg3, Object arg4, Object arg5, Object arg6, Object arg7,
+	                     Object arg8, Object arg9, Object arg10, Object arg11, Object arg12, Object arg13, Object arg14,
+	                     Object arg15, Object arg16, Object arg17, Object arg18, Object arg19, Object arg20,
+	                     Object... args)
+			{
+		return throwArity(21);
+	}
+
+	public Object applyTo(ISeq arglist) {
+		return applyToHelper(this, Util.ret1(arglist,arglist = null));
+	}
+
+	static public Object applyToHelper(IFn ifn, ISeq arglist) {
+		switch(RT.boundedLength(arglist, 20))
+			{
+			case 0:
+				arglist = null;
+				return ifn.invoke();
+			case 1:
+				return ifn.invoke(Util.ret1(arglist.first(),arglist = null));
+			case 2:
+				return ifn.invoke(arglist.first()
+						, Util.ret1((arglist = arglist.next()).first(),arglist = null)
+				);
+			default: throw new RuntimeException("can not take more than 2 args");
+			}
+	}
+
+	public Object throwArity(int n){
+		String name = getClass().getSimpleName();
+		int suffix = name.lastIndexOf("__");
+		throw new ArityException(n, (suffix == -1 ? name : name.substring(0, suffix)).replace('_', '-'));
+	}
+	
+	
 
 }

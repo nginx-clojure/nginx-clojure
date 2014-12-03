@@ -4,8 +4,6 @@
  */
 package nginx.clojure.clj;
 
-import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_HEADERS_IN_OFFSET;
-
 import java.nio.charset.Charset;
 
 import nginx.clojure.RequestVarFetcher;
@@ -14,7 +12,7 @@ public class RequestHeadersFetcher implements RequestVarFetcher {
 
 	@Override
 	public Object fetch(long r, Charset encoding) {
-		return new LazyHeaderMap(r + NGX_HTTP_CLOJURE_REQ_HEADERS_IN_OFFSET);
+		return new LazyHeaderMap(r, false);
 	}
 
 }

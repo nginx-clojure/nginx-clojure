@@ -15,4 +15,7 @@ public class Constants extends MiniConstants {
 	
 	public static final Object[] PHRASE_DONE = new Object[0];
 	
+	public static final Object[] PHASE_DONE = PHRASE_DONE;
+
+	
 }

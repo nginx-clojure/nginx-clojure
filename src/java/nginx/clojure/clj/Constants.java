@@ -6,10 +6,11 @@ package nginx.clojure.clj;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 import nginx.clojure.MiniConstants;
 import nginx.clojure.RequestVarFetcher;
-import nginx.clojure.ResponseHeaderPusher;
+import nginx.clojure.NginxHeaderHolder;
 import clojure.lang.Keyword;
 import clojure.lang.RT;
 
@@ -67,8 +68,10 @@ public class Constants extends MiniConstants {
 	
 	public static final Map PHRASE_DONE = new HashMap(0);
 	
+	public static final Map PHASE_DONE = PHRASE_DONE;
+	
 	public static RequestVarFetcher HEADER_FETCHER;
 	
-	public final static Map<String, ResponseHeaderPusher> KNOWN_RESP_HEADERS = new HashMap<String, ResponseHeaderPusher>();
+	public final static Map<String, NginxHeaderHolder> KNOWN_RESP_HEADERS = new TreeMap<String, NginxHeaderHolder>(IGNORE_CASE_COMPARATOR);
 	
 }

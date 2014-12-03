@@ -5,8 +5,10 @@
 package nginx.clojure;
 
 import java.nio.charset.Charset;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Mini constants needed Nginx-Clojure Basic Platform
@@ -32,6 +34,9 @@ public class MiniConstants {
 	public static final String HEADERS = "headers";
 	public static final String BODY = "body";
 	
+	/**
+	 * HTTP methods
+	 * */
 	public static final String UNKNOWN = "UNKNOWN";
 	public static final String GET = "get";
 	public static final String HEAD = "head";
@@ -55,11 +60,36 @@ public class MiniConstants {
 			POST, PUT, DELETE, MKCOL, COPY, MOVE, OPTIONS, PROPFIND,
 			PROPPATCH, LOCK, UNLOCK, PATCH, TRACE };
 	
-	public static Map<String, Long> KNOWN_REQ_HEADERS = new HashMap<String, Long>();
 	
-	public static Map<String, ResponseHeaderPusher> KNOWN_RESP_HEADERS = new HashMap<String, ResponseHeaderPusher>();
+	
+	public static final Comparator<String> IGNORE_CASE_COMPARATOR =  new Comparator<String>() {
+		@Override
+		public int compare(String s1, String s2) {
+            int n1 = s1.length();
+            int n2 = s2.length();
+            int min = n1 > n2 ? n2 : n1;
+            for (int i = 0; i < min; i++) {
+                int c1 = s1.charAt(i);
+                int c2 = s2.charAt(i);
+                if (c1 != c2) {
+                    c1 = c1 >= 'A' && c1 <= 'Z' ?  (c1 | 0x20) : c1;
+                    c2 = c2 >= 'A' && c2 <= 'Z' ?  (c2 | 0x20) : c2;
+                    if (c1 != c2) {
+                        return c1 - c2;
+                    }
+                }
+            }
+            return n1 - n2;
+		}
+	};
+	
+	public static Map<String, NginxHeaderHolder> KNOWN_REQ_HEADERS = new TreeMap<String, NginxHeaderHolder>(IGNORE_CASE_COMPARATOR);
+	
+	public static Map<String, NginxHeaderHolder> KNOWN_RESP_HEADERS = new TreeMap<String, NginxHeaderHolder>(IGNORE_CASE_COMPARATOR);
 	
 	public static Map<String, Long> CORE_VARS = new HashMap<String, Long>();
+	
+	public static Map<String, Long> HEADERS_NAMES = new HashMap<String, Long>();
 	
 	public static final String STATUS_STR = "status";
 //	public static final String BODY = RT.keyword(null, "body");
@@ -95,6 +125,10 @@ public class MiniConstants {
 	
 	public static int BYTE_ARRAY_OFFSET;
 	public static long STRING_CHAR_ARRAY_OFFSET;
+	
+	public static final int  NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT = 1;
+	public static final int  NGX_HTTP_CLOJURE_GET_HEADER_FLAG_MERGE_KEY = 2;
+	
 	
 	public static int NGX_HTTP_CLOJURE_MEM_IDX_START = 0;
 
@@ -142,8 +176,8 @@ public class MiniConstants {
 	
 	public static int NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR_IDX = 20;
 	public static long NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR; 
-	public static int NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN_IDX  = 21;
-	public static long NGX_HTTP_CLOJURE_CORE_VARIABLES_LEN;
+	public static int NGX_HTTP_CLOJURE_HEADERS_NAMES_ADDR_IDX  = 21;
+	public static long NGX_HTTP_CLOJURE_HEADERS_NAMES_ADDR;
 	
 	
 	public static int  NGX_HTTP_CLOJURE_ARRAYT_SIZE_IDX = 22;
@@ -330,32 +364,42 @@ public class MiniConstants {
 	//TODO :  client header buffer size & large_client_header_buffers
 	public static int NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE = 1024 * 4;
 	
+	public static int NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE = NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE/2;
+	
+	
 	public static int NGX_HTTP_CLOJURE_MEM_IDX_END = 255;
 	
 	//nginx clojure java runtime required the lowest version of nginx-clojure c module
-	public  static long NGINX_CLOJURE_RT_REQUIRED_LVER = 2007;
-	public  static long NGINX_CLOJURE_RT_VER = 2007;
+	public  static long NGINX_CLOJURE_RT_REQUIRED_LVER = 3000;
+	public  static long NGINX_CLOJURE_RT_VER = 3000;
 	
 	//ngx_core.h
-	public static int  NGX_OK       =   0;
-	public static int  NGX_ERROR    =  -1;
-	public static int  NGX_AGAIN    =  -2;
-	public static int  NGX_BUSY     =  -3;
-	public static int  NGX_DONE     =  -4;
-	public static int  NGX_DECLINED =  -5;
-	public static int  NGX_ABORT    =  -6;
+	public final static int  NGX_OK       =   0;
+	public final static int  NGX_ERROR    =  -1;
+	public final static int  NGX_AGAIN    =  -2;
+	public final static int  NGX_BUSY     =  -3;
+	public final static int  NGX_DONE     =  -4;
+	public final static int  NGX_DECLINED =  -5;
+	public final static int  NGX_ABORT    =  -6;
 	
-    public static int NGX_HTTP_POST_READ_PHASE = 0;
-    public static int NGX_HTTP_SERVER_REWRITE_PHASE = 1;
-    public static int NGX_HTTP_FIND_CONFIG_PHASE =2;
-    public static int NGX_HTTP_REWRITE_PHASE = 3;
-    public static int NGX_HTTP_POST_REWRITE_PHASE = 4;
-    public static int NGX_HTTP_PREACCESS_PHASE = 5;
-    public static int NGX_HTTP_ACCESS_PHASE = 6;
-    public static int NGX_HTTP_POST_ACCESS_PHASE = 7;
-    public static int NGX_HTTP_TRY_FILES_PHASE = 8;
-    public static int NGX_HTTP_CONTENT_PHASE = 9;
-    public static int NGX_HTTP_LOG_PHASE = 10;
+    public final static int NGX_HTTP_POST_READ_PHASE = 0;
+    public final static int NGX_HTTP_SERVER_REWRITE_PHASE = 1;
+    public final static int NGX_HTTP_FIND_CONFIG_PHASE =2;
+    public final static int NGX_HTTP_REWRITE_PHASE = 3;
+    public final static int NGX_HTTP_POST_REWRITE_PHASE = 4;
+    public final static int NGX_HTTP_PREACCESS_PHASE = 5;
+    public final static int NGX_HTTP_ACCESS_PHASE = 6;
+    public final static int NGX_HTTP_POST_ACCESS_PHASE = 7;
+    public final static int NGX_HTTP_TRY_FILES_PHASE = 8;
+    public final static int NGX_HTTP_CONTENT_PHASE = 9;
+    public final static int NGX_HTTP_LOG_PHASE = 10;
+    
+    //fake phase for filter
+    public final static int NGX_HTTP_INIT_PROCESS_PHASE= 17;
+    public final static int NGX_HTTP_HEADER_FILTER_PHASE= 18;
+    public final static int NGX_HTTP_BODY_FILTER_PHASE= 19;
+    public final static int NGX_HTTP_EXIT_PROCESS_PHASE= 20;
+    
 	
 	//ngx_http_request.h
 	public static int NGX_HTTP_GET = 0x0002;
@@ -467,8 +511,6 @@ public class MiniConstants {
 	
 	public static RequestVarFetcher BODY_FETCHER;// = new RequestBodyFetcher();
 	
-	
-	public static ResponseTableEltHeaderPusher SERVER_PUSHER;
 	
 	public static final int MODE_DEFAULT = 0;
 	public static final int MODE_THREAD = 1;

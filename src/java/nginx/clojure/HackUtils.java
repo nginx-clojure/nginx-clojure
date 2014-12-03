@@ -56,6 +56,7 @@ public class HackUtils {
 	        Field field = Unsafe.class.getDeclaredField("theUnsafe");
 	        field.setAccessible(true);
 	        UNSAFE = (Unsafe)field.get(null);
+	        STRING_CHAR_ARRAY_OFFSET = UNSAFE.objectFieldOffset(String.class.getDeclaredField("value"));
 	    }
 	    catch (Exception e){
 	        throw new RuntimeException(e);
@@ -196,8 +197,25 @@ public class HackUtils {
 			throw new RuntimeException(rt.toString());
 		}
 		bb.flip();
+		if (bb.remaining() < bb.capacity()) {
+			bb.array()[bb.remaining()] = 0; // for char* c language is ended with '\0'
+		}
 		return bb;
     }
+    
+	public static ByteBuffer encodeLowcase(String s, Charset cs, ByteBuffer bb) {
+		if (bb.isDirect()) {
+			return encode(s.toLowerCase(), cs, bb);
+		}
+		encode(s, cs, bb);
+		int len = bb.remaining();
+		byte[] array = bb.array();
+		for (int i = 0; i < len; i++) {
+			byte b = array[i];
+			array[i] = b >= 'A' && b <= 'Z' ? (byte) (b | 0x20) : b;
+		}
+		return bb;
+	}
     
     public static String decode(ByteBuffer bb, Charset cs, CharBuffer cb)  {
     	CharsetDecoder de = ThreadLocalCoders.decoderFor(cs)
