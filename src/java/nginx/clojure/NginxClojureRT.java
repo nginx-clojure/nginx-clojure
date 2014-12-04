@@ -172,13 +172,14 @@ public class NginxClojureRT extends MiniConstants {
 	
 	private static AppEventListenerManager appEventListenerManager;
 	
-	//for default or coroutine mode
-	private static ByteBuffer defaultByteBuffer;
-	private static CharBuffer defaultCharBuffer;
+//	//for default or coroutine mode
+//	private static ByteBuffer defaultByteBuffer;
+//	private static CharBuffer defaultCharBuffer;
 	
-	//for thread pool mode
-	private static ThreadLocal<ByteBuffer> threadLocalByteBuffers;
-	private static ThreadLocal<CharBuffer> threadLocalCharBuffers;
+	//It was only for thread pool mode
+	//But now we unify temp bufferes for  thread pool mode & default & coroutine mode because maybe user can invoke some api in their own  thread
+	private final static ThreadLocal<ByteBuffer> threadLocalByteBuffers = new ThreadLocal<ByteBuffer>();
+	private final static ThreadLocal<CharBuffer> threadLocalCharBuffers = new ThreadLocal<CharBuffer>();
 	
 
 	
@@ -354,13 +355,13 @@ public class NginxClojureRT extends MiniConstants {
 					throw new RuntimeException("can not init NginxClojureSocketFactory!", e);
 				}
 			}
-			defaultByteBuffer = ByteBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
-			defaultCharBuffer = CharBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
+//			defaultByteBuffer = ByteBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
+//			defaultCharBuffer = CharBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
 			return;
 		}
 		if (n < 0) {
-			defaultByteBuffer = ByteBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
-			defaultCharBuffer = CharBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
+//			defaultByteBuffer = ByteBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
+//			defaultCharBuffer = CharBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
 			return;
 		}
 		
@@ -368,8 +369,8 @@ public class NginxClojureRT extends MiniConstants {
 		
 		MODE = MODE_THREAD;
 		
-		threadLocalByteBuffers = new ThreadLocal<ByteBuffer>();
-		threadLocalCharBuffers = new ThreadLocal<CharBuffer>();
+//		threadLocalByteBuffers = new ThreadLocal<ByteBuffer>();
+//		threadLocalCharBuffers = new ThreadLocal<CharBuffer>();
 		
 		eventDispather = Executors.newSingleThreadExecutor(new ThreadFactory() {
 			@Override
@@ -611,8 +612,8 @@ public class NginxClojureRT extends MiniConstants {
 		KNOWN_REQ_HEADERS.put("Cookie", new ArrayHeaderHolder("Cookie", NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 		
 		/*temp setting only for CORE_VARS initialization*/
-		defaultByteBuffer = ByteBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
-		defaultCharBuffer = CharBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
+//		defaultByteBuffer = ByteBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
+//		defaultCharBuffer = CharBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
 
 		initStringAddrMapsByNativeAddr(CORE_VARS,  NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR);
 		initStringAddrMapsByNativeAddr(HEADERS_NAMES,  NGX_HTTP_CLOJURE_HEADERS_NAMES_ADDR);
@@ -646,8 +647,8 @@ public class NginxClojureRT extends MiniConstants {
 		KNOWN_RESP_HEADERS.put("Content-Length", new ResponseContentTypeHolder());
 		
 		/*clear all to let initWorkers initializing them correctly*/
-		defaultByteBuffer = null;
-		defaultCharBuffer = null;
+//		defaultByteBuffer = null;
+//		defaultCharBuffer = null;
 		initWorkers((int)NGINX_CLOJURE_RT_WORKERS);
 		
 		//set system properties for build-in nginx handler factories
@@ -1292,10 +1293,10 @@ public class NginxClojureRT extends MiniConstants {
 	}
 	
 	public  static ByteBuffer pickByteBuffer() {
-		if (defaultByteBuffer  != null) {
-			defaultByteBuffer.clear();
-			return defaultByteBuffer;	
-		}
+//		if (defaultByteBuffer  != null) {
+//			defaultByteBuffer.clear();
+//			return defaultByteBuffer;	
+//		}
 		
 		ByteBuffer bb = threadLocalByteBuffers.get();
 		if (bb == null) {
@@ -1307,10 +1308,10 @@ public class NginxClojureRT extends MiniConstants {
 	}
 	
 	public static CharBuffer pickCharBuffer() {
-		if (defaultCharBuffer  != null) {
-			defaultCharBuffer.clear();
-			return defaultCharBuffer;	
-		}
+//		if (defaultCharBuffer  != null) {
+//			defaultCharBuffer.clear();
+//			return defaultCharBuffer;	
+//		}
 		
 		CharBuffer cb = threadLocalCharBuffers.get();
 		if (cb == null) {
