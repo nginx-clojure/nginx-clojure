@@ -60,7 +60,6 @@ public class TableEltHeaderHolder extends AbstractHeaderHolder {
 		if (p == 0) {
 			return null;
 		}
-		System.out.println("etl: name=" + name + ", p=" + p + ", offset=" + offset + ", value=" + fetchNGXString(p +NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET , DEFAULT_ENCODING));
 		return fetchNGXString(p +NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET , DEFAULT_ENCODING);
 	}
 

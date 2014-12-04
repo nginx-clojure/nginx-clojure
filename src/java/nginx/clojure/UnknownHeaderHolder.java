@@ -80,7 +80,7 @@ public class UnknownHeaderHolder implements NginxHeaderHolder {
 				}
 				pushNGXInt(p + NGX_HTTP_CLOJURE_TEL_HASH_OFFSET, 1);
 				if (lpname != 0) {
-					ngx_http_clojure_mem_shadow_copy_ngx_str(pname,  p + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET);
+					ngx_http_clojure_mem_shadow_copy_ngx_str(lpname,  p + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET);
 				}else {
 					pushNGXString(p + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET, name, DEFAULT_ENCODING, pool);
 					lpname = UNSAFE.getAddress(p + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET);

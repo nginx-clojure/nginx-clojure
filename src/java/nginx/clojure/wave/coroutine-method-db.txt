@@ -13,6 +13,9 @@ lazyclass:clojure/lang/RestFn
 lazyclass:clojure/core$apply
   /invoke.*:just_mark
   
+lazyclass:clojure/core$with_bindings_STAR_
+  doInvoke(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;:normal
+    
 lazyclass:clojure/lang/RestFn
 #mark from sub nginx/clojure/core$co_pcalls
   doInvoke(Ljava/lang/Object;)Ljava/lang/Object;:just_mark
@@ -158,6 +161,10 @@ lazyclass:nginx/clojure/NginxClojureRT
 
 lazyclass:nginx/clojure/core$co_pcalls
   doInvoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
+  
+fuzzyclass:nginx/clojure/core\$co_pcalls\$iter__(\d+)__(\d+)\$fn__(\d+)\$fn__(\d+)
+  invoke()Ljava/lang/Object;:normal
+  
 
 lazyclass:org/apache/solr/common/util/JavaBinCodec
   /read.*

@@ -1,9 +1,7 @@
 package nginx.clojure;
 
-import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
-import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_LEN_OFFSET;
-import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_OFFSET;
-import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET;
+import static nginx.clojure.MiniConstants.*;
+import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_shadow_copy_ngx_str;
 import static nginx.clojure.NginxClojureRT.pushNGXSizet;
 import static nginx.clojure.NginxClojureRT.pushNGXString;
 
@@ -15,9 +13,16 @@ public class ResponseContentTypeHolder extends NgxStringHeaderHolder {
 
 	@Override
 	public void push(long h, long pool, Object v) {
-		int contentTypeLen = pushNGXString(h + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_OFFSET, (String)v, DEFAULT_ENCODING, pool);
-		//be friendly to gzip module 
-		pushNGXSizet(h + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_LEN_OFFSET, contentTypeLen);
+		Long ll = MIME_TYPES.get(v);
+		if (ll != null) {
+			ngx_http_clojure_mem_shadow_copy_ngx_str(ll.longValue(), h + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_OFFSET);
+			//be friendly to gzip module 
+			pushNGXSizet(h + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_LEN_OFFSET,  ((String)v).length());
+		}else {
+			int contentTypeLen = pushNGXString(h + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_OFFSET, (String)v, DEFAULT_ENCODING, pool);
+			//be friendly to gzip module 
+			pushNGXSizet(h + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_LEN_OFFSET, contentTypeLen);
+		}
 	}
 
 	@Override

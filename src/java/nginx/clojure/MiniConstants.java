@@ -6,7 +6,6 @@ package nginx.clojure;
 
 import java.nio.charset.Charset;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -87,9 +86,11 @@ public class MiniConstants {
 	
 	public static Map<String, NginxHeaderHolder> KNOWN_RESP_HEADERS = new TreeMap<String, NginxHeaderHolder>(IGNORE_CASE_COMPARATOR);
 	
-	public static Map<String, Long> CORE_VARS = new HashMap<String, Long>();
+	public static Map<String, Long> MIME_TYPES = new TreeMap<String, Long>(IGNORE_CASE_COMPARATOR); 
 	
-	public static Map<String, Long> HEADERS_NAMES = new HashMap<String, Long>();
+	public static Map<String, Long> CORE_VARS = new TreeMap<String, Long>(IGNORE_CASE_COMPARATOR);
+	
+	public static Map<String, Long> HEADERS_NAMES = new TreeMap<String, Long>(IGNORE_CASE_COMPARATOR);
 	
 	public static final String STATUS_STR = "status";
 //	public static final String BODY = RT.keyword(null, "body");
@@ -129,7 +130,8 @@ public class MiniConstants {
 	public static final int  NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT = 1;
 	public static final int  NGX_HTTP_CLOJURE_GET_HEADER_FLAG_MERGE_KEY = 2;
 	
-	
+	/*Thess consts won't be final until we think they are really stable. 
+	 * So that it can avoid some java compiler just use literal integer to replace where it is used.*/
 	public static int NGX_HTTP_CLOJURE_MEM_IDX_START = 0;
 
 	/* index for size of ngx_uint_t */
@@ -209,6 +211,9 @@ public class MiniConstants {
 	public static long NGX_HTTP_CLOJURE_REQ_POOL_OFFSET;
 	public static int NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_IDX = 38;
 	public static long NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
+	
+	public static int NGX_HTTP_CLOJURE_MIME_TYPES_ADDR_IDX = 63;
+	public static long  NGX_HTTP_CLOJURE_MIME_TYPES_ADDR;
 	
 	/*index for size of ngx_http_headers_in_t */
 	public static int  NGX_HTTP_CLOJURE_HEADERSIT_SIZE_IDX = 64;

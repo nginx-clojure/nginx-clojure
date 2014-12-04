@@ -487,6 +487,8 @@ public class NginxClojureRT extends MiniConstants {
 		NGX_HTTP_CLOJURE_ARRAY_NALLOC_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_ARRAY_NALLOC_IDX];
 		NGX_HTTP_CLOJURE_ARRAY_POOL_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_ARRAY_POOL_IDX];
 		
+		NGX_HTTP_CLOJURE_MIME_TYPES_ADDR = MEM_INDEX[NGX_HTTP_CLOJURE_MIME_TYPES_ADDR_IDX];
+		
 		NGX_HTTP_CLOJURE_HEADERSIT_SIZE =  MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSIT_SIZE_IDX];
 		NGX_HTTP_CLOJURE_HEADERSI_HOST_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSI_HOST_IDX];
 		NGX_HTTP_CLOJURE_HEADERSI_CONNECTION_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSI_CONNECTION_IDX];
@@ -614,6 +616,7 @@ public class NginxClojureRT extends MiniConstants {
 
 		initStringAddrMapsByNativeAddr(CORE_VARS,  NGX_HTTP_CLOJURE_CORE_VARIABLES_ADDR);
 		initStringAddrMapsByNativeAddr(HEADERS_NAMES,  NGX_HTTP_CLOJURE_HEADERS_NAMES_ADDR);
+		initStringAddrMapsByNativeAddr(MIME_TYPES, NGX_HTTP_CLOJURE_MIME_TYPES_ADDR);
 		
 		SERVER_PORT_FETCHER = new RequestKnownNameVarFetcher("server_port");
 		SERVER_NAME_FETCHER = new RequestKnownNameVarFetcher("server_name");
@@ -622,7 +625,7 @@ public class NginxClojureRT extends MiniConstants {
 		QUERY_STRING_FETCHER = new RequestKnownOffsetVarFetcher(NGX_HTTP_CLOJURE_REQ_ARGS_OFFSET);
 		SCHEME_FETCHER = new RequestKnownNameVarFetcher("scheme");
 		REQUEST_METHOD_FETCHER = new RequestMethodStrFetcher();
-		CONTENT_TYPE_FETCHER = new RequestKnownHeaderFetcher("content-type");
+		CONTENT_TYPE_FETCHER = new RequestKnownHeaderFetcher("Content-Type");
 		CHARACTER_ENCODING_FETCHER = new RequestCharacterEncodingFetcher();
 //		HEADER_FETCHER = new RequestHeadersFetcher();
 		BODY_FETCHER = new RequestBodyFetcher();
@@ -639,7 +642,7 @@ public class NginxClojureRT extends MiniConstants {
 		KNOWN_RESP_HEADERS.put("Expires", safeBuildKnownTableEltHeaderHolder("Expires", NGX_HTTP_CLOJURE_HEADERSO_EXPIRES_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
 		KNOWN_RESP_HEADERS.put("Etag", safeBuildKnownTableEltHeaderHolder("Etag", NGX_HTTP_CLOJURE_HEADERSO_ETAG_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
 		KNOWN_RESP_HEADERS.put("Cache-Control", new ArrayHeaderHolder("Cache-Control", NGX_HTTP_CLOJURE_HEADERSO_CACHE_CONTROL_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
-		KNOWN_RESP_HEADERS.put("Content-Type", new NgxStringHeaderHolder("Content-Type", NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
+		KNOWN_RESP_HEADERS.put("Content-Type", new ResponseContentTypeHolder());
 		KNOWN_RESP_HEADERS.put("Content-Length", new ResponseContentTypeHolder());
 		
 		/*clear all to let initWorkers initializing them correctly*/
