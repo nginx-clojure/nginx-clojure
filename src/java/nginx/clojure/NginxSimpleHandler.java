@@ -11,6 +11,7 @@ import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFS
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_POOL_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_INTERNAL_SERVER_ERROR;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NO_CONTENT;
 import static nginx.clojure.MiniConstants.NGX_HTTP_OK;
@@ -86,7 +87,7 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 		//for safe access with another thread
 		req.prefetchAll();
 
-		if (phase == -1) { //from content handler invoking 
+		if (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE) { // -1 means from content handler invoking 
 			ngx_http_clojure_mem_inc_req_count(r);
 		}
 		workers.submit(new Callable<NginxClojureRT.WorkerResponseContext>() {
@@ -97,6 +98,7 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 				return new WorkerResponseContext(resp, req);
 			}
 		});
+
 		return NGX_DONE;
 	}
 	

@@ -51,16 +51,22 @@ typedef struct {
 	unsigned ignore_filters : 1;
 	unsigned async_body_read : 1;
 	unsigned client_body_done : 1;
+	unsigned wait_for_header_filter : 1;
+	unsigned pending_body_filter : 1;
+	/*for filter under thread pool mode or coroutine mode*/
+	ngx_chain_t *pending;
 } ngx_http_clojure_module_ctx_t;
 
 #define ngx_http_clojure_init_ctx(ctx, p) \
 		ctx->handled_couter = 1; \
 		ctx->phase = p; \
 		ctx->last_buf_meeted = 0; \
-		ctx->busy = ctx->free = NULL; \
+		ctx->busy = ctx->free = ctx->pending = NULL; \
 		ctx->ignore_filters = 0; \
 		ctx->client_body_done = 0; \
-		ctx->async_body_read = 0
+		ctx->async_body_read = 0 ; \
+		ctx->wait_for_header_filter = 0 ;\
+		ctx->pending_body_filter = 0
 
 #define NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT 1
 #define NGX_HTTP_CLOJURE_GET_HEADER_FLAG_MERGE_KEY 2
@@ -151,6 +157,12 @@ extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 #define NGX_HTTP_CLOJURE_REQ_POOL_OFFSET offsetof(ngx_http_request_t, pool)
 #define NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_IDX  38
 #define NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET offsetof(ngx_http_request_t, headers_out)
+#define NGX_HTTP_CLOJURE_REQ_METHOD_NAME_IDX 39
+#define NGX_HTTP_CLOJURE_REQ_METHOD_NAME_OFFSET offsetof(ngx_http_request_t, method_name)
+
+
+#define NGX_HTTP_CLOJURE_MIME_TYPES_ADDR_IDX 63
+#define NGX_HTTP_CLOJURE_MIME_TYPES_ADDR  (uintptr_t)ngx_http_clojure_mime_types
 
 /*index for size of ngx_http_headers_in_t */
 #define NGX_HTTP_CLOJURE_HEADERSIT_SIZE_IDX 64
@@ -326,6 +338,8 @@ int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log);
 int ngx_http_clojure_register_script(ngx_int_t phase, ngx_str_t *handler_type, ngx_str_t *handler, ngx_str_t *code, ngx_int_t *pcid);
 
 int ngx_http_clojure_eval(int cid, ngx_http_request_t *r, ngx_chain_t *c);
+
+ngx_int_t ngx_http_clojure_filter_continue_next_body_filter(ngx_http_request_t *r, ngx_chain_t *in);
 
 extern ngx_module_t  ngx_http_clojure_module;
 

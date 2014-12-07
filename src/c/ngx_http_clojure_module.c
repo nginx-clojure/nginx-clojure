@@ -1063,7 +1063,7 @@ static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 	    ngx_http_top_header_filter = ngx_http_clojure_header_filter;
 	}
 
-	if (mcf->enable_body_filter) {
+	if (mcf->enable_body_filter || mcf->enable_header_filter) {
 		ngx_http_clojure_next_body_filter = ngx_http_top_body_filter;
 		ngx_http_top_body_filter = ngx_http_clojure_body_filter;
 	}
@@ -1319,7 +1319,7 @@ static ngx_int_t ngx_http_clojure_header_filter(ngx_http_request_t *r) {
 	if (!lcf->enable_header_filter || (lcf->header_filter_code.len == 0 && lcf->header_filter_name.len == 0)) {
 		if (ctx != NULL && ctx->phase == ~NGX_HTTP_HEADER_FILTER_PHASE) {
 			ctx->phase = -1;
-					ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0,
+			ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0,
 							"ngx clojure header filter (enter again but without real nginx-clojure  header filter) request: %" PRIu64 ", rc: %d", (jlong )(uintptr_t )r,  NGX_OK);
 		}
 		return ngx_http_clojure_next_header_filter(r);
@@ -1348,13 +1348,19 @@ static ngx_int_t ngx_http_clojure_header_filter(ngx_http_request_t *r) {
 	/*if under thread pool mode ctx->phase must be copied in java*/
     rc = ngx_http_clojure_eval(lcf->header_filter_id, r, 0);
     ctx->phase = src_phase;
+
+    if (rc == NGX_DONE) {
+    	ctx->wait_for_header_filter = 1;
+    	rc = NGX_OK;
+    }
+
     return rc;
 
 }
 
 static ngx_int_t ngx_http_clojure_body_filter(ngx_http_request_t *r,  ngx_chain_t *chain) {
-	/*NOT-IMPLEMENTED*/
-	return NGX_ERROR;
+	/*JAVA body filter has not implemented*/
+	return ngx_http_clojure_filter_continue_next_body_filter(r, chain);
 }
 
 

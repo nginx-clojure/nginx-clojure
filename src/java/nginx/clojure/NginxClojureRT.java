@@ -109,6 +109,12 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public native static void ngx_http_filter_finalize_request(long r, long rc);
 	
+	/**
+	 * 
+	 * @param r nginx http request
+	 * @param chain  -1 means continue next header filter  otherwise continue next body filter
+	 * @return
+	 */
 	public native static long ngx_http_filter_continue_next(long r, long chain);
 
 	/**
@@ -137,6 +143,13 @@ public class NginxClojureRT extends MiniConstants {
 	public native static void ngx_http_clojure_mem_shadow_copy_ngx_str(long s, long t);
 	
 	public native static long ngx_http_clojure_mem_get_header(long headers, Object buf, long nameOffset,  long nameLen, long valueOffset, long bufMaxOffset);
+	
+	/**
+	 *  It will return 0 if there's no request body .
+	 *  It will return a value < 0 if there's request body file, -value is the length of the file path, and addr(buf, offset) is stored with the path data
+	 *  It will return a value > 0 if there's a in-memory request body, value is the length of the body and addr(buf, offset) is stored with a address of the body data
+	 */
+	public native static long ngx_http_clojure_mem_get_request_body(long r, Object buf, long offset, long limit);
 	
 	public native static long ngx_http_clojure_mem_get_variable(long r, long name, long varlenPtr);
 	
@@ -971,9 +984,10 @@ public class NginxClojureRT extends MiniConstants {
 		WorkerResponseContext ctx = (WorkerResponseContext) POSTED_EVENTS_DATA.remove(r);
 		NginxResponse resp = ctx.response;
 		NginxRequest req = ctx.request;
+		long rc = NGX_OK;
 		
 		if (ctx.request.isReleased()) {
-			if (resp.type() != 0) {
+			if (resp.type()  >  0) {
 				log.error("#%d: request is release! and we alos meet an unhandled exception! %s",  req.nativeRequest(), resp.fetchBody());
 			}else {
 				log.error("#%d: request is release! ", req.nativeRequest());
@@ -982,11 +996,15 @@ public class NginxClojureRT extends MiniConstants {
 		}
 		
 		if (resp.type() == NginxResponse.TYPE_FAKE_PHASE_DONE) {
+			if (ctx.request.phase() == NGX_HTTP_HEADER_FILTER_PHASE) {
+				rc = ngx_http_filter_continue_next(r, -1);
+				ngx_http_finalize_request(r, rc);
+				return NGX_OK;
+			}
 			ngx_http_clojure_mem_continue_current_phase(r, NGX_DECLINED);
 			return NGX_OK;
 		}
 		long chain = ctx.chain;
-		long rc = NGX_OK;
 		int phase = req.phase();
 		long nr = req.nativeRequest();
 		if (chain < 0) {
@@ -1040,7 +1058,7 @@ public class NginxClojureRT extends MiniConstants {
 			if (phase == NGX_HTTP_REWRITE_PHASE || phase == NGX_HTTP_ACCESS_PHASE) {
 				return NGX_DECLINED;
 			}
-			return  (int)ngx_http_filter_continue_next(r.nativeRequest(), 0);
+			return  (int)ngx_http_filter_continue_next(r.nativeRequest(), -1);
 		}
 		
 		NginxHandler handler = r.handler();
@@ -1074,12 +1092,18 @@ public class NginxClojureRT extends MiniConstants {
 			return;
 		}
 		
+		long rc;
 		if (resp.type() == NginxResponse.TYPE_FAKE_PHASE_DONE) {
+			if (req.phase() == NGX_HTTP_HEADER_FILTER_PHASE) {
+				rc = ngx_http_filter_continue_next(r, -1);
+				ngx_http_finalize_request(r, rc);
+				return;
+			}
 			ngx_http_clojure_mem_continue_current_phase(r, NGX_DECLINED);
 			return;
 		}
 		
-		long rc = handleResponse(req, resp);
+	    rc = handleResponse(req, resp);
 		if (req.phase() == -1) {
 			ngx_http_finalize_request(r, rc);
 		}else {
