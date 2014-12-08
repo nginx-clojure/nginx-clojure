@@ -4,6 +4,8 @@
  */
 package nginx.clojure.clj;
 
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT;
+
 import java.util.Iterator;
 
 import nginx.clojure.NginxSimpleHandler.SimpleEntry;
@@ -16,6 +18,9 @@ import clojure.lang.IMapEntry;
 import clojure.lang.IPersistentCollection;
 import clojure.lang.IPersistentMap;
 import clojure.lang.ISeq;
+import clojure.lang.ITransientAssociative;
+import clojure.lang.ITransientCollection;
+import clojure.lang.ITransientMap;
 import clojure.lang.MapEntry;
 import clojure.lang.Obj;
 import clojure.lang.PersistentArrayMap;
@@ -23,7 +28,7 @@ import clojure.lang.RT;
 import clojure.lang.Util;
 
 @SuppressWarnings("unchecked")
-public class LazyHeaderMap extends JavaLazyHeaderMap implements IPersistentMap, IFn  {
+public class LazyHeaderMap extends JavaLazyHeaderMap implements IPersistentMap, IFn, ITransientAssociative, ITransientMap  {
 	
 	
 	public LazyHeaderMap(long r, boolean headersOut) {
@@ -149,8 +154,13 @@ public class LazyHeaderMap extends JavaLazyHeaderMap implements IPersistentMap, 
 	}
 
 	@Override
-	public IPersistentMap assoc(Object key, Object val) {
-			throw new UnsupportedOperationException("assoc not supported now!");
+	public LazyHeaderMap assoc(Object key, Object val) {
+		if ( (flag & NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT) ==  0 ) {
+			throw new UnsupportedOperationException("assoc not supported for read-only request map!");
+		}else {
+			put(NginxClojureHandler.normalizeHeaderNameHelper(key), val);
+			return this;
+		}
 	}
 
 	@Override
@@ -159,8 +169,13 @@ public class LazyHeaderMap extends JavaLazyHeaderMap implements IPersistentMap, 
 	}
 
 	@Override
-	public IPersistentMap without(Object key) {
-		throw new UnsupportedOperationException("without not supported now!");
+	public LazyHeaderMap without(Object key) {
+		if ( (flag & NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT) ==  0 ) {
+			throw new UnsupportedOperationException("without not supported for read-only request map!");
+		}else {
+			remove(NginxClojureHandler.normalizeHeaderNameHelper(key));
+			return this;
+		}
 	}
 	
 
@@ -322,7 +337,17 @@ public class LazyHeaderMap extends JavaLazyHeaderMap implements IPersistentMap, 
 		int suffix = name.lastIndexOf("__");
 		throw new ArityException(n, (suffix == -1 ? name : name.substring(0, suffix)).replace('_', '-'));
 	}
-	
-	
+
+	@Override
+	public ITransientCollection conj(Object val) {
+		MapEntry me = (MapEntry)val;
+		assoc(me.key(), me.val());
+		return this;
+	}
+
+	@Override
+	public LazyHeaderMap persistent() {
+		return this;
+	}
 
 }

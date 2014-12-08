@@ -4,10 +4,11 @@
  */
 package nginx.clojure.clj;
 
+import static nginx.clojure.MiniConstants.NGX_HTTP_BODY_FILTER_PHASE;
+import static nginx.clojure.MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NOT_FOUND;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NO_CONTENT;
 import static nginx.clojure.NginxClojureRT.log;
-import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_module_ctx_phase;
 import static nginx.clojure.NginxClojureRT.processId;
 import static nginx.clojure.clj.Constants.ASYNC_TAG;
 import static nginx.clojure.clj.Constants.BODY;
@@ -35,13 +36,15 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 
 	public static ArrayMap<Keyword, Object> NOT_FOUND_RESPONSE = ArrayMap.create(STATUS, NGX_HTTP_NOT_FOUND);
 	
-	private IFn ringHandler;
+	protected IFn ringHandler;
+	protected IFn headerFilter;
 	
 	public NginxClojureHandler() {
 	}
 	
-	public NginxClojureHandler(IFn ringHandler) {
+	public NginxClojureHandler(IFn ringHandler, IFn headerFilter) {
 		this.ringHandler = ringHandler;
+		this.headerFilter = headerFilter;
 	}
 	
 	public static  String normalizeHeaderNameHelper(Object nameObj) {
@@ -66,14 +69,34 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 		if (r == 0) {
 			return new LazyRequestMap(this, r, null, new Object[0]); 
 		}
-		return new LazyRequestMap(this, r).phase((int)ngx_http_clojure_mem_get_module_ctx_phase(r));
+		int phase = (int)NginxClojureRT.ngx_http_clojure_mem_get_module_ctx_phase(r);
+		LazyRequestMap req;
+		switch (phase) {
+		case NGX_HTTP_HEADER_FILTER_PHASE : 
+		case NGX_HTTP_BODY_FILTER_PHASE:
+			req = new LazyFilterRequestMap(this, r, c);
+			break;
+		default :
+			req =  new LazyRequestMap(this, r);
+		}
+		return req.phase(phase);
 	}
 	
 	@Override
 	public NginxResponse process(NginxRequest req) {
 		LazyRequestMap r = (LazyRequestMap)req;
 		try{
-			Map resp = (Map) ringHandler.invoke(r);
+			Map resp;
+			switch (req.phase()) {
+			case NGX_HTTP_HEADER_FILTER_PHASE:
+				LazyFilterRequestMap freq = (LazyFilterRequestMap)r;
+				resp = (Map) headerFilter.invoke(freq.responseStatus(), freq, freq.responseHeaders());
+				break;
+			case NGX_HTTP_BODY_FILTER_PHASE:
+				throw new UnsupportedOperationException("body filter has not been supported yet!");
+			default:
+				 resp = (Map) ringHandler.invoke(req);
+			}
 			return req.isHijacked() ? toNginxResponse(r, ASYNC_TAG) : toNginxResponse(r, resp);
 		}finally {
 			int bodyIdx = r.index(BODY);

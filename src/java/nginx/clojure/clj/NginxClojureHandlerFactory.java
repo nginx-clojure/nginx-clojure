@@ -4,8 +4,10 @@
  */
 package nginx.clojure.clj;
 
+import static nginx.clojure.MiniConstants.NGX_HTTP_BODY_FILTER_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_CACHE_CONTROL_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE;
 import static nginx.clojure.clj.Constants.HEADER_FETCHER;
 import static nginx.clojure.clj.Constants.KNOWN_RESP_HEADERS;
 import static nginx.clojure.clj.Constants.REQUEST_METHOD_FETCHER;
@@ -41,7 +43,14 @@ public class NginxClojureHandlerFactory extends NginxHandlerFactory {
 			
 		}
 		IFn f = (IFn)RT.var("clojure.core", "eval").invoke(RT.var("clojure.core","read-string").invoke(code));
-		return new NginxClojureHandler(f);
+		switch (phase) {
+		case NGX_HTTP_HEADER_FILTER_PHASE:
+			return new NginxClojureHandler(null, f);
+		case NGX_HTTP_BODY_FILTER_PHASE:
+			throw new UnsupportedOperationException("body filter has not been supported yet!");
+		default:
+			return new NginxClojureHandler(f, null);
+		}
 	}
 
 }
