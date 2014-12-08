@@ -59,6 +59,8 @@ public class UnknownHeaderHolder implements NginxHeaderHolder {
 			seq = (List) v;
 		}else if (v.getClass().isArray()){
 			seq = (List)Arrays.asList((Object[])v);
+		}else {
+			seq = Arrays.asList(String.valueOf(v));
 		}
 		
 		clear(h);

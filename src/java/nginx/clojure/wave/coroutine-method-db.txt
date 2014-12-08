@@ -133,6 +133,12 @@ lazyclass:nginx/clojure/clj/NginxClojureHandler
 lazyclass:nginx/clojure/java/NginxJavaHandler
   process(Lnginx/clojure/NginxRequest;)Lnginx/clojure/NginxResponse;:normal
     
+lazyclass:nginx/clojure/java/NginxJavaRingHandler
+  invoke(Ljava/util/Map;)[Ljava/lang/Object;:just_mark
+  
+lazyclass:nginx/clojure/java/NginxJavaHeaderFilter
+    /doFilter*:just_mark  
+    
 lazyclass:nginx/clojure/NginxHandler
 #mark from sub nginx/clojure/NginxSimpleHandler
   process(Lnginx/clojure/NginxRequest;)Lnginx/clojure/NginxResponse;:just_mark
@@ -153,7 +159,6 @@ lazyclass:nginx/clojure/NginxSimpleHandler
 fuzzyclass:nginx/clojure/NginxSimpleHandler\$(\d+)
   call()Ljava/lang/Object;:normal
   call()Lnginx/clojure/NginxClojureRT$WorkerResponseContext;:normal
-
 
   
 lazyclass:nginx/clojure/NginxClojureRT

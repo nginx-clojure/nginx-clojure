@@ -422,10 +422,23 @@ static jlong JNICALL jni_ngx_http_send_header (JNIEnv *env, jclass cls, jlong re
 
 static void JNICALL jni_ngx_http_clear_header_and_reset_ctx_phase(JNIEnv *env, jclass cls, jlong req,  jlong phase) {
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t) req;
+	ngx_http_clojure_module_ctx_t *ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
 	ngx_http_clean_header(r);
-	if (phase) {
-		ngx_http_clojure_module_ctx_t *ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
-		ctx->phase = (ngx_int_t)phase;
+	r->err_status = 0;
+
+	if (ctx && phase) {
+			ctx->phase = (ngx_int_t)phase;
+			if (ctx->phase == ~ NGX_HTTP_HEADER_FILTER_PHASE) {
+				ctx->wait_for_header_filter = 0;
+			}
+	}
+}
+
+static void JNICALL jni_ngx_http_ignore_next_response(JNIEnv *env, jclass cls, jlong req) {
+	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t) req;
+	ngx_http_clojure_module_ctx_t *ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
+	if (ctx) {
+		ctx->ignore_next_response = 1;
 	}
 }
 
@@ -2451,6 +2464,7 @@ int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log) {
 			{"ngx_http_set_content_type", "(J)J", jni_ngx_http_set_content_type},
 			{"ngx_http_send_header", "(J)J", jni_ngx_http_send_header},
 			{"ngx_http_clear_header_and_reset_ctx_phase", "(JJ)V", jni_ngx_http_clear_header_and_reset_ctx_phase},
+			{"ngx_http_ignore_next_response", "(J)V", jni_ngx_http_ignore_next_response},
 			{"ngx_http_output_filter", "(JJ)J", jni_ngx_http_output_filter},
 			{"ngx_http_finalize_request", "(JJ)V", jni_ngx_http_finalize_request},
 			{"ngx_http_filter_finalize_request", "(JJ)V", jni_ngx_http_filter_finalize_request},

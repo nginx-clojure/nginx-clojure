@@ -103,6 +103,8 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public native static void ngx_http_clear_header_and_reset_ctx_phase(long r, long phase);
 	
+	public native static void ngx_http_ignore_next_response(long r);
+	
 	public native static long ngx_http_output_filter(long r, long chain);
 	
 	public native static void ngx_http_finalize_request(long r, long rc);
@@ -1014,18 +1016,24 @@ public class NginxClojureRT extends MiniConstants {
 			rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
 		} else {
 			int status = ctx.response.fetchStatus(NGX_HTTP_OK);
+			if (phase == NGX_HTTP_HEADER_FILTER_PHASE) {
+				ngx_http_clear_header_and_reset_ctx_phase(nr, ~phase);
+			}
 			req.handler().prepareHeaders(req, status, resp.fetchHeaders());
 			rc = ngx_http_send_header(nr);
 			if (rc == NGX_ERROR || rc > NGX_OK) {
 			}else {
 				rc = ngx_http_output_filter(r, chain);
+				if (rc == NGX_OK) {
+					ngx_http_ignore_next_response(nr);
+				}
 				if (phase != -1) {
-					rc = handleReturnCodeFromHandler(nr, phase, rc);
+					handleReturnCodeFromHandler(nr, phase, rc, status);
 				}
 			}
 		}
 		
-		if (phase == -1) {
+		if (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE) {
 			ngx_http_finalize_request(r, rc);
 		}else {
 			ngx_http_clojure_mem_continue_current_phase(r,  rc);
@@ -1033,13 +1041,17 @@ public class NginxClojureRT extends MiniConstants {
 		return NGX_OK;
 	}
 	
-	private static long handleReturnCodeFromHandler(long r, int phase, long rc) {
+	private static long handleReturnCodeFromHandler(long r, int phase, long rc, int status) {
 		if (phase == -1 || rc == NGX_ERROR ) {
 			return rc;
 		}
 		
+		if (phase == NGX_HTTP_HEADER_FILTER_PHASE) { //header  filter want to hajick all the response ,e.g some exception happends
+			return NGX_ERROR;
+		}
+		
 		ngx_http_finalize_request(r, rc);
-		if (phase == NGX_HTTP_ACCESS_PHASE || phase == NGX_HTTP_REWRITE_PHASE || phase == NGX_HTTP_HEADER_FILTER_PHASE) {
+		if (phase == NGX_HTTP_ACCESS_PHASE || phase == NGX_HTTP_REWRITE_PHASE ) {
 			return NGX_DONE;
 		}
 		return rc;
@@ -1069,17 +1081,20 @@ public class NginxClojureRT extends MiniConstants {
 			handler.prepareHeaders(r, status, resp.fetchHeaders());
 			return status;
 		}
-		handler.prepareHeaders(r, status, resp.fetchHeaders());
 		long nr = r.nativeRequest();
 		if (phase == NGX_HTTP_HEADER_FILTER_PHASE) {
 			ngx_http_clear_header_and_reset_ctx_phase(nr, ~phase);
 		}
+		handler.prepareHeaders(r, status, resp.fetchHeaders());
 		long rc = ngx_http_send_header(r.nativeRequest());
 		if (rc == NGX_ERROR || rc > NGX_OK) {
 			return (int) rc;
 		}
 		rc =  ngx_http_output_filter(r.nativeRequest(), chain);
-		return (int)handleReturnCodeFromHandler(nr, phase, rc);
+		if (rc == NGX_OK) {
+			ngx_http_ignore_next_response(nr);
+		}
+		return (int)handleReturnCodeFromHandler(nr, phase, rc, status);
 	}
 
 	public static void completeAsyncResponse(NginxRequest req, final NginxResponse resp) {
@@ -1092,9 +1107,19 @@ public class NginxClojureRT extends MiniConstants {
 			return;
 		}
 		
+		if (req.isReleased()) {
+			if (resp.type()  >  0) {
+				log.error("#%d: request is release! and we alos meet an unhandled exception! %s",  req.nativeRequest(), resp.fetchBody());
+			}else {
+				log.error("#%d: request is release! ", req.nativeRequest());
+			}
+			return;
+		}
+		
 		long rc;
+		int phase = req.phase();
 		if (resp.type() == NginxResponse.TYPE_FAKE_PHASE_DONE) {
-			if (req.phase() == NGX_HTTP_HEADER_FILTER_PHASE) {
+			if (phase == NGX_HTTP_HEADER_FILTER_PHASE) {
 				rc = ngx_http_filter_continue_next(r, -1);
 				ngx_http_finalize_request(r, rc);
 				return;
@@ -1104,7 +1129,7 @@ public class NginxClojureRT extends MiniConstants {
 		}
 		
 	    rc = handleResponse(req, resp);
-		if (req.phase() == -1) {
+		if (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE) {
 			ngx_http_finalize_request(r, rc);
 		}else {
 			ngx_http_clojure_mem_continue_current_phase(r, rc);

@@ -53,6 +53,7 @@ typedef struct {
 	unsigned client_body_done : 1;
 	unsigned wait_for_header_filter : 1;
 	unsigned pending_body_filter : 1;
+	unsigned ignore_next_response : 1;
 	/*for filter under thread pool mode or coroutine mode*/
 	ngx_chain_t *pending;
 } ngx_http_clojure_module_ctx_t;
@@ -66,7 +67,8 @@ typedef struct {
 		ctx->client_body_done = 0; \
 		ctx->async_body_read = 0 ; \
 		ctx->wait_for_header_filter = 0 ;\
-		ctx->pending_body_filter = 0
+		ctx->pending_body_filter = 0 ; \
+		ctx->ignore_next_response = 0
 
 #define NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT 1
 #define NGX_HTTP_CLOJURE_GET_HEADER_FLAG_MERGE_KEY 2

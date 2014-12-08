@@ -76,7 +76,7 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 		if (workers == null) {
 			NginxResponse resp = handleRequest(req);
 			if (resp.type() == NginxResponse.TYPE_FAKE_ASYNC_TAG) {
-				if (phase == -1) { //from content handler invoking 
+				if (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE) { //from content handler invoking 
 					ngx_http_clojure_mem_inc_req_count(r);
 				}
 				return NGX_DONE;

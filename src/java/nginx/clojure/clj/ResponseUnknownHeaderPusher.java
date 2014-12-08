@@ -36,6 +36,8 @@ public class ResponseUnknownHeaderPusher extends nginx.clojure.UnknownHeaderHold
 			seq = ArraySeq.create(val);
 		}else if (v instanceof ISeq) {
 			seq = (ISeq) v;
+		}else {
+			seq = ArraySeq.create(String.valueOf(v));
 		}
 		
 		int c = seq.count();

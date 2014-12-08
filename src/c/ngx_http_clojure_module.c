@@ -1349,7 +1349,7 @@ static ngx_int_t ngx_http_clojure_header_filter(ngx_http_request_t *r) {
     rc = ngx_http_clojure_eval(lcf->header_filter_id, r, 0);
     ctx->phase = src_phase;
 
-    if (rc == NGX_DONE) {
+    if (rc == NGX_DONE && !r->header_sent) {
     	ctx->wait_for_header_filter = 1;
     	rc = NGX_OK;
     }
@@ -1360,6 +1360,10 @@ static ngx_int_t ngx_http_clojure_header_filter(ngx_http_request_t *r) {
 
 static ngx_int_t ngx_http_clojure_body_filter(ngx_http_request_t *r,  ngx_chain_t *chain) {
 	/*JAVA body filter has not implemented*/
+	ngx_http_clojure_module_ctx_t *ctx  = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
+	if (ctx && ctx->ignore_next_response) {
+		return NGX_OK;
+	}
 	return ngx_http_clojure_filter_continue_next_body_filter(r, chain);
 }
 
