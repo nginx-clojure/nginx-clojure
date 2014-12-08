@@ -15,7 +15,9 @@ public class RewriteHandlerTestSet4NginxJavaRingHandler {
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
 			NginxJavaRequest r = (NginxJavaRequest) request;
-			NginxClojureRT.setNGXVariable(r.nativeRequest(), "myvar", "Hello");
+			r.setVariable("myvar", "Hello");
+			r.setVariable("myName", "Xfeep");
+			System.out.println("SimpleRewriteHandler, myname" + r.getVariable("myName"));
 			return Constants.PHRASE_DONE;
 		}
 		
@@ -25,9 +27,30 @@ public class RewriteHandlerTestSet4NginxJavaRingHandler {
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
 			NginxJavaRequest r = (NginxJavaRequest) request;
-			long nr = r.nativeRequest();
-			NginxClojureRT.setNGXVariable(nr, "myvar", NginxClojureRT.getNGXVariable(nr, "myvar") + ",Xfeep!");
-			return new Object[] {Constants.NGX_HTTP_OK,  ArrayMap.create("content-type", "text/plain") , NginxClojureRT.getNGXVariable(nr, "myvar") };
+			r.setVariable("myvar",  r.getVariable("myvar") + ","+ r.getVariable("myname") + "!" );
+			return new Object[] {Constants.NGX_HTTP_OK,  ArrayMap.create("content-type", "text/plain") , r.getVariable( "myvar") };
+		}
+	}
+	
+	public static class Rw implements NginxJavaRingHandler {
+
+		@Override
+		public Object[] invoke(Map<String, Object> request) {
+			NginxJavaRequest r = (NginxJavaRequest) request;
+			r.setVariable("myvar", "Hello");
+			r.setVariable("myName", r.getVariable("var"));
+			return Constants.PHRASE_DONE;
+		}
+		
+	}
+	
+	public static class Sh   implements NginxJavaRingHandler {
+		@Override
+		public Object[] invoke(Map<String, Object> request) {
+			NginxJavaRequest r = (NginxJavaRequest) request;
+			r.setVariable("myvar",  r.getVariable("myvar") + ","+ r.getVariable("myName") + "!" );
+			System.out.println(request.get(Constants.URI));
+			return new Object[] {Constants.NGX_HTTP_OK,  ArrayMap.create("content-type", "text/plain") , r.getVariable( "myvar") };
 		}
 	}
 	

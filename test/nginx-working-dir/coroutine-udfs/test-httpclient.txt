@@ -127,3 +127,10 @@ lazyclass:org/apache/http/io/SessionOutputBuffer
 #mark from sub org/apache/http/impl/io/SessionOutputBufferImpl
   flush()V:just_mark
 
+
+lazyclass:nginx/clojure/java/FilterTestSet4NginxJavaHeaderFilter$AccessRemoteHeaderFilter
+  /doFilter*
+  /invoke.*
+
+  
+

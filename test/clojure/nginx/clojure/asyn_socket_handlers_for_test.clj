@@ -15,7 +15,7 @@
     (do 
       (.error logger (format "on connect error: %s" (.errorCodeToString as sc)))
       (.close as)
-      (NginxClojureRT/completeAsyncResponse (-> as .getContext :creq) 500))
+      (NginxClojureRT/completeAsyncResponse (-> as .getContext deref :creq) 500))
     ;else
     (.info logger "connected now!")))
 
@@ -27,7 +27,7 @@
     (do 
       (.error logger (format ["on write error: %s" (.errorCodeToString as sc)]))
       (.close as)
-      (NginxClojureRT/completeAsyncResponse (-> as .getContext :creq) 500))
+      (NginxClojureRT/completeAsyncResponse (-> as .getContext deref :creq) 500))
     ;else
     (let [ctx (.getContext as) 
           {:keys [rc, wc,req-sent?, creq, req, buf, resp]} @ctx]
@@ -61,7 +61,7 @@
     (do 
       (.error logger (format "on read error: %s" (.errorCodeToString as sc)))
       (.close as)
-      (NginxClojureRT/completeAsyncResponse (-> as .getContext :creq) 500))
+      (NginxClojureRT/completeAsyncResponse (-> as .getContext deref :creq) 500))
     ;else
     (let [ctx (.getContext as) 
           {:keys [rc, wc,req-sent?, creq, req, buf, resp]} @ctx
