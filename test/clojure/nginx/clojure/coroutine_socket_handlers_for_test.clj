@@ -48,7 +48,7 @@
 
 (defroutes coroutine-socket-test-handler
   (GET "/simple-clj-http-test" [] 
-       (let [{:keys [status, headers, body]} (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt" {:socket-timeout 50000})]
+       (let [{:keys [status, headers, body]} (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt" {:socket-timeout 50000})]
          {:status status,  :headers (dissoc headers "transfer-encoding" "server"), :body body}))
   (GET "/" [] {:status 200, :headers {"content-type" "text/plain"}, :body "hello"})
   (GET "/simple-httpclientget" [:as req] (let [[s h b] (.invoke (SimpleHandler4TestHttpClientGetMethod.) {})] {:status s :headers h :body b}))
@@ -62,8 +62,8 @@
      )
   (GET "/fetch-two-pages" []
        (let [[r1 r2] (co-pvalues 
-                       (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/")
-                       (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpcore/"))]
+                       (client/get "http://www.apache.org/dist/httpcomponents/httpclient/")
+                       (client/get "http://www.apache.org/dist/httpcomponents/httpcore/"))]
          {:status 200, 
           :headers {"content-type" "text/html"}, 
           :body (str (:body r1) "\n==========================\n" (:body r2)) }))

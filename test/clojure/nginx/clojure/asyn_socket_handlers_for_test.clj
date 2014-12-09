@@ -107,9 +107,9 @@
                    :wc 0, ;write count
                    :req-sent? false, ;have sent request
                    :creq creq
-                   :req (.getBytes (str "GET /apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\n"
+                   :req (.getBytes (str "GET /dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\n"
                                         "User-Agent: nginx-clojure/0.2.5\r\n" 
-                                        "Host: mirror.bit.edu.cn\r\n" 
+                                        "Host: www.apache.org\r\n" 
                                         "Accept: */*\r\n" 
                                         "Connection: close\r\n\r\n"))
                    :buf (byte-array 4096)
@@ -124,7 +124,7 @@
 											"release" (release-handler as sc))
                 )))]
     (.setContext as ctx)
-    (.connect as "mirror.bit.edu.cn:80")
+    (.connect as "www.apache.org:80")
     ;tell nginx clojure our work isn't done.
     Constants/ASYNC_TAG)
   )

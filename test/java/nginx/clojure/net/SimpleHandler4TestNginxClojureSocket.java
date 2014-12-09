@@ -30,8 +30,8 @@ public class SimpleHandler4TestNginxClojureSocket implements NginxJavaRingHandle
 	public Object[] invoke(Map<String, Object> request) {
 		Socket socket = new Socket();
 		try {
-			//http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt
-			InetSocketAddress inetSocketAddress = new InetSocketAddress("mirror.bit.edu.cn", 80);
+			//http://www.apache.org/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt
+			InetSocketAddress inetSocketAddress = new InetSocketAddress("www.apache.org", 80);
 			socket.setSoTimeout(50000);
 			socket.setTcpNoDelay(true);
 			socket.setKeepAlive(true);
@@ -40,7 +40,7 @@ public class SimpleHandler4TestNginxClojureSocket implements NginxJavaRingHandle
 			log.info("fininsh connect");
 			OutputStream out = socket.getOutputStream();
 //			out.write("GET /ubuntu/dists/trusty/Release HTTP/1.1\r\nUser-Agent: nginx-clojure/0.2.0\r\nHost: mirrors.163.com\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes());
-			out.write("GET /apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\nUser-Agent: nginx-clojure/0.2.5\r\nHost: mirror.bit.edu.cn\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes());
+			out.write("GET /dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\nUser-Agent: nginx-clojure/0.2.5\r\nHost: www.apache.org\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes());
 			out.flush();
 			log.info("fininsh request");
 //			socket.shutdownOutput();

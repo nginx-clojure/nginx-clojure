@@ -55,7 +55,7 @@ public class SimpleHandler4TestNginxClojureAsynChannel implements NginxJavaRingH
 			}
 		});
 		final NginxClojureAsynChannel upstream = new NginxClojureAsynChannel();
-		String url = "mirror.bit.edu.cn:80";
+		String url = "www.apache.org:80";
 		upstream.setTimeout(5000, 20000, 20000);
 		upstream.connect(url, downstream, new CompletionListener<NginxHttpServerChannel>() {
 			@Override
@@ -73,9 +73,9 @@ public class SimpleHandler4TestNginxClojureAsynChannel implements NginxJavaRingH
 				ByteBuffer getCommand;
 				try {
 					getCommand = encoder.encode(CharBuffer
-							.wrap("GET /apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\n"
+							.wrap("GET /dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\n"
 									+ "User-Agent: nginx-clojure/0.2.5\r\n" 
-									+ "Host: mirror.bit.edu.cn\r\nAccept: */*\r\n"
+									+ "Host: www.apache.org\r\nAccept: */*\r\n"
 									+ "Connection: close\r\n\r\n"));
 					upstream.write(getCommand, upstream, new CompletionListener<NginxClojureAsynChannel>() {
 						public void onError(long code, NginxClojureAsynChannel attachment) {

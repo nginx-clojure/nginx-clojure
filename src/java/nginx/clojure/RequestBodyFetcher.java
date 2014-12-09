@@ -6,6 +6,8 @@ package nginx.clojure;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.InputStream;
+import java.io.SequenceInputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
@@ -25,7 +27,7 @@ public class RequestBodyFetcher implements RequestVarFetcher {
 	@Override
 	public Object fetch(long r, Charset encoding) {
 		ByteBuffer bb = pickByteBuffer();
-		long len = ngx_http_clojure_mem_get_request_body(r,  bb,  BYTE_ARRAY_OFFSET, bb.capacity());
+		long len = ngx_http_clojure_mem_get_request_body(r,  bb.array(),  BYTE_ARRAY_OFFSET, bb.capacity());
 		if (len == 0) {
 			return null;
 		} else if (len < 0) {
@@ -38,8 +40,18 @@ public class RequestBodyFetcher implements RequestVarFetcher {
 				throw new RuntimeException("can not find tmp file", e);
 			}
 		}else {
-			long addr = bb.order(ByteOrder.nativeOrder()).asLongBuffer().get();
-			return new NativeInputStream(addr, len);
+			long li = bb.order(ByteOrder.nativeOrder()).getLong();
+			if (li == len) {
+				return new NativeInputStream(bb.getLong(), len);
+			}else {
+				InputStream rt = new NativeInputStream(bb.getLong(), li);
+				li = bb.getLong();
+				while (li > 0) {
+					rt = new SequenceInputStream(rt, new NativeInputStream(bb.getLong(), li));
+					li = bb.getLong();
+				}
+				return rt;
+			}
 		}
 	}
 }

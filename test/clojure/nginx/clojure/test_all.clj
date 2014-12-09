@@ -1,7 +1,8 @@
 (ns nginx.clojure.test-all
    (:use [clojure.test])
    (:require [clj-http.client :as client]
-             [clojure.edn :as edn]))
+             [clojure.edn :as edn])
+   (:import [java.io BufferedReader StringReader]))
 
 (def ^:dynamic *host* "localhost")
 (def ^:dynamic *port* "8080")
@@ -71,7 +72,7 @@
              (is (= "tc1=tc1value;tc2=tc2value" (b :cookie)))))
   
     (testing "query string & character-encoding"
-           (let [r (client/get (str "http://" *host* ":" *port* "/headers?my=test") {:coerce :unexceptional, :headers {"my-header" "mytest" "Content-Type" "text/plain; charset=utf-8"}, :cookies {"tc1" {:value "tc1value"}, "tc2" {:value "tc2value"} } })
+           (let [r (client/get (str "http://" *host* ":" *port* "/headers?my=test") {:coerce :unexceptional, :headers {"my-header" "mytest" "content-type" "text/plain; charset=utf-8"}, :cookies {"tc1" {:value "tc1value"}, "tc2" {:value "tc2value"} } })
                  h (:headers r)
                  b (-> r :body (edn/read-string))]
              (debug-println r)
@@ -348,12 +349,12 @@
 
 (def remote-http-content
   (delay 
-    (let [r1 (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
+    (let [r1 (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
          b1 (r1 :body)] b1)))
 
 (deftest ^{:async true :remote true} test-asyncsocket
     (let [
-        ;r1 (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
+        ;r1 (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
         ;b1 (r1 :body)
         abc ""
         ]
@@ -402,7 +403,7 @@
 
 (deftest ^{:async true :remote true} test-cljasyncsocket
     (let [
-        ;r1 (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
+        ;r1 (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
         ;b1 (r1 :body)
         abc ""
         ]
@@ -475,8 +476,8 @@
             (let [r (client/get (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/fetch-two-pages") {:throw-exceptions false})
                   h (:headers r)
                   b (r :body)
-                 [r1, r2] (pvalues (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/")
-                                   (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpcore/"))
+                 [r1, r2] (pvalues (client/get "http://www.apache.org/dist/httpcomponents/httpclient/")
+                                   (client/get "http://www.apache.org/dist/httpcomponents/httpcore/"))
                  b12 (str (:body r1) "\n==========================\n" (:body r2))
                 ]
              (debug-println "=================coroutine based socket--co-pvalues & compojure & clj-http  =============================")
@@ -572,6 +573,273 @@
              (debug-println "=================rewritesimple=============================")
              (is (= 200 (:status r)))
              (is  (= "hello,b!/javarewritebybodyproxy/" (:body r)) )))
+  )
+
+(defn- first-line [str]
+  (-> str (StringReader. ) (BufferedReader. ) (line-seq) (first)))
+
+(deftest ^{:remote true} test-access-handler
+  (testing "acces deny"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/deny") {:coerce :unexceptional :follow-redirects false  :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javaaccess/deny=============================")
+             (is (= 403 (:status r)))))
+           
+    (testing "access exception"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/ex") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javaaccess/ex=============================")
+             (is (= 500 (:status r)))
+             (is (= "java.lang.RuntimeException: ExceptionInAccessHandler" (first-line (:body r))))))
+      (testing "access basic auth--fail"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/basic0") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javaaccess/basic0=============================")
+             (is (= 401 (:status r)))
+            (is (= "<HTML><BODY><H1>401 Unauthorized.</H1></BODY></HTML>" (first-line (:body r))))))
+       (testing "access basic auth-success"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/basic0") {:coerce :unexceptional :follow-redirects false :basic-auth ["xfeep" "hello!"] :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javaaccess/basic0=============================")
+             (is (= 200 (:status r)))
+             (is  (= "Hello, Java & Nginx!" (:body r)) )))
+        (testing "access basic auth-success with static file"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/basic1/small.html") {:coerce :unexceptional :follow-redirects false, :basic-auth ["xfeep" "hello!"] :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javaaccess/basic1/small.html=============================")
+             (is (= 200 (:status r)))
+             (is  (= "680" (h  "content-length")) )))
+        
+         (testing "access basic auth-success with 404"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/basic1/small2.html") {:coerce :unexceptional :follow-redirects false, :basic-auth ["xfeep" "hello!"] :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javaaccess/basic1/small2.html=============================")
+             (is (= 404 (:status r)))
+             (is  (= "162" (h  "content-length")) ))) 
+         
+         (testing "access basic auth-fail with 404"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/basic1/small2.html") {:coerce :unexceptional :follow-redirects false, :basic-auth ["xfeep" "xxxxx!"] :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javaaccess/basic1/small2.html=============================")
+             (is (= 401 (:status r)))
+              (is (= "<HTML><BODY><H1>401 Unauthorized BAD USER & PASSWORD.</H1></BODY></HTML>" (first-line (:body r))))))
+ 
+         (testing "access with remote access"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/basic1/small2.html") {:coerce :unexceptional :follow-redirects false, :basic-auth ["xfeep" "xxxxx!"] :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javaaccess/basic1/small2.html=============================")
+             (is (= 401 (:status r)))
+              (is (= "<HTML><BODY><H1>401 Unauthorized BAD USER & PASSWORD.</H1></BODY></HTML>" (first-line (:body r))))))         
+        )
+
+(deftest ^{:remote true}  test-java-header-filter
+  (testing "header filter add with static file"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javafilter/small.html") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javafilter/small.html=============================")
+             (is (= 200 (:status r)))
+             (is (= "Hello!" (h "xfeep-header")))
+             (is  (= "680" (h  "content-length")) )
+             (is (= 680 (.length b)))
+             )
+
+           )
+    (testing "header filter add with simple hello"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javafilter/hello") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javafilter/hello=============================")
+             (is (= 200 (:status r)))
+             (is (= "Hello!" (h "xfeep-header")))
+             (is  (= "Hello, Java & Nginx!" b) ))
+
+           )
+    
+    (testing "header filter remove & add more"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javafilter/ra") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javafilter/ra=============================")
+             (is (= 200 (:status r)))
+             (is (= "Hello2!" (h "xfeep-header")))
+              ;;;content-type: text/html
+              (is (= "text/html" (h "content-type")))
+             (is  (= "Hello, Java & Nginx!" b) ))
+           )  
+    
+     (testing "header filter with exception"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javafilter/ex0") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javafilter/ex0=============================")
+             (is (= 500 (:status r)))
+              ;;;content-type: text/html
+             (is  (= "java.lang.RuntimeException: Hello, exception in header filter!" (first-line b)) ))
+           ) 
+ 
+     (testing "header filter with exception 1"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javafilter/ex1") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javafilter/ex1=============================")
+             (is (= 500 (:status r)))
+              ;;;content-type: text/html
+             (is  (= "java.lang.RuntimeException: Hello, exception in header filter!" (first-line b)) ))
+           )            
+     
+      (testing "header filter with remote access 0"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javafilter/rc0") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javafilter/rc0=============================")
+             (is (= 404 (:status r)))
+             (is (= "77269" (h "remote-content-length"))))
+           )  
+      
+      (testing "header filter with remote access & static file"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javafilter/rc1/small.html") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javafilter/rc1=============================")
+             (is (= 200 (:status r)))
+              ;;;content-type: text/html
+              (is (= "77269" (h "remote-content-length")))
+             (is  (= "680" (h  "content-length")) )
+             (is (= 680 (.length b))))
+           )  
+      
+     (testing "header filter with remote access & dynamic content"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javafilter/rc2") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javafilter/rc2=============================")
+             (is (= 200 (:status r)))
+             (is (= "77269" (h "remote-content-length")))
+              ;;;content-type: text/html
+             (is (= "Hello, Java & Nginx!" b) ))
+           )        
+  )
+
+(deftest ^{:remote true}  test-clj-header-filter
+  (testing "header filter add with static file"
+           (let [r (client/get (str "http://" *host* ":" *port* "/cljfilter/small.html") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/cljfilter/small.html=============================")
+             (is (= 200 (:status r)))
+             (is (= "Hello!" (h "xfeep-header")))
+             (is  (= "680" (h  "content-length")) )
+             (is (= 680 (.length b)))
+             )
+
+           )
+    (testing "header filter add with simple hello"
+           (let [r (client/get (str "http://" *host* ":" *port* "/cljfilter/hello") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/cljfilter/hello=============================")
+             (is (= 200 (:status r)))
+             (is (= "Hello!" (h "xfeep-header")))
+             (is  (= "Hello, Java & Nginx!" b) )             
+             )
+           )
+    
+    (testing "header filter remove & add more"
+           (let [r (client/get (str "http://" *host* ":" *port* "/cljfilter/ra") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/cljfilter/ra=============================")
+             (is (= 200 (:status r)))
+             (is (= "Hello2!" (h "xfeep-header")))
+              ;;;content-type: text/html
+              (is (= "text/html" (h "content-type")))
+             (is  (= "Hello, Java & Nginx!" b) ))
+           )  
+    
+     (testing "header filter with exception"
+           (let [r (client/get (str "http://" *host* ":" *port* "/cljfilter/ex0") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/cljfilter/ex0=============================")
+             (is (= 500 (:status r)))
+              ;;;content-type: text/html
+             (is  (= "java.lang.RuntimeException: Hello, exception in header filter!" (first-line b)) ))
+           ) 
+ 
+     (testing "header filter with exception 1"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javafilter/ex1") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/cljfilter/ex1=============================")
+             (is (= 500 (:status r)))
+              ;;;content-type: text/html
+             (is  (= "java.lang.RuntimeException: Hello, exception in header filter!" (first-line b)) ))
+           )            
+     
+      (testing "header filter with remote access 0"
+           (let [r (client/get (str "http://" *host* ":" *port* "/cljfilter/rc0") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/cljfilter/rc0=============================")
+             (is (= 404 (:status r)))
+             (is (= "77268" (h "remote-content-length"))))
+           )  
+      
+      (testing "header filter with remote access & static file"
+           (let [r (client/get (str "http://" *host* ":" *port* "/cljfilter/rc1/small.html") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/cljfilter/rc1=============================")
+             (is (= 200 (:status r)))
+              ;;;content-type: text/html
+              (is (= "77268" (h "remote-content-length")))
+             (is  (= "680" (h  "content-length")) )
+             (is (= 680 (.length b))))
+           )  
+      
+     (testing "header filter with remote access & dynamic content"
+           (let [r (client/get (str "http://" *host* ":" *port* "/cljfilter/rc2") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/cljfilter/rc2=============================")
+             (is (= 200 (:status r)))
+             (is (= "77268" (h "remote-content-length")))
+              ;;;content-type: text/html
+             (is (= "Hello, Java & Nginx!" b) ))
+           )        
   )
 
 ;eg. (concurrent-run 10 (run-tests 'nginx.clojure.test-all))

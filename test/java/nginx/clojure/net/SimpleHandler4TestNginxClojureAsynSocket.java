@@ -43,8 +43,8 @@ public class SimpleHandler4TestNginxClojureAsynSocket implements NginxJavaRingHa
 //		(1) http header  "Connection" = close
 //      (2) after send all request, call s.shutdown(NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_WRITE);
 //      here we will use choice (1)
-//		http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt
-		ctx.req = "GET /apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\nUser-Agent: nginx-clojure/0.2.5\r\nHost: mirror.bit.edu.cn\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes();
+//		http://www.apache.org/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt
+		ctx.req = "GET /dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\nUser-Agent: nginx-clojure/0.2.5\r\nHost: www.apache.org\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes();
 		ctx.buf = new byte[1024];
 		ctx.resp = new ByteArrayOutputStream();
 		ctx.downstreamChannel = serverChannel;
@@ -154,7 +154,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket implements NginxJavaRingHa
 				log.info("connected now!");
 			}
 		});
-		asynSocket.connect("mirror.bit.edu.cn:80");
+		asynSocket.connect("www.apache.org:80");
 		return null;
 	}
 

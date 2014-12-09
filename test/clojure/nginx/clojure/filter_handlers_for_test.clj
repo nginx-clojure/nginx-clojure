@@ -17,7 +17,7 @@
   (throw (RuntimeException. "Hello, exception in header filter!")))
 
 (defn access-remote-header-filter [status request response-headers]
-  (let [resp (client/get "http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt" {:socket-timeout 50000})
+  (let [resp (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt" {:socket-timeout 50000})
              body (:body resp)]
     (assoc! response-headers "remote-content-length" (.length body))
     phase-done))

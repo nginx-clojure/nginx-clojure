@@ -47,7 +47,7 @@ public class FilterTestSet4NginxJavaHeaderFilter {
 		public Object[] doFilter(int status, Map<String, Object> request, Map<String, Object> responseHeaders)  throws SuspendExecution {
 
 			CloseableHttpClient httpclient = HttpClients.createDefault();
-			HttpGet httpget = new HttpGet("http://mirror.bit.edu.cn/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt");
+			HttpGet httpget = new HttpGet("http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt");
 			CloseableHttpResponse response = null;
 			try {
 				response = httpclient.execute(httpget);

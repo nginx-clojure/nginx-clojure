@@ -33,7 +33,7 @@
 
 ;;ring handler
 (defn async-channel-example-handler 
-  "this example get content from mirror.bit.edu.cn:8080 and sent it to client"
+  "this example get content from www.apache.org:8080 and sent it to client"
   [req]
   (let [downstream (hijack! req false)
         upstream (achannel)
@@ -44,12 +44,12 @@
                         (ashutdown! upstream :soft-write)
                         (arecv! upstream buf pipe error-handler pipe-handler)
                         )]
-    (aconnect! upstream "mirror.bit.edu.cn:80" upstream error-handler
+    (aconnect! upstream "www.apache.org:80" upstream error-handler
                (fn [status att]
                  (.info logger "connected successfully")
-                 (asend! upstream (str "GET /apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\n"
-                                        "User-Agent: nginx-clojure/0.2.5\r\n" 
-                                        "Host: mirror.bit.edu.cn\r\n" 
+                 (asend! upstream (str "GET /dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\n"
+                                        "User-Agent: nginx-clojure/0.3.0\r\n" 
+                                        "Host: www.apache.org\r\n" 
                                         "Accept: */*\r\n" 
                                         "Connection: close\r\n\r\n")
                          pipe error-handler 
