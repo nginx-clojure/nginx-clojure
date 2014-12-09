@@ -131,7 +131,7 @@ static void ngx_http_clojure_check_broken_connection(ngx_http_request_t *r, ngx_
 
 static void ngx_http_clojure_rd_check_broken_connection(ngx_http_request_t *r);
 
-static ngx_int_t ngx_http_clojure_prepare_server_header(ngx_http_request_t *r) {
+ngx_int_t ngx_http_clojure_prepare_server_header(ngx_http_request_t *r) {
 	ngx_table_elt_t *h = r->headers_out.server;
 	if (h == NULL) {
 	    h = ngx_list_push(&r->headers_out.headers);
@@ -1986,10 +1986,18 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_request_body(JNIEnv *env, jcla
 
 	if (r->request_body->bufs) {
 		ngx_chain_t  *cl = r->request_body->bufs;
-		ngx_buf_t *buf = cl->buf;
-		/*we always take the first buf because we always set  r->request_body_in_single_buf=1*/
-		(*(jlong *)ngx_http_clojure_abs_off_addr(buf, off)) = (jlong)(uintptr_t)cl->buf->pos;
-		return buf->last - buf->pos;
+		jlong *vp = (jlong *)ngx_http_clojure_abs_off_addr(buf, off);
+		jlong len = 0;
+		/*although we always set  r->request_body_in_single_buf=1, but some client (e.g. clj-http) will pre-send some body along header buffer
+		 * so nginx maybe has two bufs in request body*/
+		while (cl) {
+			*vp = (jlong)(cl->buf->last - cl->buf->pos);
+			len +=  *vp++;
+			*vp++ = (jlong)(uintptr_t)cl->buf->pos;
+			cl = cl->next;
+		}
+		*vp = 0;
+		return len;
 	}
 
 	return 0;

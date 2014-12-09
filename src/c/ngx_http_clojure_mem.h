@@ -343,6 +343,8 @@ int ngx_http_clojure_eval(int cid, ngx_http_request_t *r, ngx_chain_t *c);
 
 ngx_int_t ngx_http_clojure_filter_continue_next_body_filter(ngx_http_request_t *r, ngx_chain_t *in);
 
+ngx_int_t ngx_http_clojure_prepare_server_header(ngx_http_request_t *r);
+
 extern ngx_module_t  ngx_http_clojure_module;
 
 extern ngx_http_output_header_filter_pt ngx_http_clojure_next_header_filter;
