@@ -1024,7 +1024,7 @@ public class NginxClojureRT extends MiniConstants {
 			if (rc == NGX_ERROR || rc > NGX_OK) {
 			}else {
 				rc = ngx_http_output_filter(r, chain);
-				if (rc == NGX_OK) {
+				if (rc == NGX_OK && phase != -1) {
 					ngx_http_ignore_next_response(nr);
 				}
 				if (phase != -1) {
@@ -1091,7 +1091,7 @@ public class NginxClojureRT extends MiniConstants {
 			return (int) rc;
 		}
 		rc =  ngx_http_output_filter(r.nativeRequest(), chain);
-		if (rc == NGX_OK) {
+		if (rc == NGX_OK &&  phase != -1) {
 			ngx_http_ignore_next_response(nr);
 		}
 		return (int)handleReturnCodeFromHandler(nr, phase, rc, status);

@@ -126,6 +126,22 @@
              (is (< 0 (.indexOf b "Apache HTTP Server Version 2.4")))
              (is (< 0 (.indexOf b "Modules | Directives | FAQ | Glossary | Sitemap")))
              ))
+  
+    (testing "form larger multipart-formdata"
+           (let [r (client/post (str "http://" *host* ":" *port* "/echoUploadfile") {:coerce :unexceptional, :multipart [{:name "mytoken", :content "123456"},
+                                                                                                 {:name "myf", :content (clojure.java.io/file "test/nginx-working-dir/post-test-large-data")}
+                                                                                                 ]})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================form multipart-formdata=============================")
+             (is (= 200 (:status r)))
+             (is (< 0 (.indexOf b "name=\"mytoken\"")))
+             (is (< 0 (.indexOf b "123456")))
+             (is (< 0 (.indexOf b "name=\"myf\"")))
+             (is (< 0 (.indexOf b "Release 4.3.3")))
+             (is (< 0 (.indexOf b "Contributed by Roland Weber <rolandw at apache.org>")))
+             ))
   )
 
 
@@ -476,9 +492,11 @@
             (let [r (client/get (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/fetch-two-pages") {:throw-exceptions false})
                   h (:headers r)
                   b (r :body)
-                 [r1, r2] (pvalues (client/get "http://www.apache.org/dist/httpcomponents/httpclient/")
-                                   (client/get "http://www.apache.org/dist/httpcomponents/httpcore/"))
+                 [r1, r2] (pvalues (client/get "http://www.apache.org/dist/httpcomponents/httpclient/KEYS")
+                                   (client/get "http://www.apache.org/dist/httpcomponents/httpcore/KEYS"))
                  b12 (str (:body r1) "\n==========================\n" (:body r2))
+                 b (.replace b "<address>Apache/2.4.10 (Unix) OpenSSL/1.0.1i Server at www.apache.org Port 80</address>\n</body>" "")
+                 b12   (.replace b12  "<address>Apache/2.4.10 (Unix) OpenSSL/1.0.1i Server at www.apache.org Port 80</address>\n</body>" "")
                 ]
              (debug-println "=================coroutine based socket--co-pvalues & compojure & clj-http  =============================")
              (is (= 200 (:status r)))
