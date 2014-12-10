@@ -183,10 +183,13 @@ public class MethodDatabaseUtil {
 		if (rt.length() == 0){
 			return null;
 		}
+		if (start == 0) {
+			return null;
+		}
 		if (start < s.length()) {
 			rt.append(s.substring(start));
 		}
-		return rt.toString();
+		return rt.toString().replace("$", "\\$");
 	}
 	
 	public static ClassEntry buildClassEntryFamily(MethodDatabase db, ClassReader r) {

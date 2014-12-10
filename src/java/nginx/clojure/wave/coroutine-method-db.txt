@@ -137,7 +137,7 @@ lazyclass:nginx/clojure/java/NginxJavaRingHandler
   invoke(Ljava/util/Map;)[Ljava/lang/Object;:just_mark
   
 lazyclass:nginx/clojure/java/NginxJavaHeaderFilter
-    /doFilter*:just_mark  
+  doFilter(ILjava/util/Map;Ljava/util/Map;)[Ljava/lang/Object;:just_mark
     
 lazyclass:nginx/clojure/NginxHandler
 #mark from sub nginx/clojure/NginxSimpleHandler

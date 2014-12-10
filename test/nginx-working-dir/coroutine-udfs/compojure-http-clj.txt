@@ -383,6 +383,8 @@ lazyclass:org/apache/http/conn/EofSensorInputStream
 lazyclass:org/apache/http/impl/io/ContentLengthInputStream
   read([BII)I:normal
 
+fuzzyclass:nginx/clojure/java/FilterTestSet(\d+)NginxJavaHeaderFilter\$AccessRemoteHeaderFilter
+  doFilter(ILjava/util/Map;Ljava/util/Map;)[Ljava/lang/Object;:normal
 
 
 

@@ -2,14 +2,16 @@ package nginx.clojure.java;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.Map;
 
-import nginx.clojure.SuspendExecution;
+import nginx.clojure.wave.SuspendMethodTracer;
 
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+
 
 public class FilterTestSet4NginxJavaHeaderFilter {
 	
@@ -44,7 +46,7 @@ public class FilterTestSet4NginxJavaHeaderFilter {
 	public static class AccessRemoteHeaderFilter  implements NginxJavaHeaderFilter {
 
 		@Override
-		public Object[] doFilter(int status, Map<String, Object> request, Map<String, Object> responseHeaders)  throws SuspendExecution {
+		public Object[] doFilter(int status, Map<String, Object> request, Map<String, Object> responseHeaders)  {
 
 			CloseableHttpClient httpclient = HttpClients.createDefault();
 			HttpGet httpget = new HttpGet("http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt");
@@ -75,4 +77,14 @@ public class FilterTestSet4NginxJavaHeaderFilter {
 		}
 	}
 	
+	public static void main(String[] args) {
+		AccessRemoteHeaderFilter arh = new AccessRemoteHeaderFilter();
+		arh.doFilter(200, new HashMap<String, Object>(), new HashMap<String, Object>());
+		try {
+			SuspendMethodTracer.dump();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
 }

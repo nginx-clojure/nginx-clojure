@@ -73,6 +73,8 @@ public class SuspendMethodTracer {
 	
 	protected static ConcurrentHashMap<String, ConcurrentHashMap<String, Object>> SUSPEND_INFO_RESULTS = new ConcurrentHashMap<String, ConcurrentHashMap<String, Object>>();
 	
+	protected static ConcurrentHashMap<String,  String> FUZZ_TO_ORG_MAP = new ConcurrentHashMap<String, String>();
+	
 	static {
 //SocketInputStream
 //		  public int read(byte[]) throws java.io.IOException;
@@ -223,6 +225,7 @@ public class SuspendMethodTracer {
 					String key = mi.owner;
 					String fowner = MethodDatabaseUtil.toFuzzyString(MethodDatabaseUtil.FUZZY_CLASS_PATTERN, mi.owner, MethodDatabaseUtil.FUZZY_CLASS_PATTERN.toString());
 					if (fowner != null) {
+						FUZZ_TO_ORG_MAP.put(fowner, key);
 						key = fowner;
 					}
 					
@@ -434,6 +437,8 @@ public class SuspendMethodTracer {
 				
 				if (!isfuzzy) {
 					markSuper(clz, en.getValue().keySet(), upperMarks);
+				}else {
+					markSuper(FUZZ_TO_ORG_MAP.get(clz), en.getValue().keySet(), upperMarks);
 				}
 				
 				for (Entry<String, Object> me : new TreeMap<String, Object>(en.getValue()).entrySet()) {
