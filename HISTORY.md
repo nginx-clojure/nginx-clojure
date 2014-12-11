@@ -6,7 +6,8 @@ Downloads & Release History
 
 ## 0.3.0 (2014-12-11)
 
-1. Discard: Directive `clojure`, `clojure_code` are no longer supported, use `handle_type`, `handle_name`, `handle_code` instead.
+1. Discard: Directive `clojure`, `clojure_code` are no longer supported, use `handler_type`/`content_handler_type`, 
+`handler_name`/`content_handler_name`, `handler_code`/`content_handler_code` instead.
 1. Discard:  Now `handler_***` can not be used to declare a nginx worker  initialization handler, use `jvm_init_handler_*** instead.
 1. New Feature:  Supports  writing nginx access handler  by  java/clojure/groovy (issue #53)
 1. New Feature:  Supports  writing nginx header filter  by  java/clojure/groovy (issue #55)
@@ -16,8 +17,8 @@ Downloads & Release History
 1. New Directives: rewrite_handler_type, access_handler_type, header_filter_type, body_filter_type
 1. New Feature: Supports nested locations (issue #56)
 1. Bug Fix : uppercase letters in nginx variable name can not work (issue #54)
-1. Bug Fix: The first registered handler will not work if there 's a asynchronous reading of request body (issue 51)
-1. Enhancement: `handlers_lazy_init` can be used to make handler initialized lazily or eagerly 
+1. Bug Fix: The first registered handler will not work if there 's a asynchronous reading of request body (issue #51)
+1. Enhancement: `handlers_lazy_init` can be used to make handler initialized lazily or eagerly  (issue #52)
 
 ## 0.2.7 (2014-11-11)
 
