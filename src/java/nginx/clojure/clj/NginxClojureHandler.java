@@ -100,11 +100,14 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 			return req.isHijacked() ? toNginxResponse(r, ASYNC_TAG) : toNginxResponse(r, resp);
 		}finally {
 			int bodyIdx = r.index(BODY);
-			if (bodyIdx > 0 && r.array[bodyIdx] instanceof Closeable) {
+			if (bodyIdx > 0) {
 				try {
-					((Closeable)r.array[bodyIdx]).close();
+					Object body = r.element(bodyIdx);
+					if (body != null && body instanceof Closeable) {
+						((Closeable)body).close();
+					}
 				} catch (Throwable e) {
-					log.error("can not close Closeable object such as FileInputStream!", e);
+					NginxClojureRT.log.error("can not close Closeable object such as FileInputStream!", e);
 				}
 			}
 		}

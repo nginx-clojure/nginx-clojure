@@ -60,6 +60,9 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		@Override
 		public void onClose(NginxJavaRequest data) {
 			data.released = true;
+			if (NginxClojureRT.log.isDebugEnabled()) {
+				NginxClojureRT.log.debug("#%d: request %s released!", data.r, data.get(URI));
+			}
 		}
 		
 		@Override

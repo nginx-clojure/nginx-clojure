@@ -35,6 +35,9 @@ public class RequestBodyFetcher implements RequestVarFetcher {
 			bb.limit((int) len);
 			String tmpfile = decode(bb, DEFAULT_ENCODING, pickCharBuffer());
 			try {
+				if (log.isDebugEnabled()) {
+					log.debug("#%d:get tmp file :%s", r, tmpfile);
+				}
 				return new FileInputStream(tmpfile);
 			} catch (FileNotFoundException e) {
 				throw new RuntimeException("can not find tmp file", e);

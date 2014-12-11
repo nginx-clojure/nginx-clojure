@@ -13,6 +13,7 @@ import static nginx.clojure.MiniConstants.REMOTE_ADDR_FETCHER;
 import static nginx.clojure.MiniConstants.SCHEME_FETCHER;
 import static nginx.clojure.MiniConstants.SERVER_NAME_FETCHER;
 import static nginx.clojure.MiniConstants.SERVER_PORT_FETCHER;
+import static nginx.clojure.MiniConstants.URI;
 import static nginx.clojure.MiniConstants.URI_FETCHER;
 import static nginx.clojure.clj.Constants.BODY;
 import static nginx.clojure.clj.Constants.CHARACTER_ENCODING;
@@ -26,7 +27,6 @@ import static nginx.clojure.clj.Constants.REQUEST_METHOD_FETCHER;
 import static nginx.clojure.clj.Constants.SCHEME;
 import static nginx.clojure.clj.Constants.SERVER_NAME;
 import static nginx.clojure.clj.Constants.SERVER_PORT;
-import static nginx.clojure.clj.Constants.URI;
 
 import java.util.Iterator;
 import java.util.Map;
@@ -66,6 +66,9 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		@Override
 		public void onClose(LazyRequestMap data) {
 			data.released = true;
+			if (NginxClojureRT.log.isDebugEnabled()) {
+				NginxClojureRT.log.debug("#%d: request %s released!", data.r, data.valAt(URI));
+			}
 		}
 		
 		@Override

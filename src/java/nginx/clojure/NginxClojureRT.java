@@ -1028,7 +1028,11 @@ public class NginxClojureRT extends MiniConstants {
 					ngx_http_ignore_next_response(nr);
 				}
 				if (phase != -1) {
-					handleReturnCodeFromHandler(nr, phase, rc, status);
+					if (phase == NGX_HTTP_ACCESS_PHASE || phase == NGX_HTTP_REWRITE_PHASE ) {
+						rc = handleReturnCodeFromHandler(nr, phase, rc, status);
+					}else {
+						handleReturnCodeFromHandler(nr, phase, rc, status);
+					}
 				}
 			}
 		}
