@@ -864,7 +864,6 @@ static ngx_int_t ngx_http_clojure_init_locations_handlers_in_tree(ngx_http_locat
 static ngx_int_t ngx_http_clojure_init_locations_handlers_helper(ngx_http_core_loc_conf_t *clcf) {
 
 	ngx_http_clojure_loc_conf_t *lcf;
-	ngx_http_location_tree_node_t *lt;
 
 	if (clcf != NULL && clcf->loc_conf != NULL) {
 		lcf =  clcf->loc_conf[ngx_http_clojure_module.ctx_index];
@@ -1385,8 +1384,11 @@ static ngx_int_t ngx_http_clojure_body_filter(ngx_http_request_t *r,  ngx_chain_
 
 
 static void ngx_http_clojure_reset_listening_backlog(ngx_conf_t *cf) {
-	ngx_event_conf_t *ecf = (ngx_event_conf_t *) ngx_event_get_conf(cf->cycle->conf_ctx, ngx_event_core_module);
-	ngx_http_core_main_conf_t *cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
+	ngx_event_conf_t *ecf;
+	ngx_http_core_main_conf_t *cmcf;
+
+	ecf = (ngx_event_conf_t *) ngx_event_get_conf(cf->cycle->conf_ctx, ngx_event_core_module);
+	cmcf = (ngx_http_core_main_conf_t *)ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
 
 	if (ecf->accept_mutex && cmcf->ports != NULL) {
 	    ngx_uint_t             p, a;
@@ -1408,12 +1410,19 @@ static void ngx_http_clojure_reset_listening_backlog(ngx_conf_t *cf) {
 }
 
 static char* ngx_http_clojure_set_max_balanced_tcp_connections(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
-	ngx_event_conf_t *ecf = (ngx_event_conf_t *) ngx_event_get_conf(cf->cycle->conf_ctx, ngx_event_core_module);
-	ngx_core_conf_t  *ccf = (ngx_core_conf_t *) ngx_get_conf(cf->cycle->conf_ctx, ngx_core_module);
-	ngx_http_clojure_main_conf_t *mcf = conf;
-	ngx_int_t workers = 1;
+
+	ngx_event_conf_t *ecf;
+	ngx_core_conf_t  *ccf;
+	ngx_http_clojure_main_conf_t *mcf;
+	ngx_int_t workers;
 	ngx_int_t worker_connections;
 	char *set_rc;
+
+	ecf = (ngx_event_conf_t *) ngx_event_get_conf(cf->cycle->conf_ctx, ngx_event_core_module);
+	ccf = (ngx_core_conf_t *) ngx_get_conf(cf->cycle->conf_ctx, ngx_core_module);
+	mcf = conf;
+	workers = 1;
+
 
 	if ( (set_rc = ngx_conf_set_num_slot(cf, cmd, conf)) != NGX_CONF_OK) {
 		return set_rc;

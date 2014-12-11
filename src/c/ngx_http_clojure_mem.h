@@ -15,6 +15,7 @@
 #pragma warning (disable : 4305)
 #pragma warning (disable : 4244)
 #pragma warning (disable : 4152)
+#pragma warning (disable : 4130)
 
 #ifndef PRIu64
 #define PRIu64 "I64u"

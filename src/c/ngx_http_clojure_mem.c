@@ -1531,7 +1531,6 @@ static void JNICALL jni_ngx_http_filter_finalize_request(JNIEnv *env, jclass cls
 }
 
 ngx_int_t ngx_http_clojure_filter_continue_next_body_filter(ngx_http_request_t *r, ngx_chain_t *in) {
-	ngx_int_t rc;
 	ngx_http_clojure_module_ctx_t *ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
 
 	if (ctx && ctx->wait_for_header_filter) {
@@ -1814,9 +1813,9 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_headers_size(JNIEnv *env, jcla
 	part = &list->part;
 
 	while (part != NULL) {
-		for (h = (ngx_table_elt_t *)part->elts; h - (ngx_table_elt_t *)part->elts < part->nelts; h++) {
+		for (h = (ngx_table_elt_t *)part->elts; h - (ngx_table_elt_t *)part->elts < (ngx_int_t)part->nelts; h++) {
 			if (h->hash ) {
-				if (!hn || hn->len != h->key.len ||  hn->data != h->key.data && ngx_strcasecmp(hn->data, h->key.data)) {
+				if (!hn || hn->len != h->key.len ||  ( hn->data != h->key.data && ngx_strcasecmp(hn->data, h->key.data) )) {
 					hn = &h->key;
 					c++;
 				}else if (flag & NGX_HTTP_CLOJURE_GET_HEADER_FLAG_MERGE_KEY) {
@@ -1846,7 +1845,7 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_headers_items(JNIEnv *env, jcl
 			if (i == 0) {
 				*pvalue = (uintptr_t)( pvalue + 1 );
 				h = (ngx_table_elt_t *)(uintptr_t)*pvalue;
-				h->key.data = "Content-Type";
+				h->key.data = (u_char*)"Content-Type";
 				h->key.len = sizeof("Content-Type") - 1;
 				return 1;
 			}
@@ -1859,9 +1858,9 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_headers_items(JNIEnv *env, jcl
 	part = &list->part;
 
 	while (part != NULL) {
-		for (h = (ngx_table_elt_t *)part->elts; h - (ngx_table_elt_t *)part->elts < part->nelts; h++) {
+		for (h = (ngx_table_elt_t *)part->elts; h - (ngx_table_elt_t *)part->elts < (ngx_int_t)part->nelts; h++) {
 			if (h->hash ) {
-				if (!hn || hn->len != h->key.len ||  hn->data != h->key.data && ((flag & NGX_HTTP_CLOJURE_GET_HEADER_FLAG_MERGE_KEY) ||  ngx_strcasecmp(hn->data, h->key.data) )) {
+				if (!hn || hn->len != h->key.len ||  (hn->data != h->key.data && ((flag & NGX_HTTP_CLOJURE_GET_HEADER_FLAG_MERGE_KEY) ||  ngx_strcasecmp(hn->data, h->key.data) ))) {
 					hn = &h->key;
 					i--;
 				}
@@ -1974,14 +1973,14 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_request_body(JNIEnv *env, jcla
 	}
 
 	if (r->request_body->temp_file) {
-		if (r->request_body->temp_file->file.name.len > limit) {
+		if (r->request_body->temp_file->file.name.len > (size_t)limit) {
 			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
 							"[jni_ngx_http_clojure_mem_get_request_body] too large of file name, len= %d, limit=%d",
 							r->request_body->temp_file->file.name.len,  limit);
 			return 0;
 		}
-		ngx_cpymem(ngx_http_clojure_abs_off_addr(buf, off),  r->request_body->temp_file->file.name.data, r->request_body->temp_file->file.name.len);
-		return -r->request_body->temp_file->file.name.len;
+		ngx_memcpy(ngx_http_clojure_abs_off_addr(buf, off),  r->request_body->temp_file->file.name.data, r->request_body->temp_file->file.name.len);
+		return -(jlong)r->request_body->temp_file->file.name.len;
 	}
 
 	if (r->request_body->bufs) {
