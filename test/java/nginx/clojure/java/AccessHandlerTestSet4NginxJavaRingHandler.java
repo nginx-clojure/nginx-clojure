@@ -33,6 +33,11 @@ public class AccessHandlerTestSet4NginxJavaRingHandler {
 		
 	}
 	
+	/**
+	 * This is an  example of HTTP basic Authentication.
+	 * It will require visitor to input a user name (xfeep) and password (hello!) 
+	 * otherwise it will return 401 Unauthorized or BAD USER & PASSWORD 
+	 */
 	public static class BasicAuthHandler implements NginxJavaRingHandler {
 
 		@Override
