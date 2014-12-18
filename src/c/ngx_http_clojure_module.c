@@ -659,7 +659,7 @@ static ngx_int_t ngx_http_clojure_init_socket(ngx_http_clojure_main_conf_t  *mcf
                 } \
            } \
 		}  \
-		if (!conf->handler ##  _type.len && conf->enable_ ## handler &&  # handler != "content_handler") {  \
+		if (!conf->handler ##  _type.len && conf->enable_ ## handler && ngx_strcmp( # handler, "content_handler") != 0) {  \
 					if (conf->enable_content_handler || conf->content_handler_type.len) {  \
 						ngx_conf_merge_str_value(conf->handler ##  _type,  conf->content_handler_type, "clojure"); \
 					} \
@@ -690,11 +690,10 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 #if defined(NGX_CLOJURE_BE_SILENT_WITHOUT_JVM)
 	if (mcf->jvm_path.len == NGX_CONF_UNSET_SIZE) {
 		mcf->enable_access_handler = mcf->enable_body_filter = mcf->enable_content_handler
-				= mcf->enable_header_filter = mcf->enable_header_filter
-				=	mcf->enable_init_handler = mcf->enable_rewrite_handler = 0;
+				= mcf->enable_header_filter = mcf->enable_init_handler
+				= mcf->enable_rewrite_handler = 0;
 		conf->enable_access_handler = conf->enable_body_filter = conf->enable_content_handler
-				= conf->enable_header_filter = conf->enable_header_filter
-				= conf->enable_rewrite_handler = 0;
+				= conf->enable_header_filter = conf->enable_rewrite_handler = 0;
 		if (clcf->handler) {
 			clcf->handler = NULL;
 		}
