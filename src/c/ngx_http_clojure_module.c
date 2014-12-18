@@ -659,7 +659,7 @@ static ngx_int_t ngx_http_clojure_init_socket(ngx_http_clojure_main_conf_t  *mcf
                 } \
            } \
 		}  \
-		if (!conf->handler ##  _type.len && conf->enable_ ## handler && ngx_strcmp( # handler, "content_handler") != 0) {  \
+		if (!conf->handler ##  _type.len && conf->enable_ ## handler && (uintptr_t)# handler !=  (uintptr_t)"content_handler") {  \
 					if (conf->enable_content_handler || conf->content_handler_type.len) {  \
 						ngx_conf_merge_str_value(conf->handler ##  _type,  conf->content_handler_type, "clojure"); \
 					} \
