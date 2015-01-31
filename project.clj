@@ -6,7 +6,8 @@
   :dependencies [
                  [org.clojure/clojure "1.5.1"]
                  ]
-  :plugins [[lein-junit "1.1.7"]]
+  :plugins [[lein-junit "1.1.7"]
+                      [venantius/ultra "0.1.9"]]
   ;; CLJ source code path
   :source-paths ["src/clojure"]
   :target-path "target/"
@@ -35,6 +36,7 @@
                                   [mysql/mysql-connector-java "5.1.30"]
                                   ;for test file upload with ring-core which need it
                                   [javax.servlet/servlet-api "2.5"]
+                                  [org.clojure/data.json "0.2.5"]
                                   [org.codehaus.jackson/jackson-mapper-asl "1.9.13"]
                                   [org.codehaus.groovy/groovy "2.3.4"]
                                   ]}
@@ -78,6 +80,7 @@
                                               ;for test file upload with ring-core which need it
                                               [javax.servlet/servlet-api "2.5"]
                                               [org.codehaus.jackson/jackson-mapper-asl "1.9.13"]
+                                              [org.clojure/data.json "0.2.5"]
                                               ;[mysql/mysql-connector-java "5.1.30"]
                                               ]
                                     }             
