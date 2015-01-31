@@ -24,6 +24,22 @@ import nginx.clojure.NginxHttpServerChannel;
 import org.codehaus.jackson.map.ObjectMapper;
 
 public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler {
+	
+	public static class JVMInitHandler implements NginxJavaRingHandler {
+		@Override
+		public Object[] invoke(Map<String, Object> params) {
+			NginxClojureRT.log.info("JVMInitHandler invoked!");
+			return null;
+		}
+	}
+	
+	public static class JVMExitHandler implements NginxJavaRingHandler {
+		@Override
+		public Object[] invoke(Map<String, Object> params) {
+			NginxClojureRT.log.info("JVMExitHandler invoked!");
+			return null;
+		}
+	}
 
 	public static class Hello implements NginxJavaRingHandler {
 
@@ -48,8 +64,11 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 					                      "my-header", requestHeaders == null ? null : requestHeaders.get("my-header"),
 					                      "etag","e29b7ffb8a5325de60aed2d46a9d150b",
 					                      "cache-control", new String[]{"no-store", "no-cache"});
+			Map bmap = new HashMap(request);
+			bmap.putAll(requestHeaders);
 			try {
-				return new Object[] {NGX_HTTP_OK, headers, new ObjectMapper().writeValueAsString(request)};
+				String body = new ObjectMapper().writeValueAsString(bmap);
+				return new Object[] {NGX_HTTP_OK, headers, body};
 			} catch (Throwable e) {
 				throw new RuntimeException(e);
 			} 

@@ -1,6 +1,7 @@
 (ns nginx.clojure.test-all
    (:use [clojure.test])
    (:require [clj-http.client :as client]
+             [clojure.data.json :as json]
              [clojure.edn :as edn])
    (:import [java.io BufferedReader StringReader]))
 
@@ -22,7 +23,19 @@
              (is (= "Hello Clojure & Nginx!" (:body r)))
              (is (= "text/plain" (h "content-type")))
              (is (= "22" (h "content-length")))
+             (is (.startsWith (h "server") "nginx-clojure"))))
+    (testing "hello java"
+           (let [r (client/get (str "http://" *host* ":" *port* "/java/hello") {:coerce :unexceptional})
+                 h (:headers r)]
+             (debug-println r)
+             (debug-println "=================hello clojure end=============================")
+             (is (= 200 (:status r)))
+             (is (= "Hello, Java & Nginx!" (:body r)))
+             (is (= "text/plain" (h "content-type")))
+             (is (= "20" (h "content-length")))
              (is (.startsWith (h "server") "nginx-clojure")))))
+
+
 
 (deftest ^{:remote true} test-headers
   (testing "simple headers"
@@ -38,6 +51,20 @@
              (is (= "http" (b :scheme)))
              (is (= "/headers" (b :uri)))
              (is (= *port* (b :server-port)))))
+  
+    (testing "java simple  headers"
+           (let [r (client/get (str "http://" *host* ":" *port* "/java/headers") {:coerce :unexceptional})
+                 h (:headers r)
+                 b (-> r :body (json/read-str))]
+             (debug-println r)
+             (debug-println "===============simple headers end =============================")
+             (is (= 200 (:status r)))
+             (is (= "e29b7ffb8a5325de60aed2d46a9d150b" (h "etag")))
+             (is (= ["no-store" "no-cache"] (h "cache-control")))
+             (is (.startsWith (h "server") "nginx-clojure"))
+             (is (= "http" (b "scheme")))
+             (is (= "/java/headers" (b "uri")))
+             (is (= *port* (b "server-port")))))
   
   (testing "lowercase/uppercase headers"
            (let [r (client/get (str "http://" *host* ":" *port* "/loweruppercaseheaders") {:coerce :unexceptional, :headers {"My-Header" "mytest"}})
@@ -70,6 +97,22 @@
              (is (= *port* (b :server-port)))
              (is (= "mytest" (b :my-header)))
              (is (= "tc1=tc1value;tc2=tc2value" (b :cookie)))))
+  
+    (testing "java cookie & user defined headers"
+           (let [r (client/get (str "http://" *host* ":" *port* "/java/headers") {:coerce :unexceptional, :headers {"my-header" "mytest"}, :cookies {"tc1" {:value "tc1value"}, "tc2" {:value "tc2value"} } })
+                 h (:headers r)
+                 b (-> r :body (json/read-str))]
+             (debug-println r)
+             (debug-println "===============cookie & user defined headers end=============================")
+             (is (= 200 (:status r)))
+             (is (= "e29b7ffb8a5325de60aed2d46a9d150b" (h "etag")))
+             (is (= ["no-store" "no-cache"] (h "cache-control")))
+             (is (.startsWith (h "server") "nginx-clojure"))
+             (is (= "http" (b "scheme")))
+             (is (= "/java/headers" (b "uri")))
+             (is (= *port* (b "server-port")))
+             (is (= "mytest" (b "my-header")))
+             (is (= "tc1=tc1value;tc2=tc2value" (b "cookie")))))
   
     (testing "query string & character-encoding"
            (let [r (client/get (str "http://" *host* ":" *port* "/headers?my=test") {:coerce :unexceptional, :headers {"my-header" "mytest" "content-type" "text/plain; charset=utf-8"}, :cookies {"tc1" {:value "tc1value"}, "tc2" {:value "tc2value"} } })
