@@ -14,7 +14,7 @@ ngx_cycle_t *ngx_http_clojure_global_cycle;
 
 ngx_http_output_header_filter_pt ngx_http_clojure_next_header_filter;
 ngx_http_output_body_filter_pt ngx_http_clojure_next_body_filter;
-
+ngx_uint_t ngx_max_balanced_connection_per_worker = 1024;
 
 typedef struct {
 	ngx_int_t max_balanced_tcp_connections;
@@ -143,6 +143,7 @@ static ngx_atomic_t *ngx_http_clojure_jvm_be_mad_times;
 
 #if defined(NGX_CLOJURE_WORKER_STAT)
 ngx_atomic_t *ngx_http_clojure_worker_stats;
+ngx_atomic_int_t *ngx_http_clojure_rem_accept_idx;
 #endif
 /**
  * total number of jvms created
@@ -716,16 +717,19 @@ static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
 	ngx_http_conf_ctx_t *ctx = (ngx_http_conf_ctx_t *)ngx_get_conf(cycle->conf_ctx, ngx_http_module);
 	ngx_http_clojure_main_conf_t *mcf = ctx->main_conf[ngx_http_clojure_module.ctx_index];
 	ngx_http_clojure_global_cycle = cycle;
+	ngx_uint_t cl = 8;
+	ngx_uint_t ssize = 0;
 
 	if (mcf->jvm_path.len == NGX_CONF_UNSET_SIZE) {
 		return NGX_OK;
 	}
 
 #if !(NGX_WIN32)
-	ngx_http_clojure_shared_memory.size = 8*2;
+	ssize = 2;
 #if defined(NGX_CLOJURE_WORKER_STAT)
-	ngx_http_clojure_shared_memory.size += NGX_MAX_PROCESSES/4 * 8 * 3;
+	ssize  +=  1 + NGX_MAX_PROCESSES * 3;
 #endif
+	ngx_http_clojure_shared_memory.size = cl * ssize;
 	ngx_http_clojure_shared_memory.name.len = sizeof("nginx_clojure_shared_zone");
 	ngx_http_clojure_shared_memory.name.data = (u_char *) "nginx_clojure_shared_zone";
 	ngx_http_clojure_shared_memory.log = cycle->log;
@@ -735,12 +739,13 @@ static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
     }
 
     ngx_http_clojure_jvm_be_mad_times = (ngx_atomic_t *) ngx_http_clojure_shared_memory.addr;
-    ngx_http_clojure_jvm_num = (ngx_atomic_t *) ngx_http_clojure_shared_memory.addr+8;
+    ngx_http_clojure_jvm_num = (ngx_atomic_t *) (ngx_http_clojure_shared_memory.addr+ cl);
     *ngx_http_clojure_jvm_be_mad_times = 0;
     *ngx_http_clojure_jvm_num = 1;
 
 #if defined(NGX_CLOJURE_WORKER_STAT)
-    ngx_http_clojure_worker_stats = (ngx_atomic_t *) ngx_http_clojure_shared_memory.addr + 16;
+    ngx_http_clojure_rem_accept_idx = (ngx_atomic_int_t *) (ngx_http_clojure_shared_memory.addr + cl * 2);
+    ngx_http_clojure_worker_stats = (ngx_atomic_t *) (ngx_http_clojure_shared_memory.addr + cl * 3);
 //    ngx_memzero(ngx_http_clojure_worker_stats, NGX_MAX_PROCESSES * 8 * 2);
 #endif
 
@@ -1434,6 +1439,11 @@ static char* ngx_http_clojure_set_max_balanced_tcp_connections(ngx_conf_t *cf, n
 		return NGX_CONF_OK;
 	}
 
+#if defined(NGX_CLOJURE_WORKER_STAT)
+	ngx_max_balanced_connection_per_worker = worker_connections = mcf->max_balanced_tcp_connections / workers;
+	ngx_log_error(NGX_LOG_NOTICE, cf->cycle->log , 0,
+					"ngx_max_balanced_connection_per_worker : %d",  ngx_max_balanced_connection_per_worker);
+#else
 	/**
 	 * When the number of active connections reach 7/8 of free_connections,
 	 * the worker will temporarily not accept connections and give the opportunities for other workers,
@@ -1462,6 +1472,7 @@ static char* ngx_http_clojure_set_max_balanced_tcp_connections(ngx_conf_t *cf, n
 			"reset worker_connections to %d",  worker_connections);
 	ecf->connections = worker_connections;
 	cf->cycle->connection_n = worker_connections;
+#endif
 
 	return NGX_CONF_OK;
 }
