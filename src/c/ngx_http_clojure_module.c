@@ -916,6 +916,12 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 	ngx_core_conf_t  *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 	ngx_int_t jvm_num = 0;
 
+	/*Fix issue #64 about proxy cache manger process
+	 * We won't initialize jvm unless the current process is worker process or single process*/
+	if (ngx_process != NGX_PROCESS_WORKER && ngx_process != NGX_PROCESS_SINGLE) {
+		return NGX_OK;
+	}
+
 	if (mcf->jvm_disable_all || mcf->jvm_path.len == NGX_CONF_UNSET_SIZE) {
 		return NGX_OK;
 	}
