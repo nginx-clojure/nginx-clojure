@@ -1,10 +1,9 @@
-(defproject nginx-clojure "0.3.0"
+(defproject nginx-clojure/nginx-clojure "0.4.0"
   :description "Nginx module for clojure & java programming"
   :url "https://github.com/nginx-clojure/nginx-clojure"
   :license {:name "BSD 3-Clause license"
             :url "http://opensource.org/licenses/BSD-3-Clause"}
   :dependencies [
-                 [org.clojure/clojure "1.5.1"]
                  ]
   :plugins [[lein-junit "1.1.7"]
                       [venantius/ultra "0.1.9"]]
@@ -27,7 +26,8 @@
              "Can-Retransform-Classes" "true"
              }
   :profiles {
-             :dev {:dependencies [;only for test usage
+             :dev {:dependencies [;only for test / compile usage
+                                  [org.clojure/clojure "1.5.1"]
                                   [ring/ring-core "1.2.1"]
                                   [compojure "1.1.6"]
                                   [clj-http "0.7.8"]
@@ -51,6 +51,7 @@
                     :junit ["test/java"]
                     :compile-path "target/testclasses"
                     :dependencies [
+                                  [org.clojure/clojure "1.5.1"]
                                   [ring/ring-core "1.2.1"]
                                   [compojure "1.1.6"]
                                   [clj-http "0.7.8"]

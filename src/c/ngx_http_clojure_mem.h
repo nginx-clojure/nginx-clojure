@@ -26,12 +26,12 @@
 #include <inttypes.h>
 #endif
 
-#define nginx_clojure_ver  3000 /*0.3.0*/
+#define nginx_clojure_ver  4000 /*0.4.0*/
 
 /*the least jar version required*/
-#define nginx_clojure_required_rt_lver 3000
+#define nginx_clojure_required_rt_lver 4000
 
-#define NGINX_CLOJURE_VER_NUM_STR "0.3.0"
+#define NGINX_CLOJURE_VER_NUM_STR "0.4.0"
 
 #define NGINX_CLOJURE_VER "nginx-clojure/" NGINX_CLOJURE_VER_NUM_STR
 
