@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
+import java.net.BindException;
 import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -242,7 +243,10 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 
 	@Override
 	protected void bind(InetAddress host, int port) throws IOException {
-		throw new UnsupportedOperationException("bind not supported!");
+		status = as.bind(new StringBuilder(host.getHostAddress()).append(':').append(port).toString());
+		if (status != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
+			throw new BindException(as.buildError(status));
+		}
 	}
 
 	@Override
@@ -395,7 +399,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		}
 		status = sc;
 		NginxClojureSocketImpl ns = (NginxClojureSocketImpl)s.getHandler();
-		if (ns.coroutine.getState() == State.SUSPENDED){
+		if (ns.coroutine != null && ns.coroutine.getState() == State.SUSPENDED){
 			if (log.isDebugEnabled()) {
 				log.warn("socket#%d: onRelease : coroutine is not finished, but we receive release event!", as.s);
 				log.debug(String.format("socket#%d: onRelease : coroutine is not finished, but we receive release event!", as.s), new Exception("DEBUG USAGE--onRelease Warning"));

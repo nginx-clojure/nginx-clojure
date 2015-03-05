@@ -361,13 +361,15 @@ static void ngx_http_clojure_socket_upstream_connect_inner(ngx_http_clojure_sock
 	c->data = u;
 
 	if (c->tcp_nodelay != NGX_TCP_NODELAY_DISABLED && u->tcp_nodelay) {
-		if (setsockopt(u->peer.connection->fd, IPPROTO_TCP, TCP_NODELAY, (const void *) &u->tcp_nodelay, sizeof(int)) == -1) {
+		int tcp_nodelay = u->tcp_nodelay;
+		if (setsockopt(u->peer.connection->fd, IPPROTO_TCP, TCP_NODELAY, (const void *) &tcp_nodelay, sizeof(int)) == -1) {
 			u->tcp_nodelay = 0;
 		}
 	}
 
 	if (u->so_keepalive) {
-		if (setsockopt(u->peer.connection->fd, SOL_SOCKET, SO_KEEPALIVE, (const void *) &u->so_keepalive, sizeof(int)) == -1) {
+		int so_keepalive = u->so_keepalive;
+		if (setsockopt(u->peer.connection->fd, SOL_SOCKET, SO_KEEPALIVE, (const void *) &so_keepalive, sizeof(int)) == -1) {
 			u->so_keepalive = 0;
 		}
 	}
@@ -536,6 +538,48 @@ static jlong JNICALL jni_ngx_http_clojure_socket_connect_url(JNIEnv *env, jclass
 	return NGX_HTTP_CLOJURE_SOCKET_OK;
 }
 
+static jlong JNICALL jni_ngx_http_clojure_socket_bind_str(JNIEnv *env, jclass cls, jlong s, jobject saddr, jlong off, jlong len) {
+	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)(uintptr_t)s;
+	ngx_addr_t  * paddr;
+	u_char *uaddr =  (u_char *)ngx_http_clojure_abs_off_addr(saddr, off);
+	u_char *pport;//  = strrchr(uaddr, ':');
+	int port = -1;
+
+	paddr = ngx_pcalloc(u->pool, sizeof(ngx_addr_t));
+	if (paddr == NULL) {
+		return NGX_HTTP_CLOJURE_SOCKET_ERR_OUTOFMEMORY;
+	}
+	paddr->name.data = ngx_pnalloc(u->pool, len);
+	if (paddr->name.data == NULL) {
+		return NGX_HTTP_CLOJURE_SOCKET_ERR_OUTOFMEMORY;
+	}
+	paddr->name.len = (size_t)len;
+	ngx_memcpy(paddr->name.data, uaddr,  paddr->name.len);
+
+	pport = paddr->name.data + paddr->name.len - 1;
+	while (pport != paddr->name.data &&  *(--pport) != ':') ;
+	if (pport != paddr->name.data) {
+		port = atoi(pport + 1);
+	}
+
+	if (ngx_parse_addr(u->pool,  paddr,  paddr->name.data,  port != -1 ? pport - paddr->name.data :  paddr->name.len) != NGX_OK) {
+		return NGX_HTTP_CLOJURE_SOCKET_ERR_BIND;
+	}
+
+	if (port < 0) {
+		port = 0;
+	}
+	/*real bind will be done at connect phase*/
+	if (paddr->sockaddr->sa_family == AF_INET) {
+		((struct sockaddr_in *) paddr->sockaddr)->sin_port = htons((in_port_t) port);
+	}else {
+		((struct sockaddr_in6 *) paddr->sockaddr)->sin6_port = htons((in_port_t) port);
+	}
+	u->peer.local = paddr;
+
+	return NGX_HTTP_CLOJURE_SOCKET_OK;
+}
+
 static void jni_ngx_http_clojure_socket_set_timeout(JNIEnv *env, jclass cls, jlong s, jlong ctimeout, jlong rtimeout, jlong wtimeout) {
 	ngx_http_clojure_socket_upstream_t *u = (ngx_http_clojure_socket_upstream_t *)(uintptr_t)s;
 	if (ctimeout >= 0) {
@@ -619,6 +663,7 @@ int ngx_http_clojure_init_socket_util() {
 			{"getReceiveBufferSize", "(J)J", jni_ngx_http_clojure_socket_set_receive_buf},
 			{"setReceiveBufferSize", "(JJ)J", jni_ngx_http_clojure_socket_get_receive_buf},
 			{"connect", "(JLjava/lang/Object;JJ)J", jni_ngx_http_clojure_socket_connect_url},
+			{"bind", "(JLjava/lang/Object;JJ)J", jni_ngx_http_clojure_socket_bind_str},
 			{"read", "(JLjava/lang/Object;JJ)J", jni_ngx_http_clojure_socket_read},
 			{"write", "(JLjava/lang/Object;JJ)J", jni_ngx_http_clojure_socket_write},
 			{"close", "(J)V", jni_ngx_http_clojure_socket_close},

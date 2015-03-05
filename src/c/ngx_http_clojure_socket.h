@@ -38,6 +38,7 @@ extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 #define NGX_HTTP_CLOJURE_SOCKET_ERR_RESET -25
 #define NGX_HTTP_CLOJURE_SOCKET_ERR_OUTOFMEMORY -26
 #define NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN -27
+#define NGX_HTTP_CLOJURE_SOCKET_ERR_BIND   -28
 
 typedef struct ngx_http_clojure_socket_upstream_s ngx_http_clojure_socket_upstream_t;
 
@@ -51,8 +52,11 @@ struct ngx_http_clojure_socket_upstream_s {
 	ngx_msec_t write_timeout;
 	ngx_msec_t read_timeout;
 
-	int tcp_nodelay;
-	int so_keepalive;
+	unsigned tcp_nodelay : 1;
+	unsigned so_keepalive : 1;
+
+	unsigned connect_event_sent  : 1;
+	unsigned hijacked_from_http : 1;
 
 	/*TCP SO_SNDLOWAT option*/
 	size_t send_lowat;
@@ -102,7 +106,6 @@ struct ngx_http_clojure_socket_upstream_s {
 
 	ngx_http_clojure_socket_upstream_handler_pt socket_upstream_finalize;
 
-	unsigned connect_event_sent : 1;
 
 };
 

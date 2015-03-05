@@ -30,6 +30,7 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	public static final long NGX_HTTP_CLOJURE_SOCKET_ERR_RESET = -25;
 	public static final long NGX_HTTP_CLOJURE_SOCKET_ERR_OUTOFMEMORY = -26;
 	public static final long NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN = -27;
+	public static final long NGX_HTTP_CLOJURE_SOCKET_ERR_BIND = -28;
 
 
 	public static final long NGX_HTTP_CLOJURE_SOCKET_SHUTDOWN_READ  = 0;
@@ -53,6 +54,7 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 		"socket reset", //NGX_HTTP_CLOJURE_SOCKET_ERR_RESET
 		"socket out of memory" , //NGX_HTTP_CLOJURE_SOCKET_ERR_OUTOFMEMORY
 		"socket try again"     , //NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN
+		"socket bind error" ,  //NGX_HTTP_CLOJURE_SOCKET_ERR_BIND
 	};
 	
 	protected long s;
@@ -199,6 +201,11 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 		this.url = url;
 		ByteBuffer b = HackUtils.encode(url, MiniConstants.DEFAULT_ENCODING, NginxClojureRT.pickByteBuffer());
 		return connect(s, b.array(), MiniConstants.BYTE_ARRAY_OFFSET, b.remaining());
+	}
+	
+	public long bind(String addr) {
+		ByteBuffer b = HackUtils.encode(addr, MiniConstants.DEFAULT_ENCODING, NginxClojureRT.pickByteBuffer());
+		return bind(s, b.array(), MiniConstants.BYTE_ARRAY_OFFSET, b.remaining());
 	}
 	
 	/**
@@ -387,6 +394,8 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	 * @param len length of url bytes
 	 */
 	private static native long connect(long s, Object url, long off, long len);
+	
+	private static native long bind(long s, Object addr, long off, long len);
 	
 	private static native void close(long s);
 	
