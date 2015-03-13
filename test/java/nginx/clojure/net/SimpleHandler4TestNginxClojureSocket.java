@@ -35,6 +35,8 @@ public class SimpleHandler4TestNginxClojureSocket implements NginxJavaRingHandle
 			socket.setSoTimeout(50000);
 			socket.setTcpNoDelay(true);
 			socket.setKeepAlive(true);
+//			socket.bind(new InetSocketAddress("192.168.10.56", 12345));
+			socket.bind(new InetSocketAddress("192.168.2.50", 0));
 			socket.connect(inetSocketAddress);
 			log.info("addr: %s, sotimeout %s, socket keepalive = %s, tcpnodelay = %s", inetSocketAddress, socket.getSoTimeout(),  socket.getKeepAlive()+"", socket.getTcpNoDelay()+"");
 			log.info("fininsh connect");

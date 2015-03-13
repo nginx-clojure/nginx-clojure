@@ -4,14 +4,19 @@
  */
 package nginx.clojure;
 
-import static nginx.clojure.MiniConstants.*;
+import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
+import static nginx.clojure.MiniConstants.NGX_AGAIN;
+import static nginx.clojure.MiniConstants.NGX_OK;
 import static nginx.clojure.NginxClojureRT.log;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Map.Entry;
 
+import nginx.clojure.java.NginxJavaResponse;
 import sun.nio.ch.DirectBuffer;
 
 public class NginxHttpServerChannel implements ChannelListener<NginxHttpServerChannel> {
@@ -55,10 +60,20 @@ public class NginxHttpServerChannel implements ChannelListener<NginxHttpServerCh
 		return rc;
 	}
 	
+	private void checkValid() {
+		if (closed) {
+			throw new IllegalStateException("Op on a closed NginxHttpServerChannel with request :" + request);
+		}
+	}
+	
 	/**
 	 * If message is null when flush is true it will do flush, when last is true it will close channel.
 	 */
 	public void send(byte[] message, int off, int len, boolean flush, boolean last) {
+		checkValid();
+		if (last) {
+			closed = true;
+		}
 		int flag = computeFlag(flush, last);
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
 			NginxClojureRT.postHijackSendEvent(this, message == null ? null : Arrays.copyOfRange(message, off, off + len), 0,
@@ -83,19 +98,27 @@ public class NginxHttpServerChannel implements ChannelListener<NginxHttpServerCh
 	}
 	
 	public void send(String message, boolean flush, boolean last) {
+		checkValid();
+		if (last) {
+			closed = true;
+		}
 		if (log.isDebugEnabled()) {
 			log.debug("#%s: send message : '%s', flush=%s, last=%s", NginxClojureRT.processId, message, flush, last);
 		}
 		byte[] bs = message == null ? null : message.getBytes(DEFAULT_ENCODING);
 		int flag = computeFlag(flush, last);
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
-			NginxClojureRT.postHijackSendEvent(this, bs, 0, bs.length, flag);
+			NginxClojureRT.postHijackSendEvent(this, bs, 0, bs == null ? 0 : bs.length, flag);
 		}else {
-			send(bs, 0, bs.length, flag);
+			send(bs, 0, bs == null ? 0 : bs.length, flag);
 		}
 	}
 	
 	public void send(ByteBuffer message, boolean flush, boolean last) {
+		checkValid();
+		if (last) {
+			closed = true;
+		}
 		int flag = computeFlag(flush, last);
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
 			if (message != null) {
@@ -111,6 +134,10 @@ public class NginxHttpServerChannel implements ChannelListener<NginxHttpServerCh
 	}
 	
 	public <K, V> void sendHeader(long status, Collection<Map.Entry<K, V>> headers, boolean flush, boolean last) {
+		checkValid();
+		if (last) {
+			closed = true;
+		}
 		int flag = computeFlag(flush, last);
 		request.handler().prepareHeaders(request, status, headers);
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
@@ -122,6 +149,7 @@ public class NginxHttpServerChannel implements ChannelListener<NginxHttpServerCh
 	}
 	
 	protected void sendResponseHelp(NginxResponse response, long chain) {
+		closed = true;
 		if (chain < 0) {
 			int status = (int)-chain;
 			request.handler().prepareHeaders(request, status, response.fetchHeaders());
@@ -136,6 +164,7 @@ public class NginxHttpServerChannel implements ChannelListener<NginxHttpServerCh
 	}
 	
 	public void sendResponse(Object resp) {
+		checkValid();
 		NginxResponse response = request.handler().toNginxResponse(request, resp);
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
 			NginxClojureRT.postHijackSendResponseEvent(this, response, request.handler().buildOutputChain(response));
@@ -144,14 +173,55 @@ public class NginxHttpServerChannel implements ChannelListener<NginxHttpServerCh
 		}
 	}
 	
+	public void sendBody(final Object body, boolean last) {
+		checkValid();
+		
+		if (last) {
+			closed = true;
+		}
+		NginxResponse tmpResp = new NginxSimpleResponse(request) {
+			@Override
+			public Object fetchBody() {
+				return body;
+			}
+			
+			@Override
+			public <K, V> Collection<Entry<K, V>> fetchHeaders() {
+				return Collections.EMPTY_LIST;
+			}
+			
+			@Override
+			public int fetchStatus(int defaultStatus) {
+				return 200;
+			}
+		};
+		long chain = ((NginxSimpleHandler)request.handler()).buildResponseItemBuf(request.nativeRequest(), body, 0);
+		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
+			NginxClojureRT.postHijackSendResponseEvent(this, tmpResp, chain);
+		}else {
+			NginxClojureRT.ngx_http_hijack_send_chain(request.nativeRequest(), chain, computeFlag(false, last));
+		}
+	}
+	
 	public void sendResponse(int status) {
-		NginxClojureRT.ngx_http_finalize_request(request.nativeRequest(), status);
+		checkValid();
+		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
+			NginxResponse response = new NginxJavaResponse(request, new Object[]{status, null, null});
+			NginxClojureRT.postHijackSendResponseEvent(this, response, request.handler().buildOutputChain(response));
+		}else {
+			NginxClojureRT.ngx_http_finalize_request(request.nativeRequest(), status);
+		}
 	}
 	
 	public void close() {
 		if (!closed) {
 			closed = true;
-			send(null, 0, 0, false, true);
+			if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
+				NginxClojureRT.postHijackSendEvent(this, null, 0,
+						0, MiniConstants.NGX_CLOJURE_BUF_LAST_FLAG);
+			}else {
+				send(null, 0, 0, MiniConstants.NGX_CLOJURE_BUF_LAST_FLAG);
+			}
 		}
 	}
 	

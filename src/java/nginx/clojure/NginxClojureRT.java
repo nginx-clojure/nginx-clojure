@@ -659,7 +659,7 @@ public class NginxClojureRT extends MiniConstants {
 		KNOWN_RESP_HEADERS.put("Etag", safeBuildKnownTableEltHeaderHolder("Etag", NGX_HTTP_CLOJURE_HEADERSO_ETAG_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
 		KNOWN_RESP_HEADERS.put("Cache-Control", new ArrayHeaderHolder("Cache-Control", NGX_HTTP_CLOJURE_HEADERSO_CACHE_CONTROL_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
 		KNOWN_RESP_HEADERS.put("Content-Type", new ResponseContentTypeHolder());
-		KNOWN_RESP_HEADERS.put("Content-Length", new ResponseContentTypeHolder());
+		KNOWN_RESP_HEADERS.put("Content-Length", new OffsetHeaderHolder("Content-Length", NGX_HTTP_CLOJURE_HEADERSO_CONTENT_LENGTH_N_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET) );
 		
 		/*clear all to let initWorkers initializing them correctly*/
 //		defaultByteBuffer = null;
@@ -1161,7 +1161,13 @@ public class NginxClojureRT extends MiniConstants {
 	 */
 	public static void postResponseEvent(NginxRequest req, NginxResponse resp) {
 		if (Thread.currentThread() == NGINX_MAIN_THREAD) {
-			handleResponse(req, resp);
+			int phase = req.phase();
+			int rc = handleResponse(req, resp);
+			if (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE) {
+				ngx_http_finalize_request(req.nativeRequest(), rc);
+			}else {
+				ngx_http_clojure_mem_continue_current_phase(req.nativeRequest(), rc);
+			}
 		}else {
 			long r = req.nativeRequest();
 			WorkerResponseContext ctx = new WorkerResponseContext(resp, req);

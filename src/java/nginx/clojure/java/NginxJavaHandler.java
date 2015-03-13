@@ -111,6 +111,9 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 	@Override
 	public NginxHttpServerChannel hijack(NginxRequest req, boolean ignoreFilter) {
 		((NginxJavaRequest)req).hijacked = true;
+		if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD) {
+			NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest());
+		}
 		return ((NginxJavaRequest)req).channel = new NginxHttpServerChannel(req, ignoreFilter);
 	}
 

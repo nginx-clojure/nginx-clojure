@@ -2362,7 +2362,7 @@ static void ngx_http_clojure_jvm_worker_post_event_handler(ngx_event_t *e) {
 			rc = ngx_http_clojure_handle_post_event(rp);
 			if (rc != NGX_OK) {
 				ngx_log_error(NGX_LOG_ERR, e->log, 0,
-						"ngx clojure: ngx_http_clojure_handle_post_event failed, rc=%d", rc);
+						"ngx clojure: ngx_http_clojure_handle_post_event failed,rp=%" PRIu64 ", rc=%d", rp, rc);
 			}
 		}
 	} while (rdc != 0);

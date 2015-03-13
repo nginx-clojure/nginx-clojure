@@ -236,6 +236,9 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	protected Object element(int i) {
 		Object o = array[i+1];
 		if (o instanceof RequestVarFetcher) {
+			if (released) {
+				return null;
+			}
 			if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
 				throw new IllegalAccessError("fetching lazy value of " + array[i] + " in LazyRequestMap can only be called in main thread, please pre-access it in main thread OR call LazyRequestMap.prefetchAll() first in main thread");
 			}
@@ -357,5 +360,10 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	protected LazyRequestMap phase(int phase) {
 		this.phase = phase;
 		return this;
+	}
+	
+	@Override
+	public String toString() {
+		return String.format("request {id : %d,  uri: %s}", r, element(0));
 	}
 }

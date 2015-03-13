@@ -176,6 +176,10 @@ public class HackUtils {
     }
     
     public static ByteBuffer encode(String s, Charset cs, ByteBuffer bb)  {
+    	//for safe
+    	if (s == null) {
+    		throw new NullPointerException("string should not be null");
+    	}
 		CharsetEncoder ce =  ThreadLocalCoders.encoderFor(cs)
 				.onMalformedInput(CodingErrorAction.REPLACE)
 				.onUnmappableCharacter(CodingErrorAction.REPLACE);

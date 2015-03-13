@@ -51,4 +51,9 @@ public class NativeInputStream extends InputStream {
 		pos += c;
 		return c;
 	}
+	
+	@Override
+	public int available() throws IOException {
+		return (int) (len - pos);
+	}
 }
