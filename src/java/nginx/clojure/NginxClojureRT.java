@@ -14,6 +14,7 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -503,6 +504,10 @@ public class NginxClojureRT extends MiniConstants {
 		NGX_HTTP_CLOJURE_ARRAY_NALLOC_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_ARRAY_NALLOC_IDX];
 		NGX_HTTP_CLOJURE_ARRAY_POOL_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_ARRAY_POOL_IDX];
 		
+		NGX_HTTP_CLOJURE_KEYVALT_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_KEYVALT_SIZE_IDX];
+		NGX_HTTP_CLOJURE_KEYVALT_KEY_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_KEYVALT_KEY_IDX];
+		NGX_HTTP_CLOJURE_KEYVALT_VALUE_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_KEYVALT_VALUE_IDX];
+		
 		NGX_HTTP_CLOJURE_MIME_TYPES_ADDR = MEM_INDEX[NGX_HTTP_CLOJURE_MIME_TYPES_ADDR_IDX];
 		
 		NGX_HTTP_CLOJURE_HEADERSIT_SIZE =  MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSIT_SIZE_IDX];
@@ -680,7 +685,7 @@ public class NginxClojureRT extends MiniConstants {
 	}
 	
 	
-	public static synchronized int registerCode(int phase, long typeNStr, long nameNStr, long codeNStr) {
+	public static synchronized int registerCode(int phase, long typeNStr, long nameNStr, long codeNStr, long pros) {
 //		if (CODE_MAP.containsKey(codeNStr)) {
 //			return CODE_MAP.get(codeNStr);
 //		}
@@ -695,6 +700,23 @@ public class NginxClojureRT extends MiniConstants {
 		
 		NginxHandler handler = NginxHandlerFactory.fetchHandler(phase, type, name, code);
 		HANDLERS.add(handler);
+		if (pros != 0) {
+			Map<String, String> properties = new HashMap<String, String>();
+			int size = fetchNGXInt(pros + NGX_HTTP_CLOJURE_ARRAY_NELTS_OFFSET);
+			long ele = UNSAFE.getAddress(pros + NGX_HTTP_CLOJURE_ARRAY_ELTS_OFFSET);
+			for (int i = 0; i < size; i++) {
+				long kv = ele + i * NGX_HTTP_CLOJURE_KEYVALT_SIZE;
+				properties.put(fetchNGXString(kv + NGX_HTTP_CLOJURE_KEYVALT_KEY_OFFSET, DEFAULT_ENCODING),
+						fetchNGXString(kv + NGX_HTTP_CLOJURE_KEYVALT_VALUE_OFFSET, DEFAULT_ENCODING));
+			}
+			if (handler instanceof Configurable) {
+				Configurable cr = (Configurable) handler;
+				cr.config(properties);
+			}else {
+				log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!", 
+						handler.getClass());
+			}
+		}
 		return HANDLERS.size() - 1;
 	}
 	

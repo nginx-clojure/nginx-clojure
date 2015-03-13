@@ -11,14 +11,16 @@ import static nginx.clojure.MiniConstants.NGX_HTTP_NOT_FOUND;
 import static nginx.clojure.java.Constants.ASYNC_TAG;
 
 import java.io.Closeable;
+import java.util.Map;
 
+import nginx.clojure.Configurable;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxRequest;
 import nginx.clojure.NginxResponse;
 import nginx.clojure.NginxSimpleHandler;
 
-public class NginxJavaHandler extends NginxSimpleHandler {
+public class NginxJavaHandler extends NginxSimpleHandler implements Configurable {
 
 	protected NginxJavaRingHandler ringHandler;
 	protected NginxJavaHeaderFilter headerFilter;
@@ -115,6 +117,18 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 			NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest());
 		}
 		return ((NginxJavaRequest)req).channel = new NginxHttpServerChannel(req, ignoreFilter);
+	}
+
+
+	@Override
+	public void config(Map<String, String> properties) {
+		if (ringHandler instanceof Configurable) {
+			Configurable cr = (Configurable) ringHandler;
+			cr.config(properties);
+		}else {
+			NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!", 
+					ringHandler.getClass());
+		}
 	}
 
 }

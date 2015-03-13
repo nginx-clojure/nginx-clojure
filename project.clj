@@ -6,7 +6,7 @@
   :dependencies [
                  ]
   :plugins [[lein-junit "1.1.7"]
-                      [venantius/ultra "0.1.9"]]
+            [venantius/ultra "0.1.9"]]
   ;; CLJ source code path
   :source-paths ["src/clojure"]
   :target-path "target/"

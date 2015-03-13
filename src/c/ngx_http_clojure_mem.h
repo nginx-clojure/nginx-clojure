@@ -144,6 +144,13 @@ extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 #define NGX_HTTP_CLOJURE_ARRAY_POOL_IDX 27
 #define NGX_HTTP_CLOJURE_ARRAY_POOL_OFFSET offsetof(ngx_array_t, pool)
 
+#define NGX_HTTP_CLOJURE_KEYVALT_SIZE_IDX 28
+#define NGX_HTTP_CLOJURE_KEYVALT_SIZE sizeof(ngx_keyval_t)
+#define NGX_HTTP_CLOJURE_KEYVALT_KEY_IDX 29
+#define NGX_HTTP_CLOJURE_KEYVALT_KEY_OFFSET offsetof(ngx_keyval_t, key)
+#define NGX_HTTP_CLOJURE_KEYVALT_VALUE_IDX 30
+#define NGX_HTTP_CLOJURE_KEYVALT_VALUE_OFFSET offsetof(ngx_keyval_t, value)
+
 /*index for size of ngx_http_request_t */
 #define NGX_HTTP_CLOJURE_REQT_SIZE_IDX 32
 #define NGX_HTTP_CLOJURE_REQT_SIZE sizeof(ngx_http_request_t)
@@ -338,7 +345,8 @@ int ngx_http_clojure_pipe_init_by_master(int workers);
  */
 int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log);
 
-int ngx_http_clojure_register_script(ngx_int_t phase, ngx_str_t *handler_type, ngx_str_t *handler, ngx_str_t *code, ngx_int_t *pcid);
+int ngx_http_clojure_register_script(ngx_int_t phase, ngx_str_t *handler_type,
+		ngx_str_t *handler, ngx_str_t *code, ngx_array_t *pros, ngx_int_t *pcid);
 
 int ngx_http_clojure_eval(int cid, ngx_http_request_t *r, ngx_chain_t *c);
 

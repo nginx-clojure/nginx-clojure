@@ -2545,6 +2545,10 @@ int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log) {
 	MEM_INDEX[NGX_HTTP_CLOJURE_ARRAY_NALLOC_IDX] = NGX_HTTP_CLOJURE_ARRAY_NALLOC_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_ARRAY_POOL_IDX] = NGX_HTTP_CLOJURE_ARRAY_POOL_OFFSET;
 
+	MEM_INDEX[NGX_HTTP_CLOJURE_KEYVALT_SIZE_IDX] = NGX_HTTP_CLOJURE_KEYVALT_SIZE;
+	MEM_INDEX[NGX_HTTP_CLOJURE_KEYVALT_KEY_IDX] = NGX_HTTP_CLOJURE_KEYVALT_KEY_OFFSET;
+	MEM_INDEX[NGX_HTTP_CLOJURE_KEYVALT_VALUE_IDX] = NGX_HTTP_CLOJURE_KEYVALT_VALUE_OFFSET;
+
 	MEM_INDEX[NGX_HTTP_CLOJURE_REQT_SIZE_IDX] = NGX_HTTP_CLOJURE_REQT_SIZE;
 	MEM_INDEX[NGX_HTTP_CLOJURE_REQ_METHOD_IDX] = NGX_HTTP_CLOJURE_REQ_METHOD_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_REQ_URI_IDX] = NGX_HTTP_CLOJURE_REQ_URI_OFFSET;
@@ -2679,7 +2683,7 @@ int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log) {
 	(*env)->RegisterNatives(env, nc_rt_class, nms, sizeof(nms) / sizeof(JNINativeMethod));
 	exception_handle(0 == 0, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 
-	nc_rt_register_code_mid = (*env)->GetStaticMethodID(env, nc_rt_class, "registerCode", "(IJJJ)I");
+	nc_rt_register_code_mid = (*env)->GetStaticMethodID(env, nc_rt_class, "registerCode", "(IJJJJ)I");
 	exception_handle(nc_rt_register_code_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 
 	nc_rt_eval_mid = (*env)->GetStaticMethodID(env, nc_rt_class, "eval", "(IJJ)I");
@@ -2707,9 +2711,11 @@ int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log) {
 
 
 
-int ngx_http_clojure_register_script(ngx_int_t phase, ngx_str_t *handler_type, ngx_str_t *handler, ngx_str_t *code, ngx_int_t *pcid) {
+int ngx_http_clojure_register_script(ngx_int_t phase, ngx_str_t *handler_type,
+		ngx_str_t *handler, ngx_str_t *code, ngx_array_t *pros, ngx_int_t *pcid) {
 	JNIEnv *env = jvm_env;
-	*pcid = (int)(*env)->CallStaticIntMethod(env, nc_rt_class, nc_rt_register_code_mid, (jint)phase, (jlong)(uintptr_t)handler_type, (jlong)(uintptr_t)handler, (jlong)(uintptr_t)code);
+	*pcid = (int)(*env)->CallStaticIntMethod(env, nc_rt_class, nc_rt_register_code_mid, (jint)phase,
+			(jlong)(uintptr_t)handler_type, (jlong)(uintptr_t)handler, (jlong)(uintptr_t)code, (jlong)(uintptr_t)pros);
 	if ((*env)->ExceptionOccurred(env)) {
 		*pcid = -1;
 		(*env)->ExceptionDescribe(env);

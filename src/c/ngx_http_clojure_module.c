@@ -67,6 +67,11 @@ typedef struct {
 	ngx_str_t access_handler_code;
 	ngx_int_t access_handler_id;
 	ngx_str_t access_handler_name;
+	ngx_array_t *content_handler_properties;
+	ngx_array_t *rewrite_handler_properties;
+	ngx_array_t *access_handler_properties;
+	ngx_array_t *header_filter_properties;
+	ngx_array_t *body_filter_properties;
 } ngx_http_clojure_loc_conf_t;
 
 static char* ngx_http_clojure_set_max_balanced_tcp_connections(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) ;
@@ -125,7 +130,8 @@ static ngx_int_t ngx_http_clojure_init_locations_handlers_in_tree(ngx_http_locat
 
 static ngx_int_t ngx_http_clojure_init_socket(ngx_http_clojure_main_conf_t  *mcf, ngx_log_t *log);
 
-static ngx_int_t ngx_http_clojure_init_clojure_script(ngx_int_t phase, char *type, ngx_str_t *handler_type, ngx_str_t *handler, ngx_str_t *code, ngx_int_t *pcid , ngx_log_t *log);
+static ngx_int_t ngx_http_clojure_init_clojure_script(ngx_int_t phase, char *type, ngx_str_t *handler_type, ngx_str_t *handler,
+		ngx_str_t *code, ngx_array_t *pros, ngx_int_t *pcid, ngx_log_t *log);
 
 static char * ngx_http_clojure_jvm_var_post_handler(ngx_conf_t *cf, void *data, void *conf);
 
@@ -411,7 +417,14 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 		offsetof(ngx_http_clojure_loc_conf_t, body_filter_code),
 		NULL
     },
-
+    {
+		ngx_string("content_handler_property"),
+		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE2,
+		ngx_conf_set_keyval_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_clojure_loc_conf_t, content_handler_properties),
+		NULL
+    },
     {
 		ngx_string("always_read_body"),
 		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
@@ -483,9 +496,9 @@ static void * ngx_http_clojure_create_loc_conf(ngx_conf_t *cf) {
 	return conf;
 }
 
-static ngx_int_t ngx_http_clojure_init_clojure_script(ngx_int_t phase, char *type, ngx_str_t *handler_type, ngx_str_t *handler, ngx_str_t *code, ngx_int_t *pcid , ngx_log_t *log) {
+static ngx_int_t ngx_http_clojure_init_clojure_script(ngx_int_t phase, char *type, ngx_str_t *handler_type, ngx_str_t *handler, ngx_str_t *code, ngx_array_t *pros,ngx_int_t *pcid , ngx_log_t *log) {
     if (*pcid < 0 && (code->len > 0 || handler->len > 0)) {
-    	if (ngx_http_clojure_register_script(phase, handler_type, handler, code, pcid) != NGX_HTTP_CLOJURE_JVM_OK){
+    	if (ngx_http_clojure_register_script(phase, handler_type, handler, code, pros, pcid) != NGX_HTTP_CLOJURE_JVM_OK){
     		ngx_log_error(NGX_LOG_ERR, log, 0, "invalid %s %s code : %s", handler_type->data, type, code->len > 0 ? code->data : handler->data);
     		return NGX_HTTP_INTERNAL_SERVER_ERROR;
     	}
@@ -824,7 +837,7 @@ static void ngx_http_clojure_process_exit(ngx_cycle_t *cycle) {
 
 	if (mcf->enable_exit_handler
 			&& ngx_http_clojure_init_clojure_script(NGX_HTTP_INIT_PROCESS_PHASE, "exit-process", &mcf->jvm_handler_type, &mcf->jvm_exit_handler_name,
-					&mcf->jvm_exit_handler_code, &mcf->jvm_exit_handler_id, cycle->log) == NGX_HTTP_CLOJURE_JVM_OK) {
+					&mcf->jvm_exit_handler_code, NULL, &mcf->jvm_exit_handler_id, cycle->log) == NGX_HTTP_CLOJURE_JVM_OK) {
 		if (mcf->jvm_exit_handler_id >= 0) {
 			(void)ngx_http_clojure_eval(mcf->jvm_exit_handler_id, 0, 0);
 		}
@@ -861,7 +874,7 @@ static ngx_int_t ngx_http_clojure_init_locations_handlers_in_tree(ngx_http_locat
 #define ngx_http_clojure_init_handler_script(lcf, phase, handler) \
 		if (lcf->enable_ ## handler \
 							&& ngx_http_clojure_init_clojure_script(phase, # handler, &lcf->handler ## _type, &lcf->handler ## _name, \
-									&lcf->handler ## _code, &lcf->handler ## _id, ngx_http_clojure_global_cycle->log) != NGX_HTTP_CLOJURE_JVM_OK) { \
+									&lcf->handler ## _code, lcf->handler ## _properties, &lcf->handler ## _id, ngx_http_clojure_global_cycle->log) != NGX_HTTP_CLOJURE_JVM_OK) { \
 						return NGX_ERROR; \
 		}
 
@@ -988,13 +1001,13 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 
 	if (mcf->enable_content_handler
 			&& ngx_http_clojure_init_clojure_script(NGX_HTTP_INIT_PROCESS_PHASE, "init-process", &mcf->jvm_handler_type, &mcf->jvm_init_handler_name,
-					&mcf->jvm_init_handler_code, &mcf->jvm_init_handler_id, cycle->log) != NGX_HTTP_CLOJURE_JVM_OK) {
+					&mcf->jvm_init_handler_code, NULL, &mcf->jvm_init_handler_id, cycle->log) != NGX_HTTP_CLOJURE_JVM_OK) {
 		return NGX_ERROR;
 	}
 
 	if (mcf->enable_exit_handler
 				&& ngx_http_clojure_init_clojure_script(NGX_HTTP_EXIT_PROCESS_PHASE, "exit-process", &mcf->jvm_handler_type, &mcf->jvm_exit_handler_name,
-						&mcf->jvm_exit_handler_code, &mcf->jvm_exit_handler_id, cycle->log) != NGX_HTTP_CLOJURE_JVM_OK)  {
+						&mcf->jvm_exit_handler_code, NULL, &mcf->jvm_exit_handler_id, cycle->log) != NGX_HTTP_CLOJURE_JVM_OK)  {
 		return NGX_ERROR;
 	}
 

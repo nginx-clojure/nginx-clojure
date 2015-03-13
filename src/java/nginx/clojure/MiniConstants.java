@@ -195,6 +195,13 @@ public class MiniConstants {
 	public static int  NGX_HTTP_CLOJURE_ARRAY_POOL_IDX = 27;
 	public static long NGX_HTTP_CLOJURE_ARRAY_POOL_OFFSET;
 	
+	public static int NGX_HTTP_CLOJURE_KEYVALT_SIZE_IDX = 28;
+	public static long NGX_HTTP_CLOJURE_KEYVALT_SIZE;
+	public static int  NGX_HTTP_CLOJURE_KEYVALT_KEY_IDX = 29;
+	public static long NGX_HTTP_CLOJURE_KEYVALT_KEY_OFFSET;
+	public static int  NGX_HTTP_CLOJURE_KEYVALT_VALUE_IDX = 30;
+	public static long NGX_HTTP_CLOJURE_KEYVALT_VALUE_OFFSET;
+	
 	/* index for size of ngx_http_request_t */
 	public static int NGX_HTTP_CLOJURE_REQT_SIZE_IDX = 32;
 	public static long NGX_HTTP_CLOJURE_REQT_SIZE;
