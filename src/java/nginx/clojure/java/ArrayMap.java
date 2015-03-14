@@ -33,7 +33,7 @@ public class ArrayMap<K, V> implements Map<K, V> {
 	
 	protected int index(Object key) {
 		for (int i = 0; i < array.length; i+=2){
-			if (key == array[i]) {
+			if (key.equals(array[i])) {
 				return i >> 1;
 			}
 		}
