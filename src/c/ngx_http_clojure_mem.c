@@ -545,6 +545,19 @@ ngx_http_close_request(ngx_http_request_t *r, ngx_int_t rc)
     ngx_http_close_connection(c);
 }
 
+static void ngx_http_clojure_hijack_async_timeout_handler(ngx_http_request_t *r) {
+	ngx_connection_t *c = r->connection;
+	ngx_event_t *wev = c->write;
+
+	if (wev->timedout) {
+		ngx_log_error(NGX_LOG_INFO, c->log, NGX_ETIMEDOUT, "async timed out");
+		c->timedout = 1;
+		//TODO: fire timeout event for java level
+		ngx_http_finalize_request(r, NGX_HTTP_REQUEST_TIME_OUT);
+		return;
+	}
+}
+
 static void ngx_http_clojure_hijack_writer(ngx_http_request_t *r) {
 	int rc;
 	ngx_event_t *wev;
@@ -1355,6 +1368,16 @@ static jlong JNICALL jni_ngx_http_hijack_send_chain(JNIEnv *env, jclass cls, jlo
 		ngx_http_finalize_request((ngx_http_request_t *)(uintptr_t)req, rc);
 	}
 	return rc;
+}
+
+static void JNICALL jni_ngx_http_hijack_set_async_timeout(JNIEnv *env, jclass cls, jlong req, jlong timeout) {
+	ngx_http_request_t *r = (ngx_http_request_t *) (uintptr_t) req;
+	ngx_connection_t *c = r->connection;
+	if (c->write->timer_set) {
+		ngx_del_timer(c->write);
+	}
+	r->write_event_handler = ngx_http_clojure_hijack_async_timeout_handler;
+	ngx_add_timer(c->write, (ngx_msec_t)timeout);
 }
 
 static void ngx_http_clojure_cleanup_handler(void *data) {
@@ -2500,6 +2523,7 @@ int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log) {
 			{"ngx_http_hijack_send", "(JLjava/lang/Object;JJI)J", jni_ngx_http_hijack_send},
 			{"ngx_http_hijack_send_header", "(JI)J", jni_ngx_http_hijack_send_header},
 			{"ngx_http_hijack_send_chain", "(JJI)J", jni_ngx_http_hijack_send_chain},
+			{"ngx_http_hijack_set_async_timeout", "(JJ)V", jni_ngx_http_hijack_set_async_timeout},
 			{"ngx_http_cleanup_add", "(JLnginx/clojure/ChannelListener;Ljava/lang/Object;)J", jni_ngx_http_cleanup_add}
 //			{"ngx_http_clojure_mem_get_body_tmp_file", "(J)J", jni_ngx_http_clojure_mem_get_body_tmp_file}
 	};

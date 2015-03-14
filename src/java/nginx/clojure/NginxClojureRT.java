@@ -14,9 +14,9 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,6 +28,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicLong;
 
+import nginx.clojure.java.ArrayMap;
 import nginx.clojure.logger.LoggerService;
 import nginx.clojure.logger.TinyLogService;
 import nginx.clojure.net.NginxClojureSocketFactory;
@@ -183,6 +184,8 @@ public class NginxClojureRT extends MiniConstants {
 	public native static long ngx_http_hijack_send_header(long req, int flag);
 	
 	public native static long ngx_http_hijack_send_chain(long req, long chain, int flag);
+	
+	public native static void ngx_http_hijack_set_async_timeout(long req, long timeout);
 	
 //	public native static long ngx_http_clojure_mem_get_body_tmp_file(long r);
 	
@@ -684,6 +687,42 @@ public class NginxClojureRT extends MiniConstants {
 		UNSAFE = HackUtils.UNSAFE;
 	}
 	
+	/**
+	 * DO NOT use this method for frequent invoking because it is slow and not optimized.
+	 */
+	public static String evalSimpleExp(String v, Map<String, String> vars) {
+		int p = v.indexOf("#{");
+		if (p > -1) {
+			int s = 0;
+			StringBuilder sb = new StringBuilder();
+			while (p > -1) {
+				if (p != s) {
+					sb.append(v.substring(s, p));
+				}
+				s = v.indexOf('}', p);
+				if (s < 0) {
+					sb.append(v.substring(p));
+					break;
+				}
+				String ek = v.substring(p+2, s);
+				String ev = vars.get(ek);
+				if (ev == null) {
+					ev = vars.get("system." + ek);
+					if (ev == null) {
+						ev = System.getProperty(ek);
+					}
+				}
+				sb.append(ev);
+				s++;
+				p = v.indexOf("#{", s);
+			}
+			if (p < 0 && s != v.length()) {
+				sb.append(v.substring(s));
+			}
+			return sb.toString();
+		}
+		return v;
+	}
 	
 	public static synchronized int registerCode(int phase, long typeNStr, long nameNStr, long codeNStr, long pros) {
 //		if (CODE_MAP.containsKey(codeNStr)) {
@@ -701,13 +740,16 @@ public class NginxClojureRT extends MiniConstants {
 		NginxHandler handler = NginxHandlerFactory.fetchHandler(phase, type, name, code);
 		HANDLERS.add(handler);
 		if (pros != 0) {
-			Map<String, String> properties = new HashMap<String, String>();
+			Map<String, String> properties = new ArrayMap<String, String>();
 			int size = fetchNGXInt(pros + NGX_HTTP_CLOJURE_ARRAY_NELTS_OFFSET);
 			long ele = UNSAFE.getAddress(pros + NGX_HTTP_CLOJURE_ARRAY_ELTS_OFFSET);
 			for (int i = 0; i < size; i++) {
 				long kv = ele + i * NGX_HTTP_CLOJURE_KEYVALT_SIZE;
 				properties.put(fetchNGXString(kv + NGX_HTTP_CLOJURE_KEYVALT_KEY_OFFSET, DEFAULT_ENCODING),
 						fetchNGXString(kv + NGX_HTTP_CLOJURE_KEYVALT_VALUE_OFFSET, DEFAULT_ENCODING));
+			}
+			for (Entry<String, String> en : properties.entrySet()) {
+				en.setValue(evalSimpleExp(en.getValue(), properties));
 			}
 			if (handler instanceof Configurable) {
 				Configurable cr = (Configurable) handler;

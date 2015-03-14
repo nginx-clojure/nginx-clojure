@@ -25,6 +25,7 @@ public class NginxHttpServerChannel implements ChannelListener<NginxHttpServerCh
 	protected boolean ignoreFilter;
 	protected boolean closed;
 	protected Object context;
+	protected long asyncTimeout;
 	
 	public NginxHttpServerChannel(NginxRequest request, boolean ignoreFilter) {
 		this.request = request;
@@ -60,7 +61,7 @@ public class NginxHttpServerChannel implements ChannelListener<NginxHttpServerCh
 		return rc;
 	}
 	
-	private void checkValid() {
+	private final void checkValid() {
 		if (closed) {
 			throw new IllegalStateException("Op on a closed NginxHttpServerChannel with request :" + request);
 		}
@@ -255,5 +256,13 @@ public class NginxHttpServerChannel implements ChannelListener<NginxHttpServerCh
 		this.context = context;
 	}
 	
+	public long getAsyncTimeout() {
+		return asyncTimeout;
+	}
 	
+	public void setAsyncTimeout(long asyncTimeout) {
+		checkValid();
+		this.asyncTimeout = asyncTimeout;
+		NginxClojureRT.ngx_http_hijack_set_async_timeout(request.nativeRequest(), asyncTimeout);
+	}
 }
