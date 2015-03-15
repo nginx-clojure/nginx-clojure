@@ -863,6 +863,11 @@ static ngx_int_t ngx_http_clojure_init_locations_handlers_in_tree(ngx_http_locat
 		return NGX_ERROR;
 	}
 
+	rc = ngx_http_clojure_init_locations_handlers_in_tree(lt->tree);
+	if (rc != NGX_OK) {
+		return NGX_ERROR;
+	}
+
 	rc = ngx_http_clojure_init_locations_handlers_in_tree(lt->right);
 	if (rc != NGX_OK) {
 		return NGX_ERROR;
