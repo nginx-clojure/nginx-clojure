@@ -36,7 +36,7 @@ More Documents can be found from its web site [nginx-clojure.github.io](http://n
 
 License
 =================
-Copyright © 2013-2014 Zhang, Yuexiang (xfeep) and released under the BSD 3-Clause license.
+Copyright © 2013-2015 Zhang, Yuexiang (xfeep) and released under the BSD 3-Clause license.
 
 This program uses:
 * Re-rooted ASM bytecode engineering library which is distributed under the BSD 3-Clause license

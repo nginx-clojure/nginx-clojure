@@ -1,12 +1,14 @@
 (defproject nginx-clojure/nginx-clojure "0.4.0"
-  :description "Nginx module for clojure & java programming"
+  :description "Nginx module for clojure or groovy or java programming"
   :url "https://github.com/nginx-clojure/nginx-clojure"
   :license {:name "BSD 3-Clause license"
             :url "http://opensource.org/licenses/BSD-3-Clause"}
   :dependencies [
                  ]
   :plugins [[lein-junit "1.1.7"]
-            [venantius/ultra "0.1.9"]]
+            [venantius/ultra "0.1.9"]
+            [lein-sub "0.3.0"]]
+  :sub ["nginx-tomcat8"]
   ;; CLJ source code path
   :source-paths ["src/clojure"]
   :target-path "target/"
