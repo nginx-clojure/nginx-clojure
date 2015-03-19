@@ -559,10 +559,10 @@ static jlong JNICALL jni_ngx_http_clojure_socket_bind_str(JNIEnv *env, jclass cl
 	pport = paddr->name.data + paddr->name.len - 1;
 	while (pport != paddr->name.data &&  *(--pport) != ':') ;
 	if (pport != paddr->name.data) {
-		port = atoi(pport + 1);
+		port = atoi((char*)(pport + 1));
 	}
 
-	if (ngx_parse_addr(u->pool,  paddr,  paddr->name.data,  port != -1 ? pport - paddr->name.data :  paddr->name.len) != NGX_OK) {
+	if (ngx_parse_addr(u->pool,  paddr,  paddr->name.data,  port != -1 ? (size_t)(pport - paddr->name.data) :  paddr->name.len) != NGX_OK) {
 		return NGX_HTTP_CLOJURE_SOCKET_ERR_BIND;
 	}
 
