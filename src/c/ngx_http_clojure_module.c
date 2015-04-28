@@ -708,7 +708,7 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 				= mcf->enable_rewrite_handler = 0;
 		conf->enable_access_handler = conf->enable_body_filter = conf->enable_content_handler
 				= conf->enable_header_filter = conf->enable_rewrite_handler = 0;
-		if (clcf->handler) {
+		if (clcf->handler == ngx_http_clojure_content_handler) {
 			clcf->handler = NULL;
 		}
 	}
