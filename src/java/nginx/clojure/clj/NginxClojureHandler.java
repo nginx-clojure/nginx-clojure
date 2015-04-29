@@ -170,7 +170,12 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 		if (log.isDebugEnabled()) {
 			log.debug("#%s: hijack at %s", processId, ((LazyRequestMap)req).valAt(URI));
 		}
+		
 		((LazyRequestMap)req).hijackTag[0] = 1;
+		if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD) {
+			NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest());
+		}
+		
 		return ((LazyRequestMap)req).channel = new NginxHttpServerChannel(req, ignoreFilter);
 	}
 

@@ -29,8 +29,10 @@ import static nginx.clojure.MiniConstants.URI_FETCHER;
 import static nginx.clojure.java.Constants.HEADER_FETCHER;
 
 import java.util.AbstractSet;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -54,14 +56,23 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	protected NginxHttpServerChannel channel;
 	protected int phase = -1;
 	protected volatile boolean released = false;
+	protected List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners;
 	
 	
 	private final  static ChannelListener<NginxJavaRequest> requestListener  = new  ChannelListener<NginxJavaRequest> (){
 		@Override
-		public void onClose(NginxJavaRequest data) {
-			data.released = true;
+		public void onClose(NginxJavaRequest req) {
+			req.released = true;
+			if (req.channel != null) {
+				req.channel.tagClose();
+			}
 			if (NginxClojureRT.log.isDebugEnabled()) {
-				NginxClojureRT.log.debug("#%d: request %s released!", data.r, data.get(URI));
+				NginxClojureRT.log.debug("#%d: request %s released!", req.r, req.get(URI));
+			}
+			if (req.listeners != null) {
+				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners) {
+					en.getValue().onClose(en.getKey());
+				}
 			}
 		}
 		
@@ -98,6 +109,9 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 				CONTENT_TYPE, CONTENT_TYPE_FETCHER,
 				CHARACTER_ENCODING, CHARACTER_ENCODING_FETCHER,
 		});
+		if (NginxClojureRT.log.isDebugEnabled()) {
+			get(URI);
+		}
 	}
 	
 	public void prefetchAll() {
@@ -357,5 +371,13 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	@Override
 	public String toString() {
 		return String.format("request {id : %d,  uri: %s}", r, val(0));
+	}
+
+	@Override
+	public <T> void addListener(T data, ChannelListener<T> listener) {
+		if (listeners == null) {
+			listeners = new ArrayList<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>>(1);
+		}
+		listeners.add(new java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>(data, (ChannelListener)listener));
 	}
 }

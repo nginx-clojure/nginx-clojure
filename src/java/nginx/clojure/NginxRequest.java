@@ -17,4 +17,6 @@ public interface NginxRequest {
 	
 	public int phase();
 	
+	public <T> void addListener(T data, ChannelListener<T> listener);
+	
 }

@@ -19,7 +19,7 @@ import java.util.Map.Entry;
 import nginx.clojure.java.NginxJavaResponse;
 import sun.nio.ch.DirectBuffer;
 
-public class NginxHttpServerChannel implements ChannelListener<NginxHttpServerChannel> {
+public class NginxHttpServerChannel {
 	
 	protected NginxRequest request;
 	protected boolean ignoreFilter;
@@ -33,7 +33,7 @@ public class NginxHttpServerChannel implements ChannelListener<NginxHttpServerCh
 	}
 	
 	public <T> void addListener(T data, ChannelListener<T> listener) {
-		NginxClojureRT.ngx_http_cleanup_add(request.nativeRequest(), listener, data);
+		this.request.addListener(data, listener);
 	}
 	
 	protected int send(byte[] message, long off, int len, int flag) {
@@ -226,22 +226,16 @@ public class NginxHttpServerChannel implements ChannelListener<NginxHttpServerCh
 		}
 	}
 	
+	public void tagClose() {
+		closed = true;
+	}
+	
 	public boolean isIgnoreFilter() {
 		return ignoreFilter;
 	}
 	
 	public NginxRequest request() {
 		return request;
-	}
-
-	@Override
-	public void onClose(NginxHttpServerChannel data) {
-		this.closed = true;
-	}
-
-	@Override
-	public void onConnect(long status, NginxHttpServerChannel data) {
-		//this method will never be called.
 	}
 	
 	public boolean isClosed() {

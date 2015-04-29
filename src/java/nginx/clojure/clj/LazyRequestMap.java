@@ -28,7 +28,9 @@ import static nginx.clojure.clj.Constants.SERVER_NAME;
 import static nginx.clojure.clj.Constants.SERVER_PORT;
 import static nginx.clojure.clj.Constants.URI;
 
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import nginx.clojure.ChannelListener;
@@ -59,15 +61,24 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	protected byte[] hijackTag;
 	protected int phase = -1;
 	protected volatile boolean released = false;
+	protected List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners;
 	
 	public final static LazyRequestMap EMPTY_MAP = new LazyRequestMap(null, 0, null, new Object[0]);
 	
 	private final  static ChannelListener<LazyRequestMap> requestListener  = new  ChannelListener<LazyRequestMap> (){
 		@Override
-		public void onClose(LazyRequestMap data) {
-			data.released = true;
+		public void onClose(LazyRequestMap req) {
+			req.released = true;
+			if (req.channel != null) {
+				req.channel.tagClose();
+			}
 			if (NginxClojureRT.log.isDebugEnabled()) {
-				NginxClojureRT.log.debug("#%d: request %s released!", data.r, data.valAt(URI));
+				NginxClojureRT.log.debug("#%d: request %s released!", req.r, req.valAt(URI));
+			}
+			if (req.listeners != null) {
+				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners) {
+					en.getValue().onClose(en.getKey());
+				}
 			}
 		}
 		
@@ -104,6 +115,9 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 				CONTENT_TYPE, CONTENT_TYPE_FETCHER,
 				CHARACTER_ENCODING, CHARACTER_ENCODING_FETCHER,
 		});
+		if (NginxClojureRT.log.isDebugEnabled()) {
+			valAt(URI);
+		}
 	}
 	
 	public void prefetchAll() {
@@ -365,5 +379,13 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	@Override
 	public String toString() {
 		return String.format("request {id : %d,  uri: %s}", r, element(0));
+	}
+
+	@Override
+	public <T> void addListener(T data, ChannelListener<T> listener) {
+		if (listeners == null) {
+			listeners = new ArrayList<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>>(1);
+		}
+		listeners.add(new java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>(data, (ChannelListener)listener));
 	}
 }
