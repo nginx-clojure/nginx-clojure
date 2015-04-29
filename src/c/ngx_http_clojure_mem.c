@@ -1382,7 +1382,7 @@ static void JNICALL jni_ngx_http_hijack_set_async_timeout(JNIEnv *env, jclass cl
 
 static void ngx_http_clojure_cleanup_handler(void *data) {
 	ngx_http_clojure_clean_up_data_t *cd = (ngx_http_clojure_clean_up_data_t *)data;
-	(*jvm_env)->CallVoidMethod(jvm_env, cd->listener, nc_rt_channel_listener_onclose_mid, cd->data);
+	(*jvm_env)->CallStaticVoidMethod(jvm_env, nc_rt_class, nc_rt_channel_listener_onclose_mid, cd->data, cd->listener);
 	exception_handle(0 == 0, jvm_env,
 			(*jvm_env)->DeleteGlobalRef(jvm_env, cd->listener);
 	        (*jvm_env)->DeleteGlobalRef(jvm_env, cd->data);
@@ -2720,9 +2720,7 @@ int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log) {
 	exception_handle(nc_rt_handle_post_event_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 
 	{
-		jclass nc_cleanup_listener_class = (*env)->FindClass(env, "nginx/clojure/ChannelListener");
-		exception_handle(nc_cleanup_listener_class == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
-		nc_rt_channel_listener_onclose_mid = (*env)->GetMethodID(env, nc_cleanup_listener_class, "onClose", "(Ljava/lang/Object;)V");
+		nc_rt_channel_listener_onclose_mid = (*env)->GetStaticMethodID(env, nc_rt_class, "handleCleanUpEvent", "(Ljava/lang/Object;Lnginx/clojure/ChannelListener;)V");
 		exception_handle(nc_rt_channel_listener_onclose_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 	}
 

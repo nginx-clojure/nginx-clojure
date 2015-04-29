@@ -1046,6 +1046,10 @@ public class NginxClojureRT extends MiniConstants {
 		}
 	}
 	
+	private static void handleCleanUpEvent(Object data, ChannelListener<Object> listener) {
+		listener.onClose(data);
+	}
+	
 	public static int handlePostedResponse(long r) {
 		WorkerResponseContext ctx = (WorkerResponseContext) POSTED_EVENTS_DATA.remove(r);
 		NginxResponse resp = ctx.response;
