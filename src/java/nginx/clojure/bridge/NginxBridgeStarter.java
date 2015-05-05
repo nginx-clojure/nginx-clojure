@@ -84,14 +84,24 @@ public class NginxBridgeStarter {
 		}
 		
 		NginxBridge bridge;
+		ClassLoader oldLoader = Thread.currentThread().getContextClassLoader();
 		try {
+			Thread.currentThread().setContextClassLoader(bootstrapLoader);
 			bridge = (NginxBridge) bridgeClz.newInstance();
 		} catch (Throwable e) {
+			Thread.currentThread().setContextClassLoader(oldLoader);
 			throw new IllegalArgumentException("Can't create  NginxBridge:"+bridgeImp, e);
-		} 
+		}
 		
-		bridge.boot(properties);
-		handler.setBridge(bridge);
+		try {
+			bridge.boot(properties);
+			handler.setBridge(bridge);
+		}finally{
+//			if (Thread.currentThread().getContextClassLoader() == bootstrapLoader) {
+//				Thread.currentThread().setContextClassLoader(oldLoader);
+//			}
+		}
+
 	}
 	
 }

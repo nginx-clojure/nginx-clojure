@@ -41,6 +41,13 @@
 #define NGX_HTTP_BODY_FILTER_PHASE  19
 #define NGX_HTTP_EXIT_PROCESS_PHASE  20
 
+
+typedef struct ngx_http_clojure_listener_node_s {
+	void *listener;
+	void *data;
+	struct ngx_http_clojure_listener_node_s *next;
+} ngx_http_clojure_listener_node_t;
+
 typedef struct {
 	ngx_int_t phase;
 	ngx_int_t phase_rc;
@@ -55,8 +62,10 @@ typedef struct {
 	unsigned wait_for_header_filter : 1;
 	unsigned pending_body_filter : 1;
 	unsigned ignore_next_response : 1;
+	unsigned upgraded : 1;
 	/*for filter under thread pool mode or coroutine mode*/
 	ngx_chain_t *pending;
+	ngx_http_clojure_listener_node_t *listeners;
 } ngx_http_clojure_module_ctx_t;
 
 #define ngx_http_clojure_init_ctx(ctx, p) \
@@ -69,7 +78,9 @@ typedef struct {
 		ctx->async_body_read = 0 ; \
 		ctx->wait_for_header_filter = 0 ;\
 		ctx->pending_body_filter = 0 ; \
-		ctx->ignore_next_response = 0
+		ctx->ignore_next_response = 0; \
+		ctx->upgraded = 0; \
+		ctx->listeners = 0;
 
 #define NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT 1
 #define NGX_HTTP_CLOJURE_GET_HEADER_FLAG_MERGE_KEY 2

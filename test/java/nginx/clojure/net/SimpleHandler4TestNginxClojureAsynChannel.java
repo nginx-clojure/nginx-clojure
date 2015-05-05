@@ -6,7 +6,7 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetEncoder;
 import java.util.Map;
 
-import nginx.clojure.ChannelListener;
+import nginx.clojure.ChannelCloseAdapter;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxRequest;
@@ -43,15 +43,10 @@ public class SimpleHandler4TestNginxClojureAsynChannel implements NginxJavaRingH
 	public Object[] invoke(Map<String, Object> request) {
 		NginxRequest req = (NginxRequest) request;
 		NginxHttpServerChannel downstream = req.handler().hijack(req, true);
-		downstream.addListener(downstream, new ChannelListener<NginxHttpServerChannel>() {
-
+		downstream.addListener(downstream, new ChannelCloseAdapter<NginxHttpServerChannel>() {
 			@Override
 			public void onClose(NginxHttpServerChannel data) {
 				log.info("***downstream closed!");
-			}
-
-			@Override
-			public void onConnect(long status, NginxHttpServerChannel data) {
 			}
 		});
 		final NginxClojureAsynChannel upstream = new NginxClojureAsynChannel();

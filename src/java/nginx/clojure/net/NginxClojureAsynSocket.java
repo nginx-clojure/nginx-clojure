@@ -124,7 +124,7 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 		}
 	}
 	
-	public final String errorCodeToString(long sc) {
+	public final static String errorCodeToString(long sc) {
 		return NGX_HTTP_CLOJURE_SOCKET_ERROR_STRS[(int)(NGX_HTTP_CLOJURE_SOCKET_ERR - sc)];
 	}
 	

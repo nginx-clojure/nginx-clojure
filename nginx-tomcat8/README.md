@@ -24,6 +24,21 @@ lein jar
       }
 ```
 
+## For performance
+
+### Diable Tomcat Access Log
+
+in server.xml comment AccessLogValve configuration 
+
+```
+<!--
+        <Valve className="org.apache.catalina.valves.AccessLogValve" directory="logs"
+               prefix="localhost_access_log" suffix=".txt"
+               pattern="%h %l %u %t &quot;%r&quot; %s %b" />
+-->
+```
+
+
 ## License
 
 Copyright © 2013-2015 Zhang, Yuexiang (xfeep) and released under the BSD 3-Clause license.

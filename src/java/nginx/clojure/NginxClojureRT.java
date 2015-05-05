@@ -171,7 +171,24 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public native static long ngx_http_clojure_mem_read_raw_pipe(long p, Object buf, long offset, long len);
 	
-	public native static long ngx_http_cleanup_add(long r, ChannelListener listener, Object data);
+	/**
+	 * @deprecated
+	 */
+	public  static long ngx_http_cleanup_add(long r, final ChannelListener listener, Object data) {
+		return ngx_http_clojure_add_listener(r, new ChannelCloseAdapter<Object>() {
+			@Override
+			public void onClose(Object data) {
+				listener.onClose(data);
+			}
+		}, data);
+	}
+	
+	public native static long ngx_http_clojure_add_listener(long r, ChannelListener listener, Object data);
+	
+	public native static long ngx_http_hijack_read(long req, Object buf, long offset, long len);
+	
+	public native static long ngx_http_hijack_write(long req, Object buf, long offset, long len);
+
 	
 	/**
 	 * flag can be either of {@link MiniConstants#NGX_CLOJURE_BUF_FLUSH_FLAG} {@link MiniConstants#NGX_CLOJURE_BUF_LAST_FLAG}
@@ -1046,8 +1063,21 @@ public class NginxClojureRT extends MiniConstants {
 		}
 	}
 	
-	private static void handleCleanUpEvent(Object data, ChannelListener<Object> listener) {
-		listener.onClose(data);
+	private static void handleChannelEvent(int type, long status, Object data, ChannelListener<Object> listener) {
+		switch(type) {
+		case 0: 
+			listener.onClose(data);
+			break;
+		case 1:
+			listener.onRead(status, data);
+			break;
+		case 2:
+			listener.onWrite(status, data);
+			break;
+		default:
+			log.error("unexpected event type %s", type);
+		}
+		
 	}
 	
 	public static int handlePostedResponse(long r) {

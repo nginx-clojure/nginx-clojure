@@ -13,6 +13,7 @@ import static nginx.clojure.MiniConstants.REMOTE_ADDR_FETCHER;
 import static nginx.clojure.MiniConstants.SCHEME_FETCHER;
 import static nginx.clojure.MiniConstants.SERVER_NAME_FETCHER;
 import static nginx.clojure.MiniConstants.SERVER_PORT_FETCHER;
+import static nginx.clojure.MiniConstants.URI;
 import static nginx.clojure.MiniConstants.URI_FETCHER;
 import static nginx.clojure.clj.Constants.BODY;
 import static nginx.clojure.clj.Constants.CHARACTER_ENCODING;
@@ -26,7 +27,6 @@ import static nginx.clojure.clj.Constants.REQUEST_METHOD_FETCHER;
 import static nginx.clojure.clj.Constants.SCHEME;
 import static nginx.clojure.clj.Constants.SERVER_NAME;
 import static nginx.clojure.clj.Constants.SERVER_PORT;
-import static nginx.clojure.clj.Constants.URI;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -65,25 +65,60 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	
 	public final static LazyRequestMap EMPTY_MAP = new LazyRequestMap(null, 0, null, new Object[0]);
 	
-	private final  static ChannelListener<LazyRequestMap> requestListener  = new  ChannelListener<LazyRequestMap> (){
+	private final  static ChannelListener<LazyRequestMap> requestListener  = new  ChannelListener<LazyRequestMap>(){
 		@Override
 		public void onClose(LazyRequestMap req) {
 			req.released = true;
-			if (req.channel != null) {
-				req.channel.tagClose();
-			}
 			if (NginxClojureRT.log.isDebugEnabled()) {
 				NginxClojureRT.log.debug("#%d: request %s released!", req.r, req.valAt(URI));
 			}
 			if (req.listeners != null) {
 				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners) {
-					en.getValue().onClose(en.getKey());
+					try {
+						en.getValue().onClose(en.getKey());
+					}catch(Throwable e) {
+						NginxClojureRT.log.error(String.format("#%d: onClose Error!", req.r), e);
+					}
 				}
 			}
 		}
 		
 		@Override
+		public void onRead(long status, LazyRequestMap req) {
+			if (NginxClojureRT.log.isDebugEnabled()) {
+				NginxClojureRT.log.debug("#%d: request %s onRead!", req.r, req.valAt(URI));
+			}
+			if (req.listeners != null) {
+				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners) {
+					try {
+						en.getValue().onRead(status, en.getKey());
+					}catch(Throwable e) {
+						NginxClojureRT.log.error(String.format("#%d: onRead Error!", req.r), e);
+					}
+				}
+			}
+		}
+
+		@Override
+		public void onWrite(long status, LazyRequestMap req) {
+			if (NginxClojureRT.log.isDebugEnabled()) {
+				NginxClojureRT.log.debug("#%d: request %s onWrite!", req.r, req.valAt(URI));
+			}
+			if (req.listeners != null) {
+				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners) {
+					try {
+						en.getValue().onWrite(status, en.getKey());
+					}catch(Throwable e) {
+						NginxClojureRT.log.error(String.format("#%d: onWrite Error!", req.r), e);
+					}
+				}
+			}
+		}
+
+		@Override
 		public void onConnect(long status, LazyRequestMap data) {
+			// TODO Auto-generated method stub
+			
 		}
 	};
 	
@@ -93,7 +128,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		this.array = array;
 		this.hijackTag = hijackTag;
 		if (r != 0) {
-			NginxClojureRT.ngx_http_cleanup_add(r, requestListener, this);
+			NginxClojureRT.ngx_http_clojure_add_listener(r, requestListener, this);
 		}
 	}
 	

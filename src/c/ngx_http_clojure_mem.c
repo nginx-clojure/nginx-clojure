@@ -15,7 +15,7 @@ static jclass nc_rt_class;
 static jmethodID nc_rt_eval_mid;
 static jmethodID nc_rt_register_code_mid;
 static jmethodID nc_rt_handle_post_event_mid;
-static jmethodID nc_rt_channel_listener_onclose_mid;
+static jmethodID nc_rt_handle_channel_event_mid;
 
 static int nc_ngx_workers;
 static ngx_socket_t nc_ngx_worker_pipes_fds[NGX_MAX_PROCESSES][2];
@@ -122,14 +122,14 @@ static ngx_str_t ngx_http_clojure_mime_types[] = {
 		ngx_null_string
 };
 
-typedef struct {
-	jobject listener;
-	jobject data;
-} ngx_http_clojure_clean_up_data_t;
 
-static void ngx_http_clojure_check_broken_connection(ngx_http_request_t *r, ngx_event_t *ev);
+static ngx_int_t ngx_http_clojure_check_broken_connection(ngx_http_request_t *r, ngx_event_t *ev);
 
 static void ngx_http_clojure_rd_check_broken_connection(ngx_http_request_t *r);
+
+static void nji_ngx_http_clojure_hijack_read_handler(ngx_http_request_t *r);
+
+static void nji_ngx_http_clojure_hijack_write_handler(ngx_http_request_t *r);
 
 ngx_int_t ngx_http_clojure_prepare_server_header(ngx_http_request_t *r) {
 	ngx_table_elt_t *h = r->headers_out.server;
@@ -638,7 +638,25 @@ static void ngx_http_clojure_hijack_writer(ngx_http_request_t *r) {
 		ngx_http_close_request(r, 0);
 		return;
 	}
-	r->write_event_handler = ngx_http_request_empty_handler;
+
+	if (ctx->upgraded) {
+		r->read_event_handler = nji_ngx_http_clojure_hijack_read_handler;
+		r->write_event_handler = nji_ngx_http_clojure_hijack_write_handler;
+
+
+	    if (!c->write->active && ngx_handle_write_event(c->write, clcf->send_lowat)
+	        != NGX_OK) {
+	    	ngx_http_finalize_request(r, NGX_ERROR);
+	        return;
+	    }
+
+	    if (!c->read->active && ngx_handle_read_event(c->read, 0) != NGX_OK) {
+	    	ngx_http_finalize_request(r, NGX_ERROR);
+	        return;
+	    }
+	}else {
+		r->write_event_handler = ngx_http_request_empty_handler;
+	}
 }
 
 
@@ -1202,6 +1220,8 @@ static ngx_int_t  ngx_http_clojure_hijack_send_chain(ngx_http_request_t *r, ngx_
 	ngx_http_clojure_module_ctx_t *ctx;
 	ngx_int_t rc;
 	ngx_chain_t **ll;
+	ngx_connection_t *c;
+	ngx_http_core_loc_conf_t *clcf;
 
 	if (r->pool == NULL) {
 		ngx_log_error(NGX_LOG_ERR, ngx_http_clojure_global_cycle->log, 0,
@@ -1214,7 +1234,10 @@ static ngx_int_t  ngx_http_clojure_hijack_send_chain(ngx_http_request_t *r, ngx_
 		return NGX_ERROR;
 	}
 
+	c = r->connection;
 	ctx = (ngx_http_clojure_module_ctx_t *) ngx_http_get_module_ctx(r, ngx_http_clojure_module);
+	clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
+
 	if (flag & NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG) {
 		ctx->ignore_filters = 1;
 	} else {
@@ -1253,11 +1276,27 @@ static ngx_int_t  ngx_http_clojure_hijack_send_chain(ngx_http_request_t *r, ngx_
 			ngx_http_close_request(r, 0);
 			return NGX_OK;
 		}
-		r->read_event_handler = ngx_http_clojure_rd_check_broken_connection;
-		r->write_event_handler = ngx_http_request_empty_handler;
+
+		if (ctx->upgraded) {
+			r->read_event_handler = nji_ngx_http_clojure_hijack_read_handler;
+			r->write_event_handler = nji_ngx_http_clojure_hijack_write_handler;
+
+			if (!c->write->active && ngx_handle_write_event(c->write, clcf->send_lowat) != NGX_OK) {
+/*				ngx_http_finalize_request(r, NGX_ERROR);*/
+				return NGX_ERROR;
+			}
+
+			if (!c->read->active && ngx_handle_read_event(c->read, 0) != NGX_OK) {
+/*				ngx_http_finalize_request(r, NGX_ERROR);*/
+				return NGX_ERROR;
+			}
+		}else {
+			r->read_event_handler = ngx_http_clojure_rd_check_broken_connection;
+			r->write_event_handler = ngx_http_request_empty_handler;
+		}
 	}
 
-	if (!r->connection->read->active) {
+	if (!c->read->active) {
 		(void)ngx_handle_read_event(r->connection->read, 0);
 	}
 
@@ -1314,10 +1353,113 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, char *mess
 	return ngx_http_clojure_hijack_send_chain(r, in, flag);
 }
 
+static void nji_ngx_http_clojure_hijack_read_handler(ngx_http_request_t *r) {
+
+	ngx_connection_t *c = r->connection;
+	ngx_http_clojure_module_ctx_t *ctx = (ngx_http_clojure_module_ctx_t *)ngx_http_get_module_ctx(r, ngx_http_clojure_module);
+	jlong flag = NGX_HTTP_CLOJURE_SOCKET_OK;
+	ngx_http_clojure_listener_node_t *l = ctx->listeners;
+
+	if (c->read->timedout) {
+		flag = NGX_HTTP_CLOJURE_SOCKET_ERR_READ_TIMEOUT;
+	}else if (c->read->timer_set) {
+		ngx_del_timer(c->read);
+	}
+
+	while (l) {
+		(*jvm_env)->CallStaticVoidMethod(jvm_env, nc_rt_class, nc_rt_handle_channel_event_mid, (jlong)1, flag, ctx->listeners->data,
+				ctx->listeners->listener);
+		if ((*jvm_env)->ExceptionOccurred(jvm_env)) {
+			(*jvm_env)->ExceptionDescribe(jvm_env);
+			(*jvm_env)->ExceptionClear(jvm_env);
+		}
+		l = l->next;
+	}
+
+	if (flag != NGX_HTTP_CLOJURE_SOCKET_OK) {
+		ngx_http_finalize_request(r, NGX_HTTP_REQUEST_TIME_OUT);
+	}
+
+}
+
+static void nji_ngx_http_clojure_hijack_write_handler(ngx_http_request_t *r) {
+	ngx_connection_t *c = r->connection;
+	ngx_http_clojure_module_ctx_t *ctx = (ngx_http_clojure_module_ctx_t *)ngx_http_get_module_ctx(r, ngx_http_clojure_module);
+	jlong flag = NGX_HTTP_CLOJURE_SOCKET_OK;
+	ngx_http_clojure_listener_node_t *l = ctx->listeners;
+
+	if (c->write->timedout) {
+		flag = NGX_HTTP_CLOJURE_SOCKET_ERR_WRITE_TIMEOUT;
+	}else if (c->write->timer_set) {
+		ngx_del_timer(c->write);
+	}
+
+	while (l) {
+		(*jvm_env)->CallStaticVoidMethod(jvm_env, nc_rt_class, nc_rt_handle_channel_event_mid, (jlong)2, flag, ctx->listeners->data,
+				ctx->listeners->listener);
+		if ((*jvm_env)->ExceptionOccurred(jvm_env)) {
+			(*jvm_env)->ExceptionDescribe(jvm_env);
+			(*jvm_env)->ExceptionClear(jvm_env);
+		}
+		l = l->next;
+	}
+
+	if (flag != NGX_HTTP_CLOJURE_SOCKET_OK) {
+		ngx_http_finalize_request(r, NGX_HTTP_REQUEST_TIME_OUT);
+	}
+}
+
+static jlong JNICALL jni_ngx_http_hijack_read(JNIEnv *env, jclass cls, jlong req, jobject buf, jlong off, jlong len) {
+	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t)req;
+	ngx_connection_t *c = r->connection;
+/*	ngx_http_core_loc_conf_t *clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);*/
+	ngx_int_t rc = c->recv(c, ngx_http_clojure_abs_off_addr(buf, off), len);
+	if (rc == NGX_AGAIN) {
+/*websocket should have infinite timeout */
+/*		if (clcf->client_body_timeout > 0) {
+			ngx_add_timer(c->read, clcf->client_body_timeout);
+		}*/
+
+		rc = NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN;
+	}else if (rc < 0) {
+		rc = NGX_HTTP_CLOJURE_SOCKET_ERR_READ;
+	}
+	/*TODO: if rc == 0 we need release the request ? */
+	return rc;
+
+}
+
+static jlong JNICALL jni_ngx_http_hijack_write(JNIEnv *env, jclass cls, jlong req, jobject buf, jlong off, jlong len) {
+	ngx_http_request_t *r = (ngx_http_request_t *) (uintptr_t) req;
+	ngx_connection_t *c = r->connection;
+	ngx_http_core_loc_conf_t *clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
+	ngx_int_t rc = c->send(c, ngx_http_clojure_abs_off_addr(buf, off), len);
+
+	if (rc == 0 || rc == NGX_AGAIN) {
+		/*Because if connected immediately successfully or we have deleted this event in
+		 * ngx_http_clojure_socket_upstream_handler the write event was not registered
+		 * so we need register it here.*/
+		if (!c->write->active) {
+			(void) ngx_handle_write_event(c->write, 0);
+		}
+
+		clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
+		if (clcf->send_timeout > 0) {
+			ngx_add_timer(c->write, clcf->send_timeout);
+		}
+		rc = NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN;
+	} else if (rc < 0) {
+		rc = NGX_HTTP_CLOJURE_SOCKET_ERR_WRITE;
+	}
+	return rc;
+}
+
 static jlong JNICALL jni_ngx_http_hijack_send_header(JNIEnv *env, jclass cls, jlong req, jint flag) {
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t)req;
 	ngx_http_clojure_module_ctx_t *ctx;
 	ngx_int_t rc;
+	ngx_connection_t *c;
+	ngx_http_core_loc_conf_t *clcf;
 
 	if (r->pool == NULL) {
 		ngx_log_error(NGX_LOG_ERR, ngx_http_clojure_global_cycle->log, 0, "jni_ngx_http_hijack_send_header:"
@@ -1326,6 +1468,33 @@ static jlong JNICALL jni_ngx_http_hijack_send_header(JNIEnv *env, jclass cls, jl
 	}
 
 	ctx = (ngx_http_clojure_module_ctx_t *)ngx_http_get_module_ctx(r, ngx_http_clojure_module);
+	clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
+	c = r->connection;
+
+	if (r->headers_out.status == NGX_HTTP_SWITCHING_PROTOCOLS) {
+		ctx->upgraded = 1;
+		flag |= NGX_CLOJURE_BUF_FLUSH_FLAG;
+		flag |= NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG;
+		r->keepalive = 0;
+		c->log->action = "upgraded connection";
+
+		if (clcf->tcp_nodelay) {
+			int tcp_nodelay = 1;
+
+			if (c->tcp_nodelay == NGX_TCP_NODELAY_UNSET) {
+				ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0, "tcp_nodelay");
+
+				if (setsockopt(c->fd, IPPROTO_TCP, TCP_NODELAY, (const void *) &tcp_nodelay, sizeof(int)) == -1) {
+					ngx_connection_error(c, ngx_socket_errno, "setsockopt(TCP_NODELAY) failed");
+					ngx_http_finalize_request(r, NGX_ERROR);
+					return NGX_ERROR;
+				}
+
+				c->tcp_nodelay = NGX_TCP_NODELAY_SET;
+			}
+		}
+	}
+
 	if (flag & NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG) {
 		ctx->ignore_filters = 1;
 	}else {
@@ -1343,8 +1512,10 @@ static jlong JNICALL jni_ngx_http_hijack_send_header(JNIEnv *env, jclass cls, jl
 			rc = ngx_http_clojure_hijack_send(r, 0, 0, flag);
 			if (rc != NGX_OK) {
 				ngx_http_finalize_request(r, rc);
+				return rc;
 			}
 		}
+
 		return rc;
 	}else {
 		ngx_http_finalize_request(r, rc);
@@ -1381,17 +1552,22 @@ static void JNICALL jni_ngx_http_hijack_set_async_timeout(JNIEnv *env, jclass cl
 }
 
 static void ngx_http_clojure_cleanup_handler(void *data) {
-	ngx_http_clojure_clean_up_data_t *cd = (ngx_http_clojure_clean_up_data_t *)data;
-	(*jvm_env)->CallStaticVoidMethod(jvm_env, nc_rt_class, nc_rt_channel_listener_onclose_mid, cd->data, cd->listener);
-	exception_handle(0 == 0, jvm_env,
-			(*jvm_env)->DeleteGlobalRef(jvm_env, cd->listener);
-	        (*jvm_env)->DeleteGlobalRef(jvm_env, cd->data);
-	        return);
-	(*jvm_env)->DeleteGlobalRef(jvm_env, cd->listener);
-	(*jvm_env)->DeleteGlobalRef(jvm_env, cd->data);
+	ngx_http_request_t *r = (ngx_http_request_t *)data;
+	ngx_http_clojure_module_ctx_t *ctx = (ngx_http_clojure_module_ctx_t *)ngx_http_get_module_ctx(r, ngx_http_clojure_module);
+	while (ctx->listeners) {
+		(*jvm_env)->CallStaticVoidMethod(jvm_env, nc_rt_class, nc_rt_handle_channel_event_mid, 0, 0, ctx->listeners->data,
+				ctx->listeners->listener);
+		if ((*jvm_env)->ExceptionOccurred(jvm_env)) {
+			(*jvm_env)->ExceptionDescribe(jvm_env);
+			(*jvm_env)->ExceptionClear(jvm_env);
+		}
+		(*jvm_env)->DeleteGlobalRef(jvm_env, (jobject)ctx->listeners->listener);
+		(*jvm_env)->DeleteGlobalRef(jvm_env, (jobject)ctx->listeners->data);
+		ctx->listeners = ctx->listeners->next;
+	}
 }
 
-static void ngx_http_clojure_check_broken_connection(ngx_http_request_t *r, ngx_event_t *ev) {
+static ngx_int_t ngx_http_clojure_check_broken_connection(ngx_http_request_t *r, ngx_event_t *ev) {
 	int n;
 	char buf[1];
 	ngx_err_t err;
@@ -1409,16 +1585,16 @@ static void ngx_http_clojure_check_broken_connection(ngx_http_request_t *r, ngx_
 
 			if (ngx_del_event(ev, event, 0) != NGX_OK) {
 				ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
-				return;
+				return 1;
 			}
 		}
 		ngx_http_finalize_request(r, NGX_HTTP_CLIENT_CLOSED_REQUEST);
-		return;
+		return 1;
 	}
 
 #if (NGX_HTTP_SPDY)
 	if (r->spdy_stream) {
-		return;
+		return 0;
 	}
 #endif
 
@@ -1427,7 +1603,7 @@ static void ngx_http_clojure_check_broken_connection(ngx_http_request_t *r, ngx_
 	if (ngx_event_flags & NGX_USE_KQUEUE_EVENT) {
 
 		if (!ev->pending_eof) {
-			return;
+			return 0;
 		}
 
 		ev->eof = 1;
@@ -1442,7 +1618,7 @@ static void ngx_http_clojure_check_broken_connection(ngx_http_request_t *r, ngx_
 				"connection");
 
 		ngx_http_finalize_request(r, NGX_HTTP_CLIENT_CLOSED_REQUEST);
-		return;
+		return 1;
 	}
 
 #endif
@@ -1474,7 +1650,7 @@ static void ngx_http_clojure_check_broken_connection(ngx_http_request_t *r, ngx_
 		ngx_log_error(NGX_LOG_INFO, ev->log, err, "epoll_wait() reported that client prematurely closed "
 				"connection");
 		ngx_http_finalize_request(r, NGX_HTTP_CLIENT_CLOSED_REQUEST);
-		return;
+		return 1;
 	}
 
 #endif
@@ -1486,7 +1662,7 @@ static void ngx_http_clojure_check_broken_connection(ngx_http_request_t *r, ngx_
 	ngx_log_debug1(NGX_LOG_DEBUG_HTTP, ev->log, err, "http clojure module recv(): %d", n);
 
 	if (ev->write && (n >= 0 || err == NGX_EAGAIN)) {
-		return;
+		return 0;
 	}
 
 	if ((ngx_event_flags & NGX_USE_LEVEL_EVENT) && ev->active) {
@@ -1495,17 +1671,17 @@ static void ngx_http_clojure_check_broken_connection(ngx_http_request_t *r, ngx_
 
 		if (ngx_del_event(ev, event, 0) != NGX_OK) {
 			ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
-			return;
+			return 1;
 		}
 	}
 
 	if (n > 0) {
-		return;
+		return 0;
 	}
 
 	if (n == -1) {
 		if (err == NGX_EAGAIN) {
-			return;
+			return 0;
 		}
 
 		ev->error = 1;
@@ -1520,24 +1696,37 @@ static void ngx_http_clojure_check_broken_connection(ngx_http_request_t *r, ngx_
 	ngx_log_error(NGX_LOG_INFO, ev->log, err, "client prematurely closed connection");
 
 	ngx_http_finalize_request(r, NGX_HTTP_CLIENT_CLOSED_REQUEST);
+	return 1;
 }
 
 static void ngx_http_clojure_rd_check_broken_connection(ngx_http_request_t *r){
-    ngx_http_clojure_check_broken_connection(r, r->connection->read);
+    (void)ngx_http_clojure_check_broken_connection(r, r->connection->read);
 }
 
 /*static void ngx_http_clojure_wt_check_broken_connection(ngx_http_request_t *r){
     ngx_http_clojure_check_broken_connection(r, r->connection->write);
 }*/
 
-static jlong JNICALL jni_ngx_http_cleanup_add(JNIEnv *env, jclass cls, jlong req, jobject listener, jobject data) {
+static jlong JNICALL ngx_http_clojure_add_listener(JNIEnv *env, jclass cls, jlong req, jobject listener, jobject data) {
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t)req;
-	ngx_http_cleanup_t *cu = ngx_http_cleanup_add(r, sizeof(ngx_http_clojure_clean_up_data_t));
+	ngx_http_cleanup_t *cu = ngx_http_cleanup_add(r, 0);
+	ngx_http_clojure_module_ctx_t *ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
+	ngx_http_clojure_listener_node_t **ll = &ctx->listeners;
+
 	cu->handler = ngx_http_clojure_cleanup_handler;
-	((ngx_http_clojure_clean_up_data_t *)cu->data)->listener = (*env)->NewGlobalRef(env, listener);
-	exception_handle(((ngx_http_clojure_clean_up_data_t *)cu->data)->listener == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
-	((ngx_http_clojure_clean_up_data_t *)cu->data)->data = (*env)->NewGlobalRef(env, data);
-	exception_handle(((ngx_http_clojure_clean_up_data_t *)cu->data)->data == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+	cu->data = r;
+
+	while (*ll) {
+		ll = &(*ll)->next;
+	}
+
+	*ll = ngx_palloc(r->pool, sizeof(ngx_http_clojure_listener_node_t));
+	(*ll)->data = (*env)->NewGlobalRef(env, data);
+	exception_handle((*ll)->data == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+	(*ll)->listener = (*env)->NewGlobalRef(env, listener);
+	exception_handle((*ll)->listener, env, (*env)->DeleteGlobalRef(env, (jobject)(*ll)->data); return NGX_HTTP_CLOJURE_JVM_ERR);
+	(*ll)->next = NULL;
+
 	return NGX_OK;
 }
 
@@ -2524,7 +2713,9 @@ int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log) {
 			{"ngx_http_hijack_send_header", "(JI)J", jni_ngx_http_hijack_send_header},
 			{"ngx_http_hijack_send_chain", "(JJI)J", jni_ngx_http_hijack_send_chain},
 			{"ngx_http_hijack_set_async_timeout", "(JJ)V", jni_ngx_http_hijack_set_async_timeout},
-			{"ngx_http_cleanup_add", "(JLnginx/clojure/ChannelListener;Ljava/lang/Object;)J", jni_ngx_http_cleanup_add}
+			{"ngx_http_clojure_add_listener", "(JLnginx/clojure/ChannelListener;Ljava/lang/Object;)J", ngx_http_clojure_add_listener},
+			{"ngx_http_hijack_read", "(JLjava/lang/Object;JJ)J", jni_ngx_http_hijack_read},
+			{"ngx_http_hijack_write", "(JLjava/lang/Object;JJ)J", jni_ngx_http_hijack_write},
 //			{"ngx_http_clojure_mem_get_body_tmp_file", "(J)J", jni_ngx_http_clojure_mem_get_body_tmp_file}
 	};
 	jmethodID nc_rt_init_mid;
@@ -2720,8 +2911,8 @@ int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log) {
 	exception_handle(nc_rt_handle_post_event_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 
 	{
-		nc_rt_channel_listener_onclose_mid = (*env)->GetStaticMethodID(env, nc_rt_class, "handleCleanUpEvent", "(Ljava/lang/Object;Lnginx/clojure/ChannelListener;)V");
-		exception_handle(nc_rt_channel_listener_onclose_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+		nc_rt_handle_channel_event_mid = (*env)->GetStaticMethodID(env, nc_rt_class, "handleChannelEvent", "(IJLjava/lang/Object;Lnginx/clojure/ChannelListener;)V");
+		exception_handle(nc_rt_handle_channel_event_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 	}
 
 	(*env)->CallStaticVoidMethod(env, nc_rt_class, nc_rt_init_mid, MEM_INDEX);

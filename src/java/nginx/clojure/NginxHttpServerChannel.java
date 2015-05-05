@@ -9,6 +9,7 @@ import static nginx.clojure.MiniConstants.NGX_AGAIN;
 import static nginx.clojure.MiniConstants.NGX_OK;
 import static nginx.clojure.NginxClojureRT.log;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collection;
@@ -17,6 +18,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import nginx.clojure.java.NginxJavaResponse;
+import nginx.clojure.net.NginxClojureAsynSocket;
 import sun.nio.ch.DirectBuffer;
 
 public class NginxHttpServerChannel {
@@ -27,9 +29,17 @@ public class NginxHttpServerChannel {
 	protected Object context;
 	protected long asyncTimeout;
 	
+	private static ChannelListener<NginxHttpServerChannel> closeListener = new ChannelCloseAdapter<NginxHttpServerChannel>() {
+		@Override
+		public void onClose(NginxHttpServerChannel sc) {
+			sc.closed = true;
+		}
+	};
+	
 	public NginxHttpServerChannel(NginxRequest request, boolean ignoreFilter) {
 		this.request = request;
 		this.ignoreFilter = ignoreFilter;
+		request.addListener(this, closeListener);
 	}
 	
 	public <T> void addListener(T data, ChannelListener<T> listener) {
@@ -132,6 +142,76 @@ public class NginxHttpServerChannel {
 		}else {
 			send(message, flag);
 		}
+	}
+	
+	public long read(ByteBuffer buf) throws IOException {
+		checkValid();
+		long rc = 0;
+		if (buf.isDirect()) {
+			rc = NginxClojureRT.ngx_http_hijack_read(request.nativeRequest(), null,
+					((DirectBuffer) buf).address() + buf.position(), buf.remaining());
+		}else {
+			rc = NginxClojureRT.ngx_http_hijack_read(request.nativeRequest(), buf.array(),
+					MiniConstants.BYTE_ARRAY_OFFSET + buf.arrayOffset() + buf.position(), buf.remaining());
+		}
+	
+		if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
+			return 0;
+		}
+		
+		if (rc < 0) {
+			throw new IOException(NginxClojureAsynSocket.errorCodeToString(rc));
+		}else {
+			buf.position(buf.position() + (int)rc);
+		}
+		
+		return rc;
+	}
+	
+	public long read(byte[] buf, long off, long size) throws IOException {
+		checkValid();
+		long rc = NginxClojureRT.ngx_http_hijack_read(request.nativeRequest(), buf, MiniConstants.BYTE_ARRAY_OFFSET + off, size);
+		if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
+			return 0;
+		}
+		if (rc < 0) {
+			throw new IOException(NginxClojureAsynSocket.errorCodeToString(rc));
+		}
+		return rc;
+	}
+	
+	public long write(byte[] buf, long off, long size) throws IOException {
+		checkValid();
+		long rc = NginxClojureRT.ngx_http_hijack_write(request.nativeRequest(), buf, MiniConstants.BYTE_ARRAY_OFFSET + off, size);
+		if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
+			return 0;
+		}
+		if (rc < 0) {
+			throw new IOException(NginxClojureAsynSocket.errorCodeToString(rc));
+		}
+		
+		return (int)rc;
+	}
+	
+	public long write(ByteBuffer buf) throws IOException {
+		checkValid();
+		long rc = 0;
+		if (buf.isDirect()) {
+			rc = NginxClojureRT.ngx_http_hijack_write(request.nativeRequest(), null,
+					((DirectBuffer) buf).address() + buf.position(), buf.remaining());
+		}else {
+			rc = NginxClojureRT.ngx_http_hijack_write(request.nativeRequest(), buf.array(),
+					MiniConstants.BYTE_ARRAY_OFFSET + buf.arrayOffset() + buf.position(), buf.remaining());
+		}
+		if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
+			return 0;
+		}
+		if (rc < 0) {
+			throw new IOException(NginxClojureAsynSocket.errorCodeToString(rc));
+		}else {
+			buf.position(buf.position() + (int)rc);
+		}
+		return rc;
 	}
 	
 	public <K, V> void sendHeader(long status, Collection<Map.Entry<K, V>> headers, boolean flush, boolean last) {

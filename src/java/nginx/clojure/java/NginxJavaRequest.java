@@ -59,25 +59,58 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	protected List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners;
 	
 	
-	private final  static ChannelListener<NginxJavaRequest> requestListener  = new  ChannelListener<NginxJavaRequest> (){
+	private final  static ChannelListener<NginxJavaRequest> requestListener  = new ChannelListener<NginxJavaRequest>(){
 		@Override
 		public void onClose(NginxJavaRequest req) {
 			req.released = true;
-			if (req.channel != null) {
-				req.channel.tagClose();
-			}
 			if (NginxClojureRT.log.isDebugEnabled()) {
 				NginxClojureRT.log.debug("#%d: request %s released!", req.r, req.get(URI));
 			}
 			if (req.listeners != null) {
 				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners) {
-					en.getValue().onClose(en.getKey());
+					try {
+						en.getValue().onClose(en.getKey());
+					}catch(Throwable e) {
+						NginxClojureRT.log.error(String.format("#%d: onClose Error!", req.r), e);
+					}
 				}
 			}
 		}
-		
+
 		@Override
 		public void onConnect(long status, NginxJavaRequest data) {
+		}
+
+		@Override
+		public void onRead(long status, NginxJavaRequest req) {
+			if (NginxClojureRT.log.isDebugEnabled()) {
+				NginxClojureRT.log.debug("#%d: request %s onRead!", req.r, req.get(URI));
+			}
+			if (req.listeners != null) {
+				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners) {
+					try {
+						en.getValue().onRead(status, en.getKey());
+					}catch(Throwable e) {
+						NginxClojureRT.log.error(String.format("#%d: onRead Error!", req.r), e);
+					}
+				}
+			}
+		}
+
+		@Override
+		public void onWrite(long status, NginxJavaRequest req) {
+			if (NginxClojureRT.log.isDebugEnabled()) {
+				NginxClojureRT.log.debug("#%d: request %s onWrite!", req.r, req.get(URI));
+			}
+			if (req.listeners != null) {
+				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners) {
+					try {
+						en.getValue().onWrite(status, en.getKey());
+					}catch(Throwable e) {
+						NginxClojureRT.log.error(String.format("#%d: onWrite Error!", req.r), e);
+					}
+				}
+			}
 		}
 	};
 	
@@ -87,7 +120,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		this.array = array;
 		this.ringHandler = ringHandler;
 		if (r != 0) {
-			NginxClojureRT.ngx_http_cleanup_add(r, requestListener, this);
+			NginxClojureRT.ngx_http_clojure_add_listener(r, requestListener, this);
 		}
 	}
 	

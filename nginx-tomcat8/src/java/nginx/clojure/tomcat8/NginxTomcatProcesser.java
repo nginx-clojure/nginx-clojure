@@ -1,3 +1,7 @@
+/**
+ *  Copyright (C) Zhang,Yuexiang (xfeep)
+ *
+ */
 package nginx.clojure.tomcat8;
 import java.io.File;
 import java.io.IOException;
@@ -9,9 +13,12 @@ import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.servlet.ReadListener;
+import javax.servlet.http.HttpUpgradeHandler;
 
+import nginx.clojure.ChannelCloseAdapter;
 import nginx.clojure.ChannelListener;
 import nginx.clojure.MiniConstants;
+import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.java.Constants;
 import nginx.clojure.java.NginxJavaRequest;
@@ -26,6 +33,7 @@ import org.apache.coyote.InputBuffer;
 import org.apache.coyote.OutputBuffer;
 import org.apache.coyote.Request;
 import org.apache.coyote.Response;
+import org.apache.coyote.http11.upgrade.NginxClojureWebConnectionImp;
 import org.apache.tomcat.util.buf.ByteChunk;
 import org.apache.tomcat.util.buf.MessageBytes;
 import org.apache.tomcat.util.http.MimeHeaders;
@@ -50,6 +58,9 @@ public	class NginxTomcatProcesser implements Runnable, ActionHook {
 		Throwable error;
 		boolean headerSent = false;
 		boolean closed = false;
+		boolean isUpgrade = false;
+		
+		HttpUpgradeHandler upgradeHandler;
 		
 		
 		public NginxTomcatProcesser(Adapter adapter, NginxJavaRequest req) {
@@ -107,7 +118,7 @@ public	class NginxTomcatProcesser implements Runnable, ActionHook {
 		@Override
 		public void action(ActionCode actionCode, Object param) {
 			try {
-				log.info("actionCode: " + actionCode + ", param:" + param + "\n\n");
+				NginxClojureRT.log.debug("actionCode: " + actionCode + ", param:" + param + "\n\n");
 				
 				switch (actionCode) {
 				case COMMIT: {
@@ -123,7 +134,9 @@ public	class NginxTomcatProcesser implements Runnable, ActionHook {
 					break;
 				}
 				case CLOSE: {
-					close();
+					if (!isUpgrade) {
+						close();
+					}
 					break;
 				}
 				case IS_ERROR : {
@@ -133,7 +146,7 @@ public	class NginxTomcatProcesser implements Runnable, ActionHook {
 				case ASYNC_START : {
 					isAsync = isStarted = true;
 					asyncContextCallback = (AsyncContextCallback) param;
-					sc.addListener(asyncContextCallback, new ChannelListener<AsyncContextCallback>() {
+					sc.addListener(asyncContextCallback, new ChannelCloseAdapter<AsyncContextCallback>() {
 						@Override
 						public void onClose(AsyncContextCallback data) {
 							asyncContextCallback.fireOnComplete();
@@ -229,8 +242,15 @@ public	class NginxTomcatProcesser implements Runnable, ActionHook {
 		            }
 		            break;
 				}
+				case UPGRADE : {
+					upgradeHandler = (HttpUpgradeHandler)param;
+//					upgradeHandler.init(new WebConnectionImp(sc));
+					isUpgrade = true;
+					log.debug("we are upgrading to websocket");
+					break;
+				}
 				default: {
-					log.warn("not support actionCode:" + actionCode + ", on object:" + param);
+					NginxClojureRT.log.debug("not support actionCode:" + actionCode + ", on object:" + param);
 				}
 				}
 			}catch(Throwable e) {
@@ -318,7 +338,12 @@ public	class NginxTomcatProcesser implements Runnable, ActionHook {
 
 			try {
 				adapter.service(req, res);
-				if (!isAsync && !closed) {
+				if (isUpgrade) {
+					upgradeHandler.init(new NginxClojureWebConnectionImp(sc));
+					log.info("upgrade to websocket");
+				}
+				
+				if (!isAsync && !closed && !isUpgrade) {
 					close();
 				}
 			} catch (Exception e) {

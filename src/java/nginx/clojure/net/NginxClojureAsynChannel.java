@@ -237,11 +237,11 @@ public class NginxClojureAsynChannel implements NginxClojureSocketHandler {
 		if (listener != null) {
 			listener.onConnect(sc, this);
 		}
-		callOnEventNoThrows(connectFakeChain, sc, true);
+		callOnEventNoThrows(connectFakeChain, sc);
 		connectFakeChain = null;
 	}
 	
-	protected void callOnEventNoThrows(BufferChain chain, long status, boolean onConnect) {
+	protected void callOnEventNoThrows(BufferChain chain, long status) {
 		if (chain.listener == null) {
 			return;
 		}
@@ -264,7 +264,7 @@ public class NginxClojureAsynChannel implements NginxClojureSocketHandler {
 		BufferChain chain = isRead ? readBusyChain : writeBusyChain;
 		if (sc != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
 			while (chain != null) {
-				callOnEventNoThrows(chain, sc, false);
+				callOnEventNoThrows(chain, sc);
 				if (!isRead) {
 					BufferChain head = freeChain;
 					freeChain = chain;
@@ -297,7 +297,7 @@ public class NginxClojureAsynChannel implements NginxClojureSocketHandler {
 					}else {
 						writeBusyChain = chain.next;
 					}
-					callOnEventNoThrows(chain, c, false);
+					callOnEventNoThrows(chain, c);
 					chain = isRead ? readBusyChain : writeBusyChain;
 				}
 			} else if (rc <= 0) {
@@ -311,10 +311,10 @@ public class NginxClojureAsynChannel implements NginxClojureSocketHandler {
 						writeBusyChain = chain.next;
 					}
 					if (c > 0) {
-						callOnEventNoThrows(chain, c, false);
+						callOnEventNoThrows(chain, c);
 						c = 0;
 					}else {
-						callOnEventNoThrows(chain, rc, false);
+						callOnEventNoThrows(chain, rc);
 					}
 					
 					chain = isRead ? readBusyChain : writeBusyChain;

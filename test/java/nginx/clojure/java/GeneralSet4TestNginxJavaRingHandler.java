@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import nginx.clojure.AppEventListenerManager.Listener;
 import nginx.clojure.AppEventListenerManager.PostedEvent;
-import nginx.clojure.ChannelListener;
+import nginx.clojure.ChannelCloseAdapter;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHandler;
 import nginx.clojure.NginxHttpServerChannel;
@@ -168,15 +168,11 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 			NginxJavaRequest r = (NginxJavaRequest) request;
 			NginxHandler handler = r.handler();
 			NginxHttpServerChannel channel = handler.hijack(r, true);
-			channel.addListener(channel, new ChannelListener<NginxHttpServerChannel>() {
+			channel.addListener(channel, new ChannelCloseAdapter<NginxHttpServerChannel>() {
 				@Override
 				public void onClose(NginxHttpServerChannel data) {
 					Init.serverSentEventSubscribers.remove(data);
 					NginxClojureRT.getLog().info("closing...." + data.request().nativeRequest());
-				}
-
-				@Override
-				public void onConnect(long status, NginxHttpServerChannel data) {
 				}
 			});
 			Init.serverSentEventSubscribers.add(channel);
