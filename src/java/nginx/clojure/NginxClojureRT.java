@@ -884,6 +884,19 @@ public class NginxClojureRT extends MiniConstants {
 		return HackUtils.decode(bb, encoding, cb);
 	}
 	
+	public static final String fetchStringValidPart(long address, int size, Charset encoding) {
+		ByteBuffer bb = pickByteBuffer();
+		CharBuffer cb = pickCharBuffer();
+		if (size > bb.capacity()) {
+			bb = ByteBuffer.allocate(size);
+		}
+		ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(address), bb.array(), BYTE_ARRAY_OFFSET, size);
+		bb.limit(size);
+		int invalidNum = HackUtils.decodeValid(bb, encoding, cb);
+		UNSAFE.putAddress(address, UNSAFE.getAddress(address) - invalidNum);
+		return cb.toString();
+	}
+	
 	public static final int pushLowcaseString(long address, String val, Charset encoding, long pool) {
 		ByteBuffer bb = pickByteBuffer();
 		bb = HackUtils.encodeLowcase(val, encoding, bb);
@@ -1065,17 +1078,25 @@ public class NginxClojureRT extends MiniConstants {
 	
 	private static void handleChannelEvent(int type, long status, Object data, ChannelListener<Object> listener) {
 		switch(type) {
-		case 0: 
+		case NGX_HTTP_CLOJURE_CHANNEL_EVENT_CLOSE: 
 			listener.onClose(data);
 			break;
-		case 1:
+		case NGX_HTTP_CLOJURE_CHANNEL_EVENT_CONNECT :
+			listener.onConnect(status, data);
+			break;
+		case NGX_HTTP_CLOJURE_CHANNEL_EVENT_READ:
 			listener.onRead(status, data);
 			break;
-		case 2:
+		case NGX_HTTP_CLOJURE_CHANNEL_EVENT_WRITE:
 			listener.onWrite(status, data);
 			break;
 		default:
-			log.error("unexpected event type %s", type);
+			if (listener instanceof RawMessageListener) {
+				RawMessageListener rawListener = (RawMessageListener) listener;
+				if ( (type | NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGTEXT) != 0) {
+					rawListener.onTextMessage(data, status, (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_CONTINUE) != 0);
+				}
+			}
 		}
 		
 	}

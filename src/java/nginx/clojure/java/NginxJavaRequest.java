@@ -37,12 +37,15 @@ import java.util.Map;
 import java.util.Set;
 
 import nginx.clojure.ChannelListener;
+import nginx.clojure.MessageListener;
+import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHandler;
 import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxRequest;
 import nginx.clojure.NginxSimpleHandler;
 import nginx.clojure.NginxSimpleHandler.SimpleEntry;
+import nginx.clojure.RawMessageListener;
 import nginx.clojure.RequestVarFetcher;
 import nginx.clojure.java.PickerPoweredIterator.Picker;
 
@@ -59,7 +62,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	protected List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners;
 	
 	
-	private final  static ChannelListener<NginxJavaRequest> requestListener  = new ChannelListener<NginxJavaRequest>(){
+	private final  static ChannelListener<NginxJavaRequest> requestListener  = new RawMessageListener<NginxJavaRequest>(){
 		@Override
 		public void onClose(NginxJavaRequest req) {
 			req.released = true;
@@ -84,7 +87,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		@Override
 		public void onRead(long status, NginxJavaRequest req) {
 			if (NginxClojureRT.log.isDebugEnabled()) {
-				NginxClojureRT.log.debug("#%d: request %s onRead!", req.r, req.get(URI));
+				NginxClojureRT.log.debug("#%d: request %s onRead, status=%d", req.r, req.get(URI), status);
 			}
 			if (req.listeners != null) {
 				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners) {
@@ -100,12 +103,37 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		@Override
 		public void onWrite(long status, NginxJavaRequest req) {
 			if (NginxClojureRT.log.isDebugEnabled()) {
-				NginxClojureRT.log.debug("#%d: request %s onWrite!", req.r, req.get(URI));
+				NginxClojureRT.log.debug("#%d: request %s onWrite, status=%d", req.r, req.get(URI), status);
 			}
 			if (req.listeners != null) {
 				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners) {
 					try {
 						en.getValue().onWrite(status, en.getKey());
+					}catch(Throwable e) {
+						NginxClojureRT.log.error(String.format("#%d: onWrite Error!", req.r), e);
+					}
+				}
+			}
+		}
+		
+		@Override
+		public void onBinaryMessage(NginxJavaRequest req, long message, boolean remining) {
+		}
+		
+		@Override
+		public void onTextMessage(NginxJavaRequest req, long message, boolean remining) {
+			int size = (int) (( message >> 48 ) & 0xffff);
+			if (NginxClojureRT.log.isDebugEnabled()) {
+				NginxClojureRT.log.debug("#%d: request %s onTextMessage! size=%d, rem=%s, pm=%d", req.r, req.get(URI), size, remining, (message << 16 >> 16));
+			}
+			if (req.listeners != null) {
+				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners) {
+					try {
+						ChannelListener<Object> l = en.getValue();
+						if (l instanceof MessageListener) {
+							MessageListener ml = (MessageListener) l;
+							ml.onTextMessage(en.getKey(), NginxClojureRT.fetchStringValidPart(message << 16 >> 16, size, MiniConstants.DEFAULT_ENCODING), remining);
+						}
 					}catch(Throwable e) {
 						NginxClojureRT.log.error(String.format("#%d: onWrite Error!", req.r), e);
 					}

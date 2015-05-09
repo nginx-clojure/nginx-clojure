@@ -105,6 +105,10 @@ public class MiniConstants {
 	public static final int NGX_CLOJURE_BUF_LAST_FLAG = 0x01;
 	public static final int NGX_CLOJURE_BUF_FLUSH_FLAG = 0x02;
 	public static final int NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG = 0x04;
+	/**
+	 * this constant hints whether we send java.lang.String or bytes (byte[], ByteBuffer) from app level
+	 */
+	public static final int NGX_CLOJURE_BUF_APP_MSGTXT = 0x08;
 	
 	/**
 	 * System Event : 0x00 ~ 0x1f
@@ -495,6 +499,15 @@ public class MiniConstants {
 	public static int NGX_HTTP_SERVICE_UNAVAILABLE = 503;
 	public static int NGX_HTTP_GATEWAY_TIME_OUT = 504;
 	public static int NGX_HTTP_INSUFFICIENT_STORAGE = 507;
+	
+	
+	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_CLOSE = 0;
+	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_CONNECT = 1;
+	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_READ = 2;
+	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_WRITE = 4;
+	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_CONTINUE = 8;
+	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGTEXT = 16;
+	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGBIN = 32;
 	
 
 //	public static final String HEADERS = RT.keyword(null, "headers");

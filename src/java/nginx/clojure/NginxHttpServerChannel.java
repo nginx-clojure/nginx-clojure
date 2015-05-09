@@ -117,7 +117,7 @@ public class NginxHttpServerChannel {
 			log.debug("#%s: send message : '%s', flush=%s, last=%s", NginxClojureRT.processId, message, flush, last);
 		}
 		byte[] bs = message == null ? null : message.getBytes(DEFAULT_ENCODING);
-		int flag = computeFlag(flush, last);
+		int flag = computeFlag(flush, last) | MiniConstants.NGX_CLOJURE_BUF_APP_MSGTXT;
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
 			NginxClojureRT.postHijackSendEvent(this, bs, 0, bs == null ? 0 : bs.length, flag);
 		}else {

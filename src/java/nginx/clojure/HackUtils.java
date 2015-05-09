@@ -247,5 +247,25 @@ public class HackUtils {
 		return cb.toString();
     }
     
+    public static int decodeValid(ByteBuffer bb, Charset cs, CharBuffer cb)  {
+    	CharsetDecoder de = ThreadLocalCoders.decoderFor(cs)
+    			.onMalformedInput(CodingErrorAction.REPORT)
+				.onUnmappableCharacter(CodingErrorAction.REPORT);
+    	de.reset();
+    	int len = bb.remaining();
+    	CoderResult rt = de.decode(bb, cb, true);
+    	if (rt == CoderResult.OVERFLOW) {
+    		cb.flip();
+    		CharBuffer lcb = CharBuffer.allocate((int)(len * (double)de.maxCharsPerByte()));
+    		lcb.put(cb);
+    		cb = lcb;
+    		rt = de.decode(bb, cb, true);
+    	}
+    	
+		rt = de.flush(cb);
+		cb.flip();
+		return bb.remaining();
+    }
+    
 
 }

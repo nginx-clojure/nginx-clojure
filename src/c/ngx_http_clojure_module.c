@@ -45,6 +45,7 @@ typedef struct {
 	unsigned enable_header_filter :1;
 	unsigned enable_body_filter :1;
 	unsigned enable_access_handler : 1;
+	ngx_flag_t auto_upgrade_ws;
 	ngx_flag_t handlers_lazy_init;
 	ngx_flag_t always_read_body;
 	ngx_str_t content_handler_type;
@@ -271,6 +272,14 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 		NULL
     },
     {
+		ngx_string("auto_upgrade_ws"),
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_LOC_CONF | NGX_HTTP_SRV_CONF | NGX_CONF_TAKE1,
+		ngx_conf_set_flag_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_clojure_loc_conf_t, auto_upgrade_ws),
+		NULL
+    },
+    {
 		ngx_string("handler_type"),
 		NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_conf_set_str_slot,
@@ -488,6 +497,7 @@ static void * ngx_http_clojure_create_loc_conf(ngx_conf_t *cf) {
 	}
 	conf->handlers_lazy_init = NGX_CONF_UNSET;
 	conf->always_read_body = NGX_CONF_UNSET;
+	conf->auto_upgrade_ws = NGX_CONF_UNSET;
 	conf->content_handler_id = -1;
 	conf->rewrite_handler_id = -1;
 	conf->header_filter_id = -1;
@@ -700,6 +710,7 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 	ngx_http_core_loc_conf_t *clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
 	ngx_conf_merge_value(conf->always_read_body, prev->always_read_body, 0);
 	ngx_conf_merge_value(conf->handlers_lazy_init, prev->handlers_lazy_init, 0);
+	ngx_conf_merge_value(conf->auto_upgrade_ws, prev->auto_upgrade_ws, 0);
 
 #if defined(NGX_CLOJURE_BE_SILENT_WITHOUT_JVM)
 	if (mcf->jvm_path.len == NGX_CONF_UNSET_SIZE) {
@@ -1034,11 +1045,22 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
     return NGX_OK;
 }
 
+static int ngx_http_clojure_check_little_endian() {
+/*
+    volatile uint32_t i=0x01234567;
+    return (*((uint8_t*)(&i))) == 0x67;
+*/
+	return ( 1 != htonl(1) );
+}
+
 static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 
 	ngx_http_core_main_conf_t *cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
 	ngx_http_clojure_main_conf_t *mcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_clojure_module);
 	ngx_http_handler_pt *h;
+
+	ngx_http_clojure_is_little_endian = ngx_http_clojure_check_little_endian();
+
 
 	if (mcf->max_balanced_tcp_connections > 0) {
 		ngx_http_clojure_reset_listening_backlog(cf);
@@ -1146,6 +1168,60 @@ static void ngx_http_clojure_client_body_handler(ngx_http_request_t *r) {
 }
 
 
+static ngx_int_t nginx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
+#if (NGX_HAVE_SHA1)
+	ngx_http_clojure_module_ctx_t *ctx;
+	ngx_table_elt_t *key;
+	ngx_table_elt_t *accept;
+	ngx_table_elt_t *cver;
+	ngx_sha1_t   sha1_ctx;
+	u_char degest[21];
+    ngx_str_t sha1_val = ngx_string(degest);
+
+	ngx_http_clojure_add_const_header(r->headers_out.headers, "Sec-WebSocket-Version", "13");
+
+
+	ngx_http_clojure_get_header(r->headers_in.headers, "Sec-WebSocket-Version", cver);
+	if (cver == NULL || ngx_atoi(cver->value.data, cver->value.len) != 13) {
+		r->headers_out.status = NGX_HTTP_BAD_REQUEST;
+		return ngx_http_clojure_hijack_send_header(r, 0);
+	}
+
+	ngx_http_clojure_get_header(r->headers_in.headers, "Sec-WebSocket-Key", key);
+	if (key == NULL) {
+		r->headers_out.status = NGX_HTTP_BAD_REQUEST;
+		return ngx_http_clojure_hijack_send_header(r, 0);
+	}
+
+	r->headers_out.status = NGX_HTTP_SWITCHING_PROTOCOLS;
+	ngx_http_clojure_add_const_header(r->headers_out.headers, "Upgrade", "websocket");
+	ngx_http_clojure_add_const_header(r->headers_out.headers, "Connection", "upgrade");
+
+	accept = ngx_list_push(&r->headers_out.headers);
+	accept->hash = 1;
+	ngx_str_set(&accept->key, "Sec-WebSocket-Accept");
+	accept->value.len = 28;
+	accept->value.data = ngx_palloc(r->pool, 28);
+
+    ngx_sha1_init(&sha1_ctx);
+    ngx_sha1_update(&sha1_ctx, key->value.data, key->value.len);
+    ngx_sha1_update(&sha1_ctx, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", 36);
+    ngx_sha1_final(degest, &sha1_ctx);
+
+    ngx_encode_base64(&accept->value, &sha1_val);
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
+    if (ctx->wsctx == NULL) {
+    	ctx->wsctx = ngx_pcalloc(r->pool, sizeof(ngx_http_clojure_websocket_ctx_t));
+    	ctx->wsctx->ffm = 1;
+    }
+
+    return ngx_http_clojure_hijack_send_header(r, 0);
+#else
+    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "nginx-clojure websocket support need compile config option --with-http_ssl_module");
+    return NGX_ERROR;
+#endif
+}
 
 static ngx_int_t ngx_http_clojure_content_handler(ngx_http_request_t * r) {
     ngx_int_t     rc;
@@ -1184,6 +1260,17 @@ static ngx_int_t ngx_http_clojure_content_handler(ngx_http_request_t * r) {
         	}
     	}
     }else {
+
+    	if (r->method == NGX_HTTP_GET
+    			&& r->headers_in.upgrade != NULL
+    			&& ngx_strcasecmp(r->headers_in.upgrade->value.data, "websocket") == 0
+    			&& lcf->auto_upgrade_ws) {
+    		rc = nginx_http_clojure_websocket_upgrade(r);
+    		if (rc != NGX_OK) {
+    			return rc;
+    		}
+    	}
+
     	rc = ngx_http_discard_request_body(r);
     	if (rc != NGX_OK && rc != NGX_AGAIN) {
     	   return rc;

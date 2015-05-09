@@ -7,6 +7,7 @@
 
 #include <nginx.h>
 #include <ngx_http.h>
+#include <ngx_sha1.h>
 
 
 
@@ -49,6 +50,30 @@ typedef struct ngx_http_clojure_listener_node_s {
 } ngx_http_clojure_listener_node_t;
 
 typedef struct {
+/*for write*/
+	unsigned ffm : 1; /*first write frame of a message*/
+/*for read*/
+	unsigned fin : 1;
+#define NGX_HTTP_CLOJURE_WEBSOCKET_OPCODE_CONT  0x0
+#define NGX_HTTP_CLOJURE_WEBSOCKET_OPCODE_TEXT  0x1
+#define NGX_HTTP_CLOJURE_WEBSOCKET_OPCODE_BIN   0x2
+#define NGX_HTTP_CLOJURE_WEBSOCKET_OPCODE_CLOSE 0x8
+#define NGX_HTTP_CLOJURE_WEBSOCKET_OPCODE_PING  0x9
+#define NGX_HTTP_CLOJURE_WEBSOCKET_OPCODE_PONG  0xa
+	unsigned opcode : 4;
+	unsigned mask : 1;
+	unsigned mpos : 2; /*mask position in mcode*/
+#define NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_START 0
+#define NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_LEN 1
+#define NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_MASK 2
+#define NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_DATA 3
+	unsigned pstate : 2; /*start/len/mask/data*/
+	char mcode[4]; /*mask code*/
+	uint64_t len;
+	ngx_chain_t *rchain; /*buffer for read*/
+} ngx_http_clojure_websocket_ctx_t;
+
+typedef struct {
 	ngx_int_t phase;
 	ngx_int_t phase_rc;
 	ngx_int_t handled_couter;
@@ -63,6 +88,7 @@ typedef struct {
 	unsigned pending_body_filter : 1;
 	unsigned ignore_next_response : 1;
 	unsigned upgraded : 1;
+	ngx_http_clojure_websocket_ctx_t *wsctx;
 	/*for filter under thread pool mode or coroutine mode*/
 	ngx_chain_t *pending;
 	ngx_http_clojure_listener_node_t *listeners;
@@ -80,6 +106,7 @@ typedef struct {
 		ctx->pending_body_filter = 0 ; \
 		ctx->ignore_next_response = 0; \
 		ctx->upgraded = 0; \
+		ctx->wsctx = 0; \
 		ctx->listeners = 0;
 
 #define NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT 1
@@ -346,6 +373,52 @@ extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 #define NGX_BUF_LAST_OF_CHAIN  1
 #define NGX_BUF_LAST_OF_RESPONSE 2
 
+#define ngx_http_clojure_add_const_header(headers, hn, hv) \
+	do { \
+		ngx_table_elt_t *hxx = ngx_list_push(&headers); \
+		if (hxx == NULL) { \
+			return NGX_ERROR; \
+		} \
+		hxx->hash = 1; \
+		ngx_str_set(&hxx->key, hn); \
+		ngx_str_set(&hxx->value, hv);  \
+	} while(0)
+
+
+#define ngx_http_clojure_get_header(headers, hn, /*out*/hr) \
+	do { \
+		ngx_list_part_t *part = &headers.part; \
+		ngx_table_elt_t *h = part->elts; \
+		ngx_uint_t i; \
+	    for (i = 0; /* void */ ; i++) { \
+	        if (i >= part->nelts) { \
+	            if (part->next == NULL) { \
+	                break; \
+	            } \
+	            part = part->next; \
+	            h = part->elts; \
+	            i = 0; \
+	        } \
+	        if (h[i].hash && sizeof(hn) - 1 == h[i].key.len && ngx_strcasecmp(hn, h[i].key.data) == 0) { \
+	        	hr = &h[i]; \
+	        } \
+	    } \
+	} while(0)
+
+
+#define nc_htonll(val) \
+  (ngx_http_clojure_is_little_endian ? \
+		  ((((uint64_t)htonl((uint32_t)(val))) << 32) \
+		             | htonl((uint32_t)(val >> 32))) \
+		: (val))
+
+#define nc_ntohll(val) \
+  (ngx_http_clojure_is_little_endian ? \
+		  ((((uint64_t)ntohl((uint32_t)(val))) << 32) \
+		             | ntohl((uint32_t)((val) >> 32))) \
+		: (val))
+
+
 int ngx_http_clojure_check_memory_util();
 
 int ngx_http_clojure_pipe_init_by_master(int workers);
@@ -361,6 +434,8 @@ int ngx_http_clojure_register_script(ngx_int_t phase, ngx_str_t *handler_type,
 
 int ngx_http_clojure_eval(int cid, ngx_http_request_t *r, ngx_chain_t *c);
 
+ngx_int_t ngx_http_clojure_hijack_send_header(ngx_http_request_t *r, ngx_int_t flag);
+
 ngx_int_t ngx_http_clojure_filter_continue_next_body_filter(ngx_http_request_t *r, ngx_chain_t *in);
 
 ngx_int_t ngx_http_clojure_prepare_server_header(ngx_http_request_t *r);
@@ -369,5 +444,7 @@ extern ngx_module_t  ngx_http_clojure_module;
 
 extern ngx_http_output_header_filter_pt ngx_http_clojure_next_header_filter;
 extern ngx_http_output_body_filter_pt ngx_http_clojure_next_body_filter;
+
+extern int ngx_http_clojure_is_little_endian;
 
 #endif /* NGX_HTTP_CLOJURE_MEM_H_ */

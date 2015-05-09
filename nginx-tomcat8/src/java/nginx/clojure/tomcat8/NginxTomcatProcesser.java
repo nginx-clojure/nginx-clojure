@@ -50,11 +50,11 @@ public	class NginxTomcatProcesser implements Runnable, ActionHook {
 
 		Response res;
 		Request req;
-        boolean isAsync;
-        boolean isStarted;
-        boolean isCompleting;
-        boolean isDispatching;
-        boolean pauseNonContainerThread;
+		boolean isAsync;
+		boolean isStarted;
+		boolean isCompleting;
+		boolean isDispatching;
+		boolean pauseNonContainerThread;
 		Throwable error;
 		boolean headerSent = false;
 		boolean closed = false;
@@ -150,9 +150,6 @@ public	class NginxTomcatProcesser implements Runnable, ActionHook {
 						@Override
 						public void onClose(AsyncContextCallback data) {
 							asyncContextCallback.fireOnComplete();
-						}
-						@Override
-						public void onConnect(long status, AsyncContextCallback data) {
 						}
 					});
 					break;

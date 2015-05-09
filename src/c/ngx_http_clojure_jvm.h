@@ -60,6 +60,16 @@ typedef jint (*jni_createvm_pt)(JavaVM **pvm, void **penv, void *args);
 #define NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN -27
 #define NGX_HTTP_CLOJURE_SOCKET_ERR_BIND   -28
 
+
+#define NGX_HTTP_CLOJURE_CHANNEL_EVENT_CLOSE 0
+#define NGX_HTTP_CLOJURE_CHANNEL_EVENT_CONNECT  1
+#define NGX_HTTP_CLOJURE_CHANNEL_EVENT_READ  2
+#define NGX_HTTP_CLOJURE_CHANNEL_EVENT_WRITE 4
+#define NGX_HTTP_CLOJURE_CHANNEL_EVENT_CONTINUE 8
+#define NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGTEXT  16
+#define NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGBIN   32
+
+
 #define exception_handle(test, env, action) \
     do { \
         if (test) { \
