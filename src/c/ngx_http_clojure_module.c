@@ -1215,7 +1215,7 @@ static ngx_int_t ngx_http_clojure_content_handler(ngx_http_request_t * r) {
 
     	if (r->method == NGX_HTTP_GET
     			&& r->headers_in.upgrade != NULL
-    			&& ngx_strcasecmp(r->headers_in.upgrade->value.data, "websocket") == 0
+    			&& ngx_strcasecmp(r->headers_in.upgrade->value.data, (u_char*)"websocket") == 0
     			&& lcf->auto_upgrade_ws) {
     		rc = ngx_http_clojure_websocket_upgrade(r);
     		if (rc != NGX_OK) {

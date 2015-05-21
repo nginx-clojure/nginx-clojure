@@ -405,7 +405,7 @@ extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 	            h = part->elts; \
 	            i = 0; \
 	        } \
-	        if (h[i].hash && sizeof(hn) - 1 == h[i].key.len && ngx_strcasecmp(hn, h[i].key.data) == 0) { \
+	        if (h[i].hash && sizeof(hn) - 1 == h[i].key.len && ngx_strcasecmp((u_char*)hn, h[i].key.data) == 0) { \
 	        	hr = &h[i]; \
 	        } \
 	    } \

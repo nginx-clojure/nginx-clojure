@@ -485,8 +485,8 @@ static ngx_chain_t * ngx_http_clojure_get_and_copy_bufs(ngx_pool_t *p, ngx_chain
 	ngx_chain_t *cl;
 	ngx_chain_t **ll = &cl;
 	ngx_buf_t *b = NULL;
-	ngx_int_t head_size = 0;
-	ngx_int_t copy_size;
+	size_t head_size = 0;
+	size_t copy_size;
 	do {
 		if (flag & NGX_CLOJURE_BUF_WEBSOCKET_FRAME) {
 			head_size = len > 125 ? 4 : 2;
@@ -1436,15 +1436,14 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, char *mess
 
 	if (ctx->wchain) {
 		ngx_buf_t *b = ctx->wchain->buf;
-		ngx_int_t head_size = 0;
-		ngx_int_t copy_size;
+		size_t head_size = 0;
 
 		if (flag & NGX_CLOJURE_BUF_WEBSOCKET_FRAME) {
 			/*we only use head_size when b->end - b->last >= len so it can't be 8*/
 			head_size = len > 125 ? 4 : 2;
 		}
 
-		if (b->end - b->last >= len + head_size) {
+		if ((size_t)(b->end - b->last) >= len + head_size) {
 			if (head_size) {
 				set_ws_frame_header(b, head_size, len, 0, flag);
 				b->last += head_size;
@@ -1518,8 +1517,8 @@ static void nji_ngx_http_clojure_hijack_fire_channel_event(ngx_http_request_t *r
 static char WS_CLOSE_NORMAL_CLOSURE[] = { 0x03, 0xe8 };
 
 /*1001 indicates that an endpoint is "going away", such as
- * a server going down or a browser having navigated away from a page.*/
-static char WS_CLOSE_GOING_AWAY[] = { 0x03, 0xe9 };
+ * a server going down or a browser having navigated away from a page.
+static char WS_CLOSE_GOING_AWAY[] = { 0x03, 0xe9 };*/
 
 /*1002 indicates that an endpoint is terminating the
  * connection due to a protocol error.*/
@@ -1528,12 +1527,12 @@ static char WS_CLOSE_PROTOCOL_ERROR[] = { 0x03, 0xea };
 /*1003 indicates that an endpoint is terminating the
  * connection because it has received a type of data
  * it cannot accept (e.g., an endpoint that understands
- * only text data MAY send this if it receives a binary message).*/
-static char WS_CLOSE_CANNOT_ACCEPT[] = { 0x03, 0xeb };
+ * only text data MAY send this if it receives a binary message).
+static char WS_CLOSE_CANNOT_ACCEPT[] = { 0x03, 0xeb };*/
 
 /*1006 is a reserved value and MUST NOT be set as a status code
- * in a Close control frame by an endpoint*/
-static char WS_CLOSE_CLOSED_ABNORMALLY[] = { 0x03, 0xee };
+ * in a Close control frame by an endpoint
+static char WS_CLOSE_CLOSED_ABNORMALLY[] = { 0x03, 0xee };*/
 
 /*1007 indicates that an endpoint is terminating the
  * connection because it has received data within a message
@@ -1542,34 +1541,34 @@ static char WS_CLOSE_CLOSED_ABNORMALLY[] = { 0x03, 0xee };
 static char WS_CLOSE_NOT_CONSISTENT[] = { 0x03, 0xef };
 
 /*1009 indicates that an endpoint is terminating the connection
- * because it has received a message that is too big for it to process.*/
-static char WS_CLOSE_TOO_BIG[] = { 0x03, 0xf1 };
+ * because it has received a message that is too big for it to process.
+static char WS_CLOSE_TOO_BIG[] = { 0x03, 0xf1 };*/
 
 /*1010 indicates that an endpoint (client) is terminating the connection
  * because it has expected the server to negotiate one or more extension,
- * but the server didn't return them in the response message of the WebSocket handshake.*/
-static char WS_CLOSE_NO_EXTENSION[] = { 0x03, 0xf2 };
+ * but the server didn't return them in the response message of the WebSocket handshake.
+static char WS_CLOSE_NO_EXTENSION[] = { 0x03, 0xf2 };*/
 
 /*1011 indicates that a server is terminating the connection
- * because it encountered an unexpected condition that prevented it from fulfilling the request.*/
-static char WS_CLOSE_UNEXPECTED_CONDITION[] = { 0x03, 0xf3 };
+ * because it encountered an unexpected condition that prevented it from fulfilling the request.
+static char WS_CLOSE_UNEXPECTED_CONDITION[] = { 0x03, 0xf3 };*/
 
-/*1012 indicates that the service will be restarted.*/
-static char WS_CLOSE_SERVICE_RESTART[] = { 0x03, 0xf4 };
+/*1012 indicates that the service will be restarted.
+static char WS_CLOSE_SERVICE_RESTART[] = { 0x03, 0xf4 };*/
 
-/*1013 indicates that the service is experiencing overload*/
-static char WS_CLOSE_TRY_AGAIN_LATER[] = { 0x03, 0xf5 };
+/*1013 indicates that the service is experiencing overload
+static char WS_CLOSE_TRY_AGAIN_LATER[] = { 0x03, 0xf5 };*/
 
-/*1015 is a reserved value and MUST NOT be set as a status code in a Close control frame by an endpoint.*/
-static char WS_CLOSE_TLS_HANDSHAKE_FAILURE[] = { 0x03, 0xf7 };
+/*1015 is a reserved value and MUST NOT be set as a status code in a Close control frame by an endpoint.
+static char WS_CLOSE_TLS_HANDSHAKE_FAILURE[] = { 0x03, 0xf7 };*/
 
 /*valid code (from 1000 ~ 1015) bits: 1111000111110000*/
 #define is_valid_ws_close_code(c) \
-	((c) > 999 && (c) < 1016 && ( (0xf1f0 >> (1015-(c))) & 1) || ((c) > 2999 && (c) < 5000))
+	( ((c) > 999 && (c) < 1016 && ((0xf1f0 >> (1015-(c))) & 1)) || ((c) > 2999 && (c) < 5000))
 
 
 #define check_buf_data_enough(b, l, cnt) \
-	if (b->last - b->pos < l) { \
+	if ((size_t)(b->last - b->pos) < (size_t)l) { \
 		if (b->end - b->pos < 20) { \
 			if (wsctx->left) { \
 				ngx_memmove(b->start, wsctx->left_pos, b->last - wsctx->left_pos); \
@@ -1597,7 +1596,6 @@ static void nji_ngx_http_clojure_hijack_read_handler(ngx_http_request_t *r) {
 	ngx_http_clojure_module_ctx_t *ctx = (ngx_http_clojure_module_ctx_t *)ngx_http_get_module_ctx(r, ngx_http_clojure_module);
 	ngx_http_clojure_websocket_ctx_t *wsctx = ctx->wsctx;
 	jlong flag = NGX_HTTP_CLOJURE_SOCKET_OK;
-	ngx_http_clojure_listener_node_t *l = ctx->listeners;
 	char *close_msg = WS_CLOSE_NORMAL_CLOSURE;
 
 	if (c->read->timedout) {
@@ -1609,7 +1607,7 @@ static void nji_ngx_http_clojure_hijack_read_handler(ngx_http_request_t *r) {
 TOP_WHILE :
 	while (wsctx && r->pool) {
 		ngx_int_t rc;
-		ngx_int_t size;
+		size_t size;
 		ngx_buf_t *buf;
 		if (wsctx->rchain == NULL) {
 			wsctx->rchain = ngx_http_clojure_get_and_copy_bufs(r->pool, &ctx->free, NULL, NGX_CLOJURE_REUSABLE_PAGE_SIZE, 0);
@@ -1784,7 +1782,7 @@ TOP_WHILE :
 							close_msg = WS_CLOSE_PROTOCOL_ERROR;
 						}
 					} else if (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGPONG) {
-						rc = ngx_http_clojure_hijack_send(r, buf->pos, wsctx->len,
+						rc = ngx_http_clojure_hijack_send(r, (char*)buf->pos, (size_t)wsctx->len,
 								NGX_CLOJURE_BUF_WEBSOCKET_PONG_FRAME
 						       | NGX_CLOJURE_BUF_FLUSH_FLAG);
 						if (rc != NGX_OK && r->pool) {
@@ -1798,7 +1796,7 @@ TOP_WHILE :
 
 					wsctx->len -= size;
 					pc = buf->pos;
-					nji_ngx_http_clojure_hijack_fire_channel_event(r, type, (intptr_t)&buf->pos | (size << 48) , ctx);
+					nji_ngx_http_clojure_hijack_fire_channel_event(r, type, (intptr_t)&buf->pos | ((uint64_t)size << 48) , ctx);
 					if (!r->pool) {
 						return;
 					}
@@ -1884,7 +1882,6 @@ static void nji_ngx_http_clojure_hijack_write_handler(ngx_http_request_t *r) {
 	ngx_connection_t *c = r->connection;
 	ngx_http_clojure_module_ctx_t *ctx = (ngx_http_clojure_module_ctx_t *)ngx_http_get_module_ctx(r, ngx_http_clojure_module);
 	jlong flag = NGX_HTTP_CLOJURE_SOCKET_OK;
-	ngx_http_clojure_listener_node_t *l = ctx->listeners;
 
 	if (c->write->timedout) {
 		flag = NGX_HTTP_CLOJURE_SOCKET_ERR_WRITE_TIMEOUT;
@@ -1903,9 +1900,9 @@ static void nji_ngx_http_clojure_hijack_write_handler(ngx_http_request_t *r) {
 ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
 #if (NGX_HAVE_SHA1)
 	ngx_http_clojure_module_ctx_t *ctx;
-	ngx_table_elt_t *key;
+	ngx_table_elt_t *key = NULL;
 	ngx_table_elt_t *accept;
-	ngx_table_elt_t *cver;
+	ngx_table_elt_t *cver = NULL;
 	ngx_sha1_t   sha1_ctx;
 	u_char degest[21];
     ngx_str_t sha1_val = ngx_string(degest);
@@ -1964,7 +1961,7 @@ static jlong JNICALL jni_ngx_http_hijack_read(JNIEnv *env, jclass cls, jlong req
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t)req;
 	ngx_connection_t *c = r->connection;
 /*	ngx_http_core_loc_conf_t *clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);*/
-	ngx_int_t rc = c->recv(c, ngx_http_clojure_abs_off_addr(buf, off), len);
+	ngx_int_t rc = c->recv(c, (u_char*)ngx_http_clojure_abs_off_addr(buf, off), len);
 	if (rc == NGX_AGAIN) {
 /*websocket should have infinite timeout */
 /*		if (clcf->client_body_timeout > 0) {
@@ -1983,8 +1980,8 @@ static jlong JNICALL jni_ngx_http_hijack_read(JNIEnv *env, jclass cls, jlong req
 static jlong JNICALL jni_ngx_http_hijack_write(JNIEnv *env, jclass cls, jlong req, jobject buf, jlong off, jlong len) {
 	ngx_http_request_t *r = (ngx_http_request_t *) (uintptr_t) req;
 	ngx_connection_t *c = r->connection;
-	ngx_http_core_loc_conf_t *clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
-	ngx_int_t rc = c->send(c, ngx_http_clojure_abs_off_addr(buf, off), len);
+/*	ngx_http_core_loc_conf_t *clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);*/
+	ngx_int_t rc = c->send(c, (u_char*)ngx_http_clojure_abs_off_addr(buf, off), len);
 
 	if (rc == 0 || rc == NGX_AGAIN) {
 /*		if (!c->write->active) {

@@ -34,7 +34,7 @@
                                   [org.clojure/clojure "1.5.1"]]
                         }
              :dev  {:dependencies [;only for test / compile usage
-                                  ;[org.clojure/clojure "1.5.1"]
+                                  [org.clojure/clojure "1.5.1"]
                                   [ring/ring-core "1.2.1"]
                                   [compojure "1.1.6"]
                                   [clj-http "0.7.8"]
@@ -58,7 +58,7 @@
                     :junit ["test/java"]
                     :compile-path "target/testclasses"
                     :dependencies [
-                                  ;[org.clojure/clojure "1.5.1"]
+                                  [org.clojure/clojure "1.5.1"]
                                   [ring/ring-core "1.2.1"]
                                   [compojure "1.1.6"]
                                   [clj-http "0.7.8"]
@@ -79,7 +79,7 @@
                                                  :no-async (fn [m] (and (:remote m) (not (:async m))))
                                                  :all :remote}
                                 :dependencies [
-                                              ;[org.clojure/clojure "1.5.1"]
+                                              [org.clojure/clojure "1.5.1"]
                                               [ring/ring-core "1.2.1"]
                                               [compojure "1.1.6"]
                                               [clj-http "0.7.8"]
