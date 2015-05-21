@@ -378,7 +378,7 @@ public class MiniConstants {
 	public static String NGINX_CLOJURE_FULL_VER;
 
 	//TODO :  client header buffer size & large_client_header_buffers
-	public static int NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE = 1024 * 4;
+	public static int NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE = 1024 * 8;
 	
 	public static int NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE = NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE/2;
 	
@@ -505,9 +505,11 @@ public class MiniConstants {
 	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_CONNECT = 1;
 	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_READ = 2;
 	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_WRITE = 4;
-	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_CONTINUE = 8;
+	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGREMAIN = 8;
 	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGTEXT = 16;
 	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGBIN = 32;
+	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGCLOSE = 64;
+	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGFIRST = 128;
 	
 
 //	public static final String HEADERS = RT.keyword(null, "headers");

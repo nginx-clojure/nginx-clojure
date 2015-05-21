@@ -15,6 +15,7 @@ import static nginx.clojure.MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_INTERNAL_SERVER_ERROR;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NO_CONTENT;
 import static nginx.clojure.MiniConstants.NGX_HTTP_OK;
+import static nginx.clojure.MiniConstants.NGX_HTTP_SWITCHING_PROTOCOLS;
 import static nginx.clojure.MiniConstants.STRING_CHAR_ARRAY_OFFSET;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
 import static nginx.clojure.NginxClojureRT.coroutineEnabled;
@@ -273,7 +274,7 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 			}
 		}
 		
-		if (contentType == null){
+		if (contentType == null && status != NGX_HTTP_SWITCHING_PROTOCOLS){
 			ngx_http_set_content_type(r);
 		}else {
 			int contentTypeLen = pushNGXString(headers_out + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_OFFSET, contentType, DEFAULT_ENCODING, pool);

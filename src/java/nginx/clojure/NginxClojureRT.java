@@ -165,6 +165,8 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public native static long ngx_http_clojure_mem_get_module_ctx_phase(long r);
 	
+	public native static long ngx_http_clojure_mem_get_module_ctx_upgrade(long r);
+	
 	public native static long ngx_http_clojure_mem_post_event(long e, Object data, long offset);
 	
 	public native static long ngx_http_clojure_mem_broadcast_event(long e, Object data, long offset, long hasSelf);
@@ -177,13 +179,15 @@ public class NginxClojureRT extends MiniConstants {
 	public  static long ngx_http_cleanup_add(long r, final ChannelListener listener, Object data) {
 		return ngx_http_clojure_add_listener(r, new ChannelCloseAdapter<Object>() {
 			@Override
-			public void onClose(Object data) {
+			public void onClose(Object data) throws IOException {
 				listener.onClose(data);
 			}
-		}, data);
+		}, data, 0);
 	}
 	
-	public native static long ngx_http_clojure_add_listener(long r, ChannelListener listener, Object data);
+	public native static long ngx_http_clojure_add_listener(long r, ChannelListener listener, Object data, int replace);
+	
+	public native static long ngx_http_clojure_websocket_upgrade(long req);
 	
 	public native static long ngx_http_hijack_read(long req, Object buf, long offset, long len);
 	
@@ -884,16 +888,13 @@ public class NginxClojureRT extends MiniConstants {
 		return HackUtils.decode(bb, encoding, cb);
 	}
 	
-	public static final String fetchStringValidPart(long address, int size, Charset encoding) {
-		ByteBuffer bb = pickByteBuffer();
-		CharBuffer cb = pickCharBuffer();
+	public static final String fetchStringValidPart(long address, int off, int size, Charset encoding, ByteBuffer bb, CharBuffer cb) {
 		if (size > bb.capacity()) {
 			bb = ByteBuffer.allocate(size);
 		}
-		ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(address), bb.array(), BYTE_ARRAY_OFFSET, size);
+		ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(address) + off, bb.array(), BYTE_ARRAY_OFFSET, size);
 		bb.limit(size);
-		int invalidNum = HackUtils.decodeValid(bb, encoding, cb);
-		UNSAFE.putAddress(address, UNSAFE.getAddress(address) - invalidNum);
+		HackUtils.decodeValid(bb, encoding, cb);
 		return cb.toString();
 	}
 	
@@ -1077,26 +1078,34 @@ public class NginxClojureRT extends MiniConstants {
 	}
 	
 	private static void handleChannelEvent(int type, long status, Object data, ChannelListener<Object> listener) {
-		switch(type) {
-		case NGX_HTTP_CLOJURE_CHANNEL_EVENT_CLOSE: 
-			listener.onClose(data);
-			break;
-		case NGX_HTTP_CLOJURE_CHANNEL_EVENT_CONNECT :
-			listener.onConnect(status, data);
-			break;
-		case NGX_HTTP_CLOJURE_CHANNEL_EVENT_READ:
-			listener.onRead(status, data);
-			break;
-		case NGX_HTTP_CLOJURE_CHANNEL_EVENT_WRITE:
-			listener.onWrite(status, data);
-			break;
-		default:
-			if (listener instanceof RawMessageListener) {
-				RawMessageListener rawListener = (RawMessageListener) listener;
-				if ( (type | NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGTEXT) != 0) {
-					rawListener.onTextMessage(data, status, (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_CONTINUE) != 0);
+		try {
+			switch(type) {
+			case NGX_HTTP_CLOJURE_CHANNEL_EVENT_CLOSE: 
+				listener.onClose(data);
+				break;
+			case NGX_HTTP_CLOJURE_CHANNEL_EVENT_CONNECT :
+				listener.onConnect(status, data);
+				break;
+			case NGX_HTTP_CLOJURE_CHANNEL_EVENT_READ:
+				listener.onRead(status, data);
+				break;
+			case NGX_HTTP_CLOJURE_CHANNEL_EVENT_WRITE:
+				listener.onWrite(status, data);
+				break;
+			default:
+				if (listener instanceof RawMessageListener) {
+					RawMessageListener rawListener = (RawMessageListener) listener;
+					if ( (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGTEXT) != 0) {
+						rawListener.onTextMessage(data, status, (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGREMAIN) != 0, (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGFIRST) != 0);
+					}else if ( (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGBIN) != 0) {
+						rawListener.onBinaryMessage(data, status, (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGREMAIN) != 0, (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGFIRST) != 0);
+					}else if ( (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGCLOSE) != 0) {
+						rawListener.onClose(data, status);//(data, status, (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGREMAIN) != 0);
+					}
 				}
 			}
+		}catch(Throwable e) {
+			log.error("handleChannelEvent error", e);
 		}
 		
 	}

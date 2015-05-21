@@ -4,6 +4,7 @@
  */
 package nginx.clojure.net;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import sun.nio.ch.DirectBuffer;
@@ -308,7 +309,7 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	
 
 	@Override
-	public void onConnect(long u, long sc) {
+	public void onConnect(long u, long sc) throws IOException {
 		if (!connected && sc == NGX_HTTP_CLOJURE_SOCKET_OK) {
 			connected = true;
 		}
@@ -316,17 +317,17 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
 	}
 
 	@Override
-	public void onRead(long u, long sc) {
+	public void onRead(long u, long sc) throws IOException {
 		handler.onRead(this, sc);
 	}
 
 	@Override
-	public void onWrite(long u, long sc) {
+	public void onWrite(long u, long sc) throws IOException {
 		handler.onWrite(this, sc);
 	}
 
 	@Override
-	public void onRelease(long u, long sc) {
+	public void onRelease(long u, long sc) throws IOException {
 		handler.onRelease(this, sc);
 	}
 	

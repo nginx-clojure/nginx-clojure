@@ -4,9 +4,11 @@
  */
 package nginx.clojure.net;
 
+import java.io.IOException;
+
 public interface NginxClojureSocketRawHandler {
-	public void onConnect(long u, long sc);
-	public void onRead(long u, long sc);
-	public void onWrite(long u, long sc);
-	public void onRelease(long u, long sc);
+	public void onConnect(long u, long sc) throws IOException;
+	public void onRead(long u, long sc) throws IOException;
+	public void onWrite(long u, long sc) throws IOException;
+	public void onRelease(long u, long sc) throws IOException;
 }

@@ -2,7 +2,8 @@
   (:import [nginx.clojure Coroutine Stack NginxClojureRT 
             NginxRequest NginxHttpServerChannel ChannelListener
             AppEventListenerManager AppEventListenerManager$Listener
-            AppEventListenerManager$Decoder AppEventListenerManager$PostedEvent])
+            AppEventListenerManager$Decoder AppEventListenerManager$PostedEvent
+            MessageAdapter])
   (:import [nginx.clojure.net NginxClojureAsynChannel NginxClojureAsynChannel$CompletionListener
             NginxClojureAsynSocket])
   (:import [nginx.clojure.clj Constants])
@@ -89,6 +90,13 @@
     "Asynchronously send a complete HTTP response to channel and close channel after all data are sent.
      resp is a ring Response Map, e.g. {:status 200, headers {\"Content-Type\" \"text/html\"}, :body \"Hello, Nginx-Clojure!\" } .
      ")
+  (add-listener! [ch callbacks-map]
+    "Add a websocket event listener.
+      `on-open is a function like (fn[ch]...)
+      `on-message is a function like (fn[ch message remaining?]...)
+      `on-close is a function like (fn[ch reason]...)
+      `on-error is a function like (fn[ch status])
+     ")
   (on-close! [ch attachment listener]
     "Add a close event listener.
      `attachement is a  object which will be passed to listener when close event happens
@@ -153,10 +161,19 @@
     (.sendHeader ch status (.entrySet headers) flush? last?))
   (send-response! [ch resp]
     (.sendResponse ch resp))
+  (add-listener! [ch callbacks-map])
   (on-close! [ch attachment listener]
     (.addListener ch attachment (proxy [ChannelListener] []
                        (onClose [att]
                          (listener att)))))
+  
+  (add-listener! [ch {:keys [on-open on-message on-close on-error]}]
+    (.addListener ch ch (proxy [MessageAdapter] []
+                          (onOpen [c] (on-open c))
+                          (onTextMessage [c msg rem?] (if on-message (on-message c msg rem?)))
+                          (onBinaryMessage [c msg rem?] (if on-message (on-message c msg rem?)))
+                          (onClose [c status reason] (if on-close (on-close c (str status ":" reason))))
+                          (onError [c status] (if on-error (on-error c (NginxClojureAsynSocket/errorCodeToString status)))))))
   (get-context [ch]
     (.getContext ch))
   (set-context! [ch ctx]

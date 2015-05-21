@@ -175,6 +175,15 @@ public class HackUtils {
             UNSAFE.putObject(thread, inheritedAccessControlContextOffset, accessControlContext);
     }
     
+    public static int putBuffer(ByteBuffer dst, ByteBuffer src) {
+    	int c = 0;
+    	while (dst.hasRemaining() && src.hasRemaining()) {
+    		dst.put(src.get());
+    		c ++;
+    	}
+    	return c;
+    }
+    
     public static ByteBuffer encode(String s, Charset cs, ByteBuffer bb)  {
     	//for safe
     	if (s == null) {

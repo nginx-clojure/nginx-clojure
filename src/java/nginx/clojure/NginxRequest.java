@@ -1,10 +1,15 @@
 package nginx.clojure;
 
+import java.util.AbstractMap.SimpleEntry;
+import java.util.List;
+
 public interface NginxRequest {
 	
 	public long nativeRequest();
 	
 	public boolean isReleased();
+	
+	public void tagReleased();
 	
 	 //for safe access with another thread
 	public void	prefetchAll();
@@ -17,6 +22,14 @@ public interface NginxRequest {
 	
 	public int phase();
 	
+	public List<SimpleEntry<Object, ChannelListener<Object>>>  listeners();
+	
+	public String uri();
+	
 	public <T> void addListener(T data, ChannelListener<T> listener);
+	
+	public boolean isWebSocket();
+	
+	public NginxHttpServerChannel hijack(boolean ignoreFilter);
 	
 }

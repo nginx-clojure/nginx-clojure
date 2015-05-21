@@ -47,7 +47,7 @@ public class NginxHttpServerChannel {
 	}
 	
 	protected int send(byte[] message, long off, int len, int flag) {
-		if (len == 0) {
+		if (message == null) {
 			return (int)NginxClojureRT.ngx_http_hijack_send(request.nativeRequest(), null, 0, 0, flag);
 		}
 		return (int)NginxClojureRT.ngx_http_hijack_send(request.nativeRequest(), message, MiniConstants.BYTE_ARRAY_OFFSET + off, len, flag);
@@ -108,6 +108,15 @@ public class NginxHttpServerChannel {
 		return flag;
 	}
 	
+	public void flush() {
+		int flag = computeFlag(true, false);
+		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
+			NginxClojureRT.postHijackSendEvent(this, null, 0, 0, flag);
+		}else {
+			send(null, 0, 0, flag);
+		}
+	}
+	
 	public void send(String message, boolean flush, boolean last) {
 		checkValid();
 		if (last) {
@@ -155,6 +164,10 @@ public class NginxHttpServerChannel {
 					MiniConstants.BYTE_ARRAY_OFFSET + buf.arrayOffset() + buf.position(), buf.remaining());
 		}
 	
+		if (NginxClojureRT.log.isDebugEnabled()) {
+			NginxClojureRT.log.debug("NginxHttpServerChannel read rc=%d", rc);
+		}
+		
 		if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
 			return 0;
 		}
@@ -171,6 +184,9 @@ public class NginxHttpServerChannel {
 	public long read(byte[] buf, long off, long size) throws IOException {
 		checkValid();
 		long rc = NginxClojureRT.ngx_http_hijack_read(request.nativeRequest(), buf, MiniConstants.BYTE_ARRAY_OFFSET + off, size);
+		if (NginxClojureRT.log.isDebugEnabled()) {
+			NginxClojureRT.log.debug("NginxHttpServerChannel read rc=%d", rc);
+		}
 		if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
 			return 0;
 		}
@@ -183,6 +199,9 @@ public class NginxHttpServerChannel {
 	public long write(byte[] buf, long off, long size) throws IOException {
 		checkValid();
 		long rc = NginxClojureRT.ngx_http_hijack_write(request.nativeRequest(), buf, MiniConstants.BYTE_ARRAY_OFFSET + off, size);
+		if (NginxClojureRT.log.isDebugEnabled()) {
+			NginxClojureRT.log.debug("NginxHttpServerChannel write rc=%d", rc);
+		}
 		if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
 			return 0;
 		}

@@ -74,6 +74,7 @@
                                                  :no-async (fn [m] (and (:remote m) (not (:async m))))
                                                  :all :remote}
                                 :dependencies [
+                                              [org.clojure/clojure "1.5.1"]
                                               [ring/ring-core "1.2.1"]
                                               [compojure "1.1.6"]
                                               [clj-http "0.7.8"]

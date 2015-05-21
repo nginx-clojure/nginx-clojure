@@ -8,6 +8,9 @@ import static nginx.clojure.MiniConstants.BODY;
 import static nginx.clojure.MiniConstants.NGX_HTTP_BODY_FILTER_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NOT_FOUND;
+import static nginx.clojure.MiniConstants.URI;
+import static nginx.clojure.NginxClojureRT.log;
+import static nginx.clojure.NginxClojureRT.processId;
 import static nginx.clojure.java.Constants.ASYNC_TAG;
 
 import java.io.Closeable;
@@ -112,6 +115,9 @@ public class NginxJavaHandler extends NginxSimpleHandler implements Configurable
 
 	@Override
 	public NginxHttpServerChannel hijack(NginxRequest req, boolean ignoreFilter) {
+		if (log.isDebugEnabled()) {
+			log.debug("#%s: hijack at %s", processId, ((NginxJavaRequest)req).get(URI));
+		}
 		((NginxJavaRequest)req).hijacked = true;
 		if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD) {
 			NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest());

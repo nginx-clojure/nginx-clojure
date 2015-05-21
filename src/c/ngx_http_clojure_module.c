@@ -678,6 +678,7 @@ static ngx_int_t ngx_http_clojure_init_socket(ngx_http_clojure_main_conf_t  *mcf
                 } \
             } \
             if (prev->handler ## _code.len) { \
+            	ngx_conf_merge_str_value(conf->handler ## _code,  prev->handler ## _code,  "") \
 				if (prev->handler ## _code.data == conf->handler ## _code.data)  {  \
 					ngx_conf_merge_str_value(conf->handler ## _type,  prev->handler ## _type,  "") \
                 } \
@@ -722,8 +723,13 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 		if (clcf->handler == ngx_http_clojure_content_handler) {
 			clcf->handler = NULL;
 		}
-	}
+	}else
 #endif
+	{
+		if (clcf->handler == NULL && prev->enable_content_handler) {
+			clcf->handler = ngx_http_clojure_content_handler;
+		}
+	}
 
 	ngx_http_clojure_merge_handler(conf, prev, content_handler);
 	ngx_http_clojure_merge_handler(conf, prev, rewrite_handler);
@@ -1168,60 +1174,6 @@ static void ngx_http_clojure_client_body_handler(ngx_http_request_t *r) {
 }
 
 
-static ngx_int_t nginx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
-#if (NGX_HAVE_SHA1)
-	ngx_http_clojure_module_ctx_t *ctx;
-	ngx_table_elt_t *key;
-	ngx_table_elt_t *accept;
-	ngx_table_elt_t *cver;
-	ngx_sha1_t   sha1_ctx;
-	u_char degest[21];
-    ngx_str_t sha1_val = ngx_string(degest);
-
-	ngx_http_clojure_add_const_header(r->headers_out.headers, "Sec-WebSocket-Version", "13");
-
-
-	ngx_http_clojure_get_header(r->headers_in.headers, "Sec-WebSocket-Version", cver);
-	if (cver == NULL || ngx_atoi(cver->value.data, cver->value.len) != 13) {
-		r->headers_out.status = NGX_HTTP_BAD_REQUEST;
-		return ngx_http_clojure_hijack_send_header(r, 0);
-	}
-
-	ngx_http_clojure_get_header(r->headers_in.headers, "Sec-WebSocket-Key", key);
-	if (key == NULL) {
-		r->headers_out.status = NGX_HTTP_BAD_REQUEST;
-		return ngx_http_clojure_hijack_send_header(r, 0);
-	}
-
-	r->headers_out.status = NGX_HTTP_SWITCHING_PROTOCOLS;
-	ngx_http_clojure_add_const_header(r->headers_out.headers, "Upgrade", "websocket");
-	ngx_http_clojure_add_const_header(r->headers_out.headers, "Connection", "upgrade");
-
-	accept = ngx_list_push(&r->headers_out.headers);
-	accept->hash = 1;
-	ngx_str_set(&accept->key, "Sec-WebSocket-Accept");
-	accept->value.len = 28;
-	accept->value.data = ngx_palloc(r->pool, 28);
-
-    ngx_sha1_init(&sha1_ctx);
-    ngx_sha1_update(&sha1_ctx, key->value.data, key->value.len);
-    ngx_sha1_update(&sha1_ctx, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", 36);
-    ngx_sha1_final(degest, &sha1_ctx);
-
-    ngx_encode_base64(&accept->value, &sha1_val);
-
-    ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
-    if (ctx->wsctx == NULL) {
-    	ctx->wsctx = ngx_pcalloc(r->pool, sizeof(ngx_http_clojure_websocket_ctx_t));
-    	ctx->wsctx->ffm = 1;
-    }
-
-    return ngx_http_clojure_hijack_send_header(r, 0);
-#else
-    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "nginx-clojure websocket support need compile config option --with-http_ssl_module");
-    return NGX_ERROR;
-#endif
-}
 
 static ngx_int_t ngx_http_clojure_content_handler(ngx_http_request_t * r) {
     ngx_int_t     rc;
@@ -1265,7 +1217,7 @@ static ngx_int_t ngx_http_clojure_content_handler(ngx_http_request_t * r) {
     			&& r->headers_in.upgrade != NULL
     			&& ngx_strcasecmp(r->headers_in.upgrade->value.data, "websocket") == 0
     			&& lcf->auto_upgrade_ws) {
-    		rc = nginx_http_clojure_websocket_upgrade(r);
+    		rc = ngx_http_clojure_websocket_upgrade(r);
     		if (rc != NGX_OK) {
     			return rc;
     		}

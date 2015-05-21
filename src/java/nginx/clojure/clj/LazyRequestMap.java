@@ -13,7 +13,6 @@ import static nginx.clojure.MiniConstants.REMOTE_ADDR_FETCHER;
 import static nginx.clojure.MiniConstants.SCHEME_FETCHER;
 import static nginx.clojure.MiniConstants.SERVER_NAME_FETCHER;
 import static nginx.clojure.MiniConstants.SERVER_PORT_FETCHER;
-import static nginx.clojure.MiniConstants.URI;
 import static nginx.clojure.MiniConstants.URI_FETCHER;
 import static nginx.clojure.clj.Constants.BODY;
 import static nginx.clojure.clj.Constants.CHARACTER_ENCODING;
@@ -27,6 +26,7 @@ import static nginx.clojure.clj.Constants.REQUEST_METHOD_FETCHER;
 import static nginx.clojure.clj.Constants.SCHEME;
 import static nginx.clojure.clj.Constants.SERVER_NAME;
 import static nginx.clojure.clj.Constants.SERVER_PORT;
+import static nginx.clojure.clj.Constants.URI;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -39,6 +39,8 @@ import nginx.clojure.NginxHandler;
 import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxRequest;
 import nginx.clojure.RequestVarFetcher;
+import nginx.clojure.java.NginxJavaRequest;
+import nginx.clojure.net.NginxClojureAsynSocket;
 import clojure.lang.AFn;
 import clojure.lang.ASeq;
 import clojure.lang.Counted;
@@ -65,62 +67,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	
 	public final static LazyRequestMap EMPTY_MAP = new LazyRequestMap(null, 0, null, new Object[0]);
 	
-	private final  static ChannelListener<LazyRequestMap> requestListener  = new  ChannelListener<LazyRequestMap>(){
-		@Override
-		public void onClose(LazyRequestMap req) {
-			req.released = true;
-			if (NginxClojureRT.log.isDebugEnabled()) {
-				NginxClojureRT.log.debug("#%d: request %s released!", req.r, req.valAt(URI));
-			}
-			if (req.listeners != null) {
-				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners) {
-					try {
-						en.getValue().onClose(en.getKey());
-					}catch(Throwable e) {
-						NginxClojureRT.log.error(String.format("#%d: onClose Error!", req.r), e);
-					}
-				}
-			}
-		}
-		
-		@Override
-		public void onRead(long status, LazyRequestMap req) {
-			if (NginxClojureRT.log.isDebugEnabled()) {
-				NginxClojureRT.log.debug("#%d: request %s onRead!", req.r, req.valAt(URI));
-			}
-			if (req.listeners != null) {
-				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners) {
-					try {
-						en.getValue().onRead(status, en.getKey());
-					}catch(Throwable e) {
-						NginxClojureRT.log.error(String.format("#%d: onRead Error!", req.r), e);
-					}
-				}
-			}
-		}
-
-		@Override
-		public void onWrite(long status, LazyRequestMap req) {
-			if (NginxClojureRT.log.isDebugEnabled()) {
-				NginxClojureRT.log.debug("#%d: request %s onWrite!", req.r, req.valAt(URI));
-			}
-			if (req.listeners != null) {
-				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners) {
-					try {
-						en.getValue().onWrite(status, en.getKey());
-					}catch(Throwable e) {
-						NginxClojureRT.log.error(String.format("#%d: onWrite Error!", req.r), e);
-					}
-				}
-			}
-		}
-
-		@Override
-		public void onConnect(long status, LazyRequestMap data) {
-			// TODO Auto-generated method stub
-			
-		}
-	};
+	private final  static ChannelListener<NginxRequest> requestListener  = NginxJavaRequest.requestListener;
 	
 	public LazyRequestMap(NginxHandler handler, long r, byte[] hijackTag, Object[] array) {
 		this.handler = handler;
@@ -128,7 +75,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		this.array = array;
 		this.hijackTag = hijackTag;
 		if (r != 0) {
-			NginxClojureRT.ngx_http_clojure_add_listener(r, requestListener, this);
+			NginxClojureRT.ngx_http_clojure_add_listener(r, requestListener, this, 1);
 		}
 	}
 	
@@ -152,6 +99,17 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		});
 		if (NginxClojureRT.log.isDebugEnabled()) {
 			valAt(URI);
+		}
+	}
+	
+	private LazyRequestMap(LazyRequestMap or, Object[] a) {
+		this.handler = or.handler;
+		this.r = or.r;
+		this.listeners = or.listeners;
+		this.array = a;
+		this.hijackTag = or.hijackTag;
+		if (r != 0) {
+			NginxClojureRT.ngx_http_clojure_add_listener(r, requestListener, this, 1);
 		}
 	}
 	
@@ -328,7 +286,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		System.arraycopy(array, 0, newArray, 0, array.length);
 		newArray[array.length] = key;
 		newArray[array.length+1] = val;
-		return new LazyRequestMap(handler, r,  this.hijackTag, newArray);
+		return new LazyRequestMap(this, newArray);
 	}
 
 	@Override
@@ -354,7 +312,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 				System.arraycopy(array, 0, newArray, 0, i);
 			}
 			System.arraycopy(array, i + 2, newArray, i, array.length - i - 2);
-			return new LazyRequestMap(handler, r , this.hijackTag, newArray);
+			return new LazyRequestMap(this, newArray);
 		}
 	}
 	
@@ -406,6 +364,10 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		return phase;
 	}
 	
+	public boolean isWebSocket() {
+		return NginxClojureRT.ngx_http_clojure_mem_get_module_ctx_upgrade(r) == 1;
+	}
+	
 	protected LazyRequestMap phase(int phase) {
 		this.phase = phase;
 		return this;
@@ -422,5 +384,33 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 			listeners = new ArrayList<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>>(1);
 		}
 		listeners.add(new java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>(data, (ChannelListener)listener));
+		
+		if (isWebSocket()) { //handshake was complete so we need call onConnect manually
+			try {
+				listener.onConnect(NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK, data);
+			} catch (Throwable e) {
+				NginxClojureRT.log.error(String.format("#%d: onConnect Error!", r), e);
+			}
+		}
+	}
+
+	@Override
+	public void tagReleased() {
+		this.released = true;
+	}
+
+	@Override
+	public List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners() {
+		return listeners;
+	}
+	
+	@Override
+	public String uri() {
+		return (String) valAt(URI);
+	}
+	
+	@Override
+	public NginxHttpServerChannel hijack(boolean ignoreFilter) {
+		return handler.hijack(this, ignoreFilter);
 	}
 }

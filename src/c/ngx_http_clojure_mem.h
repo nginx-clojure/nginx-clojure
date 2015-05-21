@@ -53,7 +53,7 @@ typedef struct {
 /*for write*/
 	unsigned ffm : 1; /*first write frame of a message*/
 /*for read*/
-	unsigned fin : 1;
+	unsigned fin : 1; /*data frame FIN tag*/
 #define NGX_HTTP_CLOJURE_WEBSOCKET_OPCODE_CONT  0x0
 #define NGX_HTTP_CLOJURE_WEBSOCKET_OPCODE_TEXT  0x1
 #define NGX_HTTP_CLOJURE_WEBSOCKET_OPCODE_BIN   0x2
@@ -61,6 +61,8 @@ typedef struct {
 #define NGX_HTTP_CLOJURE_WEBSOCKET_OPCODE_PING  0x9
 #define NGX_HTTP_CLOJURE_WEBSOCKET_OPCODE_PONG  0xa
 	unsigned opcode : 4;
+	unsigned ltxt : 1; /*the last data frame is a text frame*/
+	unsigned cont : 1; /*original opcode is 0, viz. continuation frame*/
 	unsigned mask : 1;
 	unsigned mpos : 2; /*mask position in mcode*/
 #define NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_START 0
@@ -68,9 +70,12 @@ typedef struct {
 #define NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_MASK 2
 #define NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_DATA 3
 	unsigned pstate : 2; /*start/len/mask/data*/
+	unsigned left : 2; /*left bytes length from last decoding*/
+	u_char *  left_pos; /*left bytes pointer from last decoding*/
 	char mcode[4]; /*mask code*/
 	uint64_t len;
 	ngx_chain_t *rchain; /*buffer for read*/
+
 } ngx_http_clojure_websocket_ctx_t;
 
 typedef struct {
@@ -89,6 +94,7 @@ typedef struct {
 	unsigned ignore_next_response : 1;
 	unsigned upgraded : 1;
 	ngx_http_clojure_websocket_ctx_t *wsctx;
+	ngx_chain_t *wchain; /*buffer for write*/
 	/*for filter under thread pool mode or coroutine mode*/
 	ngx_chain_t *pending;
 	ngx_http_clojure_listener_node_t *listeners;
@@ -98,7 +104,7 @@ typedef struct {
 		ctx->handled_couter = 1; \
 		ctx->phase = p; \
 		ctx->last_buf_meeted = 0; \
-		ctx->busy = ctx->free = ctx->pending = NULL; \
+		ctx->wchain = ctx->busy = ctx->free = ctx->pending = NULL; \
 		ctx->ignore_filters = 0; \
 		ctx->client_body_done = 0; \
 		ctx->async_body_read = 0 ; \
@@ -439,6 +445,8 @@ ngx_int_t ngx_http_clojure_hijack_send_header(ngx_http_request_t *r, ngx_int_t f
 ngx_int_t ngx_http_clojure_filter_continue_next_body_filter(ngx_http_request_t *r, ngx_chain_t *in);
 
 ngx_int_t ngx_http_clojure_prepare_server_header(ngx_http_request_t *r);
+
+ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r);
 
 extern ngx_module_t  ngx_http_clojure_module;
 

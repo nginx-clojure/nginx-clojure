@@ -4,10 +4,12 @@
  */
 package nginx.clojure.net;
 
+import java.io.IOException;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
 
 import nginx.clojure.ChannelListener;
+import nginx.clojure.HackUtils;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.logger.TinyLogService;
 import nginx.clojure.logger.TinyLogService.MsgType;
@@ -80,17 +82,17 @@ public class NginxClojureAsynChannel implements NginxClojureSocketHandler {
 		result = cur = freeChain;
 		while (size > 0) {
 			if (freeChain != null) {
-				cur.buffer.put(buf);
+				HackUtils.putBuffer(cur.buffer, buf);
 				cur.buffer.flip();
 				freeChain = freeChain.next;
 				size -= freeChain.buffer.remaining();
-				if (freeChain != null) {
+				if (freeChain != null && size > 0) {
 					cur = freeChain;
 				}
 			}else {
 				ByteBuffer tmp = ByteBuffer.allocateDirect(pagesize);
 				size -= pagesize;
-				tmp.put(buf);
+				HackUtils.putBuffer(tmp, buf);
 				tmp.flip();
 				if (result == null) {
 					result = cur = new BufferChain();
@@ -197,7 +199,11 @@ public class NginxClojureAsynChannel implements NginxClojureSocketHandler {
 		check();
 		BufferChain chain = fetchFreeChainAndCopyBuf(buf, attachement, listener);
 		if (writeBusyChain != null) {
-			writeBusyChain.next = chain;
+			BufferChain tail = writeBusyChain;
+			while (tail.next != null) {
+				tail = tail.next;
+			}
+			tail.next = chain;
 		}else {
 			writeBusyChain = chain;
 		}
@@ -233,7 +239,7 @@ public class NginxClojureAsynChannel implements NginxClojureSocketHandler {
 	}
 
 	@Override
-	public void onConnect(NginxClojureAsynSocket s, long sc) {
+	public void onConnect(NginxClojureAsynSocket s, long sc) throws IOException {
 		if (listener != null) {
 			listener.onConnect(sc, this);
 		}
@@ -336,7 +342,7 @@ public class NginxClojureAsynChannel implements NginxClojureSocketHandler {
 	}
 
 	@Override
-	public void onRelease(NginxClojureAsynSocket s, long sc) {
+	public void onRelease(NginxClojureAsynSocket s, long sc) throws IOException{
 		if (log.isDebugEnabled()) {
 			log.debug("asyn-channel#%d: on release status=%d", as.s, sc);
 		}
