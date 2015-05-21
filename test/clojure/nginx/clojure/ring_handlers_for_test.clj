@@ -146,6 +146,15 @@
            (on-close! ch ch (fn [ch] 
                               (log "#%s channel closed. id=%d" process-id (.nativeRequest req))
                               (swap! long-polling-subscribers dissoc ch)))
-           (swap! long-polling-subscribers assoc ch req)))))
+           (swap! long-polling-subscribers assoc ch req))))
+  (GET "/ws-echo" []
+       (fn [^NginxRequest req]
+         (-> req
+             (hijack! true)
+             (add-listener! { :on-open (fn [ch] (log "uri:%s, on-open!" (:uri req)))
+                              :on-message (fn [ch msg rem?] (send! ch msg (not rem?) false))
+                              :on-close (fn [ch reason] (log "uri:%s, on-close:%s" (:uri req) reason))
+                              :on-error (fn [ch error] (log "uri:%s, on-error:%s" (:uri req)  error))
+                             })))))
 
 
