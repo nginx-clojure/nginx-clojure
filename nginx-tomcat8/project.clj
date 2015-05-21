@@ -6,8 +6,8 @@
   :plugins [[lein-junit "1.1.7"]
             [venantius/ultra "0.1.9"]]
   :dependencies [
-                 ;[nginx-clojure/nginx-clojure "0.4.0"]
-                 ;[org.apache.tomcat/tomcat-catalina "8.0.20"]
+                 [nginx-clojure/nginx-clojure "0.4.0"]
+                 [org.apache.tomcat/tomcat-catalina "8.0.20"]
                  ]
   :source-paths ["src/clojure"]
   :java-source-paths ["src/java"]

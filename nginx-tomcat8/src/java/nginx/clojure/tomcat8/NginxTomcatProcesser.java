@@ -92,7 +92,7 @@ public	class NginxTomcatProcesser implements Runnable, ActionHook {
 	        for (int i = 0; i < size; i++) {
 	        	oheaders.put(headers.getName(i).toString(), headers.getValue(i).toString());
 	        }
-			sc.sendHeader(statusCode, oheaders.entrySet(), false, false);
+			sc.sendHeader(statusCode, oheaders.entrySet(), true, false);
 			headerSent = true;
 		}
 		
@@ -118,7 +118,10 @@ public	class NginxTomcatProcesser implements Runnable, ActionHook {
 		@Override
 		public void action(ActionCode actionCode, Object param) {
 			try {
-				NginxClojureRT.log.debug("actionCode: " + actionCode + ", param:" + param + "\n\n");
+				
+				if (NginxClojureRT.log.isDebugEnabled()) {
+					NginxClojureRT.log.debug("actionCode: " + actionCode + ", param:" + param);
+				}
 				
 				switch (actionCode) {
 				case COMMIT: {
@@ -243,11 +246,15 @@ public	class NginxTomcatProcesser implements Runnable, ActionHook {
 					upgradeHandler = (HttpUpgradeHandler)param;
 //					upgradeHandler.init(new WebConnectionImp(sc));
 					isUpgrade = true;
-					log.debug("we are upgrading to websocket");
+					if (NginxClojureRT.log.isDebugEnabled()) {
+						log.debug("we are upgrading to websocket");
+					}
 					break;
 				}
 				default: {
-					NginxClojureRT.log.debug("not support actionCode:" + actionCode + ", on object:" + param);
+					if (NginxClojureRT.log.isDebugEnabled()) {
+						NginxClojureRT.log.debug("not support actionCode: %s, on object: %s", actionCode,  param);
+					}
 				}
 				}
 			}catch(Throwable e) {
@@ -337,7 +344,9 @@ public	class NginxTomcatProcesser implements Runnable, ActionHook {
 				adapter.service(req, res);
 				if (isUpgrade) {
 					upgradeHandler.init(new NginxClojureWebConnectionImp(sc));
-					log.info("upgrade to websocket");
+					if (NginxClojureRT.log.isDebugEnabled()) {
+						NginxClojureRT.log.debug("upgrade to websocket");
+					}
 				}
 				
 				if (!isAsync && !closed && !isUpgrade) {
