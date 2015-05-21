@@ -213,13 +213,13 @@ public class NginxClojureWebConnectionImp implements WebConnection, ChannelListe
 			return result;
 		}
 
+		/**
+		 * before invoke it tomcat will get a write lock. so it need not be thread-safe.
+		 */
 		@Override
 		protected int doWrite(boolean block, byte[] b, int off, int len)
 				throws IOException {
 
-			if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
-				throw new IOException("doWrite can must be invoked at main thread");
-			}
 			int olen = len;
 			if (busyChain == null) {
 				while (len > 0) {
@@ -319,10 +319,15 @@ public class NginxClojureWebConnectionImp implements WebConnection, ChannelListe
 	@Override
 	public void onConnect(long status, NginxClojureWebConnectionImp data) throws IOException {
 		try{
-			outputStream.onWritePossible();
+			if (outputStream != null) {
+				outputStream.onWritePossible();
+			}
 		}catch(Throwable e) {
 			ExceptionUtils.handleThrowable(e);
-			outputStream.onError(e);
+			if (outputStream != null) {
+				outputStream.onError(e);
+			}
+			
 		}
 	}
 

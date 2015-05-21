@@ -3,8 +3,7 @@
   :url "https://github.com/nginx-clojure/nginx-clojure/nginx-tomcat"
   :license {:name "BSD 3-Clause license"
             :url "http://opensource.org/licenses/BSD-3-Clause"}
-  :plugins [[lein-junit "1.1.7"]
-            [venantius/ultra "0.1.9"]]
+  :plugins []
   :dependencies [
                  [nginx-clojure/nginx-clojure "0.4.0"]
                  [org.apache.tomcat/tomcat-catalina "8.0.20"]

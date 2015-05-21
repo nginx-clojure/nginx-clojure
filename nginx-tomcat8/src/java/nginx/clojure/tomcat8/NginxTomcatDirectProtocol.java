@@ -6,8 +6,6 @@ package nginx.clojure.tomcat8;
 
 import java.util.concurrent.Executor;
 
-import nginx.clojure.NginxClojureRT;
-
 import org.apache.coyote.Adapter;
 import org.apache.coyote.ProtocolHandler;
 

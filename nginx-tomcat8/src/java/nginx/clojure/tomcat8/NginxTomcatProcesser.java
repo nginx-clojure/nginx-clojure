@@ -6,7 +6,6 @@ package nginx.clojure.tomcat8;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.InetAddress;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -16,7 +15,6 @@ import javax.servlet.ReadListener;
 import javax.servlet.http.HttpUpgradeHandler;
 
 import nginx.clojure.ChannelCloseAdapter;
-import nginx.clojure.ChannelListener;
 import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHttpServerChannel;
