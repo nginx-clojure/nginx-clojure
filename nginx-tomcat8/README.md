@@ -43,7 +43,7 @@ in nginx.conf
 
 ## For performance
 
-### Diable Tomcat Access Log
+### Disable Tomcat Access Log
 
 When we need access log , use Nginx access log instead of Tomcat access log.
 
@@ -58,7 +58,7 @@ In server.xml comment AccessLogValve configuration to disable Tomcat access log.
 ```
 ### Don't Enable Tomcat Compression
 
-By default compression is off , don not turn it on.
+By default compression is off , do not turn it on.
 
 ```xml
 <Connector port="8080" protocol="HTTP/1.1" compression="off"
