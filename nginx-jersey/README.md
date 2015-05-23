@@ -43,6 +43,52 @@ in nginx.conf
       }
 ```
 
+All sources about this example can be found from jersey github repository 's example [json-jackson](https://github.com/jersey/jersey/tree/2.17/examples/json-jackson/src/main/java/org/glassfish/jersey/examples/jackson).
+
+then we test the JAX-RS services by curl
+
+```shell
+$ curl  -v http://localhost:8080/jersey/emptyArrayResource
+> GET /jersey/emptyArrayResource HTTP/1.1
+> User-Agent: curl/7.35.0
+> Host: localhost:8080
+> Accept: */*
+> 
+< HTTP/1.1 200 OK
+< Date: Sat, 23 May 2015 17:47:14 GMT
+< Content-Type: application/json
+< Transfer-Encoding: chunked
+< Connection: keep-alive
+* Server nginx-clojure is not blacklisted
+< Server: nginx-clojure
+< 
+{
+  "emtpyArray" : [ ]
+}
+```
+
+```shell
+$ curl -v http://localhost:8080/jersey/nonJaxbResource
+> GET /jersey/nonJaxbResource HTTP/1.1
+> User-Agent: curl/7.35.0
+> Host: localhost:8080
+> Accept: */*
+> 
+< HTTP/1.1 200 OK
+< Date: Sat, 23 May 2015 17:46:17 GMT
+< Content-Type: application/javascript
+< Transfer-Encoding: chunked
+< Connection: keep-alive
+* Server nginx-clojure is not blacklisted
+< Server: nginx-clojure
+< 
+callback({
+  "name" : "non-JAXB-bean",
+  "description" : "I am not a JAXB bean, just an unannotated POJO",
+  "array" : [ 1, 1, 2, 3, 5, 8, 13, 21 ]
+* Connection #0 to host localhost left intact
+})
+```
 
 ## License
 
