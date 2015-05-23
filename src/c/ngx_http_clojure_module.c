@@ -1235,11 +1235,12 @@ static ngx_int_t ngx_http_clojure_content_handler(ngx_http_request_t * r) {
 
 
 
-static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t * r) {
+static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t *r) {
 	ngx_int_t rc;
-	ngx_http_clojure_module_ctx_t *ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
+	ngx_http_clojure_module_ctx_t *ctx;
 	ngx_http_clojure_loc_conf_t  *lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
 
+	ngx_http_clojure_get_ctx(r, ctx);
 	ngx_http_clojure_init_handler_script(lcf, NGX_HTTP_REWRITE_PHASE, rewrite_handler);
 
 	/*Once alwarys_read_body enabled, we want to let it  work even if there no java/groovy/clojure rewrite handler*/
@@ -1327,9 +1328,10 @@ static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t * r) {
 
 static ngx_int_t ngx_http_clojure_access_handler(ngx_http_request_t * r) {
 	ngx_int_t rc;
-	ngx_http_clojure_module_ctx_t *ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
+	ngx_http_clojure_module_ctx_t *ctx;
 	ngx_http_clojure_loc_conf_t  *lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
 
+	ngx_http_clojure_get_ctx(r, ctx);
 	ngx_http_clojure_init_handler_script(lcf, NGX_HTTP_ACCESS_PHASE, access_handler);
 
 	if (!lcf->enable_access_handler || (lcf->access_handler_code.len == 0 && lcf->access_handler_name.len == 0)) {
@@ -1387,9 +1389,10 @@ static ngx_int_t ngx_http_clojure_header_filter(ngx_http_request_t *r) {
 
     ngx_int_t rc;
     ngx_http_clojure_loc_conf_t  *lcf;
-    ngx_http_clojure_module_ctx_t *ctx  = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
+    ngx_http_clojure_module_ctx_t *ctx;
     ngx_int_t  src_phase;
 
+    ngx_http_clojure_get_ctx(r, ctx);
     lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
 
     ngx_http_clojure_init_handler_script(lcf, NGX_HTTP_HEADER_FILTER_PHASE, header_filter);

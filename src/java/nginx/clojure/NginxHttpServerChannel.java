@@ -25,7 +25,7 @@ public class NginxHttpServerChannel {
 	
 	protected NginxRequest request;
 	protected boolean ignoreFilter;
-	protected boolean closed;
+	protected volatile boolean closed;
 	protected Object context;
 	protected long asyncTimeout;
 	
@@ -309,6 +309,7 @@ public class NginxHttpServerChannel {
 			NginxResponse response = new NginxJavaResponse(request, new Object[]{status, null, null});
 			NginxClojureRT.postHijackSendResponseEvent(this, response, request.handler().buildOutputChain(response));
 		}else {
+			closed = true;
 			NginxClojureRT.ngx_http_finalize_request(request.nativeRequest(), status);
 		}
 	}

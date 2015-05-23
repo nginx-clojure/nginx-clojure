@@ -98,6 +98,7 @@ typedef struct {
 	/*for filter under thread pool mode or coroutine mode*/
 	ngx_chain_t *pending;
 	ngx_http_clojure_listener_node_t *listeners;
+	ngx_http_request_t *r;
 } ngx_http_clojure_module_ctx_t;
 
 #define ngx_http_clojure_init_ctx(ctx, p) \
@@ -114,6 +115,7 @@ typedef struct {
 		ctx->upgraded = 0; \
 		ctx->wsctx = 0; \
 		ctx->listeners = 0;
+
 
 #define NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT 1
 #define NGX_HTTP_CLOJURE_GET_HEADER_FLAG_MERGE_KEY 2
@@ -448,11 +450,26 @@ ngx_int_t ngx_http_clojure_prepare_server_header(ngx_http_request_t *r);
 
 ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r);
 
+void ngx_http_clojure_cleanup_handler(void *data);
+
 extern ngx_module_t  ngx_http_clojure_module;
 
 extern ngx_http_output_header_filter_pt ngx_http_clojure_next_header_filter;
 extern ngx_http_output_body_filter_pt ngx_http_clojure_next_body_filter;
 
 extern int ngx_http_clojure_is_little_endian;
+
+#define ngx_http_clojure_get_ctx(r, octx)  \
+     if ( !(octx = (r)->ctx[ngx_http_clojure_module.ctx_index]) )  { \
+    	 ngx_http_cleanup_t *cln = r->cleanup; \
+    	 while (cln) { \
+    		 if (cln->handler == ngx_http_clojure_cleanup_handler) { \
+    			 octx = cln->data; \
+    			 break; \
+    		 } \
+    		 cln = cln->next; \
+    	 } \
+     }
+
 
 #endif /* NGX_HTTP_CLOJURE_MEM_H_ */

@@ -17,7 +17,7 @@ public class NgxStringHeaderHolder extends AbstractHeaderHolder {
 
 	@Override
 	public void push(long h, long pool, Object v) {
-		pushNGXString(h + offset, (String)v, DEFAULT_ENCODING, pool);
+		pushNGXString(h + offset, pickString(v), DEFAULT_ENCODING, pool);
 	}
 
 	@Override

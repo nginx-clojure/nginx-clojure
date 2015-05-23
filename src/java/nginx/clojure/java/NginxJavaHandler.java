@@ -14,6 +14,7 @@ import static nginx.clojure.NginxClojureRT.processId;
 import static nginx.clojure.java.Constants.ASYNC_TAG;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.util.Map;
 
 import nginx.clojure.Configurable;
@@ -64,7 +65,7 @@ public class NginxJavaHandler extends NginxSimpleHandler implements Configurable
 	}
 	
 	@Override
-	public NginxResponse process(NginxRequest req) {
+	public NginxResponse process(NginxRequest req) throws IOException {
 		NginxJavaRequest r = (NginxJavaRequest)req;
 		try{
 			Object resp;

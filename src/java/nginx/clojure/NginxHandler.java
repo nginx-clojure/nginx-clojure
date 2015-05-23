@@ -4,6 +4,7 @@
  */
 package nginx.clojure;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Map.Entry;
 
@@ -34,6 +35,6 @@ public interface NginxHandler {
 
 	public <K,V> long prepareHeaders(NginxRequest req, long status, Collection<Entry<K, V>> headers);
 
-	public NginxResponse process(NginxRequest req);
+	public NginxResponse process(NginxRequest req) throws IOException;
 	
 }

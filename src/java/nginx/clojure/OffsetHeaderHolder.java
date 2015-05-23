@@ -16,10 +16,15 @@ public class OffsetHeaderHolder extends AbstractHeaderHolder {
 
 	@Override
 	public void push(long h, long pool, Object v) {
-		if (v instanceof String) {
-			v = Long.valueOf((String)v);
+		long l;
+		if (v instanceof Number) {
+			l = ((Number)v).longValue();
+		}else if (v instanceof String) {
+			l = Long.valueOf((String)v);
+		}else {
+			l = Long.valueOf(pickString(v));
 		}
-		pushNGXOfft(h + offset, ((Long)v).longValue());
+		pushNGXOfft(h + offset, l);
 	}
 
 	public void push(long h, long v) {

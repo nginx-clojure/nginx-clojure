@@ -268,7 +268,11 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 				
 				NginxHeaderHolder pusher = fetchResponseHeaderPusher(name);
 				if (pusher == KNOWN_RESP_HEADERS.get("Content-Type")) {
-					contentType = (String)val;
+					if (val instanceof String) {
+						contentType = (String)val;
+					}else {
+						
+					}
 				}
 				pusher.push(headers_out, pool, val);
 			}

@@ -1,5 +1,6 @@
 package nginx.clojure.bridge;
 
+import java.io.IOException;
 import java.util.Map;
 
 import nginx.clojure.Configurable;
@@ -22,7 +23,7 @@ public class NginxBridgeHandler implements NginxJavaRingHandler, Configurable {
 	}
 	
 	@Override
-	public Object[] invoke(Map<String, Object> req) {
+	public Object[] invoke(Map<String, Object> req) throws IOException {
 		NginxJavaRequest r = (NginxJavaRequest)req;
 		return bridge.handle((NginxJavaRequest)req);
 	}

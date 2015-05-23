@@ -4,6 +4,7 @@
  */
 package nginx.clojure.java;
 
+import java.io.IOException;
 import java.util.Map;
 
 /**
@@ -46,6 +47,6 @@ public interface NginxJavaRingHandler {
 	 * @param request  a request map defined by the ring SPEC at https://github.com/ring-clojure/ring/blob/master/SPEC .
 	 * @return a object array  which has a different meaning for different handler type.
 	 */
-	public Object[] invoke(Map<String, Object> request);
+	public Object[] invoke(Map<String, Object> request) throws IOException;
 	
 }

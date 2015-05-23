@@ -39,6 +39,8 @@ public class NginxBridgeStarter {
 			}
 		}
 		
+		String bridgeImp = properties.get(BRIDGE_IMP);
+		
 		if (bootstrapLoader == null) {
 			List<URL> urlList = new ArrayList<URL>();
 			if (libDirs != null) {
@@ -70,13 +72,12 @@ public class NginxBridgeStarter {
 				}
 			}
 			URL[] urls = new URL[urlList.size()];
-			NginxClojureRT.getLog().info("boot with whole classpath: \n" + urlList);
+			NginxClojureRT.getLog().info("%s.boot() with whole classpath: %s", bridgeImp , urlList);
 			bootstrapLoader = URLClassLoader.newInstance(urlList.toArray(urls));
 			classLoaders.put(loaderKey, bootstrapLoader);
 		}
 		
 		Class bridgeClz;
-		String bridgeImp = properties.get(BRIDGE_IMP);
 		try {
 			bridgeClz = bootstrapLoader.loadClass(bridgeImp);
 		} catch (ClassNotFoundException e) {

@@ -74,7 +74,7 @@ public class UnknownHeaderHolder implements NginxHeaderHolder {
 		if (pname != null) {
 			lpname = pname;
 		}
-		for (String val : seq) {
+		for (Object val : seq) {
 			if (val != null) {
 				long p = ngx_list_push(h + headersOffset);
 				if (p == 0) {
@@ -87,7 +87,7 @@ public class UnknownHeaderHolder implements NginxHeaderHolder {
 					pushNGXString(p + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET, name, DEFAULT_ENCODING, pool);
 					lpname = UNSAFE.getAddress(p + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET);
 				}
-				pushNGXString(p + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, val, DEFAULT_ENCODING, pool);
+				pushNGXString(p + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, val.toString(), DEFAULT_ENCODING, pool);
 			}
 		}
 	}

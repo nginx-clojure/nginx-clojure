@@ -41,7 +41,7 @@ public class TableEltHeaderHolder extends AbstractHeaderHolder {
 			pushNGXInt(p + NGX_HTTP_CLOJURE_TEL_HASH_OFFSET, 1);
 			ngx_http_clojure_mem_shadow_copy_ngx_str(HEADERS_NAMES.get(name), p + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET);
 		}
-		pushNGXString(p + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, (String)v, DEFAULT_ENCODING, pool);
+		pushNGXString(p + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, pickString(v), DEFAULT_ENCODING, pool);
 		UNSAFE.putAddress(h + offset, p);
 		
 	}

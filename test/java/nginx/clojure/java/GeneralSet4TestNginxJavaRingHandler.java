@@ -7,6 +7,7 @@ import static nginx.clojure.MiniConstants.NGX_HTTP_OK;
 import static nginx.clojure.MiniConstants.POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START;
 import static nginx.clojure.MiniConstants.QUERY_STRING;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.HashMap;
@@ -211,7 +212,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 	}
 
 	@Override
-	public Object[] invoke(Map<String, Object> request) {
+	public Object[] invoke(Map<String, Object> request) throws IOException {
 		String uri = (String) request.get("uri");
 		String path = uri.substring(uri.lastIndexOf('/'));
 		NginxJavaRingHandler handler = routing.get(path);

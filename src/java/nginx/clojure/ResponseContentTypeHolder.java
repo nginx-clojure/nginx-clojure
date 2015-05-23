@@ -13,13 +13,14 @@ public class ResponseContentTypeHolder extends NgxStringHeaderHolder {
 
 	@Override
 	public void push(long h, long pool, Object v) {
-		Long ll = MIME_TYPES.get(v);
+		String s = pickString(v);
+		Long ll = s == null ? null : MIME_TYPES.get(s);
 		if (ll != null) {
 			ngx_http_clojure_mem_shadow_copy_ngx_str(ll.longValue(), h + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_OFFSET);
 			//be friendly to gzip module 
-			pushNGXSizet(h + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_LEN_OFFSET,  ((String)v).length());
+			pushNGXSizet(h + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_LEN_OFFSET, s.length());
 		}else {
-			int contentTypeLen = pushNGXString(h + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_OFFSET, (String)v, DEFAULT_ENCODING, pool);
+			int contentTypeLen = pushNGXString(h + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_OFFSET, s, DEFAULT_ENCODING, pool);
 			//be friendly to gzip module 
 			pushNGXSizet(h + NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_LEN_OFFSET, contentTypeLen);
 		}
