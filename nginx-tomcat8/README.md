@@ -49,7 +49,7 @@ When we need access log , use Nginx access log instead of Tomcat access log.
 
 In server.xml comment AccessLogValve configuration to disable Tomcat access log.
 
-```
+```xml
 <!--
         <Valve className="org.apache.catalina.valves.AccessLogValve" directory="logs"
                prefix="localhost_access_log" suffix=".txt"

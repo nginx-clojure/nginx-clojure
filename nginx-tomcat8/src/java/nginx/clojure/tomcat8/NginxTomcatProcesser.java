@@ -63,7 +63,7 @@ public	class NginxTomcatProcesser implements Runnable, ActionHook {
 		
 		public NginxTomcatProcesser(Adapter adapter, NginxJavaRequest req) {
 			this.adapter = adapter;
-			this.sc = req.handler().hijack(req, false);
+			this.sc = req.hijack(false);
 		}
 		
 		public void commit() {
@@ -289,12 +289,22 @@ public	class NginxTomcatProcesser implements Runnable, ActionHook {
 			req.method().setString(nreq.get(Constants.REQUEST_METHOD).toString().toUpperCase());
 			req.protocol().setString(nreq.getVariable("server_protocol"));
 			for (Entry<String, Object> en : headers.entrySet()) {
+				Object v = en.getValue();
+				if (v == null) {
+					continue;
+				}
 				if (en.getKey().equalsIgnoreCase("Cookie")) {
-					byte[] cbs = ((String)en.getValue()).getBytes(MiniConstants.DEFAULT_ENCODING);
+					byte[] cbs = ((String)v).getBytes(MiniConstants.DEFAULT_ENCODING);
 					req.getMimeHeaders().addValue(en.getKey()).setBytes(cbs, 0, cbs.length);
 					continue;
 				}
-				req.getMimeHeaders().addValue(en.getKey()).setString(en.getValue().toString());
+				if (v.getClass().isArray()) {
+					for (String vs : (String[]) v) {
+						req.getMimeHeaders().addValue(en.getKey()).setString(vs);
+					}
+				}else {
+					req.getMimeHeaders().addValue(en.getKey()).setString(v.toString());
+				}
 			}
 			
 			final InputStream body = (InputStream) nreq.get(Constants.BODY);
