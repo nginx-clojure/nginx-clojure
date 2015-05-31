@@ -25,6 +25,7 @@ public class WSEcho implements NginxJavaRingHandler {
 				if (NginxClojureRT.log.isDebugEnabled()) {
 					NginxClojureRT.log.debug("WSEcho onTextMessage: msg=%s, rem=%s", message, remaining);
 				}
+				total += message.length();
 				sc.send(message, !remaining, false);
 			}
 			

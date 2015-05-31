@@ -86,6 +86,8 @@ public class MiniConstants {
 	
 	public static Map<String, NginxHeaderHolder> KNOWN_RESP_HEADERS = new TreeMap<String, NginxHeaderHolder>(IGNORE_CASE_COMPARATOR);
 	
+	public static NginxHeaderHolder RESP_CONTENT_TYPE_HOLDER;
+	
 	public static Map<String, Long> MIME_TYPES = new TreeMap<String, Long>(IGNORE_CASE_COMPARATOR); 
 	
 	public static Map<String, Long> CORE_VARS = new TreeMap<String, Long>(IGNORE_CASE_COMPARATOR);
@@ -147,6 +149,9 @@ public class MiniConstants {
 	public static long NGX_HTTP_CLOJURE_SIZET_SIZE;
 	public static int   NGX_HTTP_CLOJURE_OFFT_SIZE_IDX = 3;
 	public static long NGX_HTTP_CLOJURE_OFFT_SIZE;
+	public static int   NGX_HTTP_CLOJURE_BUFFER_SIZE_IDX = 4;
+	public static long NGX_HTTP_CLOJURE_BUFFER_SIZE;
+	
 	
 	/* index for size of ngx_str_t */
 	public static int NGX_HTTP_CLOJURE_STR_SIZE_IDX = 8;
@@ -377,7 +382,7 @@ public class MiniConstants {
 	public static long NGINX_CLOJURE_VER;
 	public static String NGINX_CLOJURE_FULL_VER;
 
-	//TODO :  client header buffer size & large_client_header_buffers
+	//these two will be updated to NGX_HTTP_CLOJURE_BUFFER_SIZE
 	public static int NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE = 1024 * 8;
 	
 	public static int NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE = NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE/2;

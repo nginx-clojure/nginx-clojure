@@ -146,6 +146,8 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public native static void ngx_http_clojure_mem_shadow_copy_ngx_str(long s, long t);
 	
+	public native static long ngx_http_clojure_mem_copy_header_buf(long r, Object buf, long offset, long len);
+	
 	public native static long ngx_http_clojure_mem_get_header(long headers, Object buf, long nameOffset,  long nameLen, long valueOffset, long bufMaxOffset);
 	
 	/**
@@ -497,6 +499,10 @@ public class NginxClojureRT extends MiniConstants {
 		NGX_HTTP_CLOJURE_STR_DATA_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_STR_DATA_IDX];
 		NGX_HTTP_CLOJURE_SIZET_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_SIZET_SIZE_IDX];
 		NGX_HTTP_CLOJURE_OFFT_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_OFFT_SIZE_IDX];
+		NGX_HTTP_CLOJURE_BUFFER_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_BUFFER_SIZE_IDX];
+		
+		NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE = (int) NGX_HTTP_CLOJURE_BUFFER_SIZE;
+		NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE = Math.max(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE/2, NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE-1024);
 		
 		NGX_HTTP_CLOJURE_TELT_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_TELT_SIZE_IDX];
 		NGX_HTTP_CLOJURE_TEL_HASH_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_TEL_HASH_IDX];
@@ -687,7 +693,7 @@ public class NginxClojureRT extends MiniConstants {
 		KNOWN_RESP_HEADERS.put("Expires", safeBuildKnownTableEltHeaderHolder("Expires", NGX_HTTP_CLOJURE_HEADERSO_EXPIRES_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
 		KNOWN_RESP_HEADERS.put("Etag", safeBuildKnownTableEltHeaderHolder("Etag", NGX_HTTP_CLOJURE_HEADERSO_ETAG_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
 		KNOWN_RESP_HEADERS.put("Cache-Control", new ArrayHeaderHolder("Cache-Control", NGX_HTTP_CLOJURE_HEADERSO_CACHE_CONTROL_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
-		KNOWN_RESP_HEADERS.put("Content-Type", new ResponseContentTypeHolder());
+		KNOWN_RESP_HEADERS.put("Content-Type", RESP_CONTENT_TYPE_HOLDER = new ResponseContentTypeHolder());
 		KNOWN_RESP_HEADERS.put("Content-Length", new OffsetHeaderHolder("Content-Length", NGX_HTTP_CLOJURE_HEADERSO_CONTENT_LENGTH_N_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET) );
 		
 		/*clear all to let initWorkers initializing them correctly*/

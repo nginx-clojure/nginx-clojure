@@ -16,6 +16,7 @@ import static nginx.clojure.MiniConstants.NGX_HTTP_INTERNAL_SERVER_ERROR;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NO_CONTENT;
 import static nginx.clojure.MiniConstants.NGX_HTTP_OK;
 import static nginx.clojure.MiniConstants.NGX_HTTP_SWITCHING_PROTOCOLS;
+import static nginx.clojure.MiniConstants.RESP_CONTENT_TYPE_HOLDER;
 import static nginx.clojure.MiniConstants.STRING_CHAR_ARRAY_OFFSET;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
 import static nginx.clojure.NginxClojureRT.coroutineEnabled;
@@ -52,6 +53,7 @@ import java.util.concurrent.Callable;
 import nginx.clojure.NginxClojureRT.WorkerResponseContext;
 import nginx.clojure.java.Constants;
 import nginx.clojure.java.NginxJavaResponse;
+import sun.nio.ch.DirectBuffer;
 import sun.nio.cs.ThreadLocalCoders;
 
 
@@ -267,10 +269,10 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 				}
 				
 				NginxHeaderHolder pusher = fetchResponseHeaderPusher(name);
-				if (pusher == KNOWN_RESP_HEADERS.get("Content-Type")) {
+				if (pusher == RESP_CONTENT_TYPE_HOLDER) {
 					if (val instanceof String) {
 						contentType = (String)val;
-					}else {
+					}else { //TODO:support another types 
 						
 					}
 				}
@@ -448,6 +450,40 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 		return preChain == 0 ? first : chain ;
 	}
 	
+	protected long buildResponseByteBufferBuf(ByteBuffer b, long r,  final long preChain) {
+		if (b == null) {
+			return 0;
+		}
+
+		if (!b.hasRemaining()) {
+			return -NGX_HTTP_NO_CONTENT;
+		}
+		
+		long chain = preChain;
+		
+		if (b.isDirect()) {
+			chain = ngx_http_clojure_mem_build_temp_chain(r, preChain, null, ((DirectBuffer)b).address()+b.position(), b.remaining());
+		}else {
+			chain = ngx_http_clojure_mem_build_temp_chain(r, preChain, b.array(), BYTE_ARRAY_OFFSET, b.remaining());
+		}
+		
+		b.position(b.limit());
+		
+		return chain;
+	}
+	
+	protected long buildResponseByteArrayBuf(byte[] b, long r,  final long preChain) {
+		if (b == null) {
+			return 0;
+		}
+
+		if (b.length == 0) {
+			return -NGX_HTTP_NO_CONTENT;
+		}
+		
+		return ngx_http_clojure_mem_build_temp_chain(r, preChain, b, BYTE_ARRAY_OFFSET, b.length);
+	}
+	
 	protected  long buildResponseIterableBuf(Iterable iterable, long r,  long preChain) {
 		if (iterable == null) {
 			return 0;
@@ -488,7 +524,11 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 			return buildResponseInputStreamBuf((InputStream)item, r, chain);
 		}else if (item instanceof String) {
 			return buildResponseStringBuf((String)item, r, chain);
-		} 
+		}else if (item instanceof ByteBuffer) {
+			return buildResponseByteBufferBuf((ByteBuffer)item, r, chain);
+		}else if (item instanceof byte[]) {
+			return buildResponseByteArrayBuf((byte[])item, r, chain);
+		}
 		return buildResponseComplexItemBuf(r, item, chain);
 	}
 	

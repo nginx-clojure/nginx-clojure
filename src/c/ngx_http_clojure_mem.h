@@ -43,6 +43,66 @@
 #define NGX_HTTP_EXIT_PROCESS_PHASE  20
 
 
+typedef struct {
+	ngx_int_t max_balanced_tcp_connections;
+	ngx_array_t *jvm_options;
+	ngx_array_t *jvm_vars;
+	ngx_str_t jvm_path;
+	ngx_int_t jvm_workers;
+	unsigned jvm_disable_all : 1;
+	unsigned enable_init_handler : 1;
+	unsigned enable_exit_handler : 1;
+	unsigned enable_content_handler :1;
+	unsigned enable_rewrite_handler :1;
+	unsigned enable_header_filter :1;
+	unsigned enable_body_filter :1;
+	unsigned enable_access_handler : 1;
+	ngx_str_t jvm_handler_type;
+	ngx_str_t jvm_init_handler_code;
+	ngx_int_t jvm_init_handler_id;
+	ngx_str_t jvm_init_handler_name;
+	ngx_str_t jvm_exit_handler_code;
+	ngx_int_t jvm_exit_handler_id;
+	ngx_str_t jvm_exit_handler_name;
+} ngx_http_clojure_main_conf_t;
+
+typedef struct {
+	unsigned enable_content_handler :1;
+	unsigned enable_rewrite_handler :1;
+	unsigned enable_header_filter :1;
+	unsigned enable_body_filter :1;
+	unsigned enable_access_handler : 1;
+	ngx_flag_t auto_upgrade_ws;
+	ngx_flag_t handlers_lazy_init;
+	ngx_flag_t always_read_body;
+	ngx_str_t content_handler_type;
+	ngx_str_t content_handler_code;
+	ngx_int_t content_handler_id;
+	ngx_str_t content_handler_name;
+	ngx_str_t rewrite_handler_type;
+	ngx_str_t rewrite_handler_code;
+	ngx_int_t rewrite_handler_id;
+	ngx_str_t rewrite_handler_name;
+	ngx_str_t header_filter_type;
+	ngx_str_t header_filter_code;
+	ngx_int_t header_filter_id;
+	ngx_str_t header_filter_name;
+	ngx_str_t body_filter_type;
+	ngx_str_t body_filter_code;
+	ngx_int_t body_filter_id;
+	ngx_str_t body_filter_name;
+	ngx_str_t access_handler_type;
+	ngx_str_t access_handler_code;
+	ngx_int_t access_handler_id;
+	ngx_str_t access_handler_name;
+	ngx_array_t *content_handler_properties;
+	ngx_array_t *rewrite_handler_properties;
+	ngx_array_t *access_handler_properties;
+	ngx_array_t *header_filter_properties;
+	ngx_array_t *body_filter_properties;
+	size_t write_page_size;
+} ngx_http_clojure_loc_conf_t;
+
 typedef struct ngx_http_clojure_listener_node_s {
 	void *listener;
 	void *data;
@@ -134,6 +194,9 @@ typedef struct {
 
 #define NGX_HTTP_CLOJURE_OFFT_SIZE_IDX 3
 #define NGX_HTTP_CLOJURE_OFFT_SIZE sizeof(off_t)
+
+#define NGX_HTTP_CLOJURE_BUFFER_SIZE_IDX 4
+
 
 /*index for size of ngx_str_t */
 #define NGX_HTTP_CLOJURE_STRT_SIZE_IDX 8
@@ -435,7 +498,7 @@ int ngx_http_clojure_pipe_init_by_master(int workers);
 /*
  *
  */
-int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log);
+int ngx_http_clojure_init_memory_util(ngx_http_core_srv_conf_t *cscf, ngx_http_clojure_main_conf_t  *mcf, ngx_log_t *log);
 
 int ngx_http_clojure_register_script(ngx_int_t phase, ngx_str_t *handler_type,
 		ngx_str_t *handler, ngx_str_t *code, ngx_array_t *pros, ngx_int_t *pcid);

@@ -16,64 +16,6 @@ ngx_http_output_header_filter_pt ngx_http_clojure_next_header_filter;
 ngx_http_output_body_filter_pt ngx_http_clojure_next_body_filter;
 ngx_uint_t ngx_max_balanced_connection_per_worker = 1024;
 
-typedef struct {
-	ngx_int_t max_balanced_tcp_connections;
-	ngx_array_t *jvm_options;
-	ngx_array_t *jvm_vars;
-	ngx_str_t jvm_path;
-	ngx_int_t jvm_workers;
-	unsigned jvm_disable_all : 1;
-	unsigned enable_init_handler : 1;
-	unsigned enable_exit_handler : 1;
-	unsigned enable_content_handler :1;
-	unsigned enable_rewrite_handler :1;
-	unsigned enable_header_filter :1;
-	unsigned enable_body_filter :1;
-	unsigned enable_access_handler : 1;
-	ngx_str_t jvm_handler_type;
-	ngx_str_t jvm_init_handler_code;
-	ngx_int_t jvm_init_handler_id;
-	ngx_str_t jvm_init_handler_name;
-	ngx_str_t jvm_exit_handler_code;
-	ngx_int_t jvm_exit_handler_id;
-	ngx_str_t jvm_exit_handler_name;
-} ngx_http_clojure_main_conf_t;
-
-typedef struct {
-	unsigned enable_content_handler :1;
-	unsigned enable_rewrite_handler :1;
-	unsigned enable_header_filter :1;
-	unsigned enable_body_filter :1;
-	unsigned enable_access_handler : 1;
-	ngx_flag_t auto_upgrade_ws;
-	ngx_flag_t handlers_lazy_init;
-	ngx_flag_t always_read_body;
-	ngx_str_t content_handler_type;
-	ngx_str_t content_handler_code;
-	ngx_int_t content_handler_id;
-	ngx_str_t content_handler_name;
-	ngx_str_t rewrite_handler_type;
-	ngx_str_t rewrite_handler_code;
-	ngx_int_t rewrite_handler_id;
-	ngx_str_t rewrite_handler_name;
-	ngx_str_t header_filter_type;
-	ngx_str_t header_filter_code;
-	ngx_int_t header_filter_id;
-	ngx_str_t header_filter_name;
-	ngx_str_t body_filter_type;
-	ngx_str_t body_filter_code;
-	ngx_int_t body_filter_id;
-	ngx_str_t body_filter_name;
-	ngx_str_t access_handler_type;
-	ngx_str_t access_handler_code;
-	ngx_int_t access_handler_id;
-	ngx_str_t access_handler_name;
-	ngx_array_t *content_handler_properties;
-	ngx_array_t *rewrite_handler_properties;
-	ngx_array_t *access_handler_properties;
-	ngx_array_t *header_filter_properties;
-	ngx_array_t *body_filter_properties;
-} ngx_http_clojure_loc_conf_t;
 
 static char* ngx_http_clojure_set_max_balanced_tcp_connections(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) ;
 
@@ -123,7 +65,7 @@ static ngx_int_t ngx_http_clojure_header_filter(ngx_http_request_t * r);
 
 static ngx_int_t ngx_http_clojure_body_filter(ngx_http_request_t * r, ngx_chain_t *chain);
 
-static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_main_conf_t  *mcf, ngx_log_t *log);
+static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_core_srv_conf_t *cscf, ngx_http_clojure_main_conf_t  *mcf, ngx_log_t *log);
 
 static ngx_int_t ngx_http_clojure_init_locations_handlers_helper(ngx_http_core_loc_conf_t *clcf);
 
@@ -221,6 +163,14 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 		ngx_conf_set_num_slot,
 		NGX_HTTP_MAIN_CONF_OFFSET,
 		offsetof(ngx_http_clojure_main_conf_t, jvm_workers),
+		NULL
+    },
+    {
+		ngx_string("write_page_size"),
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_LOC_CONF | NGX_HTTP_SRV_CONF | NGX_CONF_TAKE1,
+		ngx_conf_set_size_slot,
+		NGX_HTTP_MAIN_CONF_OFFSET,
+		offsetof(ngx_http_clojure_loc_conf_t, write_page_size),
 		NULL
     },
     {
@@ -503,6 +453,7 @@ static void * ngx_http_clojure_create_loc_conf(ngx_conf_t *cf) {
 	conf->header_filter_id = -1;
 	conf->body_filter_id = -1;
 	conf->access_handler_id = -1;
+	conf->write_page_size = NGX_CONF_UNSET_SIZE;
 	return conf;
 }
 
@@ -601,7 +552,7 @@ static char * ngx_http_clojure_jvm_options_post_handler(ngx_conf_t *cf, void *da
 	return NGX_CONF_OK;
 }
 
-static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_main_conf_t  *mcf, ngx_log_t *log) {
+static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_core_srv_conf_t *cscf, ngx_http_clojure_main_conf_t  *mcf, ngx_log_t *log) {
 	if (ngx_http_clojure_check_jvm() != NGX_HTTP_CLOJURE_JVM_OK){
     	ngx_str_t *elts = mcf->jvm_options->elts;
     	char  **options;
@@ -651,7 +602,7 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_clojure_main_conf_t 
     }
 
     if (ngx_http_clojure_check_memory_util() != NGX_HTTP_CLOJURE_JVM_OK){
-		if (ngx_http_clojure_init_memory_util(mcf->jvm_workers, log) != NGX_HTTP_CLOJURE_JVM_OK) {
+		if (ngx_http_clojure_init_memory_util(cscf, mcf, log) != NGX_HTTP_CLOJURE_JVM_OK) {
 			ngx_log_error(NGX_LOG_ERR, log, 0, "can not initialize jvm memory util");
 			return NGX_HTTP_CLOJURE_JVM_ERR_INIT_MEMIDX;
 		}
@@ -712,6 +663,7 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 	ngx_conf_merge_value(conf->always_read_body, prev->always_read_body, 0);
 	ngx_conf_merge_value(conf->handlers_lazy_init, prev->handlers_lazy_init, 0);
 	ngx_conf_merge_value(conf->auto_upgrade_ws, prev->auto_upgrade_ws, 0);
+	ngx_conf_merge_size_value(conf->write_page_size, prev->write_page_size, ngx_pagesize);
 
 #if defined(NGX_CLOJURE_BE_SILENT_WITHOUT_JVM)
 	if (mcf->jvm_path.len == NGX_CONF_UNSET_SIZE) {
@@ -947,6 +899,7 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 	ngx_http_conf_ctx_t *ctx = (ngx_http_conf_ctx_t *)ngx_get_conf(cycle->conf_ctx, ngx_http_module);
 	ngx_int_t rc = 0;
 	ngx_http_core_main_conf_t *cmcf = ctx->main_conf[ngx_http_core_module.ctx_index];
+	ngx_http_core_srv_conf_t *cscf = ctx->srv_conf[ngx_http_core_module.ctx_index];
 	ngx_http_clojure_main_conf_t *mcf = ctx->main_conf[ngx_http_clojure_module.ctx_index];
 	ngx_core_conf_t  *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 	ngx_int_t jvm_num = 0;
@@ -1009,7 +962,7 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 	}
 
 
-    rc = ngx_http_clojure_init_jvm_and_mem(mcf, cycle->log);
+    rc = ngx_http_clojure_init_jvm_and_mem(cscf, mcf, cycle->log);
 
     if (rc != NGX_HTTP_CLOJURE_JVM_OK){
     	ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "jvm start times %d", *ngx_http_clojure_jvm_be_mad_times);
@@ -1071,6 +1024,7 @@ static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 	if (mcf->max_balanced_tcp_connections > 0) {
 		ngx_http_clojure_reset_listening_backlog(cf);
 	}
+
 
 	if ((mcf->enable_access_handler | mcf->enable_body_filter | mcf->enable_content_handler
 			| mcf->enable_header_filter | mcf->enable_init_handler | mcf->enable_rewrite_handler) == 0) {

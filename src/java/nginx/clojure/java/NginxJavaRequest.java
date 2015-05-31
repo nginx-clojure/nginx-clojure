@@ -110,7 +110,9 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 				if (size > 0) {
 					txt = NginxClojureRT.fetchStringValidPart(address, 2, size, MiniConstants.DEFAULT_ENCODING, bb, cb);
 					int invalidNum = bb.remaining();
-					NginxClojureRT.getLog().info("onClose fetchStringValidPart : %d", invalidNum);
+					if (NginxClojureRT.log.isDebugEnabled()) {
+						NginxClojureRT.getLog().debug("onClose fetchStringValidPart : %d", invalidNum);
+					}
 					NginxClojureRT.UNSAFE.putAddress(address, NginxClojureRT.UNSAFE.getAddress(address) - invalidNum);
 				}
 				
@@ -214,7 +216,9 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 				long address = message << 16 >> 16;
 				String txt = NginxClojureRT.fetchStringValidPart(address, 0,  size, MiniConstants.DEFAULT_ENCODING, bb, cb);
 				int invalidNum = bb.remaining();
-				NginxClojureRT.getLog().info("onTextMessage fetchStringValidPart : %d", invalidNum);
+				if (NginxClojureRT.log.isDebugEnabled()) {
+					NginxClojureRT.getLog().debug("onTextMessage fetchStringValidPart : %d", invalidNum);
+				}
 				NginxClojureRT.UNSAFE.putAddress(address, NginxClojureRT.UNSAFE.getAddress(address) - invalidNum);
 				if (txt.length() > 0 || first || !remining) {
 					if ( (txt.length() == 0 || !remining) && invalidNum != 0) {

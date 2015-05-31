@@ -448,7 +448,7 @@ static jlong JNICALL jni_ngx_http_output_filter (JNIEnv *env, jclass cls, jlong 
 	return ngx_http_output_filter((ngx_http_request_t *)(uintptr_t)r, (ngx_chain_t *)(uintptr_t)chain);
 }
 
-#define NGX_CLOJURE_REUSABLE_PAGE_SIZE 8192
+
 #define NGX_CLOJURE_BUF_LAST_FLAG 0x01
 #define NGX_CLOJURE_BUF_FLUSH_FLAG 0x02
 #define NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG 0x04
@@ -481,7 +481,7 @@ static jlong JNICALL jni_ngx_http_output_filter (JNIEnv *env, jclass cls, jlong 
 	} \
 }
 
-static ngx_chain_t * ngx_http_clojure_get_and_copy_bufs(ngx_pool_t *p, ngx_chain_t **free, char *src, size_t len,  ngx_int_t flag) {
+static ngx_chain_t * ngx_http_clojure_get_and_copy_bufs(size_t page_size, ngx_pool_t *p, ngx_chain_t **free, char *src, size_t len,  ngx_int_t flag) {
 	ngx_chain_t *cl;
 	ngx_chain_t **ll = &cl;
 	ngx_buf_t *b = NULL;
@@ -498,7 +498,7 @@ static ngx_chain_t * ngx_http_clojure_get_and_copy_bufs(ngx_pool_t *p, ngx_chain
 			b->last_in_chain = b->last_buf = 0;
 			b->temporary = 1;
 
-			copy_size = len + head_size > NGX_CLOJURE_REUSABLE_PAGE_SIZE ? NGX_CLOJURE_REUSABLE_PAGE_SIZE - head_size : len;
+			copy_size = len + head_size > page_size ? page_size - head_size : len;
 			len -= copy_size;
 			if (src) {
 				ngx_memcpy(b->last + head_size, src, copy_size);
@@ -512,9 +512,9 @@ static ngx_chain_t * ngx_http_clojure_get_and_copy_bufs(ngx_pool_t *p, ngx_chain
 			ll = &(*ll)->next;
 		}else {
 	    	ngx_bufs_t bufs;
-	    	bufs.size = NGX_CLOJURE_REUSABLE_PAGE_SIZE;
-	    	bufs.num = len / (NGX_CLOJURE_REUSABLE_PAGE_SIZE - head_size);
-	    	if (len % (NGX_CLOJURE_REUSABLE_PAGE_SIZE - head_size) != 0 || !len) {
+	    	bufs.size = page_size;
+	    	bufs.num = len / (page_size - head_size);
+	    	if (len % (page_size - head_size) != 0 || !len) {
 	    		bufs.num ++;
 	    	}
 	    	*ll = ngx_create_chain_of_bufs(p, &bufs);
@@ -529,7 +529,7 @@ static ngx_chain_t * ngx_http_clojure_get_and_copy_bufs(ngx_pool_t *p, ngx_chain
 	    			head_size = len > 125 ? 4 : 2;
 	    		}
 	    		b = (*ll)->buf;
-	    		copy_size = len + head_size > NGX_CLOJURE_REUSABLE_PAGE_SIZE ? NGX_CLOJURE_REUSABLE_PAGE_SIZE - head_size : len;
+	    		copy_size = len + head_size > page_size ? page_size - head_size : len;
 	    		if (src) {
 		    		if (head_size) {
 		    			ngx_memcpy(b->last + head_size, src, copy_size);
@@ -539,6 +539,9 @@ static ngx_chain_t * ngx_http_clojure_get_and_copy_bufs(ngx_pool_t *p, ngx_chain
 		    		}
 		    		b->last += head_size;
 		    		b->last += copy_size;
+	    		}
+	    		if (!src || !head_size) {
+	    			len -= copy_size;
 	    		}
 	    		b->tag = (ngx_buf_tag_t) &ngx_http_clojure_module;
 	    	}
@@ -1404,6 +1407,7 @@ static ngx_int_t  ngx_http_clojure_hijack_send_chain(ngx_http_request_t *r, ngx_
 static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, char *message, size_t len, ngx_int_t flag) {
 	ngx_http_clojure_module_ctx_t *ctx;
 	ngx_chain_t *in;
+	size_t page_size;
 
 	if (r->pool == NULL) {
 		ngx_log_error(NGX_LOG_ERR, ngx_http_clojure_global_cycle->log, 0,
@@ -1420,6 +1424,8 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, char *mess
 								"can not send message because the request is closing");
 		return NGX_OK;
 	}
+
+	page_size = ((ngx_http_clojure_loc_conf_t *)ngx_http_get_module_loc_conf(r, ngx_http_clojure_module))->write_page_size;
 
 	if (flag & NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG) {
 		ctx->ignore_filters = 1;
@@ -1465,7 +1471,7 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, char *mess
 				b->flush = 1;
 			}
 		}else {
-			in = ngx_http_clojure_get_and_copy_bufs(r->pool, &ctx->free, message, len, flag);
+			in = ngx_http_clojure_get_and_copy_bufs(page_size, r->pool, &ctx->free, message, len, flag);
 			if (in == NULL) {
 					ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
 							"ngx_http_clojure_hijack_send:"
@@ -1478,7 +1484,7 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, char *mess
 			ctx->wchain->next = in;
 		}
 	}else {
-		in = ngx_http_clojure_get_and_copy_bufs(r->pool, &ctx->free, message, len, flag);
+		in = ngx_http_clojure_get_and_copy_bufs(page_size, r->pool, &ctx->free, message, len, flag);
 		if (in == NULL) {
 				ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
 						"ngx_http_clojure_hijack_send:"
@@ -1605,6 +1611,9 @@ static void nji_ngx_http_clojure_hijack_read_handler(ngx_http_request_t *r) {
 	ngx_http_clojure_websocket_ctx_t *wsctx;
 	jlong flag = NGX_HTTP_CLOJURE_SOCKET_OK;
 	char *close_msg = WS_CLOSE_NORMAL_CLOSURE;
+	size_t page_size;
+
+	page_size = ((ngx_http_clojure_loc_conf_t *)ngx_http_get_module_loc_conf(r, ngx_http_clojure_module))->write_page_size;
 
 	ngx_http_clojure_get_ctx(r, ctx);
 	wsctx = ctx->wsctx;
@@ -1621,7 +1630,7 @@ TOP_WHILE :
 		size_t size;
 		ngx_buf_t *buf;
 		if (wsctx->rchain == NULL) {
-			wsctx->rchain = ngx_http_clojure_get_and_copy_bufs(r->pool, &ctx->free, NULL, NGX_CLOJURE_REUSABLE_PAGE_SIZE, 0);
+			wsctx->rchain = ngx_http_clojure_get_and_copy_bufs(page_size, r->pool, &ctx->free, NULL, page_size, 0);
 		}
 		flag = NGX_HTTP_CLOJURE_SOCKET_OK;
 		buf = wsctx->rchain->buf;
@@ -2587,7 +2596,28 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_list_size(JNIEnv *env, jclass 
 	return c;
 }
 
-
+static jlong JNICALL jni_ngx_http_clojure_mem_copy_header_buf(JNIEnv *env, jclass cls, jlong req, jobject buf, jlong offset, jlong len) {
+	ngx_buf_t *header_buf = ((ngx_http_request_t *)(uintptr_t)req)->header_in;
+	char *dst = ngx_http_clojure_abs_off_addr(buf, offset);
+	jlong n = header_buf->last - header_buf->start;
+	char *end = dst;
+	if (n > len) {
+		n = len;
+	}
+	ngx_memcpy(dst, header_buf->start, (size_t)n);
+	end += (size_t)n;
+	while ( dst != end -1) {
+		if (*dst == 0) {
+			if (*(dst+1) == '\n') {
+				*dst = '\r';
+			}else {
+				*dst = ':';
+			}
+		}
+		dst++;
+	}
+	return n;
+}
 
 static jlong JNICALL jni_ngx_http_clojure_mem_get_headers_size(JNIEnv *env, jclass cls, jlong header, jint flag) {
 	ngx_http_headers_in_t *hin;
@@ -3259,8 +3289,9 @@ int ngx_http_clojure_check_memory_util() {
 	return ngx_http_clojure_init_memory_util_flag;
 }
 
-int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log) {
+int ngx_http_clojure_init_memory_util(ngx_http_core_srv_conf_t *cscf, ngx_http_clojure_main_conf_t  *mcf, ngx_log_t *log) {
 	jlong MEM_INDEX[NGX_HTTP_CLOJURE_MEM_IDX_END];
+	size_t buf_size;
 	JNIEnv *env;
 	JNINativeMethod nms[] = {
 			{"ngx_palloc", "(JJ)J", jni_ngx_palloc},
@@ -3295,6 +3326,7 @@ int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log) {
 			{"ngx_http_clojure_mem_copy_to_obj", "(JLjava/lang/Object;JJ)V", jni_ngx_http_clojure_mem_copy_to_obj},
 			{"ngx_http_clojure_mem_copy_to_addr", "(Ljava/lang/Object;JJJ)V", jni_ngx_http_clojure_mem_copy_to_addr},
 			{"ngx_http_clojure_mem_shadow_copy_ngx_str", "(JJ)V",  jni_ngx_http_clojure_mem_shadow_copy_ngx_str},
+			{"ngx_http_clojure_mem_copy_header_buf","(JLjava/lang/Object;JJ)J", jni_ngx_http_clojure_mem_copy_header_buf},
 			{"ngx_http_clojure_mem_get_header", "(JLjava/lang/Object;JJJJ)J", jni_ngx_http_clojure_mem_get_header},
 			{"ngx_http_clojure_mem_get_request_body", "(JLjava/lang/Object;JJ)J", jni_ngx_http_clojure_mem_get_request_body},
 			{"ngx_http_clojure_mem_get_variable", "(JJJ)J", jni_ngx_http_clojure_mem_get_variable},
@@ -3318,6 +3350,7 @@ int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log) {
 	};
 	jmethodID nc_rt_init_mid;
 
+
 	ngx_http_clojure_get_jvm(&jvm);
 
 	if (ngx_http_clojure_init_memory_util_flag == NGX_HTTP_CLOJURE_JVM_OK) {
@@ -3337,6 +3370,20 @@ int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log) {
 	MEM_INDEX[NGX_HTTP_CLOJURE_SIZET_SIZE_IDX] = NGX_HTTP_CLOJURE_SIZET_SIZE;
 	MEM_INDEX[NGX_HTTP_CLOJURE_OFFT_SIZE_IDX] = NGX_HTTP_CLOJURE_OFFT_SIZE;
 
+	buf_size = cscf->client_header_buffer_size;
+
+	if (buf_size == 0 || buf_size == NGX_CONF_UNSET_SIZE || buf_size < cscf->large_client_header_buffers.size) {
+		buf_size = cscf->large_client_header_buffers.size;
+	}
+
+	if (buf_size == 0 || buf_size == NGX_CONF_UNSET_SIZE
+			|| (buf_size < 8192
+					&& (cscf->large_client_header_buffers.size == 0
+							|| cscf->large_client_header_buffers.size == NGX_CONF_UNSET_SIZE))) {
+		buf_size = 8192;
+	}
+
+	MEM_INDEX[NGX_HTTP_CLOJURE_BUFFER_SIZE_IDX] = buf_size;
 	MEM_INDEX[NGX_HTTP_CLOJURE_TELT_SIZE_IDX] = NGX_HTTP_CLOJURE_TELT_SIZE;
 	MEM_INDEX[NGX_HTTP_CLOJURE_TEL_HASH_IDX] = NGX_HTTP_CLOJURE_TEL_HASH_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_TEL_KEY_IDX] = NGX_HTTP_CLOJURE_TEL_KEY_OFFSET;
@@ -3452,7 +3499,7 @@ int ngx_http_clojure_init_memory_util(ngx_int_t jvm_workers, ngx_log_t *log) {
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_LAST_MODIFIED_TIME_IDX] =  NGX_HTTP_CLOJURE_HEADERSO_LAST_MODIFIED_TIME_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_HEADERS_IDX] =  NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET;
 
-	MEM_INDEX[NGINX_CLOJURE_RT_WORKERS_ID] = jvm_workers;
+	MEM_INDEX[NGINX_CLOJURE_RT_WORKERS_ID] = mcf->jvm_workers;
 	MEM_INDEX[NGINX_VER_ID] = nginx_version;
 	MEM_INDEX[NGINX_CLOJURE_VER_ID] = nginx_clojure_ver;
 

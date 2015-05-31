@@ -8,6 +8,7 @@ import static nginx.clojure.MiniConstants.POST_EVENT_TYPE_COMPLEX_EVENT_IDX_STAR
 import static nginx.clojure.MiniConstants.QUERY_STRING;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.HashMap;
@@ -18,13 +19,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import nginx.clojure.AppEventListenerManager.Listener;
 import nginx.clojure.AppEventListenerManager.PostedEvent;
 import nginx.clojure.ChannelCloseAdapter;
+import nginx.clojure.Configurable;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHandler;
 import nginx.clojure.NginxHttpServerChannel;
 
+import org.apache.commons.fileupload.FileItemIterator;
+import org.apache.commons.fileupload.FileItemStream;
+import org.apache.commons.fileupload.FileUpload;
+import org.apache.commons.fileupload.FileUploadException;
+import org.apache.commons.fileupload.RequestContext;
+import org.apache.commons.fileupload.util.Streams;
 import org.codehaus.jackson.map.ObjectMapper;
 
-public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler {
+public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler, Configurable {
 	
 	public static class JVMInitHandler implements NginxJavaRingHandler {
 		@Override
@@ -73,6 +81,59 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 			} catch (Throwable e) {
 				throw new RuntimeException(e);
 			} 
+		}
+		
+	}
+	
+	public static class UploadHandler implements NginxJavaRingHandler {
+
+		@Override
+		public Object[] invoke(final Map<String, Object> request) throws IOException {
+			final InputStream in = (InputStream)request.get("body");
+			FileUpload fileUpload = new FileUpload();
+			try {
+				FileItemIterator fi = fileUpload.getItemIterator(new RequestContext() {
+					
+					@Override
+					public InputStream getInputStream() throws IOException {
+						return in;
+					}
+					
+					@Override
+					public String getContentType() {
+						return (String)request.get("content-type");
+					}
+					
+					@Override
+					public int getContentLength() {
+						String l = (String)request.get("content-length");
+						return l == null ? -1 : Integer.parseInt(l);
+					}
+					
+					@Override
+					public String getCharacterEncoding() {
+						return "utf-8";
+					}
+				});
+				StringBuilder sb = new StringBuilder();
+				while (fi.hasNext()) {
+					FileItemStream fis = fi.next();
+					sb.append(fis.getFieldName()).append(":{");
+					if (fis.isFormField()) { //just a form field
+						sb.append("formFiled=true,").append("value=").append(Streams.asString(fis.openStream(), "utf-8")).append("}<br>");
+					}else { //file data
+						sb.append("file=true,").append("filename=").append(fis.getName()).append(",content-type=").append(fis.getContentType())
+						.append("file content=").append(Streams.asString(fis.openStream(), "utf-8")).append("}<br>");
+					}
+				}
+				
+				return new Object[] {200, ArrayMap.create("content-type", "text/html"), sb.toString()};
+				
+			} catch (FileUploadException e) {
+				NginxClojureRT.log.error("can not parse file upload", e);
+				return new Object[] {500, null, null};
+			}
+			
 		}
 		
 	}
@@ -209,6 +270,8 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		routing.put("/pub", new Pub());
 		routing.put("/ssesub", new SSESub());
 		routing.put("/ssepub", new SSEPub());
+		routing.put("/file", new FileBytesHandler());
+		routing.put("/upload", new UploadHandler());
 	}
 
 	@Override
@@ -220,6 +283,15 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 			return new Object[] {200, null, "OK"};
 		}
 		return handler.invoke(request);
+	}
+
+	@Override
+	public void config(Map<String, String> properties) {
+		for (NginxJavaRingHandler h : routing.values()) {
+			if (h instanceof Configurable) {
+				((Configurable)h).config(properties);
+			}
+		}
 	}
 	
 }
