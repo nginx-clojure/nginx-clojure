@@ -33,7 +33,7 @@ JNI_HEADER_2="${JNI_HEADER_1}/linux"
 
 #macosx
 #JNI_HEADER_1="/Library/Java/JavaVirtualMachines/1.6.0_65-b14-462.jdk/Contents/headers"
-#JNI_HEADER_2="${JNI_HEADER_1}"
+#JNI_HEADER_2="${JNI_HEADER_1}/darwin"
 
 CFLAGS="-I \"${JNI_HEADER_1}\" \
         -I \"${JNI_HEADER_2}\" \
