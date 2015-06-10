@@ -60,17 +60,17 @@ public class MiniConstants {
 	
 	
 	
-	public static Map<String, NginxHeaderHolder> KNOWN_REQ_HEADERS = new CaseInsensetiveMap<NginxHeaderHolder>();
+	public static Map<String, NginxHeaderHolder> KNOWN_REQ_HEADERS = new CaseInsensitiveMap<NginxHeaderHolder>();
 	
-	public static Map<String, NginxHeaderHolder> KNOWN_RESP_HEADERS = new HashMap<String, NginxHeaderHolder>();
+	public static Map<String, NginxHeaderHolder> KNOWN_RESP_HEADERS = new CaseInsensitiveMap<NginxHeaderHolder>();
 	
 	public static NginxHeaderHolder RESP_CONTENT_TYPE_HOLDER;
 	
 	public static Map<String, Long> MIME_TYPES = new HashMap<String, Long>(); 
 	
-	public static Map<String, Long> CORE_VARS = new CaseInsensetiveMap<Long>();
+	public static Map<String, Long> CORE_VARS = new CaseInsensitiveMap<Long>();
 	
-	public static Map<String, Long> HEADERS_NAMES = new CaseInsensetiveMap<Long>();
+	public static Map<String, Long> HEADERS_NAMES = new CaseInsensitiveMap<Long>();
 	
 	public static final String STATUS_STR = "status";
 //	public static final String BODY = RT.keyword(null, "body");

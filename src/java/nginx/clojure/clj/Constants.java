@@ -7,7 +7,7 @@ package nginx.clojure.clj;
 import java.util.HashMap;
 import java.util.Map;
 
-import nginx.clojure.CaseInsensetiveMap;
+import nginx.clojure.CaseInsensitiveMap;
 import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxHeaderHolder;
 import nginx.clojure.RequestVarFetcher;
@@ -72,6 +72,6 @@ public class Constants extends MiniConstants {
 	
 	public static RequestVarFetcher HEADER_FETCHER;
 	
-	public final static Map<String, NginxHeaderHolder> KNOWN_RESP_HEADERS = new CaseInsensetiveMap<NginxHeaderHolder>();
+	public final static Map<String, NginxHeaderHolder> KNOWN_RESP_HEADERS = new CaseInsensitiveMap<NginxHeaderHolder>();
 	
 }

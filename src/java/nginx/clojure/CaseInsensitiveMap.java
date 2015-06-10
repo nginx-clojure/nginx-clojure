@@ -13,7 +13,7 @@ import java.util.TreeMap;
  * Only use this for small and stable map
  * 
  */
-public class CaseInsensetiveMap<V> extends TreeMap<String, V> {
+public class CaseInsensitiveMap<V> extends TreeMap<String, V> {
 
 	public static final Comparator<String> IGNORE_CASE_COMPARATOR =  new Comparator<String>() {
 		@Override
@@ -43,7 +43,7 @@ public class CaseInsensetiveMap<V> extends TreeMap<String, V> {
 	
 	private HashMap<String, V> fastMap = new HashMap<String, V>();
 
-	public CaseInsensetiveMap() {
+	public CaseInsensitiveMap() {
 		super(IGNORE_CASE_COMPARATOR);
 	}
 	

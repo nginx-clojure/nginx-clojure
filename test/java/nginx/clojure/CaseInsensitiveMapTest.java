@@ -14,7 +14,7 @@ public class CaseInsensitiveMapTest {
 	
 	@Before
 	public void setUp() throws Exception {
-		m  = new CaseInsensetiveMap<String>();
+		m  = new CaseInsensitiveMap<String>();
 		m.put("Good", "good");
 		m.put("BAD", "bad");
 		m.put("very", "very");
