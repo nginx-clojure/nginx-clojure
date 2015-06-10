@@ -75,8 +75,10 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 			if (NginxClojureRT.log.isDebugEnabled()) {
 				NginxClojureRT.log.debug("#%d: request %s onClose!", req.nativeRequest(), req.uri());
 			}
-			if (req.listeners() != null) {
-				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners()) {
+			List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
+			if (listeners != null) {
+				for (int i = listeners.size() - 1; i > -1; i--) {
+					java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
 					try {
 						en.getValue().onClose(en.getKey());
 					}catch(Throwable e) {
@@ -102,7 +104,8 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 			if (NginxClojureRT.log.isDebugEnabled()) {
 				NginxClojureRT.log.debug("#%d: request %s onClose2, status=%d", req.nativeRequest(), req.uri(), status);
 			}
-			if (req.listeners() != null) {
+			List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
+			if (listeners != null) {
 				ByteBuffer bb = NginxClojureRT.pickByteBuffer();
 				CharBuffer cb = NginxClojureRT.pickCharBuffer();
 				String txt = null;
@@ -116,7 +119,8 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 					NginxClojureRT.UNSAFE.putAddress(address, NginxClojureRT.UNSAFE.getAddress(address) - invalidNum);
 				}
 				
-				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners()) {
+				for (int i = listeners.size() - 1; i > -1; i--) {
+					java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
 					try {
 						ChannelListener<Object> l = en.getValue();
 						if (l instanceof MessageListener) {
@@ -134,8 +138,10 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 			if (NginxClojureRT.log.isDebugEnabled()) {
 				NginxClojureRT.log.debug("#%d: request %s onConnect, status=%d", req.nativeRequest(), req.uri(), status);
 			}
-			if (req.listeners() != null) {
-				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners()) {
+			List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
+			if (listeners != null) {
+				for (int i = listeners.size() - 1; i > -1; i--) {
+					java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
 					try {
 						en.getValue().onConnect(status, req);
 					}catch(Throwable e) {
@@ -150,8 +156,10 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 			if (NginxClojureRT.log.isDebugEnabled()) {
 				NginxClojureRT.log.debug("#%d: request %s onRead, status=%d", req.nativeRequest(), req.uri(), status);
 			}
-			if (req.listeners() != null) {
-				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners()) {
+			List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
+			if (listeners != null) {
+				for (int i = listeners.size() - 1; i > -1; i--) {
+					java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
 					try {
 						en.getValue().onRead(status, en.getKey());
 					}catch(Throwable e) {
@@ -166,8 +174,10 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 			if (NginxClojureRT.log.isDebugEnabled()) {
 				NginxClojureRT.log.debug("#%d: request %s onWrite, status=%d", req.nativeRequest(), req.uri(), status);
 			}
-			if (req.listeners() != null) {
-				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners()) {
+			List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
+			if (listeners != null) {
+				for (int i = listeners.size() - 1; i > -1; i--) {
+					java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
 					try {
 						en.getValue().onWrite(status, en.getKey());
 					}catch(Throwable e) {
@@ -186,8 +196,10 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 			if (size <= 0 && !first && remining) {
 				return;
 			}
-			if (req.listeners() != null) {
-				for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners()) {
+			List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
+			if (listeners != null) {
+				for (int i = listeners.size() - 1; i > -1; i--) {
+					java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
 					try {
 						ChannelListener<Object> l = en.getValue();
 						if (l instanceof MessageListener) {
@@ -210,7 +222,8 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 			if (NginxClojureRT.log.isDebugEnabled()) {
 				NginxClojureRT.log.debug("#%d: request %s onTextMessage! size=%d, rem=%s, first=%s, pm=%d", req.nativeRequest(), req.uri(), size, remining, first, NginxClojureRT.UNSAFE.getAddress(message << 16 >> 16));
 			}
-			if (req.listeners() != null) {
+			List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
+			if (listeners != null) {
 				ByteBuffer bb = NginxClojureRT.pickByteBuffer();
 				CharBuffer cb = NginxClojureRT.pickCharBuffer();
 				long address = message << 16 >> 16;
@@ -224,7 +237,8 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 					if ( (txt.length() == 0 || !remining) && invalidNum != 0) {
 						return;
 					}
-					for (java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en : req.listeners()) {
+					for (int i = listeners.size() - 1; i > -1; i--) {
+						java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
 						try {
 							ChannelListener<Object> l = en.getValue();
 							if (l instanceof MessageListener) {
