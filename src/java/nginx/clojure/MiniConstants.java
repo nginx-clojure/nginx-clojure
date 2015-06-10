@@ -5,9 +5,8 @@
 package nginx.clojure;
 
 import java.nio.charset.Charset;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.TreeMap;
 
 /**
  * Mini constants needed Nginx-Clojure Basic Platform
@@ -61,38 +60,17 @@ public class MiniConstants {
 	
 	
 	
-	public static final Comparator<String> IGNORE_CASE_COMPARATOR =  new Comparator<String>() {
-		@Override
-		public int compare(String s1, String s2) {
-            int n1 = s1.length();
-            int n2 = s2.length();
-            int min = n1 > n2 ? n2 : n1;
-            for (int i = 0; i < min; i++) {
-                int c1 = s1.charAt(i);
-                int c2 = s2.charAt(i);
-                if (c1 != c2) {
-                    c1 = c1 >= 'A' && c1 <= 'Z' ?  (c1 | 0x20) : c1;
-                    c2 = c2 >= 'A' && c2 <= 'Z' ?  (c2 | 0x20) : c2;
-                    if (c1 != c2) {
-                        return c1 - c2;
-                    }
-                }
-            }
-            return n1 - n2;
-		}
-	};
+	public static Map<String, NginxHeaderHolder> KNOWN_REQ_HEADERS = new CaseInsensetiveMap<NginxHeaderHolder>();
 	
-	public static Map<String, NginxHeaderHolder> KNOWN_REQ_HEADERS = new TreeMap<String, NginxHeaderHolder>(IGNORE_CASE_COMPARATOR);
-	
-	public static Map<String, NginxHeaderHolder> KNOWN_RESP_HEADERS = new TreeMap<String, NginxHeaderHolder>(IGNORE_CASE_COMPARATOR);
+	public static Map<String, NginxHeaderHolder> KNOWN_RESP_HEADERS = new HashMap<String, NginxHeaderHolder>();
 	
 	public static NginxHeaderHolder RESP_CONTENT_TYPE_HOLDER;
 	
-	public static Map<String, Long> MIME_TYPES = new TreeMap<String, Long>(IGNORE_CASE_COMPARATOR); 
+	public static Map<String, Long> MIME_TYPES = new HashMap<String, Long>(); 
 	
-	public static Map<String, Long> CORE_VARS = new TreeMap<String, Long>(IGNORE_CASE_COMPARATOR);
+	public static Map<String, Long> CORE_VARS = new CaseInsensetiveMap<Long>();
 	
-	public static Map<String, Long> HEADERS_NAMES = new TreeMap<String, Long>(IGNORE_CASE_COMPARATOR);
+	public static Map<String, Long> HEADERS_NAMES = new CaseInsensetiveMap<Long>();
 	
 	public static final String STATUS_STR = "status";
 //	public static final String BODY = RT.keyword(null, "body");
