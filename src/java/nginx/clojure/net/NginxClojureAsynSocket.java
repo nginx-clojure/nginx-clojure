@@ -4,6 +4,7 @@
  */
 package nginx.clojure.net;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -13,7 +14,7 @@ import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
 
 
-public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler {
+public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler, Closeable {
 	
 	public static final long NGX_HTTP_CLOJURE_SOCKET_OK = 0;
 	public static final long NGX_HTTP_CLOJURE_SOCKET_ERR = -16;

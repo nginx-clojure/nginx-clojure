@@ -9,6 +9,7 @@ import static nginx.clojure.MiniConstants.NGX_AGAIN;
 import static nginx.clojure.MiniConstants.NGX_OK;
 import static nginx.clojure.NginxClojureRT.log;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -21,7 +22,7 @@ import nginx.clojure.java.NginxJavaResponse;
 import nginx.clojure.net.NginxClojureAsynSocket;
 import sun.nio.ch.DirectBuffer;
 
-public class NginxHttpServerChannel {
+public class NginxHttpServerChannel implements Closeable {
 	
 	protected NginxRequest request;
 	protected boolean ignoreFilter;

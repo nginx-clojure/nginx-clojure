@@ -4,6 +4,7 @@
  */
 package nginx.clojure.net;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
@@ -14,7 +15,7 @@ import nginx.clojure.NginxClojureRT;
 import nginx.clojure.logger.TinyLogService;
 import nginx.clojure.logger.TinyLogService.MsgType;
 
-public class NginxClojureAsynChannel implements NginxClojureSocketHandler {
+public class NginxClojureAsynChannel implements NginxClojureSocketHandler, Closeable {
 	
 	protected ChannelListener<NginxClojureAsynChannel> listener;
 	protected BufferChain connectFakeChain;
