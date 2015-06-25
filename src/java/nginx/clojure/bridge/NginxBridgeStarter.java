@@ -5,7 +5,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -20,17 +19,17 @@ public class NginxBridgeStarter {
 
 	public static final String BRIDGE_LIB_DIRS = "bridge.lib.dirs";
 	
-	protected static Map<String, ClassLoader> classLoaders = new HashMap<String, ClassLoader>();
+	public static final String BRIDGE_ALIAS = "bridge.alias";
 	
 	public NginxBridgeStarter() {
 	}
 	
-	public void start(Map<String, String> properties,  NginxBridgeHandler handler) {
+	public NginxBridge start(Map<String, String> properties) {
 		
 		String libDirs = properties.get(BRIDGE_LIB_DIRS);
 		String cpDirs = properties.get(BRIDGE_LIB_CP);
 		String loaderKey = libDirs+"\n" + cpDirs;
-		ClassLoader bootstrapLoader = classLoaders.get(loaderKey);
+		ClassLoader bootstrapLoader = null;
 		
 		for (Entry<String, String> en : properties.entrySet()) {
 			if (en.getKey().startsWith("system.")) {
@@ -40,42 +39,39 @@ public class NginxBridgeStarter {
 		}
 		
 		String bridgeImp = properties.get(BRIDGE_IMP);
-		
-		if (bootstrapLoader == null) {
-			List<URL> urlList = new ArrayList<URL>();
-			if (libDirs != null) {
-				for (String dir : libDirs.split(File.pathSeparator)) {
-					for (File f : new File(dir).listFiles()) {
-						try {
-							if (f.isFile() && f.getName().endsWith(".jar")) {
-								urlList.add(f.toURI().toURL());
-							}else if (f.isDirectory()) {
-								urlList.add(f.toURI().toURL());
-							}
-						} catch (MalformedURLException e) {// ignore
-						}
-					}
-				}
-			}
-			
-			if (cpDirs != null) {
-				for (String dir : cpDirs.split(File.pathSeparator)) {
-					File f = new File(dir);
+
+		List<URL> urlList = new ArrayList<URL>();
+		if (libDirs != null) {
+			for (String dir : libDirs.split(File.pathSeparator)) {
+				for (File f : new File(dir).listFiles()) {
 					try {
 						if (f.isFile() && f.getName().endsWith(".jar")) {
 							urlList.add(f.toURI().toURL());
-						}else if (f.isDirectory()) {
+						} else if (f.isDirectory()) {
 							urlList.add(f.toURI().toURL());
 						}
 					} catch (MalformedURLException e) {// ignore
 					}
 				}
 			}
-			URL[] urls = new URL[urlList.size()];
-			NginxClojureRT.getLog().info("%s.boot() with whole classpath: %s", bridgeImp , urlList);
-			bootstrapLoader = URLClassLoader.newInstance(urlList.toArray(urls));
-			classLoaders.put(loaderKey, bootstrapLoader);
 		}
+
+		if (cpDirs != null) {
+			for (String dir : cpDirs.split(File.pathSeparator)) {
+				File f = new File(dir);
+				try {
+					if (f.isFile() && f.getName().endsWith(".jar")) {
+						urlList.add(f.toURI().toURL());
+					} else if (f.isDirectory()) {
+						urlList.add(f.toURI().toURL());
+					}
+				} catch (MalformedURLException e) {// ignore
+				}
+			}
+		}
+		URL[] urls = new URL[urlList.size()];
+		NginxClojureRT.getLog().info("%s.boot() with whole classpath: %s", bridgeImp, urlList);
+		bootstrapLoader = URLClassLoader.newInstance(urlList.toArray(urls));
 		
 		Class bridgeClz;
 		try {
@@ -95,12 +91,10 @@ public class NginxBridgeStarter {
 		}
 		
 		try {
-			bridge.boot(properties);
-			handler.setBridge(bridge);
+			bridge.boot(properties, bootstrapLoader);
+			return bridge;
 		}finally{
-//			if (Thread.currentThread().getContextClassLoader() == bootstrapLoader) {
-//				Thread.currentThread().setContextClassLoader(oldLoader);
-//			}
+			Thread.currentThread().setContextClassLoader(oldLoader);
 		}
 
 	}
