@@ -396,6 +396,24 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     ngx_null_command
 };
 
+static ngx_http_clojure_header_holder_t ngx_http_clojure_headers_out_holders[] = {
+		{ngx_string("Server"), ngx_http_clojure_set_elt_header, offsetof(ngx_http_headers_out_t, server)},
+		{ngx_string("Date"), ngx_http_clojure_set_elt_header, offsetof(ngx_http_headers_out_t, date)},
+		{ngx_string("Content-Encoding"), ngx_http_clojure_set_elt_header, offsetof(ngx_http_headers_out_t, content_encoding)},
+		{ngx_string("Location"), ngx_http_clojure_set_elt_header, offsetof(ngx_http_headers_out_t, location)},
+		{ngx_string("Refresh"), ngx_http_clojure_set_elt_header, offsetof(ngx_http_headers_out_t, refresh)},
+		{ngx_string("Last-Modified"), ngx_http_clojure_set_elt_header, offsetof(ngx_http_headers_out_t, last_modified)},
+		{ngx_string("Content-Range"), ngx_http_clojure_set_elt_header, offsetof(ngx_http_headers_out_t, content_range)},
+		{ngx_string("Accept-Ranges"), ngx_http_clojure_set_elt_header, offsetof(ngx_http_headers_out_t, accept_ranges)},
+		{ngx_string("WWW-Authenticate"), ngx_http_clojure_set_elt_header, offsetof(ngx_http_headers_out_t, www_authenticate)},
+		{ngx_string("Expires"), ngx_http_clojure_set_elt_header, offsetof(ngx_http_headers_out_t, expires)},
+		{ngx_string("Etag"), ngx_http_clojure_set_elt_header, offsetof(ngx_http_headers_out_t, etag)},
+		{ngx_string("Cache-Control"), ngx_http_clojure_set_array_header, offsetof(ngx_http_headers_out_t, cache_control)},
+		{ngx_string("Content-Type"), ngx_http_clojure_set_content_type_header, 0},
+		{ngx_string("Content-Length"), ngx_http_clojure_set_content_len_header, 0},
+		{ngx_null_string, NULL, 0},
+};
+
 static ngx_http_module_t  ngx_http_clojure_module_ctx = {
     NULL,                          /* preconfiguration */
     ngx_http_clojure_postconfiguration, /* postconfiguration */
@@ -425,6 +443,42 @@ ngx_module_t  ngx_http_clojure_module = {
     NGX_MODULE_V1_PADDING
 };
 
+static ngx_int_t ngx_http_clojure_init_headers_out_holder_hash(ngx_conf_t *cf, ngx_hash_t *headers_out_holder_hash) {
+	ngx_hash_init_t hash;
+	ngx_array_t headers_out_holders;
+	ngx_http_clojure_header_holder_t *header;
+	ngx_hash_key_t *hk;
+
+	if (ngx_array_init(&headers_out_holders, cf->temp_pool, 32, sizeof(ngx_hash_key_t)) != NGX_OK) {
+		return NGX_ERROR ;
+	}
+
+	for (header = ngx_http_clojure_headers_out_holders; header->name.len; header++) {
+		hk = ngx_array_push(&headers_out_holders);
+		if (hk == NULL) {
+			return NGX_ERROR ;
+		}
+
+		hk->key = header->name;
+		hk->key_hash = ngx_hash_key_lc(header->name.data, header->name.len);
+		hk->value = header;
+	}
+
+	hash.hash = headers_out_holder_hash;
+	hash.key = ngx_hash_key_lc;
+	hash.max_size = 512;
+	hash.bucket_size = ngx_align(64, ngx_cacheline_size);
+	hash.name = "nginx_clojure_headers_out_holder_in_hash";
+	hash.pool = cf->pool;
+	hash.temp_pool = NULL;
+
+	if (ngx_hash_init(&hash, headers_out_holders.elts, headers_out_holders.nelts) != NGX_OK) {
+		return NGX_ERROR ;
+	}
+
+	return NGX_OK;
+}
+
 static void * ngx_http_clojure_create_main_conf(ngx_conf_t *cf) {
 	ngx_http_clojure_main_conf_t *conf;
 	conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_clojure_main_conf_t));
@@ -436,6 +490,12 @@ static void * ngx_http_clojure_create_main_conf(ngx_conf_t *cf) {
 	conf->jvm_workers = NGX_CONF_UNSET;
 	conf->max_balanced_tcp_connections = NGX_CONF_UNSET;
 	conf->jvm_init_handler_id = conf->jvm_exit_handler_id = -1;
+
+	if (ngx_http_clojure_init_headers_out_holder_hash(cf, &conf->headers_out_holder_hash) != NGX_OK) {
+		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "can not ngx_http_clojure_init_headers_out_holder_hash");
+		return NGX_CONF_ERROR;
+	}
+
 	return conf;
 }
 
@@ -974,7 +1034,7 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
     	return NGX_ERROR;
     }
 
-	if (mcf->enable_content_handler
+	if (mcf->enable_init_handler
 			&& ngx_http_clojure_init_clojure_script(NGX_HTTP_INIT_PROCESS_PHASE, "init-process", &mcf->jvm_handler_type, &mcf->jvm_init_handler_name,
 					&mcf->jvm_init_handler_code, NULL, &mcf->jvm_init_handler_id, cycle->log) != NGX_HTTP_CLOJURE_JVM_OK) {
 		return NGX_ERROR;

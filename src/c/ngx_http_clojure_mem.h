@@ -42,6 +42,11 @@
 #define NGX_HTTP_BODY_FILTER_PHASE  19
 #define NGX_HTTP_EXIT_PROCESS_PHASE  20
 
+typedef struct {
+	ngx_str_t name;
+	ngx_http_header_handler_pt handler;
+	ngx_uint_t offset;
+} ngx_http_clojure_header_holder_t;
 
 typedef struct {
 	ngx_int_t max_balanced_tcp_connections;
@@ -64,6 +69,7 @@ typedef struct {
 	ngx_str_t jvm_exit_handler_code;
 	ngx_int_t jvm_exit_handler_id;
 	ngx_str_t jvm_exit_handler_name;
+	ngx_hash_t headers_out_holder_hash;
 } ngx_http_clojure_main_conf_t;
 
 typedef struct {
@@ -152,7 +158,11 @@ typedef struct {
 	unsigned wait_for_header_filter : 1;
 	unsigned pending_body_filter : 1;
 	unsigned ignore_next_response : 1;
-	unsigned upgraded : 1;
+#define NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_READ 1
+#define NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_WRITE 2
+#define NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_NOKEEPALIVE 4
+	/*1 READ, 2 WRITE, 4 NOKEEPALIVE*/
+	unsigned event_handler_flag : 3;
 	ngx_http_clojure_websocket_ctx_t *wsctx;
 	ngx_chain_t *wchain; /*buffer for write*/
 	/*for filter under thread pool mode or coroutine mode*/
@@ -172,7 +182,7 @@ typedef struct {
 		ctx->wait_for_header_filter = 0 ;\
 		ctx->pending_body_filter = 0 ; \
 		ctx->ignore_next_response = 0; \
-		ctx->upgraded = 0; \
+		ctx->event_handler_flag = 0; \
 		ctx->wsctx = 0; \
 		ctx->listeners = 0;
 
@@ -512,6 +522,11 @@ ngx_int_t ngx_http_clojure_filter_continue_next_body_filter(ngx_http_request_t *
 ngx_int_t ngx_http_clojure_prepare_server_header(ngx_http_request_t *r);
 
 ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r);
+
+ngx_int_t ngx_http_clojure_set_elt_header(ngx_http_request_t *r, ngx_table_elt_t *h, ngx_uint_t offset);
+ngx_int_t ngx_http_clojure_set_array_header(ngx_http_request_t *r, ngx_table_elt_t *h, ngx_uint_t offset);
+ngx_int_t ngx_http_clojure_set_content_type_header(ngx_http_request_t *r, ngx_table_elt_t *h, ngx_uint_t offset);
+ngx_int_t ngx_http_clojure_set_content_len_header(ngx_http_request_t *r, ngx_table_elt_t *h, ngx_uint_t offset);
 
 void ngx_http_clojure_cleanup_handler(void *data);
 

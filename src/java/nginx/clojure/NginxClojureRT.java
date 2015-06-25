@@ -20,12 +20,15 @@ import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import nginx.clojure.java.ArrayMap;
@@ -191,6 +194,14 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public native static long ngx_http_clojure_websocket_upgrade(long req);
 	
+	/**
+	 * flag can be either of or combined of
+	 * 0
+	 * NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_READ  1
+	 * NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_WRITE 2
+	 */
+	public native static void ngx_http_hijack_turn_on_event_handler(long req, int flag);
+	
 	public native static long ngx_http_hijack_read(long req, Object buf, long offset, long len);
 	
 	public native static long ngx_http_hijack_write(long req, Object buf, long offset, long len);
@@ -205,6 +216,8 @@ public class NginxClojureRT extends MiniConstants {
 	 * flag can be either of {@link MiniConstants#NGX_CLOJURE_BUF_FLUSH_FLAG} {@link MiniConstants#NGX_CLOJURE_BUF_LAST_FLAG}
 	 */
 	public native static long ngx_http_hijack_send_header(long req, int flag);
+	
+	public native static long ngx_http_hijack_send_header(long req, Object buf, long offset, long len, int flag);
 	
 	public native static long ngx_http_hijack_send_chain(long req, long chain, int flag);
 	
@@ -223,7 +236,7 @@ public class NginxClojureRT extends MiniConstants {
 	private final static ThreadLocal<ByteBuffer> threadLocalByteBuffers = new ThreadLocal<ByteBuffer>();
 	private final static ThreadLocal<CharBuffer> threadLocalCharBuffers = new ThreadLocal<CharBuffer>();
 	
-
+	private final static ConcurrentLinkedQueue<HijackEvent> pooledEvents = new ConcurrentLinkedQueue<NginxClojureRT.HijackEvent>();
 	
 	static {
 		//be friendly to lein ring testing
@@ -269,45 +282,60 @@ public class NginxClojureRT extends MiniConstants {
 		}
 	}
 	
-	public static final class HijackEvent {
-		public final NginxHttpServerChannel channel;
-		public final Object message;
-		public final int off;
-		public final int len;
-		public final int flag;
+	public static  class HijackEvent {
 		
-		public HijackEvent(NginxHttpServerChannel channel, Object message, int off, int len, int flag) {
-			super();
+		protected NginxHttpServerChannel channel;
+		protected Object message; //maybe NginxResponse or for complex return value
+		protected volatile long offset;   //maybe chain of response or also as simple return value
+		protected int len; 
+		protected int flag;
+		protected Semaphore semaphore;
+		
+		public HijackEvent() {
+			semaphore = new Semaphore(0);
+		}
+		
+		public HijackEvent reset(NginxHttpServerChannel channel, Object message, long off, int len, int flag) {
 			this.channel = channel;
 			this.message = message;
-			this.off = off;
+			this.offset = off;
 			this.len = len;
 			this.flag = flag;
+			return this;
 		}
 		
-	}
-	
-	public static final class HijackHeaderEvent {
-		public final NginxHttpServerChannel channel;
-		public final int flag;
-		public HijackHeaderEvent(NginxHttpServerChannel channel, int flag) {
-			super();
+		public HijackEvent reset(NginxHttpServerChannel channel, NginxResponse response, long chain) {
 			this.channel = channel;
-			this.flag = flag;
+			this.message = response;
+			this.offset = chain;
+			return this;
+		}
+		
+		public boolean awaitForFinish(long timeout) throws InterruptedException {
+			return semaphore.tryAcquire(timeout, TimeUnit.MILLISECONDS);
+		}
+		
+		public void awaitForFinish() throws InterruptedException {
+			semaphore.acquire();
+		}
+		
+		public void complete(long v) {
+			this.offset = v;
+			semaphore.release();
+		}
+		
+		public void complete(Object v) {
+			this.message = v;
+			semaphore.release();
+		}
+		
+		public void recycle() {
+			channel = null;
+			message = null;
+			semaphore.drainPermits();
 		}
 	}
 	
-	public static final class HijackResponseEvent {
-		public final NginxHttpServerChannel channel;
-		public final NginxResponse response;
-		public final long chain;
-		public HijackResponseEvent(NginxHttpServerChannel channel, NginxResponse response, long chain) {
-			super();
-			this.channel = channel;
-			this.response = response;
-			this.chain = chain;
-		}
-	}
 	
 	
 	public static final class EventDispatherRunnable implements Runnable {
@@ -990,22 +1018,55 @@ public class NginxClojureRT extends MiniConstants {
 		ngx_http_clojure_mem_post_event(makeEventAndSaveIt(POST_EVENT_TYPE_CLOSE_SOCKET, s), null, 0);
 	}
 	
-	public static void postHijackSendEvent(NginxHttpServerChannel channel, Object message, int off, int len, int flag) {
+	public static HijackEvent pickHijackEvent() {
+		HijackEvent e = pooledEvents.poll();
+		if (e == null) {
+			return new HijackEvent();
+		}
+		return e;
+	}
+	
+	public static void returnHijackEvent(HijackEvent e) {
+		e.recycle();
+		pooledEvents.add(e);
+	}
+	
+	public static void postHijackSendEvent(NginxHttpServerChannel channel, Object message, long off, int len, int flag) {
+		HijackEvent hijackEvent = pickHijackEvent().reset(channel, message, off, len , flag);
 		ngx_http_clojure_mem_post_event(
-				makeEventAndSaveIt(POST_EVENT_TYPE_HIJACK_SEND,
-						new HijackEvent(channel, message, off, len , flag)), null, 0);
+				makeEventAndSaveIt(POST_EVENT_TYPE_HIJACK_SEND, hijackEvent), null, 0);
+	}
+	
+	public static long postHijackWriteEvent(NginxHttpServerChannel channel, Object message, long off, int len) throws IOException {
+		HijackEvent hijackEvent = pickHijackEvent().reset(channel, message, off, len, 0);
+		ngx_http_clojure_mem_post_event(
+				makeEventAndSaveIt(POST_EVENT_TYPE_HIJACK_WRITE, hijackEvent), null, 0);
+		try {
+			hijackEvent.awaitForFinish();
+			long rc = hijackEvent.offset;
+			returnHijackEvent(hijackEvent);
+			return rc;
+		} catch (InterruptedException e) {
+			throw new IOException("write await be interrupted", e);
+		}
 	}
 	
 	public static void postHijackSendHeaderEvent(NginxHttpServerChannel channel, int flag) {
+		HijackEvent hijackEvent = pickHijackEvent().reset(channel, null, 0, 0, flag);
 		ngx_http_clojure_mem_post_event(
-				makeEventAndSaveIt(POST_EVENT_TYPE_HIJACK_SEND_HEADER,
-						new HijackHeaderEvent(channel, flag)), null, 0);
+				makeEventAndSaveIt(POST_EVENT_TYPE_HIJACK_SEND_HEADER, hijackEvent), null, 0);
+	}
+	
+	public static void postHijackSendHeaderEvent(NginxHttpServerChannel channel, Object buf, int pos, int len, int flag) {
+		HijackEvent hijackEvent = pickHijackEvent().reset(channel, buf, pos, len, flag);
+		ngx_http_clojure_mem_post_event(
+				makeEventAndSaveIt(POST_EVENT_TYPE_HIJACK_SEND_HEADER, hijackEvent), null, 0);
 	}
 	
 	public static void postHijackSendResponseEvent(NginxHttpServerChannel channel, NginxResponse resp, long chain) {
+		HijackEvent hijackEvent = pickHijackEvent().reset(channel, resp, chain);
 		ngx_http_clojure_mem_post_event(
-				makeEventAndSaveIt(POST_EVENT_TYPE_HIJACK_SEND_RESPONSE,
-						new HijackResponseEvent(channel, resp, chain)), null, 0);
+				makeEventAndSaveIt(POST_EVENT_TYPE_HIJACK_SEND_RESPONSE, hijackEvent), null, 0);
 	}
 	
 	private final static byte[] POST_EVENT_BUF = new byte[4096];
@@ -1028,23 +1089,91 @@ public class NginxClojureRT extends MiniConstants {
 				}
 			case POST_EVENT_TYPE_HIJACK_SEND : {
 				HijackEvent hijackEvent = (HijackEvent)POSTED_EVENTS_DATA.remove(data);
-				if (hijackEvent.message instanceof ByteBuffer) {
-					hijackEvent.channel.send((ByteBuffer)hijackEvent.message, hijackEvent.flag);
-				}else {
-					hijackEvent.channel.send((byte[])hijackEvent.message, hijackEvent.off, hijackEvent.len, hijackEvent.flag);
+				try{
+					if (hijackEvent.channel.request.isReleased()) {
+						log.error("#%d: NginxHttpServerChannel released, request=%s", hijackEvent.channel.request.nativeRequest(), hijackEvent.channel.request);
+						return NGX_HTTP_INTERNAL_SERVER_ERROR;
+					}
+					if (hijackEvent.message instanceof ByteBuffer) {
+						hijackEvent.channel.send((ByteBuffer)hijackEvent.message, hijackEvent.flag);
+					}else {
+						hijackEvent.channel.send((byte[])hijackEvent.message, hijackEvent.offset, hijackEvent.len, hijackEvent.flag);
+					}
+				}finally{
+					returnHijackEvent(hijackEvent);
 				}
+				
 				return NGX_OK;
 			}
 			case POST_EVENT_TYPE_HIJACK_SEND_HEADER : {
-				HijackHeaderEvent hijackHeaderEvent = (HijackHeaderEvent)POSTED_EVENTS_DATA.remove(data);
-				ngx_http_hijack_send_header(hijackHeaderEvent.channel.request.nativeRequest(), hijackHeaderEvent.flag);
+				HijackEvent hijackHeaderEvent = (HijackEvent)POSTED_EVENTS_DATA.remove(data);
+				try{
+					if (hijackHeaderEvent.channel.request.isReleased()) {
+						log.error("#%d: send header on released NginxHttpServerChannel , request=%s", hijackHeaderEvent.channel.request.nativeRequest(), hijackHeaderEvent.channel.request);
+						returnHijackEvent(hijackHeaderEvent);
+						return NGX_HTTP_INTERNAL_SERVER_ERROR;
+					}
+					if (hijackHeaderEvent.message != null) {
+						if (hijackHeaderEvent.message instanceof ByteBuffer) {
+							hijackHeaderEvent.channel.sendHeader((ByteBuffer)hijackHeaderEvent.message, hijackHeaderEvent.flag);
+						}else {
+							hijackHeaderEvent.channel.sendHeader((byte[])hijackHeaderEvent.message, hijackHeaderEvent.offset, hijackHeaderEvent.len, hijackHeaderEvent.flag);
+						}
+					}else {
+						hijackHeaderEvent.channel.sendHeader(hijackHeaderEvent.flag);
+					}
+				}finally{
+					returnHijackEvent(hijackHeaderEvent);
+				}
 				return NGX_OK;
 			}
 			case POST_EVENT_TYPE_HIJACK_SEND_RESPONSE : {
-				HijackResponseEvent hijackResponseEvent = (HijackResponseEvent)POSTED_EVENTS_DATA.remove(data);
-				NginxRequest request = hijackResponseEvent.channel.request;
-				request.channel().sendResponseHelp(hijackResponseEvent.response, hijackResponseEvent.chain);
+				HijackEvent hijackResponseEvent = (HijackEvent)POSTED_EVENTS_DATA.remove(data);
+				try {
+					if (hijackResponseEvent.channel.request.isReleased()) {
+						log.error("#%d: send response on released NginxHttpServerChannel, request=%s", hijackResponseEvent.channel.request.nativeRequest(), hijackResponseEvent.channel.request);
+						returnHijackEvent(hijackResponseEvent);
+						return NGX_HTTP_INTERNAL_SERVER_ERROR;
+					}
+					NginxRequest request = hijackResponseEvent.channel.request;
+					request.channel().sendResponseHelp((NginxResponse) hijackResponseEvent.message, hijackResponseEvent.offset);
+				}finally {
+					returnHijackEvent(hijackResponseEvent);
+				}
+				
 				return NGX_OK;
+			}
+			case POST_EVENT_TYPE_HIJACK_WRITE : {
+				HijackEvent hijackEvent = (HijackEvent)POSTED_EVENTS_DATA.remove(data);
+				
+				try{
+					if (hijackEvent.channel.request.isReleased()) {
+						log.error("#%d: send response on released NginxHttpServerChannel, request=%s", hijackEvent.channel.request.nativeRequest(), hijackEvent.channel.request);
+						return NGX_HTTP_INTERNAL_SERVER_ERROR;
+					}
+					
+					if (hijackEvent.message instanceof ByteBuffer) {
+						hijackEvent.complete(hijackEvent.channel.unsafeWrite((ByteBuffer) hijackEvent.message));
+					} else {
+						hijackEvent.complete(hijackEvent.channel.unsafeWrite((byte[]) hijackEvent.message, hijackEvent.offset,
+								hijackEvent.len));
+					}
+				}finally{
+					/*it will be released in the method postHijackWriteEvent */
+//					returnHijackEvent(hijackEvent);
+				}
+				
+
+				return NGX_OK;
+			}
+			case POST_EVENT_TYPE_POLL_TASK : {
+				Runnable task = (Runnable) POSTED_EVENTS_DATA.remove(data);
+				try {
+					task.run();
+				}catch(Throwable e) {
+					log.error("handle post poll task event error", e);
+					return NGX_HTTP_INTERNAL_SERVER_ERROR;
+				}
 			}
 			default:
 				log.error("handlePostEvent:unknown event tag :%d", tag);
@@ -1308,6 +1437,10 @@ public class NginxClojureRT extends MiniConstants {
 			savePostEventData(r, ctx);
 			ngx_http_clojure_mem_post_event(r, null, 0);
 		}
+	}
+	
+	public static void postPollTaskEvent(NginxRequest req, Runnable task) {
+		ngx_http_clojure_mem_post_event(makeEventAndSaveIt(POST_EVENT_TYPE_POLL_TASK,task), null, 0);
 	}
 	
 	/**

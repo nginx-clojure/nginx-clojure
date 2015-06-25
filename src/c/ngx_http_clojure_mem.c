@@ -125,6 +125,53 @@ static ngx_str_t ngx_http_clojure_mime_types[] = {
 };
 
 
+ngx_int_t ngx_http_clojure_set_elt_header(ngx_http_request_t *r, ngx_table_elt_t *h, ngx_uint_t offset) {
+    ngx_table_elt_t  **ph;
+
+    ph = (ngx_table_elt_t **) ((char *) &r->headers_out + offset);
+
+    if (*ph == NULL) {
+        *ph = h;
+    }
+
+    return NGX_OK;
+}
+
+
+ngx_int_t ngx_http_clojure_set_array_header(ngx_http_request_t *r, ngx_table_elt_t *h, ngx_uint_t offset) {
+	ngx_array_t *headers;
+	ngx_table_elt_t **ph;
+
+	headers = (ngx_array_t *) ((char *) &r->headers_out + offset);
+
+	if (headers->elts == NULL) {
+		if (ngx_array_init(headers, r->pool, 1, sizeof(ngx_table_elt_t *)) != NGX_OK) {
+			return NGX_ERROR;
+		}
+	}
+
+	ph = ngx_array_push(headers);
+	if (ph == NULL) {
+		return NGX_ERROR;
+	}
+
+	*ph = h;
+	return NGX_OK;
+}
+
+ngx_int_t ngx_http_clojure_set_content_type_header(ngx_http_request_t *r, ngx_table_elt_t *h, ngx_uint_t offset) {
+    r->headers_out.content_length = h;
+    r->headers_out.content_type_len = h->value.len;
+    return NGX_OK;
+}
+
+ngx_int_t ngx_http_clojure_set_content_len_header(ngx_http_request_t *r, ngx_table_elt_t *h, ngx_uint_t offset) {
+	r->headers_out.content_length = h;
+	r->headers_out.content_length_n = ngx_atoof(h->value.data, h->value.len);
+	return NGX_OK;
+}
+
+
 static ngx_int_t ngx_http_clojure_check_broken_connection(ngx_http_request_t *r, ngx_event_t *ev);
 
 static void ngx_http_clojure_rd_check_broken_connection(ngx_http_request_t *r);
@@ -151,7 +198,6 @@ ngx_int_t ngx_http_clojure_prepare_server_header(ngx_http_request_t *r) {
 	}
 	return NGX_OK;
 }
-
 
 
 /*static void ngx_http_clojure_wt_check_broken_connection(ngx_http_request_t *r);*/
@@ -661,6 +707,10 @@ static void ngx_http_clojure_hijack_writer(ngx_http_request_t *r) {
 		return;
 	}
 
+	if (wev->timer_set) {
+		ngx_del_timer(wev);
+	}
+
 	rc = ctx->ignore_filters ? ngx_http_write_filter(r, NULL) : ngx_http_output_filter(r, NULL);
 
 	ngx_log_debug3(NGX_LOG_DEBUG_HTTP, c->log, 0,
@@ -691,34 +741,29 @@ static void ngx_http_clojure_hijack_writer(ngx_http_request_t *r) {
 			"clojure module hijack writer done: \"%V?%V\"", &r->uri, &r->args);
 
 	if (ctx->last_buf_meeted) {
-		ngx_http_close_request(r, 0);
+		ngx_http_finalize_request(r, NGX_OK);
 		return;
 	}
 
-	if (ctx->upgraded) {
-		r->read_event_handler = nji_ngx_http_clojure_hijack_read_handler;
-		r->write_event_handler = nji_ngx_http_clojure_hijack_write_handler;
-/*		nji_ngx_http_clojure_hijack_read_handler(r);
-
-		if (r->pool) {
-			nji_ngx_http_clojure_hijack_write_handler(r);
-			if (!r->pool) {
+	if (ctx->event_handler_flag) {
+		if (ctx->event_handler_flag & NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_READ) {
+			r->read_event_handler = nji_ngx_http_clojure_hijack_read_handler;
+			if (!c->read->active && ngx_handle_read_event(c->read, 0) != NGX_OK) {
+				ngx_http_finalize_request(r, NGX_ERROR);
 				return;
 			}
-		}else {
-			return;
-		}*/
+		}
 
-	    if (!c->write->active && ngx_handle_write_event(c->write, clcf->send_lowat)
-	        != NGX_OK) {
-	    	ngx_http_finalize_request(r, NGX_ERROR);
-	        return;
-	    }
-
-	    if (!c->read->active && ngx_handle_read_event(c->read, 0) != NGX_OK) {
-	    	ngx_http_finalize_request(r, NGX_ERROR);
-	        return;
-	    }
+		if (ctx->event_handler_flag & NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_WRITE) {
+			r->write_event_handler = nji_ngx_http_clojure_hijack_write_handler;
+			if (!c->write->active) {
+				c->write->ready = 0; /*clear write ready flag because websocket is obviously write ready after handshake.*/
+				if (ngx_handle_write_event(c->write, clcf->send_lowat) != NGX_OK) {
+					ngx_http_finalize_request(r, NGX_ERROR);
+					return;
+				}
+			}
+		}
 	}else {
 		r->write_event_handler = ngx_http_request_empty_handler;
 	}
@@ -1071,7 +1116,7 @@ ngx_http_header_filter(ngx_http_request_t *r)
             len += sizeof("Keep-Alive: timeout=") - 1 + NGX_TIME_T_LEN + 2;
         }
 
-    } else if (!ctx->upgraded){
+    } else if (!ctx->event_handler_flag){
         len += sizeof("Connection: closed" CRLF) - 1;
     }
 
@@ -1234,7 +1279,7 @@ ngx_http_header_filter(ngx_http_request_t *r)
                                   clcf->keepalive_header);
         }
 
-    } else if (!ctx->upgraded) {
+    } else if (!ctx->event_handler_flag) {
         b->last = ngx_cpymem(b->last, "Connection: close" CRLF,
                              sizeof("Connection: close" CRLF) - 1);
     }
@@ -1354,41 +1399,32 @@ static ngx_int_t  ngx_http_clojure_hijack_send_chain(ngx_http_request_t *r, ngx_
 		if (!c->write->active) {
 			(void)ngx_handle_write_event(r->connection->write, 0);
 		}
-	}else if (rc != NGX_OK) {
+	} else if (rc != NGX_OK) {
 		return rc;
-	}else {
+	} else {
 		if (ctx->last_buf_meeted) {
-			ngx_http_close_request(r, 0);
+			ngx_http_finalize_request(r, NGX_OK);
 			return NGX_OK;
 		}
 
-		if (ctx->upgraded) {
-			r->read_event_handler = nji_ngx_http_clojure_hijack_read_handler;
-			r->write_event_handler = nji_ngx_http_clojure_hijack_write_handler;
-/*			nji_ngx_http_clojure_hijack_read_handler(r);
-
-			if (r->pool) {
-				nji_ngx_http_clojure_hijack_write_handler(r);
-				if (!r->pool) {
-					return NGX_OK;
-				}
-			}else {
-				return NGX_OK;
-			}*/
-
-			if (!c->write->active) {
-				c->write->ready = 0; /*clear write ready flag because websocket is obviously write ready after handshake.*/
-				if (ngx_handle_write_event(c->write, clcf->send_lowat) != NGX_OK) {
+		if (ctx->event_handler_flag) {
+			if (ctx->event_handler_flag & NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_READ) {
+				r->read_event_handler = nji_ngx_http_clojure_hijack_read_handler;
+				if (!c->read->active && ngx_handle_read_event(c->read, 0) != NGX_OK) {
 					return NGX_ERROR;
 				}
 			}
 
-
-			if (!c->read->active && ngx_handle_read_event(c->read, 0) != NGX_OK) {
-/*				ngx_http_finalize_request(r, NGX_ERROR);*/
-				return NGX_ERROR;
+			if (ctx->event_handler_flag & NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_WRITE) {
+				r->write_event_handler = nji_ngx_http_clojure_hijack_write_handler;
+				if (!c->write->active) {
+					c->write->ready = 0; /*clear write ready flag because websocket is obviously write ready after handshake.*/
+					if (ngx_handle_write_event(c->write, clcf->send_lowat) != NGX_OK) {
+						return NGX_ERROR;
+					}
+				}
 			}
-		}else {
+		} else {
 			r->read_event_handler = ngx_http_clojure_rd_check_broken_connection;
 			r->write_event_handler = ngx_http_request_empty_handler;
 		}
@@ -1979,11 +2015,82 @@ static jlong JNICALL jni_ngx_http_clojure_websocket_upgrade(JNIEnv *env, jclass 
 	return ngx_http_clojure_websocket_upgrade((ngx_http_request_t *)(uintptr_t)req);
 }
 
+/**
+ * flag can be either of or combined of
+ * 0
+ * NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_READ  1
+ * NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_WRITE 2
+ */
+static void JNICALL jni_ngx_http_hijack_turn_on_event_handler(JNIEnv *env, jclass cls, jlong req, jint flag) {
+	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t)req;
+	ngx_http_clojure_module_ctx_t *ctx;
+	ngx_connection_t *c = r->connection;
+	ngx_http_core_loc_conf_t *clcf;
+
+	ngx_http_clojure_get_ctx(r, ctx);
+	clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
+	ctx->event_handler_flag = flag;
+
+	c->log->action = "upgraded connection";
+	if (flag & NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_NOKEEPALIVE) {
+		r->keepalive = 0;
+
+		if (clcf->tcp_nodelay) {
+			int tcp_nodelay = 1;
+
+			if (c->tcp_nodelay == NGX_TCP_NODELAY_UNSET) {
+				ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0, "tcp_nodelay");
+
+				if (setsockopt(c->fd, IPPROTO_TCP, TCP_NODELAY, (const void *) &tcp_nodelay, sizeof(int)) == -1) {
+					ngx_connection_error(c, ngx_socket_errno, "setsockopt(TCP_NODELAY) failed");
+					ngx_http_finalize_request(r, NGX_ERROR);
+					return;
+				}
+				c->tcp_nodelay = NGX_TCP_NODELAY_SET;
+			}
+		}
+	}
+
+	if (r->buffered || (r == r->main && c->buffered)) {
+		if (r->write_event_handler != ngx_http_clojure_hijack_writer) {
+			r->write_event_handler = ngx_http_clojure_hijack_writer;
+		}
+	} else {
+		if (flag & NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_READ) {
+			r->read_event_handler = nji_ngx_http_clojure_hijack_read_handler;
+			if (!c->read->active && ngx_handle_read_event(c->read, 0) != NGX_OK) {
+				ngx_http_finalize_request(r, NGX_ERROR);
+				return;
+			}
+		}
+
+		if (flag & NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_WRITE) {
+			r->write_event_handler = nji_ngx_http_clojure_hijack_write_handler;
+			if (!c->write->active) {
+				c->write->ready = 0; /*clear write ready flag because websocket is obviously write ready after handshake.*/
+				if (ngx_handle_write_event(c->write, clcf->send_lowat) != NGX_OK) {
+					ngx_http_finalize_request(r, NGX_ERROR);
+					return;
+				}
+			}
+		}
+	}
+}
+
 static jlong JNICALL jni_ngx_http_hijack_read(JNIEnv *env, jclass cls, jlong req, jobject buf, jlong off, jlong len) {
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t)req;
-	ngx_connection_t *c = r->connection;
-/*	ngx_http_core_loc_conf_t *clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);*/
-	ngx_int_t rc = c->recv(c, (u_char*)ngx_http_clojure_abs_off_addr(buf, off), len);
+	ngx_connection_t *c;
+	ngx_int_t rc;
+/*	ngx_http_core_loc_conf_t *clcf;*/
+
+	if (!r->pool) {
+		return NGX_HTTP_CLOJURE_SOCKET_ERR_READ;
+	}
+
+	c = r->connection;
+/*	clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);*/
+	rc = c->recv(c, (u_char*)ngx_http_clojure_abs_off_addr(buf, off), len);
+
 	if (rc == NGX_AGAIN) {
 /*websocket should have infinite timeout */
 /*		if (clcf->client_body_timeout > 0) {
@@ -2001,9 +2108,17 @@ static jlong JNICALL jni_ngx_http_hijack_read(JNIEnv *env, jclass cls, jlong req
 
 static jlong JNICALL jni_ngx_http_hijack_write(JNIEnv *env, jclass cls, jlong req, jobject buf, jlong off, jlong len) {
 	ngx_http_request_t *r = (ngx_http_request_t *) (uintptr_t) req;
-	ngx_connection_t *c = r->connection;
-/*	ngx_http_core_loc_conf_t *clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);*/
-	ngx_int_t rc = c->send(c, (u_char*)ngx_http_clojure_abs_off_addr(buf, off), len);
+	ngx_connection_t *c;
+	ngx_int_t rc;
+/*	ngx_http_core_loc_conf_t *clcf;*/
+
+	if (!r->pool) {
+		return NGX_HTTP_CLOJURE_SOCKET_ERR_WRITE;
+	}
+
+	c = r->connection;
+/*	clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);*/
+	rc = c->send(c, (u_char*)ngx_http_clojure_abs_off_addr(buf, off), len);
 
 	if (rc == 0 || rc == NGX_AGAIN) {
 /*		if (!c->write->active) {
@@ -2044,7 +2159,7 @@ ngx_int_t ngx_http_clojure_hijack_send_header(ngx_http_request_t *r, ngx_int_t f
 	c = r->connection;
 
 	if (r->headers_out.status == NGX_HTTP_SWITCHING_PROTOCOLS) {
-		ctx->upgraded = 1;
+		ctx->event_handler_flag = (NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_READ | NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_WRITE);
 		flag |= NGX_CLOJURE_BUF_FLUSH_FLAG;
 		flag |= NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG;
 		r->keepalive = 0;
@@ -2098,6 +2213,103 @@ ngx_int_t ngx_http_clojure_hijack_send_header(ngx_http_request_t *r, ngx_int_t f
 	}
 }
 
+ngx_int_t ngx_http_hijack_send_header_by_buf(ngx_http_request_t *r, ngx_buf_t *b, ngx_int_t flag) {
+	ngx_http_status_t status = {0};
+	ngx_int_t rc;
+	ngx_table_elt_t *h;
+	ngx_http_clojure_header_holder_t *hh;
+	ngx_http_clojure_main_conf_t *cmcf;
+
+	/*if not ignore nginx filters we need parse the headers*/
+	if ( !(flag & NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG) ) {
+		if (ngx_http_parse_status_line(r, b, &status) != NGX_OK) {
+			return NGX_ERROR;
+		}
+
+		r->headers_out.status = status.code;
+/*		r->headers_out.status_line.data = status.start;
+		r->headers_out.status_line.len = status.end - status.start;*/
+
+		cmcf = ngx_http_get_module_main_conf(r, ngx_http_clojure_module);
+
+	    for ( ;; ) {
+
+	        rc = ngx_http_parse_header_line(r, b, 1);
+
+	        if (rc == NGX_OK) {
+
+	            /* a header line has been parsed successfully */
+
+	            h = ngx_list_push(&r->headers_out.headers);
+	            if (h == NULL) {
+	                return NGX_ERROR;
+	            }
+
+	            h->hash = r->header_hash;
+
+	            h->key.len = r->header_name_end - r->header_name_start;
+	            h->value.len = r->header_end - r->header_start;
+
+	            h->key.data = ngx_pnalloc(r->pool,
+	                               h->key.len + 1 + h->value.len + 1 + h->key.len);
+	            if (h->key.data == NULL) {
+	                return NGX_ERROR;
+	            }
+
+	            h->value.data = h->key.data + h->key.len + 1;
+	            h->lowcase_key = h->key.data + h->key.len + 1 + h->value.len + 1;
+
+	            ngx_memcpy(h->key.data, r->header_name_start, h->key.len);
+	            h->key.data[h->key.len] = '\0';
+	            ngx_memcpy(h->value.data, r->header_start, h->value.len);
+	            h->value.data[h->value.len] = '\0';
+
+	            if (h->key.len == r->lowcase_index) {
+	                ngx_memcpy(h->lowcase_key, r->lowcase_header, h->key.len);
+
+	            } else {
+	                ngx_strlow(h->lowcase_key, h->key.data, h->key.len);
+	            }
+
+	            hh = ngx_hash_find(&cmcf->headers_out_holder_hash, h->hash,
+	                               h->lowcase_key, h->key.len);
+
+	            if (hh && hh->handler(r, h, hh->offset) != NGX_OK) {
+	                return NGX_ERROR;
+	            }
+
+	            continue;
+	        }
+
+	        if (rc == NGX_HTTP_PARSE_HEADER_DONE) {
+	            /* a whole header has been parsed successfully */
+	            break;
+	        }
+
+	        /* there was error while a header line parsing */
+	        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+	                      "server sent invalid header");
+	        return NGX_ERROR;
+	    }
+
+	    ngx_http_clojure_hijack_send_header(r, flag);
+	} else {
+		return ngx_http_clojure_hijack_send(r, b->start, b->last-b->start, flag);
+	}
+
+	rc = status.code;
+	return rc;
+}
+
+static jlong JNICALL jni_ngx_http_hijack_send_header_by_buf(JNIEnv *env, jclass cls, jlong req, jobject buf, jlong offset, jlong len, jint flag) {
+	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t) req;
+	ngx_buf_t b = {0};
+	b.start = b.pos = (u_char *)ngx_http_clojure_abs_off_addr(buf, offset);
+	b.end = b.last = b.start + (size_t)len;
+	b.recycled = 1;
+	return (jlong)ngx_http_hijack_send_header_by_buf(r, &b, flag);
+}
+
 static jlong JNICALL jni_ngx_http_hijack_send_header(JNIEnv *env, jclass cls, jlong req, jint flag) {
 	return ngx_http_clojure_hijack_send_header((ngx_http_request_t *)(uintptr_t)req, flag);
 }
@@ -2122,12 +2334,14 @@ static jlong JNICALL jni_ngx_http_hijack_send_chain(JNIEnv *env, jclass cls, jlo
 
 static void JNICALL jni_ngx_http_hijack_set_async_timeout(JNIEnv *env, jclass cls, jlong req, jlong timeout) {
 	ngx_http_request_t *r = (ngx_http_request_t *) (uintptr_t) req;
-	ngx_connection_t *c = r->connection;
-	if (c->write->timer_set) {
-		ngx_del_timer(c->write);
+	if (r->pool) {
+		ngx_connection_t *c = r->connection;
+		if (c->write->timer_set) {
+			ngx_del_timer(c->write);
+		}
+		r->write_event_handler = ngx_http_clojure_hijack_async_timeout_handler;
+		ngx_add_timer(c->write, (ngx_msec_t)timeout);
 	}
-	r->write_event_handler = ngx_http_clojure_hijack_async_timeout_handler;
-	ngx_add_timer(c->write, (ngx_msec_t)timeout);
 }
 
 void ngx_http_clojure_cleanup_handler(void *data) {
@@ -2892,7 +3106,7 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_module_ctx_upgrade(JNIEnv *env
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t) req;
 	ngx_http_clojure_module_ctx_t *ctx;
 	ngx_http_clojure_get_ctx(r, ctx);
-	return ctx == NULL ? 0 : (jlong)ctx->upgraded;
+	return ctx == NULL ? 0 : (jlong)ctx->event_handler_flag;
 }
 
 #define log_debug0(log, msg) do{ \
@@ -3340,10 +3554,12 @@ int ngx_http_clojure_init_memory_util(ngx_http_core_srv_conf_t *cscf, ngx_http_c
 			{"ngx_http_clojure_mem_read_raw_pipe", "(JLjava/lang/Object;JJ)J", jni_ngx_http_clojure_mem_read_raw_pipe},
 			{"ngx_http_hijack_send", "(JLjava/lang/Object;JJI)J", jni_ngx_http_hijack_send},
 			{"ngx_http_hijack_send_header", "(JI)J", jni_ngx_http_hijack_send_header},
+			{"ngx_http_hijack_send_header", "(JLjava/lang/Object;JJI)J", jni_ngx_http_hijack_send_header_by_buf},
 			{"ngx_http_hijack_send_chain", "(JJI)J", jni_ngx_http_hijack_send_chain},
 			{"ngx_http_hijack_set_async_timeout", "(JJ)V", jni_ngx_http_hijack_set_async_timeout},
 			{"ngx_http_clojure_add_listener", "(JLnginx/clojure/ChannelListener;Ljava/lang/Object;I)J", ngx_http_clojure_add_listener},
 			{"ngx_http_clojure_websocket_upgrade", "(J)J", jni_ngx_http_clojure_websocket_upgrade},
+			{"ngx_http_hijack_turn_on_event_handler", "(JI)V", jni_ngx_http_hijack_turn_on_event_handler},
 			{"ngx_http_hijack_read", "(JLjava/lang/Object;JJ)J", jni_ngx_http_hijack_read},
 			{"ngx_http_hijack_write", "(JLjava/lang/Object;JJ)J", jni_ngx_http_hijack_write},
 //			{"ngx_http_clojure_mem_get_body_tmp_file", "(J)J", jni_ngx_http_clojure_mem_get_body_tmp_file}
