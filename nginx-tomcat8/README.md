@@ -36,8 +36,18 @@ in nginx.conf
           ##The implementation class of nginx-clojure bridge handler for Tomcat 8
           content_handler_property bridge.imp 'nginx.clojure.tomcat8.NginxTomcatBridge';
           
+          ##ignore nginx filter, default is false
+          #content_handler_property ignoreNginxFilter false;
+          
+          ##when dispatch is false tomcat servlet will be executed in main thread.By default dispatch is false
+          ##when use websocket with tomcat it must be set true otherwise maybe deadlock will happen.
+          #content_handler_property dispatch false;
+          
           gzip on;
           gzip_types text/plain text/css 'text/html;charset=ISO-8859-1' 'text/html;charset=UTF-8'; 
+          
+          ##if for small message, e.g. small json/websocket message write_page_size can set to be a small value
+          #write_page_size 2k;
       }
 ```
 
@@ -56,6 +66,18 @@ In server.xml comment AccessLogValve configuration to disable Tomcat access log.
                pattern="%h %l %u %t &quot;%r&quot; %s %b" />
 -->
 ```
+
+###Disable logging to console
+
+Because Tomcat console log is duplicate with other log such as catalina log, manager log ,etc, so it can be disabled.
+In conf/logging.properties remove all `java.util.logging.ConsoleHandler`
+
+```shell
+handlers = 1catalina.org.apache.juli.AsyncFileHandler, 2localhost.org.apache.juli.AsyncFileHandler, 3manager.org.apache.juli.AsyncFileHandler, 4host-manager.org.apache.juli.AsyncFileHandler
+
+.handlers = 1catalina.org.apache.juli.AsyncFileHandler
+```
+
 ### Don't Enable Tomcat Compression
 
 By default compression is off , do not turn it on.
@@ -63,6 +85,15 @@ By default compression is off , do not turn it on.
 ```xml
 <Connector port="8080" protocol="HTTP/1.1" compression="off"
 ```
+If we need compression use nginx gzip filter instead. e.g. In nginx.conf
+
+```nginx
+location /examples {
+    gzip on;
+    gzip_types text/plain text/css 'text/html;charset=ISO-8859-1' 'text/html;charset=UTF-8'; 
+}
+```
+`gzip` can also appear at http, server blocks. More details can be found [HERE](http://nginx.org/en/docs/http/ngx_http_gzip_module.html)
 
 ## License
 
