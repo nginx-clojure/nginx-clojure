@@ -18,7 +18,7 @@ public class RewriteHandlerTestSet4NginxJavaRingHandler {
 			r.setVariable("myvar", "Hello");
 			r.setVariable("myName", "Xfeep");
 			System.out.println("SimpleRewriteHandler, myname" + r.getVariable("myName"));
-			return Constants.PHRASE_DONE;
+			return Constants.PHASE_DONE;
 		}
 		
 	}
@@ -39,7 +39,7 @@ public class RewriteHandlerTestSet4NginxJavaRingHandler {
 			NginxJavaRequest r = (NginxJavaRequest) request;
 			r.setVariable("myvar", "Hello");
 			r.setVariable("myName", r.getVariable("var"));
-			return Constants.PHRASE_DONE;
+			return Constants.PHASE_DONE;
 		}
 		
 	}
@@ -77,7 +77,7 @@ public class RewriteHandlerTestSet4NginxJavaRingHandler {
 					NginxClojureRT.UNSAFE.throwException(e);
 				}
 			}
-			return Constants.PHRASE_DONE;
+			return Constants.PHASE_DONE;
 		}
 	}
 	

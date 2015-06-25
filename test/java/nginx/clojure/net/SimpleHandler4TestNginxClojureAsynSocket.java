@@ -2,6 +2,7 @@ package nginx.clojure.net;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.Map;
 
 import nginx.clojure.NginxClojureRT;
@@ -52,7 +53,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket implements NginxJavaRingHa
 		asynSocket.setHandler(new NginxClojureSocketHandler() {
 			
 			@Override
-			public void onWrite(NginxClojureAsynSocket s, long sc) {
+			public void onWrite(NginxClojureAsynSocket s, long sc) throws IOException {
 				if (sc != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
 					log.error("onWrite error %d", sc);
 					s.close();
@@ -100,7 +101,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket implements NginxJavaRingHa
 			}
 			
 			@Override
-			public void onRead(NginxClojureAsynSocket s, long sc) {
+			public void onRead(NginxClojureAsynSocket s, long sc) throws IOException {
 				if (sc != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
 					log.error("onRead error %d", sc);
 					s.close();
@@ -143,7 +144,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket implements NginxJavaRingHa
 			}
 			
 			@Override
-			public void onConnect(NginxClojureAsynSocket s, long sc) {
+			public void onConnect(NginxClojureAsynSocket s, long sc) throws IOException {
 				if (sc != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
 					log.error("onConnect error %d", sc);
 					s.close();

@@ -1,5 +1,6 @@
 package nginx.clojure.java;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Map;
 
@@ -21,7 +22,7 @@ public class WSEcho implements NginxJavaRingHandler {
 			}
 
 			@Override
-			public void onTextMessage(NginxHttpServerChannel sc, String message, boolean remaining) {
+			public void onTextMessage(NginxHttpServerChannel sc, String message, boolean remaining) throws IOException {
 				if (NginxClojureRT.log.isDebugEnabled()) {
 					NginxClojureRT.log.debug("WSEcho onTextMessage: msg=%s, rem=%s", message, remaining);
 				}
@@ -30,7 +31,7 @@ public class WSEcho implements NginxJavaRingHandler {
 			}
 			
 			@Override
-			public void onBinaryMessage(NginxHttpServerChannel sc, ByteBuffer message, boolean remining) {
+			public void onBinaryMessage(NginxHttpServerChannel sc, ByteBuffer message, boolean remining) throws IOException {
 				if (NginxClojureRT.log.isDebugEnabled()) {
 					NginxClojureRT.log.debug("WSEcho onBinaryMessage: msg=%s, rem=%s, total=%d", message, remining, total);
 				}

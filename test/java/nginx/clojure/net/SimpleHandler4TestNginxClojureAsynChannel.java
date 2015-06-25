@@ -1,5 +1,6 @@
 package nginx.clojure.net;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -20,7 +21,7 @@ public class SimpleHandler4TestNginxClojureAsynChannel implements NginxJavaRingH
 
 	TinyLogService log = new TinyLogService(MsgType.debug, System.err, System.err);
 	
-	private void handleError(long status, NginxClojureAsynChannel upstream, NginxHttpServerChannel downstream) {
+	private void handleError(long status, NginxClojureAsynChannel upstream, NginxHttpServerChannel downstream) throws IOException {
 		upstream.close();
 		if (downstream.getContext() == "sent") {
 			downstream.send("\r\n************Error Happended************\r\n"+upstream.buildError(status), true, true);
@@ -54,7 +55,7 @@ public class SimpleHandler4TestNginxClojureAsynChannel implements NginxJavaRingH
 		upstream.setTimeout(5000, 20000, 20000);
 		upstream.connect(url, downstream, new CompletionListener<NginxHttpServerChannel>() {
 			@Override
-			public void onError(long code, NginxHttpServerChannel downstream) {
+			public void onError(long code, NginxHttpServerChannel downstream) throws IOException {
 				log.info("connected error : " + code);
 				handleError(code, upstream, downstream);
 			}
@@ -73,7 +74,7 @@ public class SimpleHandler4TestNginxClojureAsynChannel implements NginxJavaRingH
 									+ "Host: www.apache.org\r\nAccept: */*\r\n"
 									+ "Connection: close\r\n\r\n"));
 					upstream.write(getCommand, upstream, new CompletionListener<NginxClojureAsynChannel>() {
-						public void onError(long code, NginxClojureAsynChannel attachment) {
+						public void onError(long code, NginxClojureAsynChannel attachment) throws IOException {
 							attachment.close();
 							handleError(code, upstream, downstream);
 						};
@@ -86,11 +87,11 @@ public class SimpleHandler4TestNginxClojureAsynChannel implements NginxJavaRingH
 							}
 							ByteBuffer buffer = ByteBuffer.allocateDirect(1024*4);
 							CompletionListener<ByteBuffer> upstreamListener = new CompletionListener<ByteBuffer>() {
-								public void onError(long code, ByteBuffer attachment) {
+								public void onError(long code, ByteBuffer attachment) throws IOException {
 									handleError(code, upstream, downstream);
 								};
 								@Override
-								public void onDone(long status, ByteBuffer buffer) {
+								public void onDone(long status, ByteBuffer buffer) throws IOException {
 									log.info("read onDone status : " + status);
 									if (checkDownStreamClosed(upstream, downstream)) {
 										return;

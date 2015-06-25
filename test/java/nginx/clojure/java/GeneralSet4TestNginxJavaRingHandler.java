@@ -156,7 +156,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		}
 		
 		@Override
-		public void onEvent(PostedEvent event) {
+		public void onEvent(PostedEvent event) throws IOException {
 			if (event.tag != LONGPOLL_EVENT && event.tag != SEVER_SENT_EVENTS) {
 				return;
 			}
@@ -226,7 +226,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 	public static class SSESub implements NginxJavaRingHandler {
 
 		@Override
-		public Object[] invoke(Map<String, Object> request) {
+		public Object[] invoke(Map<String, Object> request) throws IOException {
 			NginxJavaRequest r = (NginxJavaRequest) request;
 			NginxHandler handler = r.handler();
 			NginxHttpServerChannel channel = handler.hijack(r, true);

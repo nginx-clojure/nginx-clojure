@@ -21,7 +21,6 @@ public class FileBytesHandler implements NginxJavaRingHandler, Configurable {
 	
 	@Override
 	public Object[] invoke(Map<String, Object> request) throws IOException {
-		byte[] buf = new byte[1024];
 		return results;
 	}
 	
