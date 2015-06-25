@@ -43,20 +43,21 @@ public class NginxJerseyContainer implements NginxBridge {
 	protected ApplicationHandler appHandler;
 	protected String appPath;
 	protected Class[] appResources;
+	protected ClassLoader bootLoader;
 	
     protected ResourceConfig configure() {
         return new ResourceConfig(appResources);
     }
 
 	@Override
-	public void boot(Map<String, String> properties) {
+	public void boot(Map<String, String> properties, ClassLoader loader) {
 		appPath = properties.get("jersey.app.path");
+		bootLoader = loader;
 		if (appPath == null) {
 			appPath = "";
 		}
 		String res = properties.get("jersey.app.resources");
 		List<Class> clzList = new ArrayList<Class>();
-		ClassLoader loader = Thread.currentThread().getContextClassLoader();
 		if (res != null) {
 			for (String clz : res.split(",") ) {
 				try {
@@ -72,6 +73,11 @@ public class NginxJerseyContainer implements NginxBridge {
 			NginxClojureRT.log.warn("no resource defined, property %s is null", "jersey.app.resources");
 		}
 		appHandler = new ApplicationHandler(configure());
+	}
+	
+	@Override
+	public ClassLoader getClassLoader() {
+		return bootLoader;
 	}
 
     protected SecurityContext getSecurityContext(final Principal principal, final boolean isSecure) {
@@ -113,7 +119,11 @@ public class NginxJerseyContainer implements NginxBridge {
 		
 		@Override
 		public void commit() {
-			sc.close();
+			try {
+				sc.close();
+			} catch (IOException e) {
+				NginxClojureRT.log.error("commit failure!", e);
+			}
 		}
 
 		@Override
@@ -123,8 +133,12 @@ public class NginxJerseyContainer implements NginxBridge {
 
 		@Override
 		public void failure(Throwable e) {
-			sc.sendResponse(NGX_HTTP_INTERNAL_SERVER_ERROR);
 			NginxClojureRT.log.error("failure from jersey", e);
+			try {
+				sc.sendResponse(NGX_HTTP_INTERNAL_SERVER_ERROR);
+			} catch (IOException e1) {
+				NginxClojureRT.log.error("send error response failed!", e);
+			}
 		}
 
 		@Override
@@ -140,7 +154,11 @@ public class NginxJerseyContainer implements NginxBridge {
 		@Override
 		public OutputStream writeResponseStatusAndHeaders(long contentLength,
 				ContainerResponse context) throws ContainerException {
-			sc.sendHeader(context.getStatus(), context.getStringHeaders().entrySet(), true, false);
+			try {
+				sc.sendHeader(context.getStatus(), context.getStringHeaders().entrySet(), true, false);
+			} catch (IOException e) {
+				throw new ContainerException("send header error!", e);
+			}
 			return new OutputStream() {
 				
 				@Override

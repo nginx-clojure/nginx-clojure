@@ -10,7 +10,7 @@
                  [org.glassfish.jersey.core/jersey-common "2.17"]
                  [org.glassfish.jersey.core/jersey-server "2.17"]
                  ;[org.glassfish.jersey.media/jersey-media-json-jackson "2.17"]
-                 [nginx-clojure/nginx-clojure "0.4.0"]
+                 ;[nginx-clojure/nginx-clojure "0.4.0"]
                  ]
   :source-paths ["src/clojure"]
   :java-source-paths ["src/java"]
