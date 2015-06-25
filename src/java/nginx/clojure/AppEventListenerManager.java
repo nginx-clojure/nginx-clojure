@@ -8,6 +8,7 @@ import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
 import static nginx.clojure.MiniConstants.POST_EVENT_TYPE_APPICATION_EVENT_IDX_START;
 import static nginx.clojure.NginxClojureRT.broadcastEvent;
 
+import java.io.IOException;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class AppEventListenerManager  {
@@ -70,7 +71,7 @@ public class AppEventListenerManager  {
 		 * Because event.data will be reused by next event so this listener must handle it carefully and
 		 * do use it out of this invoking scope.
 		 * */
-		public void onEvent(PostedEvent event);
+		public void onEvent(PostedEvent event) throws IOException;
 	}
 	
 	public void addDecoder(Decoder d) {

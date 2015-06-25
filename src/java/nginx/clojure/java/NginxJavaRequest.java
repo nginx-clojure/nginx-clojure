@@ -71,7 +71,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 			if (req.isReleased()) {
 				return;
 			}
-			req.tagReleased();
+			
 			if (NginxClojureRT.log.isDebugEnabled()) {
 				NginxClojureRT.log.debug("#%d: request %s onClose!", req.nativeRequest(), req.uri());
 			}
@@ -86,13 +86,14 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 					}
 				}
 			}
+			req.tagReleased();
 		}
 		
 		public void onClose(NginxRequest req, long message) {
 			if (req.isReleased()) {
 				return;
 			}
-			req.tagReleased();
+			
 			int size = (int) (( message >> 48 ) & 0xffff) - 2;
 			long address = message << 16 >> 16;
 			int status = 0;
@@ -131,6 +132,8 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 					}
 				}
 			}
+			
+			req.tagReleased();
 		}
 
 		@Override
@@ -576,7 +579,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	
 	@Override
 	public String uri() {
-		return (String) get(URI);
+		return  get(URI).toString();
 	}
 	
 	@Override

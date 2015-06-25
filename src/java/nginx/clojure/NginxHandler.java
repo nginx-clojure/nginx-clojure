@@ -26,8 +26,12 @@ public interface NginxHandler {
 	public void completeAsyncResponse(NginxRequest req, Object resp);
 	
 	/**
+	 * Get a hijacked Server Channel used to send message later typically in another thread
 	 * If ignoreFilter is true all data output to channel won't be filtered
-   by any nginx HTTP header/body filters such as gzip filter, chucked filter, etc.
+	 * by any nginx HTTP header/body filters such as gzip filter, chucked filter, etc.
+	 * @param req the request object
+	 * @param ignoreFilter whether we need ignore nginx filter or not.
+	 * @return hijacked channel used to send message later
 	 */
 	public NginxHttpServerChannel hijack(NginxRequest req, boolean ignoreFilter);
 

@@ -102,6 +102,8 @@ public class MiniConstants {
 	public static final int POST_EVENT_TYPE_HIJACK_SEND = 0x02;
 	public static final int POST_EVENT_TYPE_HIJACK_SEND_HEADER = 0x03;
 	public static final int POST_EVENT_TYPE_HIJACK_SEND_RESPONSE = 0x04;
+	public static final int POST_EVENT_TYPE_HIJACK_WRITE = 0x05;
+	public static final int POST_EVENT_TYPE_POLL_TASK = 0x1f;
 	public static final int POST_EVENT_TYPE_SYSTEM_EVENT_IDX_END = 0x1f;
 	public static final int POST_EVENT_TYPE_APPICATION_EVENT_IDX_START = 0x20;
 	public static final int POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START = 0x80;
@@ -493,6 +495,10 @@ public class MiniConstants {
 	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGBIN = 32;
 	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGCLOSE = 64;
 	public static final int  NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGFIRST = 128;
+	
+	public static final int NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_READ = 1;
+	public static final int NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_WRITE = 2;
+	public static final int NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_NOKEEPALIVE = 4;
 	
 
 //	public static final String HEADERS = RT.keyword(null, "headers");

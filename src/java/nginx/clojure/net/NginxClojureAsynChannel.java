@@ -42,7 +42,7 @@ public class NginxClojureAsynChannel implements NginxClojureSocketHandler, Close
 		 *        the attachment object which was as the last read/write method input argument before CompletionListener argument.
 		 *        e.g. <code>write(buf, off, size, listener, attachement)</code>
 		 */
-		public void onDone(long status, T attachment);
+		public void onDone(long status, T attachment) throws IOException;
 		
 		/**
 		 * 
@@ -55,7 +55,7 @@ public class NginxClojureAsynChannel implements NginxClojureSocketHandler, Close
 		 *        the attachment object which was as the last read/write method input argument before CompletionListener argument.
 		 *        e.g. <code>write(buf, off, size, listener, attachement)</code>
 		 */
-		public void onError(long code, T attachment);
+		public void onError(long code, T attachment) throws IOException;
 	}
 	
 	public NginxClojureAsynChannel() {
