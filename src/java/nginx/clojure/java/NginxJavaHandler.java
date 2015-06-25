@@ -129,13 +129,24 @@ public class NginxJavaHandler extends NginxSimpleHandler implements Configurable
 
 	@Override
 	public void config(Map<String, String> properties) {
-		if (ringHandler instanceof Configurable) {
-			Configurable cr = (Configurable) ringHandler;
-			cr.config(properties);
+		if (ringHandler != null) {
+			if (ringHandler instanceof Configurable) {
+				Configurable cr = (Configurable) ringHandler;
+				cr.config(properties);
+			}else {
+				NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!", 
+						ringHandler.getClass());
+			}
 		}else {
-			NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!", 
-					ringHandler.getClass());
+			if (headerFilter instanceof Configurable) {
+				Configurable cr = (Configurable) headerFilter;
+				cr.config(properties);
+			}else {
+				NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!", 
+						headerFilter.getClass());
+			}
 		}
+		
 	}
 
 }

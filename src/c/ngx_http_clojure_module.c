@@ -385,6 +385,38 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 		NULL
     },
     {
+		ngx_string("rewrite_handler_property"),
+		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE2,
+		ngx_conf_set_keyval_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_clojure_loc_conf_t, rewrite_handler_properties),
+		NULL
+    },
+    {
+		ngx_string("access_handler_property"),
+		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE2,
+		ngx_conf_set_keyval_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_clojure_loc_conf_t, access_handler_properties),
+		NULL
+    },
+    {
+		ngx_string("header_filter_property"),
+		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE2,
+		ngx_conf_set_keyval_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_clojure_loc_conf_t, header_filter_properties),
+		NULL
+    },
+    {
+		ngx_string("body_filter_property"),
+		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE2,
+		ngx_conf_set_keyval_slot,
+		NGX_HTTP_LOC_CONF_OFFSET,
+		offsetof(ngx_http_clojure_loc_conf_t, body_filter_properties),
+		NULL
+    },
+    {
 		ngx_string("always_read_body"),
 		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_http_clojure_set_always_read_body,

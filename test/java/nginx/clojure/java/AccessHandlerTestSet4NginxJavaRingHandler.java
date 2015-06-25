@@ -11,6 +11,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 
+import nginx.clojure.Configurable;
 import nginx.clojure.SuspendExecution;
 import static nginx.clojure.java.Constants.*;
 
@@ -53,6 +54,33 @@ public class AccessHandlerTestSet4NginxJavaRingHandler {
 			}
 			return new Object[] { 401, ArrayMap.create("www-authenticate", "Basic realm=\"Secure Area\""),
 			"<HTML><BODY><H1>401 Unauthorized BAD USER & PASSWORD.</H1></BODY></HTML>" };
+		} 
+	}
+	
+	public static class ConfigurableBasicAuthHandler implements NginxJavaRingHandler, Configurable {
+
+		String user;
+		String password;
+		
+		@Override
+		public Object[] invoke(Map<String, Object> request) {
+			String auth = (String) ((Map)request.get(HEADERS)).get("authorization");
+			if (auth == null) {
+				return new Object[] { 401, ArrayMap.create("www-authenticate", "Basic realm=\"Secure Area\""),
+						"<HTML><BODY><H1>401 Unauthorized.</H1></BODY></HTML>" };
+			}
+			String[] up = new String(DatatypeConverter.parseBase64Binary(auth.substring("Basic ".length())), DEFAULT_ENCODING).split(":");
+			if (up[0].equals(user) && up[1].equals(password)) {
+				return PHASE_DONE;
+			}
+			return new Object[] { 401, ArrayMap.create("www-authenticate", "Basic realm=\"Secure Area\""),
+			"<HTML><BODY><H1>401 Unauthorized BAD USER & PASSWORD.</H1></BODY></HTML>" };
+		}
+
+		@Override
+		public void config(Map<String, String> properties) {
+			user = properties.get("user");
+			password = properties.get("password");
 		} 
 	}
 	

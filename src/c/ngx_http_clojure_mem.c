@@ -527,7 +527,7 @@ static jlong JNICALL jni_ngx_http_output_filter (JNIEnv *env, jclass cls, jlong 
 	} \
 }
 
-static ngx_chain_t * ngx_http_clojure_get_and_copy_bufs(size_t page_size, ngx_pool_t *p, ngx_chain_t **free, char *src, size_t len,  ngx_int_t flag) {
+static ngx_chain_t * ngx_http_clojure_get_and_copy_bufs(size_t page_size, ngx_pool_t *p, ngx_chain_t **free, u_char *src, size_t len,  ngx_int_t flag) {
 	ngx_chain_t *cl;
 	ngx_chain_t **ll = &cl;
 	ngx_buf_t *b = NULL;
@@ -1443,7 +1443,7 @@ static ngx_int_t  ngx_http_clojure_hijack_send_chain(ngx_http_request_t *r, ngx_
 	return NGX_OK;
 }
 
-static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, char *message, size_t len, ngx_int_t flag) {
+static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *message, size_t len, ngx_int_t flag) {
 	ngx_http_clojure_module_ctx_t *ctx;
 	ngx_chain_t *in;
 	size_t page_size;
@@ -1567,53 +1567,53 @@ static void nji_ngx_http_clojure_hijack_fire_channel_event(jint type, jlong flag
 
 /*1000 indicates a normal closure, meaning that the purpose
  * for which the connection was established has been fulfilled.*/
-static char WS_CLOSE_NORMAL_CLOSURE[] = { 0x03, 0xe8 };
+static u_char WS_CLOSE_NORMAL_CLOSURE[] = { 0x03, 0xe8 };
 
 /*1001 indicates that an endpoint is "going away", such as
  * a server going down or a browser having navigated away from a page.
-static char WS_CLOSE_GOING_AWAY[] = { 0x03, 0xe9 };*/
+static u_char WS_CLOSE_GOING_AWAY[] = { 0x03, 0xe9 };*/
 
 /*1002 indicates that an endpoint is terminating the
  * connection due to a protocol error.*/
-static char WS_CLOSE_PROTOCOL_ERROR[] = { 0x03, 0xea };
+static u_char WS_CLOSE_PROTOCOL_ERROR[] = { 0x03, 0xea };
 
 /*1003 indicates that an endpoint is terminating the
  * connection because it has received a type of data
  * it cannot accept (e.g., an endpoint that understands
  * only text data MAY send this if it receives a binary message).
-static char WS_CLOSE_CANNOT_ACCEPT[] = { 0x03, 0xeb };*/
+static u_char WS_CLOSE_CANNOT_ACCEPT[] = { 0x03, 0xeb };*/
 
 /*1006 is a reserved value and MUST NOT be set as a status code
  * in a Close control frame by an endpoint
-static char WS_CLOSE_CLOSED_ABNORMALLY[] = { 0x03, 0xee };*/
+static u_char WS_CLOSE_CLOSED_ABNORMALLY[] = { 0x03, 0xee };*/
 
 /*1007 indicates that an endpoint is terminating the
  * connection because it has received data within a message
  * that was not consistent with the type of the message
  *  (e.g., non-UTF-8 data within a text message).*/
-static char WS_CLOSE_NOT_CONSISTENT[] = { 0x03, 0xef };
+static u_char WS_CLOSE_NOT_CONSISTENT[] = { 0x03, 0xef };
 
 /*1009 indicates that an endpoint is terminating the connection
  * because it has received a message that is too big for it to process.
-static char WS_CLOSE_TOO_BIG[] = { 0x03, 0xf1 };*/
+static u_char WS_CLOSE_TOO_BIG[] = { 0x03, 0xf1 };*/
 
 /*1010 indicates that an endpoint (client) is terminating the connection
  * because it has expected the server to negotiate one or more extension,
  * but the server didn't return them in the response message of the WebSocket handshake.
-static char WS_CLOSE_NO_EXTENSION[] = { 0x03, 0xf2 };*/
+static u_char WS_CLOSE_NO_EXTENSION[] = { 0x03, 0xf2 };*/
 
 /*1011 indicates that a server is terminating the connection
  * because it encountered an unexpected condition that prevented it from fulfilling the request.
-static char WS_CLOSE_UNEXPECTED_CONDITION[] = { 0x03, 0xf3 };*/
+static u_char WS_CLOSE_UNEXPECTED_CONDITION[] = { 0x03, 0xf3 };*/
 
 /*1012 indicates that the service will be restarted.
-static char WS_CLOSE_SERVICE_RESTART[] = { 0x03, 0xf4 };*/
+static u_char WS_CLOSE_SERVICE_RESTART[] = { 0x03, 0xf4 };*/
 
 /*1013 indicates that the service is experiencing overload
-static char WS_CLOSE_TRY_AGAIN_LATER[] = { 0x03, 0xf5 };*/
+static u_char WS_CLOSE_TRY_AGAIN_LATER[] = { 0x03, 0xf5 };*/
 
 /*1015 is a reserved value and MUST NOT be set as a status code in a Close control frame by an endpoint.
-static char WS_CLOSE_TLS_HANDSHAKE_FAILURE[] = { 0x03, 0xf7 };*/
+static u_char WS_CLOSE_TLS_HANDSHAKE_FAILURE[] = { 0x03, 0xf7 };*/
 
 /*valid code (from 1000 ~ 1015) bits: 1111000111110000*/
 #define is_valid_ws_close_code(c) \
@@ -1649,7 +1649,7 @@ static void nji_ngx_http_clojure_hijack_read_handler(ngx_http_request_t *r) {
 	ngx_http_clojure_module_ctx_t *ctx;
 	ngx_http_clojure_websocket_ctx_t *wsctx;
 	jlong flag = NGX_HTTP_CLOJURE_SOCKET_OK;
-	char *close_msg = WS_CLOSE_NORMAL_CLOSURE;
+	u_char *close_msg = WS_CLOSE_NORMAL_CLOSURE;
 	size_t page_size;
 
 	page_size = ((ngx_http_clojure_loc_conf_t *)ngx_http_get_module_loc_conf(r, ngx_http_clojure_module))->write_page_size;
@@ -1841,7 +1841,7 @@ TOP_WHILE :
 							close_msg = WS_CLOSE_PROTOCOL_ERROR;
 						}
 					} else if (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGPONG) {
-						rc = ngx_http_clojure_hijack_send(r, (char*)buf->pos, (size_t)wsctx->len,
+						rc = ngx_http_clojure_hijack_send(r, buf->pos, (size_t)wsctx->len,
 								NGX_CLOJURE_BUF_WEBSOCKET_PONG_FRAME
 						       | NGX_CLOJURE_BUF_FLUSH_FLAG);
 						if (rc != NGX_OK && r->pool) {
@@ -2217,11 +2217,14 @@ ngx_int_t ngx_http_clojure_hijack_send_header(ngx_http_request_t *r, ngx_int_t f
 }
 
 ngx_int_t ngx_http_hijack_send_header_by_buf(ngx_http_request_t *r, ngx_buf_t *b, ngx_int_t flag) {
-	ngx_http_status_t status = {0};
+	ngx_http_status_t status;
 	ngx_int_t rc;
 	ngx_table_elt_t *h;
 	ngx_http_clojure_header_holder_t *hh;
 	ngx_http_clojure_main_conf_t *cmcf;
+
+	/* gcc 4.1.2 will give warning about 'ngx_http_status_t status = {0}' */
+	ngx_memzero(&status, sizeof(ngx_http_status_t));
 
 	/*if not ignore nginx filters we need parse the headers*/
 	if ( !(flag & NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG) ) {
@@ -2306,7 +2309,9 @@ ngx_int_t ngx_http_hijack_send_header_by_buf(ngx_http_request_t *r, ngx_buf_t *b
 
 static jlong JNICALL jni_ngx_http_hijack_send_header_by_buf(JNIEnv *env, jclass cls, jlong req, jobject buf, jlong offset, jlong len, jint flag) {
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t) req;
-	ngx_buf_t b = {0};
+	ngx_buf_t b;
+	/* gcc 4.1.2 will give warning about 'ngx_buf_t b = {0}' */
+	ngx_memzero(&b, sizeof(ngx_buf_t));
 	b.start = b.pos = (u_char *)ngx_http_clojure_abs_off_addr(buf, offset);
 	b.end = b.last = b.start + (size_t)len;
 	b.recycled = 1;

@@ -8,6 +8,7 @@ import java.util.Map;
 
 import javax.security.cert.X509Certificate;
 
+import nginx.clojure.Configurable;
 import nginx.clojure.wave.SuspendMethodTracer;
 
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -24,6 +25,24 @@ public class FilterTestSet4NginxJavaHeaderFilter {
 		public Object[] doFilter(int status, Map<String, Object> request, Map<String, Object> responseHeaders) {
 			responseHeaders.put("Xfeep-Header", "Hello!");
 			return Constants.PHASE_DONE;
+		}
+	}
+	
+	public static class ConfigurableAddMoreHeaders implements NginxJavaHeaderFilter, Configurable {
+		
+		String headerName;
+		String headerValue;
+		
+		@Override
+		public Object[] doFilter(int status, Map<String, Object> request, Map<String, Object> responseHeaders) {
+			responseHeaders.put(headerName, headerValue);
+			return Constants.PHASE_DONE;
+		}
+
+		@Override
+		public void config(Map<String, String> properties) {
+			headerName = properties.get("header-name");
+			headerValue = properties.get("header-value");
 		}
 	}
 	

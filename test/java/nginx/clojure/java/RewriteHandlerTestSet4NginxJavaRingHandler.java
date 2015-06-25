@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Map;
 
+import nginx.clojure.Configurable;
 import nginx.clojure.NginxClojureRT;
 
 public class RewriteHandlerTestSet4NginxJavaRingHandler {
@@ -21,6 +22,27 @@ public class RewriteHandlerTestSet4NginxJavaRingHandler {
 			return Constants.PHASE_DONE;
 		}
 		
+	}
+	
+	public static class SimpleConfigurableRewriteHandler implements NginxJavaRingHandler, Configurable {
+
+		String myvar;
+		String myName;
+		
+		@Override
+		public void config(Map<String, String> properties) {
+			myvar = properties.get("myvar");
+			myName = properties.get("myName");
+		}
+
+		@Override
+		public Object[] invoke(Map<String, Object> request) throws IOException {
+			NginxJavaRequest r = (NginxJavaRequest) request;
+			r.setVariable("myvar", myvar);
+			r.setVariable("myName", myName);
+			System.out.println("SimpleConfigurableRewriteHandler, myname" + r.getVariable("myName"));
+			return Constants.PHASE_DONE;
+		}
 	}
 	
 	public static class SimpleVarHandler   implements NginxJavaRingHandler {

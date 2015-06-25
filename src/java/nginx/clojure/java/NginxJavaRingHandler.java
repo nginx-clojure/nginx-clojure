@@ -40,7 +40,7 @@ public interface NginxJavaRingHandler {
      *  "Hello, Java & Nginx!"  //response body can be string, File or Array/Collection of string or File
      *      ]; 
      *       </pre>
-     *  Note that  If the rewrite/access handler returns phrase-done (Clojure) or Constants.PHRASE_DONE (Groovy/Java), nginx will continue to next phases (e.g.  invoke proxy_pass
+     *  Note that  If the rewrite/access handler returns phase-done (Clojure) or Constants.PHASE_DONE (Groovy/Java), nginx will continue to next phases (e.g.  invoke proxy_pass
      *   or content ring handler).  If the rewrite handler returns a general response, nginx will send this response to the client and stop to continue to 
      *   next phases.                  
      *   
