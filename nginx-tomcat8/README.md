@@ -34,10 +34,10 @@ in nginx.conf
           content_handler_property bridge.lib.cp 'my-jar-path/nginx-tomcat8-x.x.x.jar';
           
           ##The implementation class of nginx-clojure bridge handler for Tomcat 8
-          content_handler_property bridge.imp 'nginx.clojure.tomcat8.NginxTomcatBridgeImpl';
+          content_handler_property bridge.imp 'nginx.clojure.tomcat8.NginxTomcatBridge';
           
           gzip on;
-          gzip_types text/plain text/css 'text/html;charset=UTF-8'; 
+          gzip_types text/plain text/css 'text/html;charset=ISO-8859-1' 'text/html;charset=UTF-8'; 
       }
 ```
 

@@ -24,18 +24,25 @@ import org.apache.catalina.connector.Connector;
 import org.apache.catalina.security.SecurityClassLoad;
 import org.apache.catalina.startup.Bootstrap;
 import org.apache.catalina.startup.Catalina;
-import org.apache.coyote.Adapter;
+import org.apache.coyote.http11.NginxDirectProtocol;
+import org.apache.coyote.http11.NginxEndpoint;
 import org.apache.tomcat.util.digester.Digester;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXParseException;
 
-public class NginxTomcatBridgeImpl extends Catalina implements NginxBridge {
+public class NginxTomcatBridge extends Catalina implements NginxBridge {
 
-	protected static Adapter adapter;
-	protected NginxTomcatDirectProtocol nginxClojureDirectProtocol;
+
+	protected NginxDirectProtocol nginxDirectProtocol;
 	
 	protected static final org.apache.juli.logging.Log log =
-	        org.apache.juli.logging.LogFactory.getLog( NginxTomcatBridgeImpl.class );
+	        org.apache.juli.logging.LogFactory.getLog( NginxTomcatBridge.class );
+	
+	protected boolean ignoreNginxFilter = false;
+	
+	protected boolean dispatch = false;
+	
+	protected ClassLoader bootLoader;
 	
 	protected void initWithoutStartServer() {
 
@@ -135,10 +142,12 @@ public class NginxTomcatBridgeImpl extends Catalina implements NginxBridge {
 	}
 	
 	@Override
-	public void boot(Map<String, String> properties) {
-		if (adapter != null) {
+	public void boot(Map<String, String> properties, ClassLoader loader) {
+		if (nginxDirectProtocol != null) {
 			return;
 		}
+		
+		bootLoader = loader;
         long t1 = System.nanoTime();
         
         /**
@@ -177,11 +186,10 @@ public class NginxTomcatBridgeImpl extends Catalina implements NginxBridge {
 					if (c.getProtocol().equals("HTTP/1.1")) {
 						httpConnector = c;
 						httpService = s;
-						nginxClojureDirectProtocol = new NginxTomcatDirectProtocol();
-						nginxClojureDirectProtocol.setAdapter(c.getProtocolHandler().getAdapter());
-						nginxClojureDirectProtocol.init();
-						c.setProtocol(NginxTomcatDirectProtocol.class.getName());
-						protocolHandlerField.set(c, nginxClojureDirectProtocol);
+						nginxDirectProtocol = new NginxDirectProtocol();
+						nginxDirectProtocol.setAdapter(c.getProtocolHandler().getAdapter());
+						c.setProtocol(NginxDirectProtocol.class.getName());
+						protocolHandlerField.set(c, nginxDirectProtocol);
 					}else {
 						s.removeConnector(c);
 					}
@@ -200,24 +208,40 @@ public class NginxTomcatBridgeImpl extends Catalina implements NginxBridge {
 	        }
 			
 			this.start();
-			nginxClojureDirectProtocol = (NginxTomcatDirectProtocol) httpConnector.getProtocolHandler();
-			adapter = nginxClojureDirectProtocol.getAdapter();
+			nginxDirectProtocol = (NginxDirectProtocol) httpConnector.getProtocolHandler();
 			
 	        long t2 = System.nanoTime();
 	        if(log.isInfoEnabled()) {
 	            log.info("Initialization processed in " + ((t2 - t1) / 1000000) + " ms");
 	        }
+	        
+	        String ignoreNginxFilterStr = properties.get("ignoreNginxFilter");
+	        if (ignoreNginxFilterStr != null) {
+	        	ignoreNginxFilter = Boolean.parseBoolean(ignoreNginxFilterStr);
+	        }
+	        
+	        String dispatchStr = properties.get("dispatch");
+	        if (dispatchStr != null) {
+	        	dispatch = Boolean.parseBoolean(dispatchStr);
+	        }
 		} catch (Throwable t) {
-			t.printStackTrace();
+			NginxClojureRT.getLog().error("can not start tomcat server", t);
 			return;
 		}
 	}
 	
-
+	@Override
+	public ClassLoader getClassLoader() {
+		return bootLoader;
+	}
+	
+	int i = 0;
 
 	@Override
-	public Object[] handle(NginxJavaRequest req) {
-		new NginxTomcatProcesser(adapter, req).run();
+	public Object[] handle(NginxJavaRequest req) throws IOException {
+		NginxEndpoint nginxEndpoint = nginxDirectProtocol.getEndpoint();
+		req.get("body");
+		nginxEndpoint.accept(req, ignoreNginxFilter, dispatch);
 		return null;
 	}
 
