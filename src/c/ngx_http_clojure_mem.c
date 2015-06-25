@@ -1393,6 +1393,9 @@ static ngx_int_t  ngx_http_clojure_hijack_send_chain(ngx_http_request_t *r, ngx_
 		if (ctx->wsctx) {
 			r->read_event_handler = nji_ngx_http_clojure_hijack_read_handler;
 		}else {
+			if (!c->write->delayed) {
+				ngx_add_timer(c->write, clcf->send_timeout);
+			}
 			r->read_event_handler = ngx_http_clojure_rd_check_broken_connection;
 		}
 
