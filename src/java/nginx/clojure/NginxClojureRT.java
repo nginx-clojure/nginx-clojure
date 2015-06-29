@@ -1308,7 +1308,7 @@ public class NginxClojureRT extends MiniConstants {
 		return NGX_OK;
 	}
 	
-	private static long handleReturnCodeFromHandler(long r, int phase, long rc, int status) {
+	protected static long handleReturnCodeFromHandler(long r, int phase, long rc, int status) {
 		if (phase == -1 || rc == NGX_ERROR ) {
 			return rc;
 		}

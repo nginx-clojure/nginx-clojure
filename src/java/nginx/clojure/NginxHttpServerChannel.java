@@ -5,7 +5,6 @@
 package nginx.clojure;
 
 import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
-import static nginx.clojure.MiniConstants.NGX_AGAIN;
 import static nginx.clojure.MiniConstants.NGX_OK;
 import static nginx.clojure.NginxClojureRT.log;
 
@@ -264,6 +263,7 @@ public class NginxHttpServerChannel implements Closeable {
 		if (NginxClojureRT.log.isDebugEnabled()) {
 			NginxClojureRT.log.debug("NginxHttpServerChannel write rc=%d", rc);
 		}
+		
 		if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
 			return 0;
 		}
@@ -282,6 +282,10 @@ public class NginxHttpServerChannel implements Closeable {
 			rc = NginxClojureRT.postHijackWriteEvent(this, buf, 0, buf.remaining());
 		}else {
 			rc = unsafeWrite(buf);
+		}
+		
+		if (NginxClojureRT.log.isDebugEnabled()) {
+			NginxClojureRT.log.debug("NginxHttpServerChannel write rc=%d", rc);
 		}
 		
 		if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
@@ -352,19 +356,72 @@ public class NginxHttpServerChannel implements Closeable {
 		}
 	}
 	
-	protected void sendResponseHelp(NginxResponse response, long chain) {
-		closed = true;
+	
+	protected long sendResponseHelp(NginxResponse resp, long chain) {
+
+		NginxRequest req = resp.request();
+		if (req.isReleased()) {
+			if (resp.type()  >  0) {
+				log.error("#%d: request is release! and we alos meet an unhandled exception! %s",  req.nativeRequest(), resp.fetchBody());
+			}else {
+				log.error("#%d: request is release! ", req.nativeRequest());
+			}
+			return MiniConstants.NGX_HTTP_INTERNAL_SERVER_ERROR;
+		}
+		
+		long rc = NGX_OK;
+		long r = req.nativeRequest();
+		
+		if (resp.type() == NginxResponse.TYPE_FAKE_PHASE_DONE) {
+			if (req.phase() == MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE) {
+				rc = NginxClojureRT.ngx_http_filter_continue_next(r, -1);
+				NginxClojureRT.ngx_http_finalize_request(r, rc);
+				return NGX_OK;
+			}
+			if (req.isHijacked()) {
+				//decrease r->count
+				NginxClojureRT.ngx_http_finalize_request(r, rc);
+			}
+			NginxClojureRT.ngx_http_clojure_mem_continue_current_phase(r, MiniConstants.NGX_DECLINED);
+			return NGX_OK;
+		}
+		
+		int phase = req.phase();
+		long nr = req.nativeRequest();
 		if (chain < 0) {
-			int status = (int)-chain;
-			request.handler().prepareHeaders(request, status, response.fetchHeaders());
-			NginxClojureRT.ngx_http_finalize_request(request.nativeRequest(), status);
-			return;
+			req.handler().prepareHeaders(req, -(int)chain, resp.fetchHeaders());
+			rc = -chain;
+		}else if (chain == 0) {
+			rc = MiniConstants.NGX_HTTP_INTERNAL_SERVER_ERROR;
+		} else {
+			int status = resp.fetchStatus(MiniConstants.NGX_HTTP_OK);
+			if (phase == MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE) {
+				NginxClojureRT.ngx_http_clear_header_and_reset_ctx_phase(nr, ~phase);
+			}
+			req.handler().prepareHeaders(req, status, resp.fetchHeaders());
+			rc = NginxClojureRT.ngx_http_hijack_send_header(r, computeFlag(false, false));
+			if (rc == MiniConstants.NGX_ERROR || rc > NGX_OK) {
+			}else {
+				rc = NginxClojureRT.ngx_http_hijack_send_chain(r, chain, computeFlag(false, true));
+				if (rc == NGX_OK && phase != -1) {
+					NginxClojureRT.ngx_http_ignore_next_response(nr);
+				}
+				if (phase != -1) {
+					if (phase == MiniConstants.NGX_HTTP_ACCESS_PHASE || phase == MiniConstants.NGX_HTTP_REWRITE_PHASE ) {
+						rc = NginxClojureRT.handleReturnCodeFromHandler(nr, phase, rc, status);
+					}else {
+						NginxClojureRT.handleReturnCodeFromHandler(nr, phase, rc, status);
+					}
+				}
+			}
 		}
-		request.handler().prepareHeaders(request, response.fetchStatus(NGX_OK) , response.fetchHeaders());
-		int rc = (int) NginxClojureRT.ngx_http_hijack_send_header(request.nativeRequest(), computeFlag(false, false));
-		if (rc == NGX_OK || rc == NGX_AGAIN) {
-			NginxClojureRT.ngx_http_hijack_send_chain(request.nativeRequest(), chain, computeFlag(false, true));
+		
+		if (phase == -1 || phase == MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE) {
+			NginxClojureRT.ngx_http_finalize_request(r, rc);
+		}else {
+			NginxClojureRT.ngx_http_clojure_mem_continue_current_phase(r,  rc);
 		}
+		return NGX_OK;
 	}
 	
 	public void sendResponse(Object resp) throws IOException {
@@ -444,6 +501,10 @@ public class NginxHttpServerChannel implements Closeable {
 	
 	public boolean isIgnoreFilter() {
 		return ignoreFilter;
+	}
+	
+	public void setIgnoreFilter(boolean ignoreFilter) {
+		this.ignoreFilter = ignoreFilter;
 	}
 	
 	public NginxRequest request() {

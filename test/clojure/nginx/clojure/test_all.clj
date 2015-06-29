@@ -593,7 +593,7 @@
              (is (= "Hello,Xfeep!" (:body r))))))
 
 
-(deftest ^{:remote true} test-rewrite-handler
+(deftest ^{:remote true :rewrite-handler true} test-rewrite-handler
   (testing "rewritesimple"
            (let [r (client/get (str "http://" *host* ":" *port* "/rewritesimple") {:follow-redirects false})
                  h (:headers r)
@@ -634,12 +634,45 @@
              (debug-println "=================rewritesimple=============================")
              (is (= 200 (:status r)))
              (is  (= "hello,b!/javarewritebybodyproxy/" (:body r)) )))
+       (testing "rewrite hijack pass"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javarewrite/hijackpass0") {:follow-redirects false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================rewrite hijack pass=============================")
+             (is (= 200 (:status r)))
+             (is (= "Hello,Xfeep!" (:body r)))))
+      (testing "rewrite hijack pass & ignore filter"
+          (let [r (client/get (str "http://" *host* ":" *port* "/javarewrite/hijackpass1") {:follow-redirects false})
+                h (:headers r)
+                b (r :body)]
+            (debug-println r)
+            (debug-println "=================rewrite hijack pass & ignore filter=============================")
+            (is (= 200 (:status r)))
+            (is (= "Hello,Xfeep!" (:body r)))))
+      (testing "rewrite hijack 400"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javarewrite/hijackbad0") {:follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================rewrite hijack 400=============================")
+             (is (= 400 (:status r)))
+             (is (= "hijacked rewrite handler no pass to content handler!" (:body r))))) 
+      (testing "rewrite hijack & ignore filter 400"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javarewrite/hijackbad1") {:follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================rewrite hijack 400=============================")
+             (is (= 400 (:status r)))
+             (is (= "hijacked rewrite handler no pass to content handler!" (:body r)))))        
+        
   )
 
 (defn- first-line [str]
   (-> str (StringReader. ) (BufferedReader. ) (line-seq) (first)))
 
-(deftest ^{:remote true} test-access-handler
+(deftest ^{:remote true :access-handler true} test-access-handler
   (testing "acces deny"
            (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/deny") {:coerce :unexceptional :follow-redirects false  :throw-exceptions false})
                  h (:headers r)
@@ -681,7 +714,7 @@
              (is (= 200 (:status r)))
              (is  (= "680" (h  "content-length")) )))
         
-         (testing "access basic auth-success with 404"
+         (testing "access basic auth-success"
            (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/basic1/small2.html") {:coerce :unexceptional :follow-redirects false, :basic-auth ["xfeep" "hello!"] :throw-exceptions false})
                  h (:headers r)
                  b (r :body)]
@@ -690,7 +723,7 @@
              (is (= 404 (:status r)))
              (is  (= "162" (h  "content-length")) ))) 
          
-         (testing "access basic auth-fail with 404"
+         (testing "access basic auth-fail with 401"
            (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/basic1/small2.html") {:coerce :unexceptional :follow-redirects false, :basic-auth ["xfeep" "xxxxx!"] :throw-exceptions false})
                  h (:headers r)
                  b (r :body)]
@@ -700,13 +733,50 @@
               (is (= "<HTML><BODY><H1>401 Unauthorized BAD USER & PASSWORD.</H1></BODY></HTML>" (first-line (:body r))))))
  
          (testing "access with remote access"
-           (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/basic1/small2.html") {:coerce :unexceptional :follow-redirects false, :basic-auth ["xfeep" "xxxxx!"] :throw-exceptions false})
+           (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/rc") {:coerce :unexceptional :follow-redirects false, :basic-auth ["xfeep" "xxxxx!"] :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javaaccess/rc=============================")
+             (is (= 200 (:status r)))
+             (is  (= "Hello, Java & Nginx!" (:body r)) ))) 
+
+         (testing "access hijack with 401"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/hijack0") {:coerce :unexceptional :follow-redirects false, :basic-auth ["xfeep" "xxxxx!"] :throw-exceptions false})
                  h (:headers r)
                  b (r :body)]
              (debug-println r)
              (debug-println "=================/javaaccess/basic1/small2.html=============================")
              (is (= 401 (:status r)))
-              (is (= "<HTML><BODY><H1>401 Unauthorized BAD USER & PASSWORD.</H1></BODY></HTML>" (first-line (:body r))))))         
+              (is (= "<HTML><BODY><H1>401 Unauthorized BAD USER & PASSWORD.</H1></BODY></HTML>" (first-line (:body r))))))
+         
+        (testing "access hijack sucesss"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/hijack0") {:coerce :unexceptional :follow-redirects false, :basic-auth ["xfeep" "hello!"] :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javaaccess/rc=============================")
+             (is (= 200 (:status r)))
+             (is  (= "Hello, Java & Nginx!" (:body r)) ))) 
+ 
+         (testing "access hijack & ingore filter with 401"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/hijack1") {:coerce :unexceptional :follow-redirects false, :basic-auth ["xfeep" "xxxxx!"] :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javaaccess/hijack1 hijack & ingore filter 401=============================")
+             (is (= 401 (:status r)))
+              (is (= "<HTML><BODY><H1>401 Unauthorized BAD USER & PASSWORD.</H1></BODY></HTML>" (first-line (:body r))))))
+         
+        (testing "access hijack & ingore filter sucesss"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/hijack1") {:coerce :unexceptional :follow-redirects false, :basic-auth ["xfeep" "hello!"] :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javaaccess/hijack1 hijack & ingore filter=============================")
+             (is (= 200 (:status r)))
+             (is  (= "Hello, Java & Nginx!" (:body r)) )))         
+        
         )
 
 (deftest ^{:remote true}  test-java-header-filter

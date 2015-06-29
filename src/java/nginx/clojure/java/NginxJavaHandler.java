@@ -119,6 +119,11 @@ public class NginxJavaHandler extends NginxSimpleHandler implements Configurable
 		if (log.isDebugEnabled()) {
 			log.debug("#%s: hijack at %s", processId, ((NginxJavaRequest)req).get(URI));
 		}
+		if (req.isHijacked()) {
+			NginxHttpServerChannel channel =  req.channel();
+			channel.setIgnoreFilter(ignoreFilter);
+			return channel;
+		}
 		((NginxJavaRequest)req).hijacked = true;
 		if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD) {
 			NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest());

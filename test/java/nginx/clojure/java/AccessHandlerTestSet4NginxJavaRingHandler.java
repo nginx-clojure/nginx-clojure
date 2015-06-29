@@ -3,6 +3,8 @@ package nginx.clojure.java;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import javax.xml.bind.DatatypeConverter;
 
@@ -12,6 +14,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 
 import nginx.clojure.Configurable;
+import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.SuspendExecution;
 import static nginx.clojure.java.Constants.*;
 
@@ -120,6 +123,51 @@ public class AccessHandlerTestSet4NginxJavaRingHandler {
 			
 		
 		}
+	}
+	
+	public static class HijackBasicAuthHandler implements NginxJavaRingHandler, Configurable {
+		
+		boolean ignoreFilter = false;
+		ExecutorService executorService = Executors.newFixedThreadPool(16);
+		
+		@Override
+		public void config(Map<String, String> properties) {
+			ignoreFilter = Boolean.getBoolean(properties.get("ignoreFilter"));
+		}
+
+		@Override
+		public Object[] invoke(Map<String, Object> request) throws IOException {
+			NginxJavaRequest r = (NginxJavaRequest)request;
+			final NginxHttpServerChannel channel = r.hijack(ignoreFilter);
+			final String auth = (String) ((Map)request.get(HEADERS)).get("authorization");
+			executorService.submit(new Runnable() {
+				@Override
+				public void run() {
+					try {
+						if (auth != null) {
+							String[] up = new String(DatatypeConverter.parseBase64Binary(auth.substring("Basic ".length())), DEFAULT_ENCODING).split(":");
+							if (up[0].equals("xfeep") && up[1].equals("hello!")) {
+								channel.sendResponse(PHASE_DONE);
+								return;
+							}
+						}
+						channel.sendResponse(new Object[] { 401, ArrayMap.create("www-authenticate", "Basic realm=\"Secure Area\""),
+			"<HTML><BODY><H1>401 Unauthorized BAD USER & PASSWORD.</H1></BODY></HTML>" });
+					}catch(Throwable e) {
+						try {
+							channel.sendResponse(500);
+						} catch (IOException e1) {
+							// TODO Auto-generated catch block
+							e1.printStackTrace();
+						}
+						e.printStackTrace();
+					}
+					
+				}
+			});
+			return null;
+		}
+		
 	}
 
 }

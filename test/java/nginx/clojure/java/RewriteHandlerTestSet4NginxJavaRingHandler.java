@@ -5,9 +5,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import nginx.clojure.Configurable;
 import nginx.clojure.NginxClojureRT;
+import nginx.clojure.NginxHttpServerChannel;
 
 public class RewriteHandlerTestSet4NginxJavaRingHandler {
 	
@@ -78,6 +81,8 @@ public class RewriteHandlerTestSet4NginxJavaRingHandler {
 	
 	
 	public static class SimpleRewriteByBodyHandler   implements NginxJavaRingHandler {
+		
+		
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
 			NginxJavaRequest req = (NginxJavaRequest) request;
@@ -101,6 +106,55 @@ public class RewriteHandlerTestSet4NginxJavaRingHandler {
 			}
 			return Constants.PHASE_DONE;
 		}
+	}
+	
+	public static class SimpleHijackedRewriteHandler implements NginxJavaRingHandler,Configurable {
+
+		boolean ignoreFilter = false;
+		boolean continueToContentHandler = true;
+		ExecutorService executorService = Executors.newFixedThreadPool(16);
+		
+		@Override
+		public Object[] invoke(Map<String, Object> request) throws IOException {
+			final NginxJavaRequest r = (NginxJavaRequest)request;
+			final NginxHttpServerChannel channel = r.hijack(ignoreFilter);
+			executorService.submit(new Runnable() {
+				@Override
+				public void run() {
+					try {
+						if (continueToContentHandler) {
+							r.setVariable("myvar", "Hello");
+							r.setVariable("myName", "Xfeep");
+							channel.sendResponse(Constants.PHASE_DONE);
+//							NginxClojureRT.postResponseEvent(r, r.handler().toNginxResponse(r, Constants.PHASE_DONE));
+						}else {
+							channel.sendResponse(new Object[] { 400, ArrayMap.create("Content-Type", "text/plain"),
+									"hijacked rewrite handler no pass to content handler!" });
+						}
+					}catch(IOException e) {
+						try {
+							channel.close();
+						} catch (IOException e1) {
+							e1.printStackTrace();
+						}
+					}
+					
+				}
+			});
+			return null;
+		}
+
+		@Override
+		public void config(Map<String, String> properties) {
+			if (properties.containsKey("ignoreFilter")) {
+				ignoreFilter = Boolean.parseBoolean(properties.get("ignoreFilter"));
+			}
+			
+			if (properties.containsKey("continueToContentHandler")) {
+				continueToContentHandler = Boolean.parseBoolean(properties.get("continueToContentHandler"));
+			}
+		}
+		
 	}
 	
 	

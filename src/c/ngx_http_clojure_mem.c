@@ -798,7 +798,7 @@ static ngx_str_t ngx_http_status_lines[] = {
     /* ngx_null_string, */  /* "207 Multi-Status" */
 
 #define NGX_HTTP_LAST_2XX  207
-#define NGX_HTTP_OFF_3XX   (NGX_HTTP_LAST_2XX - 200)
+#define NGX_HTTP_OFF_3XX   (NGX_HTTP_LAST_2XX - 200 + NGX_HTTP_OFF_2XX)
 
     /* ngx_null_string, */  /* "300 Multiple Choices" */
 
