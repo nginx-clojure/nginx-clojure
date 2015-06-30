@@ -24,8 +24,8 @@ public class NginxJavaFilterRequest extends NginxJavaRequest implements NginxFil
 	
 	protected Map<String, Object> responseHeaders;
 	
-	public NginxJavaFilterRequest(NginxHandler handler, NginxJavaRingHandler ringHandler, long r, long c)  {
-		super(handler, ringHandler, r);
+	public NginxJavaFilterRequest(NginxHandler handler, long r, long c)  {
+		super(handler, r);
 //		long pool = NginxClojureRT.UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
 		ho = r + NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
 		responseHeaders = new JavaLazyHeaderMap(r, true);

@@ -56,6 +56,8 @@ public final class Stack implements Serializable {
     /** sadly this need to be here */
     public static SuspendExecution exception_instance_not_for_user_code = SuspendExecution.instance;
     
+    private static final Object[] nullValue1kArray = new Object[1024];
+    
     final Coroutine co;
     
     private static  MethodDatabase db;
@@ -535,11 +537,26 @@ public final class Stack implements Serializable {
     	return true;
     }
     
-    //TODO: reuse it
     protected void release() {
-    	method = null;
-    	dataLong = null;
-    	dataObject = null;
-    	verifyInfo = null;
+    	methodTOS = -1;
+    	if (verifyInfo != null) {
+    		verifyInfo.tracerStacks.clear();
+    		fillNull(verifyInfo.methodIdxInfos, 0, verifyInfo.methodIdxInfos.length);
+    	}
+    	fillNull(dataObject, 0, dataObject.length);
+    }
+    
+    public static void fillNull(Object[] array, int s, int len) {
+    	if (len > 0) {
+    		if (len > 1024) {
+    			System.arraycopy(nullValue1kArray, 0, array, s, 1024);
+    			for (int i = 1024; i < len; i += i) {
+    				System.arraycopy(array, 0, array, i+s, ((len - i) < i) ? (len - i) : i);
+    			}
+    		}else {
+    			System.arraycopy(nullValue1kArray, 0, array, s, len);
+    		}
+    		
+    	}
     }
 }

@@ -39,6 +39,7 @@ import nginx.clojure.NginxHandler;
 import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxRequest;
 import nginx.clojure.RequestVarFetcher;
+import nginx.clojure.Stack;
 import nginx.clojure.java.NginxJavaRequest;
 import nginx.clojure.net.NginxClojureAsynSocket;
 import clojure.lang.AFn;
@@ -55,6 +56,23 @@ import clojure.lang.RT;
 import clojure.lang.Util;
 
 public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentMap {
+	
+	
+	private final static Object[] default_request_array = new Object[] {
+		URI, URI_FETCHER,
+		BODY, BODY_FETCHER,
+		HEADERS, HEADER_FETCHER,
+		
+		SERVER_PORT,SERVER_PORT_FETCHER,
+		SERVER_NAME, SERVER_NAME_FETCHER,
+		REMOTE_ADDR, REMOTE_ADDR_FETCHER,
+		
+		QUERY_STRING, QUERY_STRING_FETCHER,
+		SCHEME, SCHEME_FETCHER,
+		REQUEST_METHOD, REQUEST_METHOD_FETCHER,
+		CONTENT_TYPE, CONTENT_TYPE_FETCHER,
+		CHARACTER_ENCODING, CHARACTER_ENCODING_FETCHER,
+    };
 	
 	protected long r;
 	protected Object[] array;
@@ -82,21 +100,8 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	@SuppressWarnings("unchecked")
 	public LazyRequestMap(NginxHandler handler, long r) {
 		//TODO: SSL_CLIENT_CERT
-		this(handler, r, new byte[]{0}, new Object[] {
-				URI, URI_FETCHER,
-				BODY, BODY_FETCHER,
-				HEADERS, HEADER_FETCHER,
-				
-				SERVER_PORT,SERVER_PORT_FETCHER,
-				SERVER_NAME, SERVER_NAME_FETCHER,
-				REMOTE_ADDR, REMOTE_ADDR_FETCHER,
-				
-				QUERY_STRING, QUERY_STRING_FETCHER,
-				SCHEME, SCHEME_FETCHER,
-				REQUEST_METHOD, REQUEST_METHOD_FETCHER,
-				CONTENT_TYPE, CONTENT_TYPE_FETCHER,
-				CHARACTER_ENCODING, CHARACTER_ENCODING_FETCHER,
-		});
+		this(handler, r, new byte[]{0}, new Object[default_request_array.length]);
+		System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
 		if (NginxClojureRT.log.isDebugEnabled()) {
 			valAt(URI);
 		}
@@ -108,6 +113,17 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		this.listeners = or.listeners;
 		this.array = a;
 		this.hijackTag = or.hijackTag;
+		if (r != 0) {
+			NginxClojureRT.ngx_http_clojure_add_listener(r, requestListener, this, 1);
+		}
+	}
+	
+	public void reset(long r, NginxClojureHandler handler) {
+		this.r = r;
+		this.released = false;
+		this.hijackTag[0] = 0;
+		phase = -1;
+		this.handler = handler;
 		if (r != 0) {
 			NginxClojureRT.ngx_http_clojure_add_listener(r, requestListener, this, 1);
 		}
@@ -397,6 +413,15 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	@Override
 	public void tagReleased() {
 		this.released = true;
+		this.channel = null;
+		System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
+		if (array.length > default_request_array.length) {
+			Stack.fillNull(array, default_request_array.length, array.length - default_request_array.length);
+		}
+		if (listeners != null) {
+			listeners.clear();
+		}
+		((NginxClojureHandler)handler).returnToRequestPool(this);
 	}
 
 	@Override

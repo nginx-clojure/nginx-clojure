@@ -18,6 +18,7 @@ import static nginx.clojure.clj.Constants.URI;
 
 import java.io.Closeable;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHeaderHolder;
@@ -35,6 +36,8 @@ import clojure.lang.Seqable;
 public class NginxClojureHandler extends NginxSimpleHandler {
 
 	public static ArrayMap<Keyword, Object> NOT_FOUND_RESPONSE = ArrayMap.create(STATUS, NGX_HTTP_NOT_FOUND);
+	
+	protected static ConcurrentLinkedQueue<LazyRequestMap> pooledRequests = new ConcurrentLinkedQueue<LazyRequestMap>();
 	
 	protected IFn ringHandler;
 	protected IFn headerFilter;
@@ -77,7 +80,12 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 			req = new LazyFilterRequestMap(this, r, c);
 			break;
 		default :
-			req =  new LazyRequestMap(this, r);
+			req = pooledRequests.poll();
+			if (req == null) {
+				req =  new LazyRequestMap(this, r);
+			}else {
+				req.reset(r, this);
+			}
 		}
 		return req.phase(phase);
 	}
@@ -183,6 +191,10 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 		}
 		
 		return ((LazyRequestMap)req).channel = new NginxHttpServerChannel(req, ignoreFilter);
+	}
+
+	protected void returnToRequestPool(LazyRequestMap lazyRequestMap) {
+		pooledRequests.add(lazyRequestMap);
 	}
 
 }

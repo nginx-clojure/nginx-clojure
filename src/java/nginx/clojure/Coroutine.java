@@ -48,7 +48,8 @@ public class Coroutine implements Runnable, Serializable {
      * Default stack size for the data stack.
      * @see #Coroutine(de.matthiasmann.continuations.CoroutineProto, int) 
      */
-    public static final int DEFAULT_STACK_SIZE = 256;
+	public static final int DEFAULT_STACK_SIZE = System.getProperty("nginx.clojure.coroutine.defaultStackSize") == null ? 256
+			: Integer.parseInt(System.getProperty("nginx.clojure.coroutine.defaultStackSize"));
     
     private static final long serialVersionUID = 2783452871536981L;
     
@@ -64,6 +65,10 @@ public class Coroutine implements Runnable, Serializable {
          */
         FINISHED
     };
+    
+    public interface FinishListener {
+    	void onFinished(Coroutine c);
+    }
     
     private final Runnable proto;
     private final Stack stack;
@@ -139,6 +144,25 @@ public class Coroutine implements Runnable, Serializable {
             throw new NullPointerException("proto");
         }
         assert isInstrumented(proto) : "Not instrumented";
+    }
+    
+    public void reset() {
+    	this.state = State.NEW;
+    	Thread thread = Thread.currentThread();
+        Object currentLocals = HackUtils.getThreadLocals(Thread.currentThread());
+        this.locals = HackUtils.cloneThreadLocalMap(currentLocals);
+        try {
+            HackUtils.setThreadLocals(thread, this.locals);
+            Stack.setStack(this.stack);
+            SuspendableConstructorUtilStack.setStack(this.cstack);
+        }finally {
+        	HackUtils.setThreadLocals(thread, currentLocals);
+        }
+        
+        Object inheritableLocals = HackUtils.getInheritableThreadLocals(Thread.currentThread());
+        if (inheritableLocals != null) {
+        	this.inheritableLocals = HackUtils.createInheritedMap(inheritableLocals);
+        }
     }
 
     /**
@@ -225,8 +249,15 @@ public class Coroutine implements Runnable, Serializable {
         } finally {
         	if (result == State.FINISHED) {
         		//for reduce memory leak probability
-        		//TODO: use stack
+        		//cstack.release was called by waved code so skip it here
         		stack.release();
+        		inheritableLocals = null;
+        		locals = null;
+        		resumeCounter = 0;
+        		
+        		if (proto instanceof FinishListener) {
+					((FinishListener) proto).onFinished(this);;
+				}
         	}
         	
             HackUtils.setThreadLocals(thread, oldLocals);

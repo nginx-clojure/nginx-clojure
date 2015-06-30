@@ -54,9 +54,23 @@ import nginx.clojure.net.NginxClojureAsynSocket;
 
 public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 
+	//TODO: SSL_CLIENT_CERT
+	private final static Object[] default_request_array = new Object[] { 
+		    URI, URI_FETCHER, 
+		    BODY, BODY_FETCHER, 
+		    HEADERS, HEADER_FETCHER,
+			SERVER_PORT, SERVER_PORT_FETCHER, 
+			SERVER_NAME, SERVER_NAME_FETCHER, 
+			REMOTE_ADDR, REMOTE_ADDR_FETCHER,
+			QUERY_STRING, QUERY_STRING_FETCHER, 
+			SCHEME, SCHEME_FETCHER, 
+			REQUEST_METHOD, REQUEST_METHOD_FETCHER, 
+			CONTENT_TYPE, CONTENT_TYPE_FETCHER, 
+			CHARACTER_ENCODING, CHARACTER_ENCODING_FETCHER
+	};
+	
 	protected long r;
 	NginxHandler handler;
-	protected NginxJavaRingHandler ringHandler;
 	protected Object[] array;
 	protected boolean hijacked = false;
 	protected NginxHttpServerChannel channel;
@@ -256,36 +270,32 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		}
 	};
 	
-	public NginxJavaRequest(NginxHandler handler, NginxJavaRingHandler ringHandler, long r, Object[] array) {
+	public NginxJavaRequest(NginxHandler handler, long r, Object[] array) {
 		this.r = r;
 		this.handler = handler;
 		this.array = array;
-		this.ringHandler = ringHandler;
 		if (r != 0) {
 			NginxClojureRT.ngx_http_clojure_add_listener(r, requestListener, this, 1);
 		}
 	}
 	
 	@SuppressWarnings("unchecked")
-	public NginxJavaRequest(NginxHandler handler, NginxJavaRingHandler ringHandler, long r) {
-		//TODO: SSL_CLIENT_CERT
-		this(handler, ringHandler, r, new Object[] {
-				URI, URI_FETCHER,
-				BODY, BODY_FETCHER,
-				HEADERS, HEADER_FETCHER,
-				
-				SERVER_PORT,SERVER_PORT_FETCHER,
-				SERVER_NAME, SERVER_NAME_FETCHER,
-				REMOTE_ADDR, REMOTE_ADDR_FETCHER,
-				
-				QUERY_STRING, QUERY_STRING_FETCHER,
-				SCHEME, SCHEME_FETCHER,
-				REQUEST_METHOD, REQUEST_METHOD_FETCHER,
-				CONTENT_TYPE, CONTENT_TYPE_FETCHER,
-				CHARACTER_ENCODING, CHARACTER_ENCODING_FETCHER,
-		});
+	public NginxJavaRequest(NginxHandler handler, long r) {
+		this(handler, r, new Object[default_request_array.length]);
+		System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
 		if (NginxClojureRT.log.isDebugEnabled()) {
 			get(URI);
+		}
+	}
+	
+	public void reset(long r, NginxHandler handler) {
+		this.r = r;
+		this.released = false;
+		this.hijacked = false;
+		this.handler = handler;
+		phase = -1;
+		if (r != 0) {
+			NginxClojureRT.ngx_http_clojure_add_listener(r, requestListener, this, 1);
 		}
 	}
 	
@@ -570,6 +580,12 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	@Override
 	public void tagReleased() {
 		this.released = true;
+		this.channel = null;
+		System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
+		if (listeners != null) {
+			listeners.clear();
+		}
+		((NginxJavaHandler)handler).returnToRequestPool(this);
 	}
 
 	@Override

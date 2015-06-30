@@ -100,9 +100,7 @@ public final class SuspendableConstructorUtilStack implements Serializable {
     public final void release(int c) {
     	desp += c;
     	if (--refs == 0) {
-    		for (int i = 0; i < top; i++) {
-    			dataObject[i] = null;
-    		}
+    		Stack.fillNull(dataObject, 0, top);
     		sp = -1;
     		top = 0;
     		desp = 0;

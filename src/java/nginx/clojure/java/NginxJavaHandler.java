@@ -16,6 +16,7 @@ import static nginx.clojure.java.Constants.ASYNC_TAG;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import nginx.clojure.Configurable;
 import nginx.clojure.NginxClojureRT;
@@ -24,10 +25,12 @@ import nginx.clojure.NginxRequest;
 import nginx.clojure.NginxResponse;
 import nginx.clojure.NginxSimpleHandler;
 
-public class NginxJavaHandler extends NginxSimpleHandler implements Configurable {
+public class NginxJavaHandler extends NginxSimpleHandler {
 
 	protected NginxJavaRingHandler ringHandler;
 	protected NginxJavaHeaderFilter headerFilter;
+	
+	protected static ConcurrentLinkedQueue<NginxJavaRequest> pooledRequests = new ConcurrentLinkedQueue<NginxJavaRequest>();
 	
 	public static Object[] NOT_FOUND_RESPONSE = new Object[] {NGX_HTTP_NOT_FOUND, null, null};
 	
@@ -49,17 +52,22 @@ public class NginxJavaHandler extends NginxSimpleHandler implements Configurable
 	@Override
 	public NginxRequest makeRequest(long r, long c) {
 		if (r == 0) {
-			return new NginxJavaRequest(this, ringHandler, r, new Object[0]);
+			return new NginxJavaRequest(this, r, new Object[0]);
 		}
 		int phase = (int)NginxClojureRT.ngx_http_clojure_mem_get_module_ctx_phase(r);
 		NginxJavaRequest req;
 		switch (phase) {
 		case NGX_HTTP_HEADER_FILTER_PHASE : 
 		case NGX_HTTP_BODY_FILTER_PHASE:
-			req = new NginxJavaFilterRequest(this, ringHandler, r, c);
+			req = new NginxJavaFilterRequest(this, r, c);
 			break;
 		default :
-			req =  new NginxJavaRequest(this, ringHandler, r);
+			req = pooledRequests.poll();
+			if (req == null) {
+				req =  new NginxJavaRequest(this, r);
+			}else {
+				req.reset(r, this);
+			}
 		}
 		return req.phase(phase);
 	}
@@ -134,6 +142,7 @@ public class NginxJavaHandler extends NginxSimpleHandler implements Configurable
 
 	@Override
 	public void config(Map<String, String> properties) {
+		super.config(properties);
 		if (ringHandler != null) {
 			if (ringHandler instanceof Configurable) {
 				Configurable cr = (Configurable) ringHandler;
@@ -154,4 +163,7 @@ public class NginxJavaHandler extends NginxSimpleHandler implements Configurable
 		
 	}
 
+	protected void returnToRequestPool(NginxJavaRequest r) {
+		pooledRequests.add(r);
+	}
 }

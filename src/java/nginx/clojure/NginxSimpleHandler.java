@@ -49,7 +49,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
+import nginx.clojure.Coroutine.FinishListener;
 import nginx.clojure.NginxClojureRT.WorkerResponseContext;
 import nginx.clojure.java.Constants;
 import nginx.clojure.java.NginxJavaResponse;
@@ -57,9 +59,16 @@ import sun.nio.ch.DirectBuffer;
 import sun.nio.cs.ThreadLocalCoders;
 
 
-public abstract class NginxSimpleHandler implements NginxHandler {
+public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
+	
+	protected static ConcurrentLinkedQueue<Coroutine> pooledCoroutines = new ConcurrentLinkedQueue<Coroutine>();
 
 	public abstract NginxRequest makeRequest(long r, long c);
+	
+	@Override
+	public void config(Map<String, String> properties) {
+		
+	}
 	
 	@Override
 	public int execute(final long r, final long c) {
@@ -111,8 +120,17 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 		try{
 			
 			if (coroutineEnabled) {
-				CoroutineRunner coroutineRunner = new CoroutineRunner(req);
-				Coroutine coroutine = new Coroutine(coroutineRunner);
+				Coroutine coroutine = pooledCoroutines.poll();
+				CoroutineRunner coroutineRunner;
+				if (coroutine == null) {
+					coroutineRunner = new CoroutineRunner(req);
+					coroutine = new Coroutine(coroutineRunner);
+				}else {
+					coroutine.reset();
+					coroutineRunner = (CoroutineRunner) coroutine.getProto();
+					coroutineRunner.request = req;
+				}
+				
 				coroutine.resume();
 				if (coroutine.getState() == Coroutine.State.FINISHED) {
 					return coroutineRunner.response;
@@ -210,9 +228,9 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 	}
 
 	
-	public static final class CoroutineRunner implements Runnable {
+	public static final class CoroutineRunner implements Runnable, FinishListener {
 		
-		final NginxRequest request;
+		NginxRequest request;
 		NginxResponse response;
 		
 		
@@ -234,6 +252,11 @@ public abstract class NginxSimpleHandler implements NginxHandler {
 			if (Coroutine.getActiveCoroutine().getResumeCounter() != 1) {
 				request.handler().completeAsyncResponse(request, response);
 			}
+		}
+
+		@Override
+		public void onFinished(Coroutine c) {
+			pooledCoroutines.add(c);
 		}
 	}
 	
