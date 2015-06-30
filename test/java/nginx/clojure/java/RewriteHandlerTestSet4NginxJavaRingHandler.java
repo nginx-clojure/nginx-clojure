@@ -1,6 +1,7 @@
 package nginx.clojure.java;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -11,6 +12,12 @@ import java.util.concurrent.Executors;
 import nginx.clojure.Configurable;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHttpServerChannel;
+import nginx.clojure.SuspendExecution;
+
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 
 public class RewriteHandlerTestSet4NginxJavaRingHandler {
 	
@@ -153,6 +160,42 @@ public class RewriteHandlerTestSet4NginxJavaRingHandler {
 			if (properties.containsKey("continueToContentHandler")) {
 				continueToContentHandler = Boolean.parseBoolean(properties.get("continueToContentHandler"));
 			}
+		}
+		
+	}
+	
+	public static class FetchRemoteTextRewriteHandler implements NginxJavaRingHandler {
+
+		@Override
+		public Object[] invoke(Map<String, Object> request) throws IOException, SuspendExecution {
+
+			CloseableHttpClient httpclient = HttpClients.createDefault();
+//			HttpGet httpget = new HttpGet("http://cn.bing.com/");
+			HttpGet httpget = new HttpGet("http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt");
+			CloseableHttpResponse response = null;
+			try {
+				response = httpclient.execute(httpget);
+				InputStream in = response.getEntity().getContent();
+				byte[] buf = new byte[1024];
+				int c = 0;
+				ByteArrayOutputStream out = new ByteArrayOutputStream();
+				while ((c = in.read(buf)) > 0) {
+					out.write(buf, 0, c);
+				}
+				in.close();
+				((NginxJavaRequest)request).setVariable("myvar", new String(out.toByteArray(), "utf-8"));
+				((NginxJavaRequest)request).setVariable("myname", "Xfeep");
+				return Constants.PHASE_DONE;
+			}finally {
+				if (httpclient != null) {
+					try {
+						httpclient.close();
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				}
+			}
+		
 		}
 		
 	}

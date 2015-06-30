@@ -408,7 +408,7 @@
 
 (def remote-http-content
   (delay 
-    (let [r1 (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
+    (let [r1 (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt" {:socket-timeout 10000})
          b1 (r1 :body)] b1)))
 
 (deftest ^{:async true :remote true} test-asyncsocket
@@ -665,7 +665,15 @@
              (debug-println r)
              (debug-println "=================rewrite hijack 400=============================")
              (is (= 400 (:status r)))
-             (is (= "hijacked rewrite handler no pass to content handler!" (:body r)))))        
+             (is (= "hijacked rewrite handler no pass to content handler!" (:body r))))) 
+      (testing "rewrite with remote"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javarewrite/remote") {:follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================rewrite hijack 400=============================")
+             (is (= 200 (:status r)))
+             (is (= (str @remote-http-content ",Xfeep!") (:body r)))))      
         
   )
 
