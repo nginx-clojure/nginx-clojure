@@ -14,5 +14,5 @@
   :javac-options ["-target" "1.7" "-source" "1.7" "-g" "-nowarn"]
   :profiles {
            :dev {:dependencies [;only for test / compile usage
-                                ]}}
+                                [stylefruits/gniazdo "0.4.0"]]}}
   )
