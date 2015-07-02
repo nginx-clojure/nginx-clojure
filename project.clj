@@ -46,6 +46,7 @@
                                   [org.clojure/data.json "0.2.5"]
                                   [org.codehaus.jackson/jackson-mapper-asl "1.9.13"]
                                   [org.codehaus.groovy/groovy "2.3.4"]
+                                  [stylefruits/gniazdo "0.4.0"]
                                   ]}
              :unittest {
                     :jvm-opts ["-javaagent:target/nginx-clojure-0.2.7.jar=mb"
@@ -77,6 +78,10 @@
                                                  :async :async
                                                  :jdbc :jdbc
                                                  :no-async (fn [m] (and (:remote m) (not (:async m))))
+                                                 :access-handler :access-handler
+                                                 :rewrite-handler :rewrite-handler
+                                                 :websocket :websocket
+                                                 :keepalive :keepalive
                                                  :all :remote}
                                 :dependencies [
                                               [org.clojure/clojure "1.5.1"]
@@ -90,6 +95,7 @@
                                               [javax.servlet/servlet-api "2.5"]
                                               [org.codehaus.jackson/jackson-mapper-asl "1.9.13"]
                                               [org.clojure/data.json "0.2.5"]
+                                              [stylefruits/gniazdo "0.4.0"]
                                               ;[mysql/mysql-connector-java "5.1.30"]
                                               ]
                                     }             

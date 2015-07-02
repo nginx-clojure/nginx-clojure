@@ -34,6 +34,15 @@ public class RewriteHandlerTestSet4NginxJavaRingHandler {
 		
 	}
 	
+	public static class ExceptionInRewriteHandler implements NginxJavaRingHandler {
+
+		@Override
+		public Object[] invoke(Map<String, Object> request) throws IOException {
+			throw new RuntimeException("ExceptionInRewriteHandler");
+		}
+		
+	}
+	
 	public static class SimpleConfigurableRewriteHandler implements NginxJavaRingHandler, Configurable {
 
 		String myvar;

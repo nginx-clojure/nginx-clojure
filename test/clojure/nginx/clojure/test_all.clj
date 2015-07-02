@@ -2,12 +2,15 @@
    (:use [clojure.test])
    (:require [clj-http.client :as client]
              [clojure.data.json :as json]
+             [gniazdo.core :as ws]
              [clojure.edn :as edn])
    (:import [java.io BufferedReader StringReader]))
 
 (def ^:dynamic *host* "localhost")
 (def ^:dynamic *port* "8080")
 (def ^:dynamic *debug* false)
+
+(def ^:dynamic *http-get* client/get)
 
 (defn debug-println [& args]
   (when (true? *debug*)
@@ -677,6 +680,24 @@
         
   )
 
+(deftest ^{:remote true :rewrite-handler true :keepalive true} test-rewrite-handler-keepalive
+  (client/with-connection-pool {:timeout 5 :threads 4 :insecure? false :default-per-route 10}
+    (test-rewrite-handler)))
+
+(comment
+  (deftest ^{:remote true :rewrite-handler true :keepalive true} test-rewrite-hijackbad0
+  (client/with-connection-pool {:timeout 5 :threads 4 :insecure? false :default-per-route 10}
+      (testing "rewrite hijack 400"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javarewrite/hijackbad0") {:follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================rewrite hijack 400=============================")
+             (is (= 400 (:status r)))
+             (is (= "hijacked rewrite handler no pass to content handler!" (:body r))))))
+  ))
+
+
 (defn- first-line [str]
   (-> str (StringReader. ) (BufferedReader. ) (line-seq) (first)))
 
@@ -980,6 +1001,22 @@
              (is (= "Hello, Java & Nginx!" b) ))
            )        
   )
+
+(deftest ^{:remote true :websocket true} test-websocket-basic
+  (let [base (str "ws://" *host* ":" *port* "/java-ws/echo")
+        test-topic "/java-ws/echo"]
+       (testing test-topic
+         (let [
+               msg "hello, nginx-clojure & websocket!"
+               result (promise)
+               ws-client (ws/connect base
+                                     :on-receive #(deliver result %))
+               ]
+           (debug-println "=====================" test-topic "=========================")
+           (ws/send-msg ws-client msg)
+           (is (= msg @result))))
+    )
+)
 
 ;eg. (concurrent-run 10 (run-tests 'nginx.clojure.test-all))
 (defmacro concurrent-run 
