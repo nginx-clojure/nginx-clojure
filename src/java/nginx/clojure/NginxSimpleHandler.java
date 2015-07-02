@@ -88,8 +88,14 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		if (workers == null) {
 			NginxResponse resp = handleRequest(req);
 			if (resp.type() == NginxResponse.TYPE_FAKE_ASYNC_TAG) {
-				if (!req.isReleased() && !req.isHijacked() && (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE)) { //from content handler invoking 
-					ngx_http_clojure_mem_inc_req_count(r);
+/*				
+ *          the equivalent complete check is :
+ *				!req.isReleased()  //skip released requests
+ *				&& !( req.isHijacked() && (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE))  //skips those increased hijacked requests 
+ *				&& (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE)  //must be content handler
+ */				
+				if (!req.isReleased() && !req.isHijacked() && (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE)) {
+					ngx_http_clojure_mem_inc_req_count(r, 1);
 				}
 				return NGX_DONE;
 			}
@@ -100,7 +106,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		req.prefetchAll();
 
 		if (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE) { // -1 means from content handler invoking 
-			ngx_http_clojure_mem_inc_req_count(r);
+			ngx_http_clojure_mem_inc_req_count(r, 1);
 		}
 		workers.submit(new Callable<NginxClojureRT.WorkerResponseContext>() {
 			@Override

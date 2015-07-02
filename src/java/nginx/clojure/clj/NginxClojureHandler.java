@@ -70,7 +70,12 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 	@Override
 	public NginxRequest makeRequest(long r,  long c) {
 		if (r == 0) {
-			return new LazyRequestMap(this, r, null, new Object[0]); 
+			return new LazyRequestMap(this, r, null, new Object[0]) {
+				 @Override
+				public long nativeCount() {
+					return 0;
+				}
+			}; 
 		}
 		int phase = (int)NginxClojureRT.ngx_http_clojure_mem_get_module_ctx_phase(r);
 		LazyRequestMap req;
@@ -186,8 +191,8 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 		}
 		
 		((LazyRequestMap)req).hijackTag[0] = 1;
-		if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD) {
-			NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest());
+		if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD && (req.phase() == -1 || req.phase() == NGX_HTTP_HEADER_FILTER_PHASE)) {
+			NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest(), 1);
 		}
 		
 		return ((LazyRequestMap)req).channel = new NginxHttpServerChannel(req, ignoreFilter);

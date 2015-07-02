@@ -30,6 +30,8 @@ public interface NginxRequest {
 	
 	public boolean isWebSocket();
 	
+	public long nativeCount();
+	
 	public NginxHttpServerChannel hijack(boolean ignoreFilter);
 	
 }

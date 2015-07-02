@@ -2497,7 +2497,7 @@ static void ngx_http_clojure_rd_check_broken_connection(ngx_http_request_t *r){
 }*/
 
 
-static jlong JNICALL ngx_http_clojure_add_listener(JNIEnv *env, jclass cls, jlong req, jobject listener, jobject data, jint replace) {
+static jlong JNICALL jni_ngx_http_clojure_add_listener(JNIEnv *env, jclass cls, jlong req, jobject listener, jobject data, jint replace) {
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t)req;
 	ngx_http_cleanup_t *cu;
 	ngx_http_clojure_module_ctx_t *ctx;
@@ -3089,15 +3089,28 @@ static jlong JNICALL jni_ngx_http_clojure_mem_set_variable(JNIEnv *env, jclass c
     return NGX_HTTP_CLOJURE_MEM_ERR_VAR_NOT_FOUND;
 }
 
-static void JNICALL jni_ngx_http_clojure_mem_inc_req_count(JNIEnv *env, jclass cls, jlong r) {
-	ngx_http_request_t *req = (ngx_http_request_t *)(uintptr_t) r;
-	req->main->count ++;
+static jlong JNICALL jni_ngx_http_clojure_mem_inc_req_count(JNIEnv *env, jclass cls, jlong req, jlong detal) {
+	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t) req;
+	int n = 0;
+	if (r->pool) {
+		jlong old = n = r->main->count;
+		n += (int)detal;
+		r->main->count = n;
+		return old;
+	}
+	return -1;
 }
 
 static void JNICALL jni_ngx_http_clojure_mem_continue_current_phase(JNIEnv *env, jclass cls, jlong req, jlong rc) {
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t) req;
 	ngx_http_clojure_module_ctx_t *ctx;
 	ngx_http_clojure_get_ctx(r, ctx);
+	if (!ctx) {
+		ngx_log_error(NGX_LOG_ALERT, ngx_http_clojure_global_cycle->log, 0, "jni_ngx_http_clojure_mem_continue_current_phase invoke on a released request!");
+		return;
+	}
+	ngx_log_debug4(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+	                   "[jni_ngx_http_clojure_mem_continue_current_phase] uri:%s count:%d brd:%d rc:%d", r->uri.data, r->count, r->buffered, rc);
 	ctx->phase = ~ctx->phase;
 	ctx->phase_rc = rc;
 	ngx_http_core_run_phases(r);
@@ -3553,7 +3566,7 @@ int ngx_http_clojure_init_memory_util(ngx_http_core_srv_conf_t *cscf, ngx_http_c
 			{"ngx_http_clojure_mem_get_request_body", "(JLjava/lang/Object;JJ)J", jni_ngx_http_clojure_mem_get_request_body},
 			{"ngx_http_clojure_mem_get_variable", "(JJJ)J", jni_ngx_http_clojure_mem_get_variable},
 			{"ngx_http_clojure_mem_set_variable", "(JJJJ)J", jni_ngx_http_clojure_mem_set_variable},
-			{"ngx_http_clojure_mem_inc_req_count", "(J)V", jni_ngx_http_clojure_mem_inc_req_count},
+			{"ngx_http_clojure_mem_inc_req_count", "(JJ)J", jni_ngx_http_clojure_mem_inc_req_count},
 			{"ngx_http_clojure_mem_continue_current_phase", "(JJ)V", jni_ngx_http_clojure_mem_continue_current_phase},
 			{"ngx_http_clojure_mem_get_module_ctx_phase", "(J)J", jni_ngx_http_clojure_mem_get_module_ctx_phase},
 			{"ngx_http_clojure_mem_get_module_ctx_upgrade", "(J)J", jni_ngx_http_clojure_mem_get_module_ctx_upgrade},
@@ -3565,7 +3578,7 @@ int ngx_http_clojure_init_memory_util(ngx_http_core_srv_conf_t *cscf, ngx_http_c
 			{"ngx_http_hijack_send_header", "(JLjava/lang/Object;JJI)J", jni_ngx_http_hijack_send_header_by_buf},
 			{"ngx_http_hijack_send_chain", "(JJI)J", jni_ngx_http_hijack_send_chain},
 			{"ngx_http_hijack_set_async_timeout", "(JJ)V", jni_ngx_http_hijack_set_async_timeout},
-			{"ngx_http_clojure_add_listener", "(JLnginx/clojure/ChannelListener;Ljava/lang/Object;I)J", ngx_http_clojure_add_listener},
+			{"ngx_http_clojure_add_listener", "(JLnginx/clojure/ChannelListener;Ljava/lang/Object;I)J", jni_ngx_http_clojure_add_listener},
 			{"ngx_http_clojure_websocket_upgrade", "(J)J", jni_ngx_http_clojure_websocket_upgrade},
 			{"ngx_http_hijack_turn_on_event_handler", "(JI)V", jni_ngx_http_hijack_turn_on_event_handler},
 			{"ngx_http_hijack_read", "(JLjava/lang/Object;JJ)J", jni_ngx_http_hijack_read},

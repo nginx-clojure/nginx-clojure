@@ -26,6 +26,7 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
@@ -164,7 +165,10 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public native static long ngx_http_clojure_mem_set_variable(long r, long name, long val, long vlen);
 	
-	public native static void ngx_http_clojure_mem_inc_req_count(long r);
+	/**
+	 * return the old value of r->count or error code (< 0) 
+	 */
+	public native static long ngx_http_clojure_mem_inc_req_count(long r, long detal);
 	
 	public native static void ngx_http_clojure_mem_continue_current_phase(long r, long rc);
 	
@@ -190,7 +194,17 @@ public class NginxClojureRT extends MiniConstants {
 		}, data, 0);
 	}
 	
-	public native static long ngx_http_clojure_add_listener(long r, ChannelListener listener, Object data, int replace);
+	private native static long ngx_http_clojure_add_listener(long r, ChannelListener listener, Object data, int replace);
+	
+	public static void addListener(NginxRequest r, ChannelListener listener, Object data, int replace) {
+		addListener(r.nativeRequest(), listener, data, replace);
+	}
+	
+	public static void addListener(long r, ChannelListener listener, Object data, int replace) {
+		if ( ngx_http_clojure_add_listener(r, listener, data, replace) != 0) {
+			throw new IllegalStateException("invalid request which is cleaned!");
+		}
+	}
 	
 	public native static long ngx_http_clojure_websocket_upgrade(long req);
 	
@@ -952,21 +966,64 @@ public class NginxClojureRT extends MiniConstants {
 		return len;
 	}
 	
-	public static final String getNGXVariable(long r, String name) {
+	public static final String getNGXVariable(final long r, final String name) {
 		if (r == 0) {
 			throw new RuntimeException("invalid request which address is 0!");
 		}
+		
+		if (Thread.currentThread() != NGINX_MAIN_THREAD) {
+			FutureTask<String> task = new FutureTask<String>(new Callable<String>() {
+				@Override
+				public String call() throws Exception {
+					return unsafeGetNGXVariable(r, name);
+				}
+			});
+			postPollTaskEvent(task);
+			try {
+				return task.get();
+			} catch (InterruptedException e) {
+				throw new RuntimeException("getNGXVariable " + name + " error", e);
+			} catch (ExecutionException e) {
+				throw new RuntimeException("getNGXVariable " + name + " error", e.getCause());
+			}
+		}else {
+			return unsafeGetNGXVariable(r, name);
+		}
+	}
+	
+	public static final String unsafeGetNGXVariable(long r, String name) {
+		
 		if (CORE_VARS.containsKey(name)) {
 			return (String) new RequestKnownNameVarFetcher(name).fetch(r, DEFAULT_ENCODING);
 		}
 		return (String) new RequestUnknownNameVarFetcher(name).fetch(r, DEFAULT_ENCODING);
 	}
 	
-	public static final int setNGXVariable(long r, String name, String val) {
+	public static final int setNGXVariable(final long r, final String name, final String val) {
 		if (r == 0) {
 			throw new RuntimeException("invalid request which address is 0!");
 		}
-		
+		if (Thread.currentThread() != NGINX_MAIN_THREAD) {
+			FutureTask<Integer> task = new FutureTask<Integer>(new Callable<Integer>() {
+				@Override
+				public Integer call() throws Exception {
+					return unsafeSetNginxVariable(r, name, val);
+				}
+			});
+			postPollTaskEvent(task);
+			try {
+				return task.get();
+			} catch (InterruptedException e) {
+				throw new RuntimeException("setNGXVariable " + name + " error", e);
+			} catch (ExecutionException e) {
+				throw new RuntimeException("setNGXVariable " + name + " error", e.getCause());
+			}
+		}else {
+			return unsafeSetNginxVariable(r, name, val);
+		}
+	}
+
+	protected static int unsafeSetNginxVariable(long r, String name, String val) throws OutOfMemoryError {
 		long np = CORE_VARS.containsKey(name) ? CORE_VARS.get(name) : 0;
 		long pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
 		
@@ -1170,6 +1227,7 @@ public class NginxClojureRT extends MiniConstants {
 				Runnable task = (Runnable) POSTED_EVENTS_DATA.remove(data);
 				try {
 					task.run();
+					return NGX_OK;
 				}catch(Throwable e) {
 					log.error("handle post poll task event error", e);
 					return NGX_HTTP_INTERNAL_SERVER_ERROR;
@@ -1302,7 +1360,7 @@ public class NginxClojureRT extends MiniConstants {
 		
 		if (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE) {
 			ngx_http_finalize_request(r, rc);
-		}else {
+		}else if (rc != NGX_DONE) {
 			ngx_http_clojure_mem_continue_current_phase(r,  rc);
 		}
 		return NGX_OK;
@@ -1318,9 +1376,11 @@ public class NginxClojureRT extends MiniConstants {
 		}
 		
 		ngx_http_finalize_request(r, rc);
+		
 		if (phase == NGX_HTTP_ACCESS_PHASE || phase == NGX_HTTP_REWRITE_PHASE ) {
 			return NGX_DONE;
 		}
+		
 		return rc;
 	}
 	
@@ -1398,7 +1458,7 @@ public class NginxClojureRT extends MiniConstants {
 	    rc = handleResponse(req, resp);
 		if (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE) {
 			ngx_http_finalize_request(r, rc);
-		}else {
+		}else if (rc != MiniConstants.NGX_DONE) {
 			ngx_http_clojure_mem_continue_current_phase(r, rc);
 		}
 	}
@@ -1428,7 +1488,7 @@ public class NginxClojureRT extends MiniConstants {
 			int rc = handleResponse(req, resp);
 			if (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE) {
 				ngx_http_finalize_request(req.nativeRequest(), rc);
-			}else {
+			}else if (rc != MiniConstants.NGX_DONE){
 				ngx_http_clojure_mem_continue_current_phase(req.nativeRequest(), rc);
 			}
 		}else {
@@ -1439,7 +1499,7 @@ public class NginxClojureRT extends MiniConstants {
 		}
 	}
 	
-	public static void postPollTaskEvent(NginxRequest req, Runnable task) {
+	public static void postPollTaskEvent(Runnable task) {
 		ngx_http_clojure_mem_post_event(makeEventAndSaveIt(POST_EVENT_TYPE_POLL_TASK,task), null, 0);
 	}
 	

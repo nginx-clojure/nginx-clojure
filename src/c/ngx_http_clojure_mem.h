@@ -538,7 +538,8 @@ extern ngx_http_output_body_filter_pt ngx_http_clojure_next_body_filter;
 extern int ngx_http_clojure_is_little_endian;
 
 #define ngx_http_clojure_get_ctx(r, octx)  \
-     if ( !(octx = (r)->ctx[ngx_http_clojure_module.ctx_index]) )  { \
+	 if (!(r)->pool)  { octx = NULL;  } \
+     else if (!(octx = (r)->ctx[ngx_http_clojure_module.ctx_index]) )  { \
     	 ngx_http_cleanup_t *cln = r->cleanup; \
     	 while (cln) { \
     		 if (cln->handler == ngx_http_clojure_cleanup_handler) { \

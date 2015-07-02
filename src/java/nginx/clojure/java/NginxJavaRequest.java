@@ -275,7 +275,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		this.handler = handler;
 		this.array = array;
 		if (r != 0) {
-			NginxClojureRT.ngx_http_clojure_add_listener(r, requestListener, this, 1);
+			NginxClojureRT.addListener(r, requestListener, this, 1);
 		}
 	}
 	
@@ -295,7 +295,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		this.handler = handler;
 		phase = -1;
 		if (r != 0) {
-			NginxClojureRT.ngx_http_clojure_add_listener(r, requestListener, this, 1);
+			NginxClojureRT.addListener(r, requestListener, this, 1);
 		}
 	}
 	
@@ -555,6 +555,10 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	
 	public boolean isWebSocket() {
 		return NginxClojureRT.ngx_http_clojure_mem_get_module_ctx_upgrade(r) == 1;
+	}
+	
+	public long nativeCount() {
+		return NginxClojureRT.ngx_http_clojure_mem_inc_req_count(r, 0);
 	}
 	
 	@Override

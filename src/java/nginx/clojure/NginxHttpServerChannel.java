@@ -67,7 +67,7 @@ public class NginxHttpServerChannel implements Closeable {
 		}
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
 			final int fflag = flag;
-			NginxClojureRT.postPollTaskEvent(request, new Runnable() {
+			NginxClojureRT.postPollTaskEvent(new Runnable() {
 				@Override
 				public void run() {
 					NginxClojureRT.ngx_http_hijack_turn_on_event_handler(request.nativeRequest(), fflag);
@@ -378,10 +378,10 @@ public class NginxHttpServerChannel implements Closeable {
 				NginxClojureRT.ngx_http_finalize_request(r, rc);
 				return NGX_OK;
 			}
-			if (req.isHijacked()) {
-				//decrease r->count
-				NginxClojureRT.ngx_http_finalize_request(r, rc);
-			}
+//			if (req.isHijacked()) {
+//				//decrease r->count
+//				NginxClojureRT.ngx_http_finalize_request(r, rc);
+//			}
 			NginxClojureRT.ngx_http_clojure_mem_continue_current_phase(r, MiniConstants.NGX_DECLINED);
 			return NGX_OK;
 		}
@@ -402,7 +402,8 @@ public class NginxHttpServerChannel implements Closeable {
 			rc = NginxClojureRT.ngx_http_hijack_send_header(r, computeFlag(false, false));
 			if (rc == MiniConstants.NGX_ERROR || rc > NGX_OK) {
 			}else {
-				rc = NginxClojureRT.ngx_http_hijack_send_chain(r, chain, computeFlag(false, true));
+				//close will be done by handleReturnCodeFromHandler, so we do not need pass close flag
+				rc = NginxClojureRT.ngx_http_hijack_send_chain(r, chain, computeFlag(true, false));
 				if (rc == NGX_OK && phase != -1) {
 					NginxClojureRT.ngx_http_ignore_next_response(nr);
 				}
@@ -418,7 +419,7 @@ public class NginxHttpServerChannel implements Closeable {
 		
 		if (phase == -1 || phase == MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE) {
 			NginxClojureRT.ngx_http_finalize_request(r, rc);
-		}else {
+		}else if (rc != MiniConstants.NGX_DONE){
 			NginxClojureRT.ngx_http_clojure_mem_continue_current_phase(r,  rc);
 		}
 		return NGX_OK;
@@ -532,7 +533,7 @@ public class NginxHttpServerChannel implements Closeable {
 		this.asyncTimeout = asyncTimeout;
 		
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
-			NginxClojureRT.postPollTaskEvent(request, new Runnable() {
+			NginxClojureRT.postPollTaskEvent(new Runnable() {
 				@Override
 				public void run() {
 					NginxClojureRT.ngx_http_hijack_set_async_timeout(request.nativeRequest(), asyncTimeout);

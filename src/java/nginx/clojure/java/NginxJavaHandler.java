@@ -52,7 +52,12 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 	@Override
 	public NginxRequest makeRequest(long r, long c) {
 		if (r == 0) {
-			return new NginxJavaRequest(this, r, new Object[0]);
+			return new NginxJavaRequest(this, r, new Object[0]) {
+				@Override
+				public long nativeCount() {
+					return 0;
+				}
+			};
 		}
 		int phase = (int)NginxClojureRT.ngx_http_clojure_mem_get_module_ctx_phase(r);
 		NginxJavaRequest req;
@@ -133,8 +138,9 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 			return channel;
 		}
 		((NginxJavaRequest)req).hijacked = true;
-		if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD) {
-			NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest());
+		//content phase we need increase r->count to make request not to be released in current event cycle.
+		if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD && (req.phase() == -1 || req.phase() == NGX_HTTP_HEADER_FILTER_PHASE)) {
+			NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest(), 1);
 		}
 		return ((NginxJavaRequest)req).channel = new NginxHttpServerChannel(req, ignoreFilter);
 	}

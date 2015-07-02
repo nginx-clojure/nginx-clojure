@@ -74,6 +74,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		CHARACTER_ENCODING, CHARACTER_ENCODING_FETCHER,
     };
 	
+	protected int validLen;
 	protected long r;
 	protected Object[] array;
 	protected NginxHandler handler;
@@ -93,8 +94,9 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		this.array = array;
 		this.hijackTag = hijackTag;
 		if (r != 0) {
-			NginxClojureRT.ngx_http_clojure_add_listener(r, requestListener, this, 1);
+			NginxClojureRT.addListener(r, requestListener, this, 1);
 		}
+		validLen = array.length;
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -114,8 +116,9 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		this.array = a;
 		this.hijackTag = or.hijackTag;
 		if (r != 0) {
-			NginxClojureRT.ngx_http_clojure_add_listener(r, requestListener, this, 1);
+			NginxClojureRT.addListener(r, requestListener, this, 1);
 		}
+		validLen = a.length;
 	}
 	
 	public void reset(long r, NginxClojureHandler handler) {
@@ -125,7 +128,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		phase = -1;
 		this.handler = handler;
 		if (r != 0) {
-			NginxClojureRT.ngx_http_clojure_add_listener(r, requestListener, this, 1);
+			NginxClojureRT.addListener(r, requestListener, this, 1);
 		}
 	}
 	
@@ -138,7 +141,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	
 	
 	protected int index(Object key) {
-		for (int i = 0; i < array.length; i+=2){
+		for (int i = 0; i < validLen; i+=2){
 			if (key == array[i]) {
 				return i;
 			}
@@ -155,7 +158,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 
 			@Override
 			public boolean hasNext() {
-				return i < array.length -2;
+				return i < validLen - 2;
 			}
 
 			@Override
@@ -181,7 +184,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 
 	@Override
 	public int count() {
-		return array.length/2;
+		return validLen >> 1;
 	}
 
 	@Override
@@ -243,7 +246,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		}
 
 		public int count(){
-			return (reqMap.array.length - i) / 2;
+			return (reqMap.validLen - i) >> 1;
 		}
 
 		public Obj withMeta(IPersistentMap meta){
@@ -298,11 +301,17 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 			array[i+1] = val;
 			return this;
 		}
-		Object[] newArray = new Object[array.length + 2];
-		System.arraycopy(array, 0, newArray, 0, array.length);
-		newArray[array.length] = key;
-		newArray[array.length+1] = val;
-		return new LazyRequestMap(this, newArray);
+		if (validLen < array.length) {
+			array[validLen++] = key;
+			array[validLen++] = val;
+			return this;
+		}else {
+			Object[] newArray = new Object[array.length + 2];
+			System.arraycopy(array, 0, newArray, 0, array.length);
+			newArray[array.length] = key;
+			newArray[array.length+1] = val;
+			return new LazyRequestMap(this, newArray);
+		}
 	}
 
 	@Override
@@ -320,14 +329,14 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		if (i == -1) {
 			return this;
 		}else {
-			if (array.length == 2) {
+			if (validLen == 2) {
 				return EMPTY_MAP;
 			}
-			Object[] newArray = new Object[array.length - 2];
+			Object[] newArray = new Object[validLen - 2];
 			if (i > 0) {
 				System.arraycopy(array, 0, newArray, 0, i);
 			}
-			System.arraycopy(array, i + 2, newArray, i, array.length - i - 2);
+			System.arraycopy(array, i + 2, newArray, i, validLen - i - 2);
 			return new LazyRequestMap(this, newArray);
 		}
 	}
@@ -415,8 +424,10 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		this.released = true;
 		this.channel = null;
 		System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
-		if (array.length > default_request_array.length) {
-			Stack.fillNull(array, default_request_array.length, array.length - default_request_array.length);
+		validLen = default_request_array.length;
+		if (array.length > validLen) {
+			Stack.fillNull(array, validLen, array.length - validLen);
+			
 		}
 		if (listeners != null) {
 			listeners.clear();
@@ -437,5 +448,9 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	@Override
 	public NginxHttpServerChannel hijack(boolean ignoreFilter) {
 		return handler.hijack(this, ignoreFilter);
+	}
+	
+	public long nativeCount() {
+		return NginxClojureRT.ngx_http_clojure_mem_inc_req_count(r, 0);
 	}
 }
