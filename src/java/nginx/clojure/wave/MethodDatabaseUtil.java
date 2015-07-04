@@ -187,9 +187,9 @@ public class MethodDatabaseUtil {
 			return null;
 		}
 		if (start < s.length()) {
-			rt.append(s.substring(start));
+			rt.append(Matcher.quoteReplacement(s.substring(start)));
 		}
-		return rt.toString().replace("$", "\\$");
+		return rt.toString();
 	}
 	
 	public static ClassEntry buildClassEntryFamily(MethodDatabase db, ClassReader r) {
