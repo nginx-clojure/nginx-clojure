@@ -36,5 +36,15 @@ public class HackUtilsTest {
 		ByteBuffer bb = HackUtils.encodeLowcase("ABCDEFG", utf8,  ByteBuffer.allocate(100));
 		assertEquals("abcdefg", new String(bb.array(), 0, bb.remaining()));
 	}
+	
+	@Test
+	public void testDecodeValid() {
+		ByteBuffer bb = ByteBuffer.allocate(8);
+		bb.put("goodvery".getBytes());
+		bb.flip();
+		CharBuffer cb = CharBuffer.allocate(2);
+		System.out.println(HackUtils.decodeValid(bb, utf8, cb));
+		System.out.println(bb.remaining());
+	}
 
 }

@@ -10,7 +10,8 @@
         [compojure.core]
         [nginx.clojure.core]
         )
-  (:require [compojure.route :as route])
+  (:require [compojure.route :as route]
+            [clj-http.client :as client])
   (:require [ring.util.codec :as codec])
   (:import [ring.middleware.session.memory.MemoryStore]
            [nginx.clojure NginxRequest]
@@ -155,6 +156,19 @@
                               :on-message (fn [ch msg rem?] (send! ch msg (not rem?) false))
                               :on-close (fn [ch reason] (log "uri:%s, on-close:%s" (:uri req) reason))
                               :on-error (fn [ch error] (log "uri:%s, on-error:%s" (:uri req)  error))
-                             })))))
+                             }))))
+ (GET "/ws-remote" []
+    (fn [^NginxRequest req]
+      (-> req
+          (hijack! true)
+          (add-listener! { :on-open (fn [ch] (log "uri:%s, on-open!" (:uri req)))
+                           :on-message (fn [ch msg rem?] 
+                                         (send! ch (:body 
+                                                     (client/get msg {:socket-timeout 50000})) true false)
+;                                          (send! ch (clojure.string/join (for [i (range 4708)] 'a')) true false)
+                                         )
+                           :on-close (fn [ch reason] (log "uri:%s, on-close:%s" (:uri req) reason))
+                           :on-error (fn [ch error] (log "uri:%s, on-error:%s" (:uri req)  error))
+                          })))))
 
 

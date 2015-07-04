@@ -66,11 +66,11 @@ public class Coroutine implements Runnable, Serializable {
         FINISHED
     };
     
-    public interface FinishListener {
+    public interface FinishAwaredRunnable extends Runnable {
     	void onFinished(Coroutine c);
     }
     
-    private final Runnable proto;
+    private Runnable proto;
     private final Stack stack;
     private final SuspendableConstructorUtilStack cstack;
     private State state;
@@ -165,6 +165,10 @@ public class Coroutine implements Runnable, Serializable {
         }
     }
 
+    public void reset(Runnable proto) {
+    	this.proto = proto;
+    	reset();
+    }
     /**
      * Returns the active Coroutine on this thread or NULL if no coroutine is running.
      * @return the active Coroutine on this thread or NULL if no coroutine is running.
@@ -255,8 +259,8 @@ public class Coroutine implements Runnable, Serializable {
         		locals = null;
         		resumeCounter = 0;
         		
-        		if (proto instanceof FinishListener) {
-					((FinishListener) proto).onFinished(this);;
+        		if (proto instanceof FinishAwaredRunnable) {
+					((FinishAwaredRunnable) proto).onFinished(this);;
 				}
         	}
         	

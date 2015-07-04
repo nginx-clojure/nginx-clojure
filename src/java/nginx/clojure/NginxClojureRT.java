@@ -67,6 +67,8 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public static CompletionService<WorkerResponseContext> workers;
 	
+	public static ExecutorService workerExecutorService;
+	
 	//only for testing, e.g. with lein-ring where no coroutine support
 	public static ExecutorService threadPoolOnlyForTestingUsage;
 	
@@ -463,7 +465,7 @@ public class NginxClojureRT extends MiniConstants {
 			}
 		});
 		
-		workers = new ExecutorCompletionService<WorkerResponseContext>(Executors.newFixedThreadPool(n, new ThreadFactory() {
+		workers = new ExecutorCompletionService<WorkerResponseContext>(workerExecutorService = Executors.newFixedThreadPool(n, new ThreadFactory() {
 			final AtomicLong counter = new AtomicLong(0);
 			public Thread newThread(Runnable r) {
 				return new Thread(r, "nginx-clojure-worker-" + counter.getAndIncrement());
@@ -937,12 +939,22 @@ public class NginxClojureRT extends MiniConstants {
 	}
 	
 	public static final String fetchStringValidPart(long address, int off, int size, Charset encoding, ByteBuffer bb, CharBuffer cb) {
-		if (size > bb.capacity()) {
-			bb = ByteBuffer.allocate(size);
+		ByteBuffer lb = null;
+		if (size > bb.remaining()) {
+			lb = ByteBuffer.allocate(size);
+			ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(address) + off, lb.array(), BYTE_ARRAY_OFFSET, size);
+			lb.limit(size);
+			cb = HackUtils.decodeValid(lb, encoding, cb);
+			if (lb.remaining() == 0) {
+				bb.position(bb.limit());
+			}else if (lb.remaining() < bb.remaining()){
+				bb.position(bb.position() + lb.remaining());
+			}
+			return cb.toString();
 		}
-		ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(address) + off, bb.array(), BYTE_ARRAY_OFFSET, size);
+		ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(address) + off, bb.array(), bb.arrayOffset() + bb.position() + BYTE_ARRAY_OFFSET, size);
 		bb.limit(size);
-		HackUtils.decodeValid(bb, encoding, cb);
+		cb = HackUtils.decodeValid(bb, encoding, cb);
 		return cb.toString();
 	}
 	

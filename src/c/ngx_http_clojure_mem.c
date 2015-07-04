@@ -124,6 +124,55 @@ static ngx_str_t ngx_http_clojure_mime_types[] = {
 		ngx_null_string
 };
 
+/*1000 indicates a normal closure, meaning that the purpose
+ * for which the connection was established has been fulfilled.*/
+static u_char WS_CLOSE_NORMAL_CLOSURE[] = { 0x03, 0xe8 };
+
+/*1001 indicates that an endpoint is "going away", such as
+ * a server going down or a browser having navigated away from a page.
+static u_char WS_CLOSE_GOING_AWAY[] = { 0x03, 0xe9 };*/
+
+/*1002 indicates that an endpoint is terminating the
+ * connection due to a protocol error.*/
+static u_char WS_CLOSE_PROTOCOL_ERROR[] = { 0x03, 0xea };
+
+/*1003 indicates that an endpoint is terminating the
+ * connection because it has received a type of data
+ * it cannot accept (e.g., an endpoint that understands
+ * only text data MAY send this if it receives a binary message).
+static u_char WS_CLOSE_CANNOT_ACCEPT[] = { 0x03, 0xeb };*/
+
+/*1006 is a reserved value and MUST NOT be set as a status code
+ * in a Close control frame by an endpoint
+static u_char WS_CLOSE_CLOSED_ABNORMALLY[] = { 0x03, 0xee };*/
+
+/*1007 indicates that an endpoint is terminating the
+ * connection because it has received data within a message
+ * that was not consistent with the type of the message
+ *  (e.g., non-UTF-8 data within a text message).*/
+static u_char WS_CLOSE_NOT_CONSISTENT[] = { 0x03, 0xef };
+
+/*1009 indicates that an endpoint is terminating the connection
+ * because it has received a message that is too big for it to process.
+static u_char WS_CLOSE_TOO_BIG[] = { 0x03, 0xf1 };*/
+
+/*1010 indicates that an endpoint (client) is terminating the connection
+ * because it has expected the server to negotiate one or more extension,
+ * but the server didn't return them in the response message of the WebSocket handshake.
+static u_char WS_CLOSE_NO_EXTENSION[] = { 0x03, 0xf2 };*/
+
+/*1011 indicates that a server is terminating the connection
+ * because it encountered an unexpected condition that prevented it from fulfilling the request.
+static u_char WS_CLOSE_UNEXPECTED_CONDITION[] = { 0x03, 0xf3 };*/
+
+/*1012 indicates that the service will be restarted.
+static u_char WS_CLOSE_SERVICE_RESTART[] = { 0x03, 0xf4 };*/
+
+/*1013 indicates that the service is experiencing overload
+static u_char WS_CLOSE_TRY_AGAIN_LATER[] = { 0x03, 0xf5 };*/
+
+/*1015 is a reserved value and MUST NOT be set as a status code in a Close control frame by an endpoint.
+static u_char WS_CLOSE_TLS_HANDSHAKE_FAILURE[] = { 0x03, 0xf7 };*/
 
 ngx_int_t ngx_http_clojure_set_elt_header(ngx_http_request_t *r, ngx_table_elt_t *h, ngx_uint_t offset) {
     ngx_table_elt_t  **ph;
@@ -590,6 +639,7 @@ static ngx_chain_t * ngx_http_clojure_get_and_copy_bufs(size_t page_size, ngx_po
 	    			len -= copy_size;
 	    		}
 	    		b->tag = (ngx_buf_tag_t) &ngx_http_clojure_module;
+	    		flag |= NGX_CLOJURE_BUF_WEBSOCKET_CONTINUE_FRAME;
 	    	}
 	    	break;
 	    }
@@ -1475,6 +1525,14 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *me
 
 	if (ctx->wsctx) {
 		flag |= NGX_CLOJURE_BUF_WEBSOCKET_FRAME;
+		if (flag & NGX_CLOJURE_BUF_LAST_FLAG) {
+			flag |= NGX_CLOJURE_BUF_WEBSOCKET_CLOSE_FRAME;
+			flag |= NGX_CLOJURE_BUF_FLUSH_FLAG;
+			if (!message) {
+				message = WS_CLOSE_NORMAL_CLOSURE;
+				len = sizeof(WS_CLOSE_NORMAL_CLOSURE);
+			}
+		}
 		if (!(flag & (NGX_CLOJURE_BUF_WEBSOCKET_CLOSE_FRAME | NGX_CLOJURE_BUF_WEBSOCKET_PONG_FRAME))) {
 			if (!ctx->wsctx->ffm) {
 				flag |= NGX_CLOJURE_BUF_WEBSOCKET_CONTINUE_FRAME;
@@ -1565,55 +1623,7 @@ static void nji_ngx_http_clojure_hijack_fire_channel_event(jint type, jlong flag
 	}
 }
 
-/*1000 indicates a normal closure, meaning that the purpose
- * for which the connection was established has been fulfilled.*/
-static u_char WS_CLOSE_NORMAL_CLOSURE[] = { 0x03, 0xe8 };
 
-/*1001 indicates that an endpoint is "going away", such as
- * a server going down or a browser having navigated away from a page.
-static u_char WS_CLOSE_GOING_AWAY[] = { 0x03, 0xe9 };*/
-
-/*1002 indicates that an endpoint is terminating the
- * connection due to a protocol error.*/
-static u_char WS_CLOSE_PROTOCOL_ERROR[] = { 0x03, 0xea };
-
-/*1003 indicates that an endpoint is terminating the
- * connection because it has received a type of data
- * it cannot accept (e.g., an endpoint that understands
- * only text data MAY send this if it receives a binary message).
-static u_char WS_CLOSE_CANNOT_ACCEPT[] = { 0x03, 0xeb };*/
-
-/*1006 is a reserved value and MUST NOT be set as a status code
- * in a Close control frame by an endpoint
-static u_char WS_CLOSE_CLOSED_ABNORMALLY[] = { 0x03, 0xee };*/
-
-/*1007 indicates that an endpoint is terminating the
- * connection because it has received data within a message
- * that was not consistent with the type of the message
- *  (e.g., non-UTF-8 data within a text message).*/
-static u_char WS_CLOSE_NOT_CONSISTENT[] = { 0x03, 0xef };
-
-/*1009 indicates that an endpoint is terminating the connection
- * because it has received a message that is too big for it to process.
-static u_char WS_CLOSE_TOO_BIG[] = { 0x03, 0xf1 };*/
-
-/*1010 indicates that an endpoint (client) is terminating the connection
- * because it has expected the server to negotiate one or more extension,
- * but the server didn't return them in the response message of the WebSocket handshake.
-static u_char WS_CLOSE_NO_EXTENSION[] = { 0x03, 0xf2 };*/
-
-/*1011 indicates that a server is terminating the connection
- * because it encountered an unexpected condition that prevented it from fulfilling the request.
-static u_char WS_CLOSE_UNEXPECTED_CONDITION[] = { 0x03, 0xf3 };*/
-
-/*1012 indicates that the service will be restarted.
-static u_char WS_CLOSE_SERVICE_RESTART[] = { 0x03, 0xf4 };*/
-
-/*1013 indicates that the service is experiencing overload
-static u_char WS_CLOSE_TRY_AGAIN_LATER[] = { 0x03, 0xf5 };*/
-
-/*1015 is a reserved value and MUST NOT be set as a status code in a Close control frame by an endpoint.
-static u_char WS_CLOSE_TLS_HANDSHAKE_FAILURE[] = { 0x03, 0xf7 };*/
 
 /*valid code (from 1000 ~ 1015) bits: 1111000111110000*/
 #define is_valid_ws_close_code(c) \
@@ -1838,7 +1848,7 @@ TOP_WHILE :
 					if (wsctx->opcode == NGX_HTTP_CLOJURE_WEBSOCKET_OPCODE_CLOSE && wsctx->len) {
 						int ccode = (buf->pos[0] << 8) | buf->pos[1];
 						if (!is_valid_ws_close_code(ccode)) {
-							close_msg = WS_CLOSE_PROTOCOL_ERROR;
+							goto_close(WS_CLOSE_PROTOCOL_ERROR);
 						}
 					} else if (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGPONG) {
 						rc = ngx_http_clojure_hijack_send(r, buf->pos, (size_t)wsctx->len,
@@ -1862,9 +1872,11 @@ TOP_WHILE :
 
 					if (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGCLOSE) {
 						if (pc != buf->pos) {
-							close_msg = WS_CLOSE_NOT_CONSISTENT;
+							goto_close(WS_CLOSE_NOT_CONSISTENT);
 						}
-						goto SEND_CLOSE_FRAME;
+						/* we need let listener get a chance to handle client close event?*/
+						/*goto SEND_CLOSE_FRAME;*/
+						return;
 					}
 
 					if (pc - buf->pos > 3 || ( (pc - buf->pos) && wsctx->fin)) {
@@ -1952,6 +1964,12 @@ static void nji_ngx_http_clojure_hijack_write_handler(ngx_http_request_t *r) {
 
 
 	nji_ngx_http_clojure_hijack_fire_channel_event(NGX_HTTP_CLOJURE_CHANNEL_EVENT_WRITE, flag, ctx);
+
+	/*If the write handler didn't do any writing, we need to delete this event for level/select/poll event to avoid
+	 * foolish repeated write event notification*/
+	if (c->write->ready) {
+		(void) ngx_handle_write_event(c->write, 0);
+	}
 
 	if (flag != NGX_HTTP_CLOJURE_SOCKET_OK) {
 		ngx_http_finalize_request(r, NGX_HTTP_REQUEST_TIME_OUT);
@@ -2113,25 +2131,29 @@ static jlong JNICALL jni_ngx_http_hijack_write(JNIEnv *env, jclass cls, jlong re
 	ngx_http_request_t *r = (ngx_http_request_t *) (uintptr_t) req;
 	ngx_connection_t *c;
 	ngx_int_t rc;
-/*	ngx_http_core_loc_conf_t *clcf;*/
+	ngx_http_core_loc_conf_t *clcf;
 
 	if (!r->pool) {
 		return NGX_HTTP_CLOJURE_SOCKET_ERR_WRITE;
 	}
 
 	c = r->connection;
-/*	clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);*/
+	clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
 	rc = c->send(c, (u_char*)ngx_http_clojure_abs_off_addr(buf, off), len);
 
 	if (rc == 0 || rc == NGX_AGAIN) {
-/*		if (!c->write->active) {
+		/*Because if connected immediately successfully or we have deleted this event in
+		 * ngx_http_clojure_socket_upstream_handler the write event was not registered
+		 * so we need register it here.*/
+		if (!c->write->active) {
 			(void) ngx_handle_write_event(c->write, 0);
-		}*/
-/*tomcat has its own management about websocekt write timeout*/
-/*		clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
+		}
+       /*Although tomcat has its own management about websocekt write timeout
+        * we still give a chance to set it at nginx.conf*/
+		clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
 		if (clcf->send_timeout > 0) {
 			ngx_add_timer(c->write, clcf->send_timeout);
-		}*/
+		}
 		rc = NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN;
 	} else if (rc < 0) {
 		rc = NGX_HTTP_CLOJURE_SOCKET_ERR_WRITE;
@@ -2610,6 +2632,10 @@ static jlong JNICALL jni_ngx_http_clojure_mem_build_temp_chain(JNIEnv *env, jcla
 	ngx_buf_t *b;
 	ngx_chain_t *cl;
 
+	if (!r->pool) {
+		return NGX_ERROR;
+	}
+
 	if (pre != NULL) {
 		while (pre->next != NULL) {
 			pre = pre->next;
@@ -2673,6 +2699,10 @@ static jlong JNICALL jni_ngx_http_clojure_mem_build_file_chain(JNIEnv *env, jcla
 	ngx_http_core_loc_conf_t  *clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
 	ngx_uint_t level;
 	ngx_log_t *log = r->connection->log;
+
+	if (!r->pool) {
+		return NGX_ERROR;
+	}
 
 	if (pre != NULL) {
 		while (pre->next != NULL) {
@@ -3127,7 +3157,7 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_module_ctx_upgrade(JNIEnv *env
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t) req;
 	ngx_http_clojure_module_ctx_t *ctx;
 	ngx_http_clojure_get_ctx(r, ctx);
-	return ctx == NULL ? 0 : (jlong)ctx->event_handler_flag;
+	return ctx == NULL ? 0 : r->headers_out.status == NGX_HTTP_SWITCHING_PROTOCOLS;
 }
 
 #define log_debug0(log, msg) do{ \

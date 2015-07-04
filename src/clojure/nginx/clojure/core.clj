@@ -92,10 +92,11 @@
      ")
   (add-listener! [ch callbacks-map]
     "Add a websocket event listener.
-      `on-open is a function like (fn[ch]...)
-      `on-message is a function like (fn[ch message remaining?]...)
-      `on-close is a function like (fn[ch reason]...)
-      `on-error is a function like (fn[ch status])
+      callbacks-map is a map whose key can be either of :on-open,:on-message,:on-close,:on-error
+      the value of :on-open is a function like (fn[ch]...)
+      the value of :on-message is a function like (fn[ch message remaining?]...)
+      the value of :on-close is a function like (fn[ch reason]...)
+      the value of :on-error is a function like (fn[ch status])
      ")
   (on-close! [ch attachment listener]
     "Add a close event listener.
@@ -161,7 +162,6 @@
     (.sendHeader ch status (.entrySet headers) flush? last?))
   (send-response! [ch resp]
     (.sendResponse ch resp))
-  (add-listener! [ch callbacks-map])
   (on-close! [ch attachment listener]
     (.addListener ch attachment (proxy [ChannelListener] []
                        (onClose [att]
@@ -169,7 +169,7 @@
   
   (add-listener! [ch {:keys [on-open on-message on-close on-error]}]
     (.addListener ch ch (proxy [MessageAdapter] []
-                          (onOpen [c] (on-open c))
+                          (onOpen [c] (if on-open (on-open c)))
                           (onTextMessage [c msg rem?] (if on-message (on-message c msg rem?)))
                           (onBinaryMessage [c msg rem?] (if on-message (on-message c msg rem?)))
                           (onClose ([c] (if on-close (on-close c "0")))

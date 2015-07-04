@@ -1,12 +1,9 @@
 package nginx.clojure.java;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
-
-import javax.security.cert.X509Certificate;
 
 import nginx.clojure.Configurable;
 import nginx.clojure.wave.SuspendMethodTracer;
@@ -101,23 +98,8 @@ public class FilterTestSet4NginxJavaHeaderFilter {
 	}
 	
 	public static void main(String[] args) {
-		if (1 + "1" == "1") {
-			AccessRemoteHeaderFilter arh = new AccessRemoteHeaderFilter();
-			arh.doFilter(200, new HashMap<String, Object>(), new HashMap<String, Object>());
-		}
-		try {
-//			System.out.println(sun.security.x509.AccessDescription.Ad_OCSP_Id);
-//			sun.security.x509.AccessDescription ad = new sun.security.x509.AccessDescription(new DerValue((byte)0x1B, "1.2.3.4"));
-//			System.out.println(ad);
-			
-			 InputStream inStream = new FileInputStream("/tmp/CA.crt");
-			 X509Certificate cert = X509Certificate.getInstance(inStream);
-			 inStream.close();
-			 System.out.println(cert.getIssuerDN());
-		} catch (Exception e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
+		AccessRemoteHeaderFilter arh = new AccessRemoteHeaderFilter();
+		arh.doFilter(200, new HashMap<String, Object>(), new HashMap<String, Object>());
 		try {
 			SuspendMethodTracer.dump();
 		} catch (IOException e) {

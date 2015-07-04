@@ -28,8 +28,6 @@ import static nginx.clojure.MiniConstants.URI;
 import static nginx.clojure.MiniConstants.URI_FETCHER;
 import static nginx.clojure.java.Constants.HEADER_FETCHER;
 
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
 import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -39,17 +37,16 @@ import java.util.Map;
 import java.util.Set;
 
 import nginx.clojure.ChannelListener;
-import nginx.clojure.MessageListener;
-import nginx.clojure.MiniConstants;
+import nginx.clojure.Coroutine;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHandler;
 import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxRequest;
 import nginx.clojure.NginxSimpleHandler;
 import nginx.clojure.NginxSimpleHandler.SimpleEntry;
-import nginx.clojure.RawMessageListener;
 import nginx.clojure.RequestVarFetcher;
 import nginx.clojure.java.PickerPoweredIterator.Picker;
+import nginx.clojure.java.RequestRawMessageAdapter.RequestOrderedRunnable;
 import nginx.clojure.net.NginxClojureAsynSocket;
 
 public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
@@ -79,196 +76,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	protected List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners;
 	
 	
-	public final  static ChannelListener<NginxRequest> requestListener  = new RawMessageListener<NginxRequest>(){
-		@Override
-		public void onClose(NginxRequest req) {
-			if (req.isReleased()) {
-				return;
-			}
-			
-			if (NginxClojureRT.log.isDebugEnabled()) {
-				NginxClojureRT.log.debug("#%d: request %s onClose!", req.nativeRequest(), req.uri());
-			}
-			List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
-			if (listeners != null) {
-				for (int i = listeners.size() - 1; i > -1; i--) {
-					java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
-					try {
-						en.getValue().onClose(en.getKey());
-					}catch(Throwable e) {
-						NginxClojureRT.log.error(String.format("#%d: onClose Error!", req.nativeRequest()), e);
-					}
-				}
-			}
-			req.tagReleased();
-		}
-		
-		public void onClose(NginxRequest req, long message) {
-			if (req.isReleased()) {
-				return;
-			}
-			
-			int size = (int) (( message >> 48 ) & 0xffff) - 2;
-			long address = message << 16 >> 16;
-			int status = 0;
-			if (size >= 0) {
-				status = (0xffff & (NginxClojureRT.UNSAFE.getByte(NginxClojureRT.UNSAFE.getAddress(address)) << 8))
-						| (0xff & NginxClojureRT.UNSAFE.getByte(NginxClojureRT.UNSAFE.getAddress(address)+1));
-			}
-			
-			if (NginxClojureRT.log.isDebugEnabled()) {
-				NginxClojureRT.log.debug("#%d: request %s onClose2, status=%d", req.nativeRequest(), req.uri(), status);
-			}
-			List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
-			if (listeners != null) {
-				ByteBuffer bb = NginxClojureRT.pickByteBuffer();
-				CharBuffer cb = NginxClojureRT.pickCharBuffer();
-				String txt = null;
-				
-				if (size > 0) {
-					txt = NginxClojureRT.fetchStringValidPart(address, 2, size, MiniConstants.DEFAULT_ENCODING, bb, cb);
-					int invalidNum = bb.remaining();
-					if (NginxClojureRT.log.isDebugEnabled()) {
-						NginxClojureRT.getLog().debug("onClose fetchStringValidPart : %d", invalidNum);
-					}
-					NginxClojureRT.UNSAFE.putAddress(address, NginxClojureRT.UNSAFE.getAddress(address) - invalidNum);
-				}
-				
-				for (int i = listeners.size() - 1; i > -1; i--) {
-					java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
-					try {
-						ChannelListener<Object> l = en.getValue();
-						if (l instanceof MessageListener) {
-							((MessageListener) l).onClose(en.getKey(), status, txt);
-						}
-					}catch(Throwable e) {
-						NginxClojureRT.log.error(String.format("#%d: onWrite Error!", req.nativeRequest()), e);
-					}
-				}
-			}
-			
-			req.tagReleased();
-		}
-
-		@Override
-		public void onConnect(long status, NginxRequest req) {
-			if (NginxClojureRT.log.isDebugEnabled()) {
-				NginxClojureRT.log.debug("#%d: request %s onConnect, status=%d", req.nativeRequest(), req.uri(), status);
-			}
-			List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
-			if (listeners != null) {
-				for (int i = listeners.size() - 1; i > -1; i--) {
-					java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
-					try {
-						en.getValue().onConnect(status, req);
-					}catch(Throwable e) {
-						NginxClojureRT.log.error(String.format("#%d: onRead Error!", req.nativeRequest()), e);
-					}
-				}
-			}
-		}
-
-		@Override
-		public void onRead(long status, NginxRequest req) {
-			if (NginxClojureRT.log.isDebugEnabled()) {
-				NginxClojureRT.log.debug("#%d: request %s onRead, status=%d", req.nativeRequest(), req.uri(), status);
-			}
-			List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
-			if (listeners != null) {
-				for (int i = listeners.size() - 1; i > -1; i--) {
-					java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
-					try {
-						en.getValue().onRead(status, en.getKey());
-					}catch(Throwable e) {
-						NginxClojureRT.log.error(String.format("#%d: onRead Error!", req.nativeRequest()), e);
-					}
-				}
-			}
-		}
-
-		@Override
-		public void onWrite(long status, NginxRequest req) {
-			if (NginxClojureRT.log.isDebugEnabled()) {
-				NginxClojureRT.log.debug("#%d: request %s onWrite, status=%d", req.nativeRequest(), req.uri(), status);
-			}
-			List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
-			if (listeners != null) {
-				for (int i = listeners.size() - 1; i > -1; i--) {
-					java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
-					try {
-						en.getValue().onWrite(status, en.getKey());
-					}catch(Throwable e) {
-						NginxClojureRT.log.error(String.format("#%d: onWrite Error!", req.nativeRequest()), e);
-					}
-				}
-			}
-		}
-		
-		@Override
-		public void onBinaryMessage(NginxRequest req, long message, boolean remining, boolean first) {
-			int size = (int) (( message >> 48 ) & 0xffff);
-			if (NginxClojureRT.log.isDebugEnabled()) {
-				NginxClojureRT.log.debug("#%d: request %s onBinaryMessage! size=%d, rem=%s, first=%s, pm=%d", req.nativeRequest(), req.uri(), size, remining, first, NginxClojureRT.UNSAFE.getAddress(message << 16 >> 16));
-			}
-			if (size <= 0 && !first && remining) {
-				return;
-			}
-			List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
-			if (listeners != null) {
-				for (int i = listeners.size() - 1; i > -1; i--) {
-					java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
-					try {
-						ChannelListener<Object> l = en.getValue();
-						if (l instanceof MessageListener) {
-							ByteBuffer bb = ByteBuffer.allocate(size);
-							NginxClojureRT.ngx_http_clojure_mem_copy_to_obj(NginxClojureRT.UNSAFE.getAddress(message << 16 >> 16), bb.array(), MiniConstants.BYTE_ARRAY_OFFSET, size);
-							bb.limit(size);
-							((MessageListener) l).onBinaryMessage(en.getKey(), bb, remining);
-						}
-					}catch(Throwable e) {
-						NginxClojureRT.log.error(String.format("#%d: onWrite Error!", req.nativeRequest()), e);
-					}
-				}
-			}
-		
-		}
-		
-		@Override
-		public void onTextMessage(NginxRequest req, long message, boolean remining, boolean first) {
-			int size = (int) (( message >> 48 ) & 0xffff);
-			if (NginxClojureRT.log.isDebugEnabled()) {
-				NginxClojureRT.log.debug("#%d: request %s onTextMessage! size=%d, rem=%s, first=%s, pm=%d", req.nativeRequest(), req.uri(), size, remining, first, NginxClojureRT.UNSAFE.getAddress(message << 16 >> 16));
-			}
-			List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
-			if (listeners != null) {
-				ByteBuffer bb = NginxClojureRT.pickByteBuffer();
-				CharBuffer cb = NginxClojureRT.pickCharBuffer();
-				long address = message << 16 >> 16;
-				String txt = NginxClojureRT.fetchStringValidPart(address, 0,  size, MiniConstants.DEFAULT_ENCODING, bb, cb);
-				int invalidNum = bb.remaining();
-				if (NginxClojureRT.log.isDebugEnabled()) {
-					NginxClojureRT.getLog().debug("onTextMessage fetchStringValidPart : %d", invalidNum);
-				}
-				NginxClojureRT.UNSAFE.putAddress(address, NginxClojureRT.UNSAFE.getAddress(address) - invalidNum);
-				if (txt.length() > 0 || first || !remining) {
-					if ( (txt.length() == 0 || !remining) && invalidNum != 0) {
-						return;
-					}
-					for (int i = listeners.size() - 1; i > -1; i--) {
-						java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
-						try {
-							ChannelListener<Object> l = en.getValue();
-							if (l instanceof MessageListener) {
-								((MessageListener) l).onTextMessage(en.getKey(), txt, remining);
-							}
-						}catch(Throwable e) {
-							NginxClojureRT.log.error(String.format("#%d: onWrite Error!", req.nativeRequest()), e);
-						}
-					}
-				}
-			}
-		}
-	};
+	public final  static ChannelListener<NginxRequest> requestListener  = new RequestRawMessageAdapter();
 	
 	public NginxJavaRequest(NginxHandler handler, long r, Object[] array) {
 		this.r = r;
@@ -329,7 +137,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 				return null;
 			}
 			if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
-				throw new IllegalAccessError("fetching lazy value of " + array[i] + " in LazyRequestMap can only be called in main thread, please pre-access it in main thread OR call LazyRequestMap.prefetchAll() first in main thread");
+				throw new IllegalAccessError("fetching lazy value of " + array[i] + " in NginxJavaRequest can only be called in main thread, please pre-access it in main thread OR call NginxJavaRequest.prefetchAll() first in main thread");
 			}
 			RequestVarFetcher rf = (RequestVarFetcher) o;
 			array[i] = null;
@@ -567,16 +375,39 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	}
 
 	@Override
-	public <T> void addListener(T data, ChannelListener<T> listener) {
+	public <T> void addListener(final T data, final ChannelListener<T> listener) {
 		if (listeners == null) {
 			listeners = new ArrayList<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>>(1);
 		}
 		listeners.add(new java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>(data, (ChannelListener)listener));
 		if (isWebSocket()) { //handshake was complete so we need call onConnect manually
-			try {
-				listener.onConnect(NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK, data);
-			} catch (Throwable e) {
-				NginxClojureRT.log.error(String.format("#%d: onConnect Error!", r), e);
+			Runnable action = new Coroutine.FinishAwaredRunnable() {
+				@Override
+				public void run() {
+					try {
+						listener.onConnect(NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK, data);
+					} catch (Throwable e) {
+						NginxClojureRT.log.error(String.format("#%d: onConnect Error!", r), e);
+					}				
+				}
+				@Override
+				public void onFinished(Coroutine c) {
+					RequestRawMessageAdapter.pooledCoroutines.add(c);
+				}
+			};
+			
+			if (NginxClojureRT.coroutineEnabled && Coroutine.getActiveCoroutine() == null) {
+				Coroutine coroutine = RequestRawMessageAdapter.pooledCoroutines.poll();
+				if (coroutine == null) {
+					coroutine = new Coroutine(action);
+				}else {
+					coroutine.reset(action);
+				}
+				coroutine.resume();
+			}else if (NginxClojureRT.workers == null) {
+				action.run();
+			}else {
+				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable(action, NginxJavaRequest.this));
 			}
 		}
 	}

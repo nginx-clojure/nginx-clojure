@@ -256,7 +256,7 @@ public class HackUtils {
 		return cb.toString();
     }
     
-    public static int decodeValid(ByteBuffer bb, Charset cs, CharBuffer cb)  {
+    public static CharBuffer decodeValid(ByteBuffer bb, Charset cs, CharBuffer cb)  {
     	CharsetDecoder de = ThreadLocalCoders.decoderFor(cs)
     			.onMalformedInput(CodingErrorAction.REPORT)
 				.onUnmappableCharacter(CodingErrorAction.REPORT);
@@ -273,8 +273,7 @@ public class HackUtils {
     	
 		rt = de.flush(cb);
 		cb.flip();
-		return bb.remaining();
+		return cb;
     }
     
-
 }

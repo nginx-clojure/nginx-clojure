@@ -95,5 +95,13 @@ public class MethodDatabaseUtilTest {
 		assertEquals("#mark from sub org/apache/http/impl/io/AbstractSessionInputBuffer", sessionInputBuffer.get("read([BII)I"));
 		assertEquals("#mark from sub org/apache/http/impl/io/AbstractSessionInputBuffer", sessionInputBuffer.get("readLine(Lorg/apache/http/util/CharArrayBuffer;)I"));
 	}
+	
+	@Test
+	public void testFuzzingClass() throws Exception {
+		String f1 = MethodDatabaseUtil.toFuzzyString(MethodDatabaseUtil.FUZZY_CLASS_PATTERN, "com/sun/proxy/$Proxy34", MethodDatabaseUtil.FUZZY_CLASS_PATTERN.toString());
+		assertEquals("com/sun/proxy/\\$Proxy(\\d+)", f1);
+		String f2 = MethodDatabaseUtil.toFuzzyString(MethodDatabaseUtil.FUZZY_CLASS_PATTERN, "nginx/clojure/java/FilterTestSet4NginxJavaHeaderFilter$AccessRemoteHeaderFilter", MethodDatabaseUtil.FUZZY_CLASS_PATTERN.toString());
+		assertEquals("nginx/clojure/java/FilterTestSet(\\d+)NginxJavaHeaderFilter\\$AccessRemoteHeaderFilter", f2);
+	}
 
 }

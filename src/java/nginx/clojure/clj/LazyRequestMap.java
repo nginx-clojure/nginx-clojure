@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 
 import nginx.clojure.ChannelListener;
+import nginx.clojure.Coroutine;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHandler;
 import nginx.clojure.NginxHttpServerChannel;
@@ -41,6 +42,8 @@ import nginx.clojure.NginxRequest;
 import nginx.clojure.RequestVarFetcher;
 import nginx.clojure.Stack;
 import nginx.clojure.java.NginxJavaRequest;
+import nginx.clojure.java.RequestRawMessageAdapter;
+import nginx.clojure.java.RequestRawMessageAdapter.RequestOrderedRunnable;
 import nginx.clojure.net.NginxClojureAsynSocket;
 import clojure.lang.AFn;
 import clojure.lang.ASeq;
@@ -404,18 +407,43 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	}
 
 	@Override
-	public <T> void addListener(T data, ChannelListener<T> listener) {
+	public <T> void addListener(final T data, final ChannelListener<T> listener) {
 		if (listeners == null) {
 			listeners = new ArrayList<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>>(1);
 		}
 		listeners.add(new java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>(data, (ChannelListener)listener));
 		
 		if (isWebSocket()) { //handshake was complete so we need call onConnect manually
-			try {
-				listener.onConnect(NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK, data);
-			} catch (Throwable e) {
-				NginxClojureRT.log.error(String.format("#%d: onConnect Error!", r), e);
+			 //handshake was complete so we need call onConnect manually
+			Runnable action = new Coroutine.FinishAwaredRunnable() {
+				@Override
+				public void run() {
+					try {
+						listener.onConnect(NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK, data);
+					} catch (Throwable e) {
+						NginxClojureRT.log.error(String.format("#%d: onConnect Error!", r), e);
+					}				
+				}
+				@Override
+				public void onFinished(Coroutine c) {
+					RequestRawMessageAdapter.pooledCoroutines.add(c);
+				}
+			};
+			
+			if (NginxClojureRT.coroutineEnabled && Coroutine.getActiveCoroutine() == null) {
+				Coroutine coroutine = RequestRawMessageAdapter.pooledCoroutines.poll();
+				if (coroutine == null) {
+					coroutine = new Coroutine(action);
+				}else {
+					coroutine.reset(action);
+				}
+				coroutine.resume();
+			}else if (NginxClojureRT.workers == null) {
+				action.run();
+			}else {
+				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable(action, LazyRequestMap.this));
 			}
+		
 		}
 	}
 

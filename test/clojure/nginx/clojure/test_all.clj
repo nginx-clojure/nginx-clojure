@@ -1003,19 +1003,38 @@
   )
 
 (deftest ^{:remote true :websocket true} test-websocket-basic
-  (let [base (str "ws://" *host* ":" *port* "/java-ws/echo")
-        test-topic "/java-ws/echo"]
-       (testing test-topic
-         (let [
+  (testing "/java-ws/echo"
+         (let [base (str "ws://" *host* ":" *port* "/java-ws/echo")
                msg "hello, nginx-clojure & websocket!"
                result (promise)
                ws-client (ws/connect base
                                      :on-receive #(deliver result %))
                ]
-           (debug-println "=====================" test-topic "=========================")
+           (debug-println "===================/java-ws/echo=======================")
            (ws/send-msg ws-client msg)
            (is (= msg @result))))
-    )
+  (testing "/ringCompojure/ws-echo"
+         (let [base (str "ws://" *host* ":" *port* "/ringCompojure/ws-echo")
+               msg "hello, nginx-clojure & websocket!"
+               result (promise)
+               ws-client (ws/connect base
+                                     :on-receive #(deliver result %))
+               ]
+           (debug-println "===================/ringCompojure/ws-echo=======================")
+           (ws/send-msg ws-client msg)
+           (is (= msg @result))))
+  (testing "/ringCompojure/ws-remote"
+       (let [base (str "ws://" *host* ":" *port* "/ringCompojure/ws-remote")
+             msg "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.2.x.txt"
+             result (promise)
+             ws-client (ws/connect base
+                                   :on-receive #(deliver result %))
+             ]
+         (debug-println "===================/ringCompojure/ws-remote=======================")
+         (ws/send-msg ws-client msg)
+         (Thread/sleep 1000)
+         (let [content (:body (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.2.x.txt"))]
+           (is (= content @result)))))
 )
 
 ;eg. (concurrent-run 10 (run-tests 'nginx.clojure.test-all))

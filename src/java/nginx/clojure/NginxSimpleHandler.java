@@ -51,7 +51,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import nginx.clojure.Coroutine.FinishListener;
+import nginx.clojure.Coroutine.FinishAwaredRunnable;
 import nginx.clojure.NginxClojureRT.WorkerResponseContext;
 import nginx.clojure.java.Constants;
 import nginx.clojure.java.NginxJavaResponse;
@@ -84,8 +84,11 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		
 		final NginxRequest req = makeRequest(r, c);
 		int phase = req.phase();
-		
-		if (workers == null) {
+		boolean isWebSocket = req.isWebSocket();
+		if (workers == null || (isWebSocket && phase == -1)) {
+			if (isWebSocket) {
+				req.uri();
+			}
 			NginxResponse resp = handleRequest(req);
 			if (resp.type() == NginxResponse.TYPE_FAKE_ASYNC_TAG) {
 /*				
@@ -234,7 +237,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 	}
 
 	
-	public static final class CoroutineRunner implements Runnable, FinishListener {
+	public static final class CoroutineRunner implements FinishAwaredRunnable {
 		
 		NginxRequest request;
 		NginxResponse response;

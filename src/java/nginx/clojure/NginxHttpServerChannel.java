@@ -28,13 +28,16 @@ public class NginxHttpServerChannel implements Closeable {
 	protected volatile boolean closed;
 	protected Object context;
 	protected long asyncTimeout;
-	
+	protected Object closeLock = new Object[0];
+
 	private static ChannelListener<NginxHttpServerChannel> closeListener = new ChannelCloseAdapter<NginxHttpServerChannel>() {
 		@Override
 		public void onClose(NginxHttpServerChannel sc) {
-			if (!sc.closed) {
-				sc.request.uri();//cache uri for logging usage otherwise we can not get uri from a released request
-				sc.closed = true;
+			synchronized (sc.closeLock) {
+				if (!sc.closed) {
+					sc.request.uri();//cache uri for logging usage otherwise we can not get uri from a released request
+					sc.closed = true;
+				}
 			}
 		}
 	};
@@ -173,11 +176,15 @@ public class NginxHttpServerChannel implements Closeable {
 		if (last) {
 			closed = true;
 		}
+		if (log.isDebugEnabled()) {
+			log.debug("#%s: send message : '%s', flush=%s, last=%s", NginxClojureRT.processId, message, flush, last);
+		}
 		int flag = computeFlag(flush, last);
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
 			if (message != null) {
 				ByteBuffer cm = ByteBuffer.allocate(message.remaining());
 				cm.put(message);
+				cm.flip();
 				NginxClojureRT.postHijackSendEvent(this, cm, 0, cm.remaining(), flag);
 			}else {
 				NginxClojureRT.postHijackSendEvent(this, null, 0, 0, flag);
@@ -188,14 +195,32 @@ public class NginxHttpServerChannel implements Closeable {
 	}
 	
 	public long read(ByteBuffer buf) throws IOException {
-		checkValid();
 		long rc = 0;
-		if (buf.isDirect()) {
-			rc = NginxClojureRT.ngx_http_hijack_read(request.nativeRequest(), null,
-					((DirectBuffer) buf).address() + buf.position(), buf.remaining());
+		
+		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
+			synchronized (closeLock) {
+				if (closed) {
+					throw new IOException("Op on a closed NginxHttpServerChannel with request :" + request);
+				}
+				if (buf.isDirect()) {
+					rc = NginxClojureRT.ngx_http_hijack_read(request.nativeRequest(), null,
+							((DirectBuffer) buf).address() + buf.position(), buf.remaining());
+				} else {
+					rc = NginxClojureRT.ngx_http_hijack_read(request.nativeRequest(), buf.array(), MiniConstants.BYTE_ARRAY_OFFSET
+							+ buf.arrayOffset() + buf.position(), buf.remaining());
+				}
+			}
 		}else {
-			rc = NginxClojureRT.ngx_http_hijack_read(request.nativeRequest(), buf.array(),
-					MiniConstants.BYTE_ARRAY_OFFSET + buf.arrayOffset() + buf.position(), buf.remaining());
+			if (closed) {
+				throw new IOException("Op on a closed NginxHttpServerChannel with request :" + request);
+			}
+			if (buf.isDirect()) {
+				rc = NginxClojureRT.ngx_http_hijack_read(request.nativeRequest(), null,
+						((DirectBuffer) buf).address() + buf.position(), buf.remaining());
+			} else {
+				rc = NginxClojureRT.ngx_http_hijack_read(request.nativeRequest(), buf.array(), MiniConstants.BYTE_ARRAY_OFFSET
+						+ buf.arrayOffset() + buf.position(), buf.remaining());
+			}
 		}
 	
 		if (NginxClojureRT.log.isDebugEnabled()) {
@@ -216,8 +241,22 @@ public class NginxHttpServerChannel implements Closeable {
 	}
 	
 	public long read(byte[] buf, long off, long size) throws IOException {
-		checkValid();
-		long rc = NginxClojureRT.ngx_http_hijack_read(request.nativeRequest(), buf, MiniConstants.BYTE_ARRAY_OFFSET + off, size);
+		long rc;
+		
+		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
+			synchronized (closeLock) {
+				if (closed) {
+					throw new IOException("Op on a closed NginxHttpServerChannel with request :" + request);
+				}
+				rc = NginxClojureRT.ngx_http_hijack_read(request.nativeRequest(), buf, MiniConstants.BYTE_ARRAY_OFFSET + off, size);
+			}
+		}else {
+			if (closed) {
+				throw new IOException("Op on a closed NginxHttpServerChannel with request :" + request);
+			}
+			rc = NginxClojureRT.ngx_http_hijack_read(request.nativeRequest(), buf, MiniConstants.BYTE_ARRAY_OFFSET + off, size);
+		}
+		
 		if (NginxClojureRT.log.isDebugEnabled()) {
 			NginxClojureRT.log.debug("NginxHttpServerChannel read rc=%d", rc);
 		}
@@ -479,7 +518,7 @@ public class NginxHttpServerChannel implements Closeable {
 	public void close() throws IOException {
 		int flag = computeFlag(false, true);
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
-			synchronized (this) {
+			synchronized (closeLock) {
 				if (closed) {
 					return;
 				}
