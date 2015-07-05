@@ -171,7 +171,7 @@ typedef struct {
 	ngx_http_request_t *r;
 } ngx_http_clojure_module_ctx_t;
 
-#define ngx_http_clojure_init_ctx(ctx, p) \
+#define ngx_http_clojure_init_ctx(ctx, p, r) \
 		ctx->handled_couter = 1; \
 		ctx->phase = p; \
 		ctx->last_buf_meeted = 0; \
@@ -184,7 +184,8 @@ typedef struct {
 		ctx->ignore_next_response = 0; \
 		ctx->event_handler_flag = 0; \
 		ctx->wsctx = 0; \
-		ctx->listeners = 0;
+		ctx->listeners = 0; \
+		ctx->r = r;
 
 
 #define NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT 1
@@ -539,7 +540,7 @@ extern int ngx_http_clojure_is_little_endian;
 
 #define ngx_http_clojure_get_ctx(r, octx)  \
 	 if (!(r)->pool)  { octx = NULL;  } \
-     else if (!(octx = (r)->ctx[ngx_http_clojure_module.ctx_index]) )  { \
+     else if ( (octx = (r)->ctx[ngx_http_clojure_module.ctx_index]) != NULL )  { \
     	 ngx_http_cleanup_t *cln = r->cleanup; \
     	 while (cln) { \
     		 if (cln->handler == ngx_http_clojure_cleanup_handler) { \

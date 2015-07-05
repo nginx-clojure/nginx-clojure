@@ -71,7 +71,14 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 					for (int i = listeners.size() - 1; i > -1; i--) {
 						java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
 						try {
-							en.getValue().onClose(en.getKey());
+							ChannelListener<Object> l = en.getValue();
+							if (l instanceof MessageListener) {
+								if (!req.channel().isClosed()) {
+									((MessageListener) l).onClose(en.getKey(), 1006, null);
+								}
+							}else {
+								l.onClose(en.getKey());
+							}
 						}catch(Throwable e) {
 							NginxClojureRT.log.error(String.format("#%d: onClose Error!", req.nativeRequest()), e);
 						}
@@ -111,7 +118,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 		int size = (int) (( message >> 48 ) & 0xffff) - 2;
 		long address = message << 16 >> 16;
 		final int status = size >= 0 ? ((0xffff & (NginxClojureRT.UNSAFE.getByte(NginxClojureRT.UNSAFE.getAddress(address)) << 8))
-					| (0xff & NginxClojureRT.UNSAFE.getByte(NginxClojureRT.UNSAFE.getAddress(address)+1))) : 0;
+					| (0xff & NginxClojureRT.UNSAFE.getByte(NginxClojureRT.UNSAFE.getAddress(address)+1))) : 1000;
 		
 		if (NginxClojureRT.log.isDebugEnabled()) {
 			NginxClojureRT.log.debug("#%d: request %s onClose2, status=%d", req.nativeRequest(), req.uri(), status);

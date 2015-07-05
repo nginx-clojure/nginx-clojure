@@ -172,7 +172,7 @@
                           (onOpen [c] (if on-open (on-open c)))
                           (onTextMessage [c msg rem?] (if on-message (on-message c msg rem?)))
                           (onBinaryMessage [c msg rem?] (if on-message (on-message c msg rem?)))
-                          (onClose ([c] (if on-close (on-close c "0")))
+                          (onClose ;([c] (if on-close (on-close c "0")))
                                    ([c status reason] (if on-close (on-close c (str status ":" reason)))))
                           (onError [c status] (if on-error (on-error c (NginxClojureAsynSocket/errorCodeToString status)))))))
   (get-context [ch]

@@ -1607,16 +1607,24 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *me
 
 static void nji_ngx_http_clojure_hijack_fire_channel_event(jint type, jlong flag, ngx_http_clojure_module_ctx_t *ctx) {
 	ngx_http_clojure_listener_node_t *l = ctx->listeners;
+	void *ls;
+	void *d;
+	ngx_connection_t *c = ctx->r->connection;
 	while (l) {
+		ls = l->listener;
+		d = l->data;
 		(*jvm_env)->CallStaticVoidMethod(jvm_env, nc_rt_class, nc_rt_handle_channel_event_mid, type, flag, l->data,
 				l->listener);
 		if ((*jvm_env)->ExceptionOccurred(jvm_env)) {
 			(*jvm_env)->ExceptionDescribe(jvm_env);
 			(*jvm_env)->ExceptionClear(jvm_env);
 		}
+		if (c->destroyed) {
+			return;
+		}
 		if (type == NGX_HTTP_CLOJURE_CHANNEL_EVENT_CLOSE) {
-			(*jvm_env)->DeleteGlobalRef(jvm_env, l->listener);
-			(*jvm_env)->DeleteGlobalRef(jvm_env, l->data);
+			(*jvm_env)->DeleteGlobalRef(jvm_env, ls);
+			(*jvm_env)->DeleteGlobalRef(jvm_env, d);
 			ctx->listeners = l->next;
 		}
 		l = l->next;
@@ -1674,7 +1682,7 @@ static void nji_ngx_http_clojure_hijack_read_handler(ngx_http_request_t *r) {
 	}
 
 TOP_WHILE :
-	while (wsctx && r->pool) {
+	while (wsctx && !c->destroyed) {
 		ngx_int_t rc;
 		size_t size;
 		ngx_buf_t *buf;
@@ -1854,7 +1862,7 @@ TOP_WHILE :
 						rc = ngx_http_clojure_hijack_send(r, buf->pos, (size_t)wsctx->len,
 								NGX_CLOJURE_BUF_WEBSOCKET_PONG_FRAME
 						       | NGX_CLOJURE_BUF_FLUSH_FLAG);
-						if (rc != NGX_OK && r->pool) {
+						if (rc != NGX_OK && !c->destroyed) {
 							ngx_http_finalize_request(r, rc);
 							return;
 						}
@@ -1865,8 +1873,8 @@ TOP_WHILE :
 
 					wsctx->len -= size;
 					pc = buf->pos;
-					nji_ngx_http_clojure_hijack_fire_channel_event(type, (intptr_t)&buf->pos | ((uint64_t)size << 48) , ctx);
-					if (!r->pool) {
+					nji_ngx_http_clojure_hijack_fire_channel_event(type, (uintptr_t)&buf->pos | ((uint64_t)size << 48) , ctx);
+					if (c->destroyed) {
 						return;
 					}
 
@@ -1874,7 +1882,7 @@ TOP_WHILE :
 						if (pc != buf->pos) {
 							goto_close(WS_CLOSE_NOT_CONSISTENT);
 						}
-						/* we need let listener get a chance to handle client close event?*/
+						/* On thread pool mode we need let listener get a chance to handle client close event?*/
 						/*goto SEND_CLOSE_FRAME;*/
 						return;
 					}
@@ -1932,7 +1940,7 @@ SEND_CLOSE_FRAME:
 		}while(1);
 	}
 
-	if (r->pool) {
+	if (!c->destroyed) {
 		if (wsctx && wsctx->rchain) {
 		  wsctx->rchain->buf->pos = wsctx->rchain->buf->last; /*prepare to recycle it*/
 #if nginx_version >= 1001004
@@ -1942,7 +1950,7 @@ SEND_CLOSE_FRAME:
 #endif
 		}
 		nji_ngx_http_clojure_hijack_fire_channel_event(NGX_HTTP_CLOJURE_CHANNEL_EVENT_READ, flag, ctx);
-		if (flag != NGX_HTTP_CLOJURE_SOCKET_OK && r->pool) {
+		if (flag != NGX_HTTP_CLOJURE_SOCKET_OK && !c->destroyed) {
 			ngx_http_finalize_request(r, NGX_HTTP_REQUEST_TIME_OUT);
 		}
 	}
@@ -1984,7 +1992,9 @@ ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
 	ngx_table_elt_t *cver = NULL;
 	ngx_sha1_t   sha1_ctx;
 	u_char degest[21];
-    ngx_str_t sha1_val = ngx_string(degest);
+    ngx_str_t sha1_val;
+    sha1_val.len = sizeof(degest) - 1;
+    sha1_val.data = (u_char *) degest;
 
 	ngx_http_clojure_add_const_header(r->headers_out.headers, "Sec-WebSocket-Version", "13");
 
@@ -2222,6 +2232,9 @@ ngx_int_t ngx_http_clojure_hijack_send_header(ngx_http_request_t *r, ngx_int_t f
 	if (rc == NGX_OK || rc == NGX_AGAIN) {
 		if ((flag & NGX_CLOJURE_BUF_LAST_FLAG) || (flag & NGX_CLOJURE_BUF_FLUSH_FLAG)) {
 			rc = ngx_http_clojure_hijack_send(r, 0, 0, flag);
+			if (c->destroyed) {
+				return NGX_OK; /*TODO: return NGX_DONE?*/
+			}
 			if (rc != NGX_OK) {
 				ngx_http_finalize_request(r, rc);
 				return rc;
@@ -2694,15 +2707,17 @@ static jlong JNICALL jni_ngx_http_clojure_mem_build_file_chain(JNIEnv *env, jcla
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t)req;
 	ngx_buf_t *b;
 	ngx_chain_t *cl;
-	ngx_str_t path; // = {(ngx_int_t)name_len, (u_char *)file};
+	ngx_str_t path;
 	ngx_open_file_info_t of;
-	ngx_http_core_loc_conf_t  *clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
+	ngx_http_core_loc_conf_t  *clcf;
 	ngx_uint_t level;
 	ngx_log_t *log = r->connection->log;
 
 	if (!r->pool) {
 		return NGX_ERROR;
 	}
+
+	clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
 
 	if (pre != NULL) {
 		while (pre->next != NULL) {

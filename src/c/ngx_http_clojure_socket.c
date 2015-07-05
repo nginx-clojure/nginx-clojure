@@ -272,7 +272,7 @@ int ngx_http_clojure_socket_upstream_available(ngx_http_clojure_socket_upstream_
 }
 
 int ngx_http_clojure_socket_upstream_set_tcp_nodelay(ngx_http_clojure_socket_upstream_t *u, int tcp_nodelay) {
-	if (u->tcp_nodelay == tcp_nodelay) {
+	if ((int)u->tcp_nodelay == tcp_nodelay) {
 		return NGX_HTTP_CLOJURE_SOCKET_OK;
 	}
 
@@ -292,7 +292,7 @@ int ngx_http_clojure_socket_upstream_set_tcp_nodelay(ngx_http_clojure_socket_ups
 }
 
 int ngx_http_clojure_socket_upstream_set_so_keepalive(ngx_http_clojure_socket_upstream_t *u, int so_keepalive) {
-	if (u->so_keepalive == so_keepalive) {
+	if ((int)u->so_keepalive == so_keepalive) {
 		return NGX_HTTP_CLOJURE_SOCKET_OK;
 	}
 

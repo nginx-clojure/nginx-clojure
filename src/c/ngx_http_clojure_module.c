@@ -727,7 +727,11 @@ static ngx_int_t ngx_http_clojure_init_socket(ngx_http_clojure_main_conf_t  *mcf
                 } \
            } \
 		}  \
-		if (!conf->handler ##  _type.len && conf->enable_ ## handler && (uintptr_t)# handler !=  (uintptr_t)"content_handler") {  \
+		/*We find on win64 with vc2010 debug mode if #handler is "content_handler" below result will be false!
+		 *      (uintptr_t)# handler != (uintptr_t) "content_handler"
+		 *So for we can debug easily on kinds of platforms we use ngx_strcmp instead.
+		 * */ \
+		if (!conf->handler ##  _type.len && conf->enable_ ## handler && ngx_strcmp( # handler, "content_handler") != 0) {  \
 					if (conf->enable_content_handler || conf->content_handler_type.len) {  \
 						ngx_conf_merge_str_value(conf->handler ##  _type,  conf->content_handler_type, "clojure"); \
 					} \
@@ -790,9 +794,12 @@ static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
 	ngx_core_conf_t  *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 	ngx_http_conf_ctx_t *ctx = (ngx_http_conf_ctx_t *)ngx_get_conf(cycle->conf_ctx, ngx_http_module);
 	ngx_http_clojure_main_conf_t *mcf = ctx->main_conf[ngx_http_clojure_module.ctx_index];
-	ngx_http_clojure_global_cycle = cycle;
+#if !(NGX_WIN32)
 	ngx_uint_t cl = 8;
 	ngx_uint_t ssize = 0;
+#endif
+	ngx_http_clojure_global_cycle = cycle;
+
 
 	if (mcf->jvm_path.len == NGX_CONF_UNSET_SIZE) {
 		return NGX_OK;
@@ -864,14 +871,17 @@ static ngx_int_t ngx_http_clojure_quit_master(ngx_cycle_t *cycle) {
 	ctx.envp = NULL;
 	len = strlen(ctx.args);
 
-	if (len > 1024 - strlen("-s stop") - 1) {
+	if (len > 1024 - strlen(" -s stop") - 1) {
 		ngx_log_error(NGX_LOG_ALERT, cycle->log, ngx_errno, "command line is too long for execute");
 		return NGX_ERROR;
 	}
 
 	strncpy(args, ctx.args, len);
-	strcpy(args+len, "-s stop");
+	strcpy(args+len, " -s stop");
 	ctx.args = args;
+
+	ngx_log_error(NGX_LOG_CRIT, cycle->log, ngx_errno,
+	                      "ngx_http_clojure_quit_master, file (\"%s\"), arg (\"%s\")", ctx.path, ctx.args);
 
     ngx_memzero(&si, sizeof(STARTUPINFO));
     si.cb = sizeof(STARTUPINFO);
@@ -1237,7 +1247,7 @@ static ngx_int_t ngx_http_clojure_content_handler(ngx_http_request_t * r) {
 				return NGX_HTTP_INTERNAL_SERVER_ERROR;
 			}
 
-			ngx_http_clojure_init_ctx(ctx, -1);
+			ngx_http_clojure_init_ctx(ctx, -1, r);
 			ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
 	}
 
@@ -1302,7 +1312,7 @@ static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t *r) {
 				return NGX_HTTP_INTERNAL_SERVER_ERROR;
 			}
 
-			ngx_http_clojure_init_ctx(ctx, NGX_HTTP_REWRITE_PHASE);
+			ngx_http_clojure_init_ctx(ctx, NGX_HTTP_REWRITE_PHASE, r);
 			ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
 
 			if (!ctx->client_body_done) {
@@ -1341,7 +1351,7 @@ static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t *r) {
 			return NGX_HTTP_INTERNAL_SERVER_ERROR;
 		}
 
-		ngx_http_clojure_init_ctx(ctx, NGX_HTTP_REWRITE_PHASE);
+		ngx_http_clojure_init_ctx(ctx, NGX_HTTP_REWRITE_PHASE, r);
 		ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
 		rc = ngx_http_clojure_eval(lcf->rewrite_handler_id, r, 0);
 		if (rc != NGX_DONE) {
@@ -1400,7 +1410,7 @@ static ngx_int_t ngx_http_clojure_access_handler(ngx_http_request_t * r) {
 			return NGX_HTTP_INTERNAL_SERVER_ERROR;
 		}
 
-		ngx_http_clojure_init_ctx(ctx, NGX_HTTP_ACCESS_PHASE);
+		ngx_http_clojure_init_ctx(ctx, NGX_HTTP_ACCESS_PHASE, r);
 		ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
 		rc = ngx_http_clojure_eval(lcf->access_handler_id, r, 0);
 		if (rc != NGX_DONE) {
@@ -1463,7 +1473,7 @@ static ngx_int_t ngx_http_clojure_header_filter(ngx_http_request_t *r) {
 			return NGX_HTTP_INTERNAL_SERVER_ERROR;
 		}
 
-		ngx_http_clojure_init_ctx(ctx, -1);
+		ngx_http_clojure_init_ctx(ctx, -1, r);
 		ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
 	}
 

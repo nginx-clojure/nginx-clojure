@@ -1018,22 +1018,29 @@
                msg "hello, nginx-clojure & websocket!"
                result (promise)
                ws-client (ws/connect base
+                                     :on-error #(deliver result %)
+                                     :on-close (fn [c r] (deliver result (str c ":" r)))
                                      :on-receive #(deliver result %))
                ]
            (debug-println "===================/ringCompojure/ws-echo=======================")
            (ws/send-msg ws-client msg)
+           (Thread/sleep 2000)
+           (ws/close ws-client)
            (is (= msg @result))))
   (testing "/ringCompojure/ws-remote"
        (let [base (str "ws://" *host* ":" *port* "/ringCompojure/ws-remote")
              msg "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.2.x.txt"
              result (promise)
              ws-client (ws/connect base
+                                     :on-error #(deliver result %)
+                                     :on-close (fn [c r] (deliver result (str c ":" r)))
                                    :on-receive #(deliver result %))
              ]
          (debug-println "===================/ringCompojure/ws-remote=======================")
          (ws/send-msg ws-client msg)
          (Thread/sleep 1000)
          (let [content (:body (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.2.x.txt"))]
+           (ws/close ws-client)
            (is (= content @result)))))
 )
 

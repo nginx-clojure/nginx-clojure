@@ -243,7 +243,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		}
 
 		public ISeq next(){
-			if(i + 2 < reqMap.array.length)
+			if(i + 2 < reqMap.validLen)
 				return new ArrayMapSeq(reqMap, i + 2);
 			return null;
 		}
