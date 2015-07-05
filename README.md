@@ -7,12 +7,15 @@
 Core Features
 =================
 
-The latest release is v0.3.0, more detail changes about it can be found from [Release History](http://nginx-clojure.github.io/downloads.html).
+The latest release is v0.4.0, more detail changes about it can be found from [Release History](http://nginx-clojure.github.io/downloads.html).
 
 1. Compatible with [Ring](https://github.com/ring-clojure/ring/blob/master/SPEC) and obviously supports those Ring based frameworks, such as Compojure etc.
 1. Http Services by  using Clojure / Java / Groovy to write simple handlers for http services.
-1. **_NEW_**: Nginx Access Handler by Clojure / Java / Groovy
-1. **_NEW_**: Nginx  Header Filter by Clojure / Java / Groovy
+1. Nginx Access Handler by Clojure / Java / Groovy
+1. Nginx  Header Filter by Clojure / Java / Groovy
+1. **_NEW_**: Service Side Websocket
+1. **_NEW_**: A build-in Jersey container to support java standard RESTful web services (JAX-RS 2.0)
+1. **_NEW_**: Tomcat 8 embedding support (so servlet 3.1/jsp/sendfile/JSR-356 websocket work within nginx!)
 1. Dynamic proxying by using Clojure / Java / Groovy to write a simple nginx rewrite handler to set var or return errors before proxy pass or content ring handler
 1. Non-blocking coroutine based socket which is Compatible with Java Socket API and works well with largely existing java library such as apache http client, mysql jdbc drivers. 
 With this feature  one java main thread can handle thousands of connections.

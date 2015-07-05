@@ -4,6 +4,24 @@ Downloads & Release History
 1. [Binaries of Releases](http://sourceforge.net/projects/nginx-clojure/files/)
 1. [Sources of Releases](https://github.com/nginx-clojure/nginx-clojure/releases)
 
+## 0.4.0 (2015-07-06)
+
+1. New Feature: Service Side Websocket (issue #73)
+1. New Feature: A build-in Jersey container to support java standard RESTful web services (JAX-RS 2.0) (issue #74)
+1. New Feature: Tomcat 8 embedding support (so servlet 3.1/jsp/sendfile/JSR-356 websocket work within nginx!) (issue #67)
+1. New Feature: Coroutined Based Client Socket Supports to Bind to Specified IP Address (issue #69)
+1. New Feature: Handler's Property Configuration (issue #66)
+1. Enhancement: NginxHttpServerChannel can work with Rewrite Handler or Access Handler (issue #79)
+1. Enhancement: Configurable Write Buffer Size for SSE or Websocket (issue #76)
+1. Bug Fix: When we do not configure jvm_path proxy_pass will not work (issue #72)
+1. Bug Fix: nginx worker restart when get the value of header X-Forwarded-For (issue #70)
+1. Bug Fix: proxy_cache_path causes crash (issue #64)
+1. Bug Fix: send_timeout does not take effect with NginxHttpServerChannel (issue #78)
+1. Bug Fix: Waving tool generates wrong wave information of fuzzing classes (issue #80)
+1. Documents : Release History link in README (issue #68)
+1. Binaries Distribution: built with The latest stable Nginx v1.8.0 which released at 2015-04-21.
+
+
 ## 0.3.0 (2014-12-11)
 
 1. Discard: Directive `clojure`, `clojure_code` are no longer supported, use `handler_type`/`content_handler_type`, 
@@ -20,6 +38,7 @@ Downloads & Release History
 1. Bug Fix: The first registered handler will not work if there 's a asynchronous reading of request body (issue #51)
 1. Enhancement: `handlers_lazy_init` can be used to make handler initialized lazily or eagerly  (issue #52)
 
+
 ## 0.2.7 (2014-11-11)
 
 1. New Feature: Compiling option for  disabling all functions silently when JVM_PATH not configured. (issue #47)
@@ -34,7 +53,7 @@ Downloads & Release History
 1. Fix Bug: rewrite_handler_name does not work without content handler (issue #45). Thanks [Eric Kubacki](https://github.com/ekubacki) for finding this bug.
 1. Fix Bug: rewrite handler does not handle write event correctly with thread pool mode or coroutine mode (issue #43)
 1. Documents : Correct some inaccuracies and add section about logging in Chapter [More about Nginx-Clojure](http://nginx-clojure.github.io/more.html#user-content-37--about-logging)
-1. Binaries: built with The lastest stable Nginx v1.6.2 which released at 2014-09-16.
+1. Binaries: built with The latest stable Nginx v1.6.2 which released at 2014-09-16.
 
 
 
