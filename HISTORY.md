@@ -6,7 +6,7 @@ Downloads & Release History
 
 ## 0.4.0 (2015-07-06)
 
-1. New Feature: Service Side Websocket (issue #73)
+1. New Feature: Server Side Websocket (issue #73)
 1. New Feature: A build-in Jersey container to support java standard RESTful web services (JAX-RS 2.0) (issue #74)
 1. New Feature: Tomcat 8 embedding support (so servlet 3.1/jsp/sendfile/JSR-356 websocket work within nginx!) (issue #67)
 1. New Feature: Coroutined Based Client Socket Supports to Bind to Specified IP Address (issue #69)

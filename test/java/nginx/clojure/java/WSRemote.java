@@ -21,7 +21,7 @@ public class WSRemote implements NginxJavaRingHandler {
 	public Object[] invoke(Map<String, Object> request) throws IOException {
 
 		NginxJavaRequest r = (NginxJavaRequest)request;
-		NginxHttpServerChannel sc = r.handler().hijack(r, true);
+		NginxHttpServerChannel sc = r.hijack(true);
 		sc.addListener(sc, new MessageAdapter<NginxHttpServerChannel>() {
 			int total = 0;
 			@Override

@@ -36,7 +36,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket implements NginxJavaRingHa
 	@Override
 	public Object[] invoke(Map<String, Object> request) {
 		NginxRequest req = (NginxRequest) request;
-		NginxHttpServerChannel serverChannel = req.handler().hijack(req, false);
+		NginxHttpServerChannel serverChannel = req.hijack(false);
 		NginxClojureAsynSocket asynSocket = new NginxClojureAsynSocket();
 		AsynHttpContext ctx = new AsynHttpContext();
 		ctx.rc = ctx.wc = 0;

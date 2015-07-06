@@ -43,7 +43,7 @@ public class SimpleHandler4TestNginxClojureAsynChannel implements NginxJavaRingH
 	@Override
 	public Object[] invoke(Map<String, Object> request) {
 		NginxRequest req = (NginxRequest) request;
-		NginxHttpServerChannel downstream = req.handler().hijack(req, true);
+		NginxHttpServerChannel downstream = req.hijack(true);
 		downstream.addListener(downstream, new ChannelCloseAdapter<NginxHttpServerChannel>() {
 			@Override
 			public void onClose(NginxHttpServerChannel data) {

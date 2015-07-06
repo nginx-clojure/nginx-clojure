@@ -21,7 +21,6 @@ import nginx.clojure.AppEventListenerManager.PostedEvent;
 import nginx.clojure.ChannelCloseAdapter;
 import nginx.clojure.Configurable;
 import nginx.clojure.NginxClojureRT;
-import nginx.clojure.NginxHandler;
 import nginx.clojure.NginxHttpServerChannel;
 
 import org.apache.commons.fileupload.FileItemIterator;
@@ -202,7 +201,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
 			NginxJavaRequest r = ((NginxJavaRequest)request);
-			NginxHttpServerChannel channel = r.handler().hijack(r, false);
+			NginxHttpServerChannel channel = r.hijack(false);
 			Init.longpollSubscribers.add(channel);
 			//nginx-clojure will ignore this return because we have hijacked the request.
 			return null;
@@ -228,8 +227,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		@Override
 		public Object[] invoke(Map<String, Object> request) throws IOException {
 			NginxJavaRequest r = (NginxJavaRequest) request;
-			NginxHandler handler = r.handler();
-			NginxHttpServerChannel channel = handler.hijack(r, true);
+			NginxHttpServerChannel channel = r.hijack(true);
 			channel.addListener(channel, new ChannelCloseAdapter<NginxHttpServerChannel>() {
 				@Override
 				public void onClose(NginxHttpServerChannel data) {
