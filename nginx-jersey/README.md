@@ -15,6 +15,7 @@ in nginx.conf
 
 ```nginx
       location /jersey {
+          content_handler_type java;
           content_handler_name 'nginx.clojure.bridge.NginxBridgeHandler';
           content_handler_property system.m2rep '/home/who/.m2/repository';
           

@@ -15,6 +15,7 @@ in nginx.conf
 ```nginx
       location / {
       
+          content_handler_type java;
           content_handler_name 'nginx.clojure.bridge.NginxBridgeHandler';
           
           ##Tomcat 8 installation path
