@@ -41,7 +41,7 @@ public class StreamingWriteHandler implements NginxJavaRingHandler {
 	public static class MyStreamContext {
 		public ByteBuffer headers;
 		public ByteBuffer content;
-		public ByteBuffer buffer = ByteBuffer.allocate(1024);
+		public ByteBuffer buffer = ByteBuffer.allocate(4096);
 		public boolean headSent;
 		public MyStreamContext(ByteBuffer headers, ByteBuffer content) {
 			this.headers = headers;
