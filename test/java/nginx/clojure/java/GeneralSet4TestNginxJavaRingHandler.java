@@ -270,6 +270,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		routing.put("/ssepub", new SSEPub());
 		routing.put("/file", new FileBytesHandler());
 		routing.put("/upload", new UploadHandler());
+		routing.put("/stream", new StreamingWriteHandler());
 	}
 
 	@Override

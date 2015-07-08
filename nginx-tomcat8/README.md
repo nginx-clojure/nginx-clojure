@@ -18,7 +18,7 @@ For get the latest version from the github source
 
 ```shell
 git clone https://github.com/nginx-clojure/nginx-clojure
-cd nginx-tomcat8
+cd nginx-clojure/nginx-tomcat8
 lein jar
 ```
 ## Configuration
