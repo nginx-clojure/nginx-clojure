@@ -7,6 +7,7 @@ package nginx.clojure.java;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -68,8 +69,9 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 			Runnable action = new Coroutine.FinishAwaredRunnable() {
 				@Override
 				public void run() {
-					for (int i = listeners.size() - 1; i > -1; i--) {
-						java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
+					List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> localListeners = getSafeListeners(listeners);
+					for (int i = localListeners.size() - 1; i > -1; i--) {
+						java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = localListeners.get(i);
 						try {
 							ChannelListener<Object> l = en.getValue();
 							if (l instanceof MessageListener) {
@@ -140,8 +142,9 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 			Runnable action = new Coroutine.FinishAwaredRunnable() {
 				@Override
 				public void run() {
-					for (int i = listeners.size() - 1; i > -1; i--) {
-						java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
+					List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> localListeners = getSafeListeners(listeners);
+					for (int i = localListeners.size() - 1; i > -1; i--) {
+						java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = localListeners.get(i);
 						try {
 							ChannelListener<Object> l = en.getValue();
 							if (l instanceof MessageListener) {
@@ -196,8 +199,9 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 			Runnable action = new Coroutine.FinishAwaredRunnable() {
 				@Override
 				public void run() {
-					for (int i = listeners.size() - 1; i > -1; i--) {
-						java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
+					List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> localListeners = getSafeListeners(listeners);
+					for (int i = localListeners.size() - 1; i > -1; i--) {
+						java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = localListeners.get(i);
 						try {
 							en.getValue().onConnect(status, req);
 						}catch(Throwable e) {
@@ -237,8 +241,9 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 			Runnable action = new Coroutine.FinishAwaredRunnable() {
 				@Override
 				public void run() {
-					for (int i = listeners.size() - 1; i > -1; i--) {
-						java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
+					List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> localListeners = getSafeListeners(listeners);
+					for (int i = localListeners.size() - 1; i > -1; i--) {
+						java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = localListeners.get(i);
 						try {
 							en.getValue().onRead(status, en.getKey());
 						}catch(Throwable e) {
@@ -278,8 +283,9 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 			Runnable action = new Coroutine.FinishAwaredRunnable() {
 				@Override
 				public void run() {
-					for (int i = listeners.size() - 1; i > -1; i--) {
-						java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
+					List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> localListeners = getSafeListeners(listeners);
+					for (int i = localListeners.size() - 1; i > -1; i--) {
+						java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = localListeners.get(i);
 						try {
 							en.getValue().onWrite(status, en.getKey());
 						}catch(Throwable e) {
@@ -327,8 +333,9 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 			Runnable action = new Coroutine.FinishAwaredRunnable() {
 				@Override
 				public void run() {
-					for (int i = listeners.size() - 1; i > -1; i--) {
-						java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
+					List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> localListeners = getSafeListeners(listeners);
+					for (int i = localListeners.size() - 1; i > -1; i--) {
+						java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = localListeners.get(i);
 						try {
 							ChannelListener<Object> l = en.getValue();
 							if (l instanceof MessageListener) {
@@ -388,8 +395,9 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 				Runnable action = new Coroutine.FinishAwaredRunnable() {
 					@Override
 					public void run() throws SuspendExecution {
-						for (int i = listeners.size() - 1; i > -1; i--) {
-							java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = listeners.get(i);
+						List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> localListeners = getSafeListeners(listeners);
+						for (int i = localListeners.size() - 1; i > -1; i--) {
+							java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = localListeners.get(i);
 							try {
 								ChannelListener<Object> l = en.getValue();
 								if (l instanceof MessageListener) {
@@ -421,6 +429,19 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 				}
 			}
 		}
+	}
+
+	private List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> getSafeListeners(
+			final List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners) {
+		List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> localListeners = listeners;
+		//When at main thread listener method maybe trigger close event which will cause listeners to be cleared
+		//so we need copy listeners for safe usage. When not at main thread all close operation will be post to 
+		//FIFO queue and listeners won't be changed immediate so we need not copy them.
+		if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD) {
+			localListeners = new ArrayList<java.util.AbstractMap.SimpleEntry<Object,ChannelListener<Object>>>();
+			localListeners.addAll(listeners);
+		}
+		return localListeners;
 	}
 
 }

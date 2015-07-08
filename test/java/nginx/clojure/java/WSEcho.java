@@ -13,6 +13,9 @@ public class WSEcho implements NginxJavaRingHandler {
 	@Override
 	public Object[] invoke(Map<String, Object> request) {
 		NginxJavaRequest r = (NginxJavaRequest)request;
+		if (!r.isWebSocket()) {
+			return NginxJavaHandler.NOT_FOUND_RESPONSE;
+		}
 		NginxHttpServerChannel sc = r.hijack(true);
 		sc.addListener(sc, new MessageAdapter<NginxHttpServerChannel>() {
 			int total = 0;
