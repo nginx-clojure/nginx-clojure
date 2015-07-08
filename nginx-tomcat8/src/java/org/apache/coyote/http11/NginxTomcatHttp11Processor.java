@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Set;
 
 import nginx.clojure.MiniConstants;
 import nginx.clojure.java.ArrayMap;
@@ -36,7 +37,7 @@ public class NginxTomcatHttp11Processor extends AbstractHttp11Processor<NginxCha
 	protected NginxEndpoint.SendfileData sendfileData = null;
 	
 	public NginxTomcatHttp11Processor(int maxHttpHeaderSize, NginxEndpoint endpoint,
-            int maxTrailerSize, int maxExtensionSize, int maxSwallowSize) {
+            int maxTrailerSize, Set<String> allowedTrailerHeaders, int maxExtensionSize, int maxSwallowSize) {
 		super(endpoint);
 		inputBuffer = new InternalNginxInputBuffer(request, maxHttpHeaderSize);
         request.setInputBuffer(inputBuffer);
@@ -44,7 +45,7 @@ public class NginxTomcatHttp11Processor extends AbstractHttp11Processor<NginxCha
         outputBuffer = new InternalNginxOutputBuffer(response, maxHttpHeaderSize);
         response.setOutputBuffer(outputBuffer);
 
-        initializeFilters(maxTrailerSize, maxExtensionSize, maxSwallowSize);
+        initializeFilters(maxTrailerSize, allowedTrailerHeaders, maxExtensionSize, maxSwallowSize);
 	}
 
 	@Override

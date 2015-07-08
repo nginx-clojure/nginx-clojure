@@ -105,9 +105,9 @@ public class NginxEndpoint extends AbstractEndpoint<NginxChannel> implements Cha
                             	nginxChannels.push(socket);
                             }
                             socket = null;
-                            if (running && !paused) {
-                                keyCache.push(ka);
-                            }
+//                            if (running && !paused) {
+//                                keyCache.push(ka);
+//                            }
                         }
                         ka = null;
                     } catch (Exception x) {
@@ -161,7 +161,7 @@ public class NginxEndpoint extends AbstractEndpoint<NginxChannel> implements Cha
     /**
      * Cache for key attachment objects
      */
-    private SynchronizedStack<KeyAttachment> keyCache;// = new SynchronizedStack<KeyAttachment>(SynchronizedStack.DEFAULT_SIZE, -1);
+//    private SynchronizedStack<KeyAttachment> keyCache;// = new SynchronizedStack<KeyAttachment>(SynchronizedStack.DEFAULT_SIZE, -1);
     
     /**
      * The size of the OOM parachute.
@@ -223,15 +223,18 @@ public class NginxEndpoint extends AbstractEndpoint<NginxChannel> implements Cha
             super(channel);
         }
 
-        public void reset(NginxChannel channel, long soTimeout) {
-            super.reset(channel, soTimeout);
-            cometNotify = false;
-            sendfileData = null;
-        }
-
-        public void reset() {
-            reset(null,-1);
-        }
+        /*tomcat 0.2.1 remove reset method from SocketWrapper and do not reuse this object*/
+//		public void reset(NginxChannel channel, long soTimeout) {
+//			super.reset(channel, soTimeout);
+//			cometNotify = false;
+//			sendfileData = null;
+//		}
+//
+//
+//		public void reset() {
+//			reset(null, -1);
+//		}
+        
         public void setCometNotify(boolean notify) { this.cometNotify = notify; }
         public boolean getCometNotify() { return cometNotify; }
 
@@ -306,7 +309,7 @@ public class NginxEndpoint extends AbstractEndpoint<NginxChannel> implements Cha
 
         	nginxChannels = new SynchronizedStack<NginxChannel>(SynchronizedStack.DEFAULT_SIZE, -1);
         	processorCache = new SynchronizedStack<SocketProcessor>(SynchronizedStack.DEFAULT_SIZE, -1);
-        	keyCache = new SynchronizedStack<KeyAttachment>(SynchronizedStack.DEFAULT_SIZE, -1);
+//        	keyCache = new SynchronizedStack<KeyAttachment>(SynchronizedStack.DEFAULT_SIZE, -1);
         	acceptors = new Acceptor[0];
 
             // Create worker collection
@@ -328,7 +331,7 @@ public class NginxEndpoint extends AbstractEndpoint<NginxChannel> implements Cha
         }
         if (running) {
             running = false;
-            keyCache.clear();
+//            keyCache.clear();
             nginxChannels.clear();
             processorCache.clear();
         }
@@ -397,7 +400,7 @@ public class NginxEndpoint extends AbstractEndpoint<NginxChannel> implements Cha
     }
 
     protected void releaseCaches() {
-        this.keyCache.clear();
+//        this.keyCache.clear();
         this.nginxChannels.clear();
         this.processorCache.clear();
         if ( handler != null ) handler.recycle();
@@ -405,10 +408,10 @@ public class NginxEndpoint extends AbstractEndpoint<NginxChannel> implements Cha
     }
     
     public void register(final NginxChannel socket, boolean dispatch) {
-        KeyAttachment key = keyCache.pop();
-        final KeyAttachment ka = key!=null?key:new KeyAttachment(socket);
+//        KeyAttachment key = keyCache.pop();
+        final KeyAttachment ka = new KeyAttachment(socket);
         ka.setDispatch(dispatch);
-        ka.reset(socket,getSocketProperties().getSoTimeout());
+        ka.setTimeout(getSocketProperties().getSoTimeout());
         ka.setKeepAliveLeft(NginxEndpoint.this.getMaxKeepAliveRequests());
         ka.setSecure(isSSLEnabled());
         processSocket(ka, SocketStatus.OPEN_READ, dispatch);
@@ -449,7 +452,7 @@ public class NginxEndpoint extends AbstractEndpoint<NginxChannel> implements Cha
                 }
             }
             if (ka!=null) {
-                ka.reset();
+//                ka.reset();
                 countDownConnection();
             }
         } catch (Throwable e) {

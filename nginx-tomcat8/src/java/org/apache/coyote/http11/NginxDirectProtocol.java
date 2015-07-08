@@ -124,12 +124,13 @@ public class NginxDirectProtocol extends AbstractHttp11JsseProtocol<NginxChannel
 		@Override
 		public SocketState process(SocketWrapper<NginxChannel> socket,
 				SocketStatus status) {
-			if (proto.npnHandler != null) {
-				SocketState ss = proto.npnHandler.process(socket, status);
-				if (ss != SocketState.OPEN) {
-					return ss;
-				}
-			}
+			//tomcat 8.0.23 removed proto.npnHandler and nginx will do SPDY things so we do not need it  
+//			if (proto.npnHandler != null) {
+//				SocketState ss = proto.npnHandler.process(socket, status);
+//				if (ss != SocketState.OPEN) {
+//					return ss;
+//				}
+//			}
 			return super.process(socket, status);
 		}
 
@@ -180,8 +181,8 @@ public class NginxDirectProtocol extends AbstractHttp11JsseProtocol<NginxChannel
 		public NginxTomcatHttp11Processor createProcessor() {
 			NginxTomcatHttp11Processor processor = new NginxTomcatHttp11Processor(
 					proto.getMaxHttpHeaderSize(), (NginxEndpoint) proto.endpoint,
-					proto.getMaxTrailerSize(), proto.getMaxExtensionSize(),
-					proto.getMaxSwallowSize());
+					proto.getMaxTrailerSize(), proto.getAllowedTrailerHeadersAsSet(),
+					proto.getMaxExtensionSize(),proto.getMaxSwallowSize());
 			proto.configureProcessor(processor);
 			register(processor);
 			return processor;

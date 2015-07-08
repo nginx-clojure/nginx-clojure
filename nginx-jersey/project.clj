@@ -1,7 +1,7 @@
 (defproject nginx-clojure/nginx-jersey "0.1.0"
   :description "Intergrate Jersey into Nginx by Nignx-Clojure Module so that 
                 Nginx can Support Java standard RESTful Web Services (JAX-RS)"
-  :url "https://github.com/nginx-clojure/nginx-clojure/nginx-tomcat"
+  :url "https://github.com/nginx-clojure/nginx-clojure/nginx-jersey"
   :license {:name "BSD 3-Clause license"
             :url "http://opensource.org/licenses/BSD-3-Clause"}
   :plugins [[lein-junit "1.1.7"]]

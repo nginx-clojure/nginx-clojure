@@ -2,13 +2,26 @@
 
 A Java library designed to embed Tomcat into Nginx by Nignx-Clojure Module so that Nginx can  Support Java Standard Web Applications.
 
-## Usage
+## Which Version?
 
-To get nginx-tomcat8-x.x.x.jar
+Apache Tomcat version | Nginx-Clojure version|Nginx-Tomcat8 version
+------------ | -------------|-------------
+8.0.20 | >=0.4.x|0.1.x
+8.0.23,8.0.24 | >=0.4.x|0.2.x
+
+## Get Jar File
+
+We can get the released version from [clojars](https://clojars.org/nginx-clojure/nginx-tomcat8) or 
+the jar in [nginx-clojure binary release](https://sourceforge.net/projects/nginx-clojure/files/) 
+
+For get the latest version from the github source
 
 ```shell
+git clone https://github.com/nginx-clojure/nginx-clojure
+cd nginx-tomcat8
 lein jar
 ```
+## Configuration
 
 in nginx.conf
 
