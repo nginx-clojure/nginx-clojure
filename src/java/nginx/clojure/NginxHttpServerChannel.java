@@ -283,8 +283,8 @@ public class NginxHttpServerChannel implements Closeable {
 					MiniConstants.BYTE_ARRAY_OFFSET + buf.arrayOffset() + buf.position(), buf.remaining());
 		}
 		
-		if (rc == MiniConstants.NGX_OK) {
-			buf.position(buf.limit());
+		if (rc > 0) {
+			buf.position(buf.position() + (int)rc);
 		}
 		return rc;
 	}
