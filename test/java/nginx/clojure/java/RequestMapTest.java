@@ -36,7 +36,6 @@ public class RequestMapTest {
 			array[i+1] = array[i].toString() + "--v";
 		}
 		NginxJavaRequest r = new NginxJavaRequest(null, 0, array);
-		r.r = 1;
 		assertEquals(array.length/2, r.size());
 		for (int i = 0; i < array.length; i += 2) {
 			assertEquals(array[i]+"--v", r.get(array[i]));

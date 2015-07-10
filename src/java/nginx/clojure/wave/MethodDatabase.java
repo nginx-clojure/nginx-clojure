@@ -746,6 +746,7 @@ public class MethodDatabase implements LoggerService {
         private final String superName;
         private final String[] interfaces;
         private boolean alreadyInstrumented;
+        private boolean suspenable;
 
         public ClassEntry(String superName, String[] interfaces, boolean isInterface) {
             this.superName = superName;
@@ -760,6 +761,14 @@ public class MethodDatabase implements LoggerService {
         
         public String[] getInterfaces() {
 			return interfaces;
+		}
+        
+		public boolean isSuspenable() {
+			return suspenable;
+		}
+		
+		public void setSuspenable(boolean suspenable) {
+			this.suspenable = suspenable;
 		}
         
         public ConcurrentHashMap<String, Integer> getMethods() {

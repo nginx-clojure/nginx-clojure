@@ -215,7 +215,9 @@ public class InstrumentConstructorMethod {
 		if(im.collectCodeBlocks()) {
 			im.accept(cv.makeOutMV(mv));
 		}else {
-			throw new RuntimeException("no suspendable method in constructor : " + mn.name + mn.desc);
+			db.warn("no suspendable method in constructor : " + mn.name + mn.desc);
+//			throw new RuntimeException("no suspendable method in constructor : " + mn.name + mn.desc);
+			mv.accept(cv.makeOutMV(mv.access, mv.name, mv.desc, mv.signature, expss));
 		}
 	}
 

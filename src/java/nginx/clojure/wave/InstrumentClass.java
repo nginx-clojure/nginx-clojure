@@ -33,6 +33,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
 
+import nginx.clojure.anno.Suspendable;
 import nginx.clojure.asm.AnnotationVisitor;
 import nginx.clojure.asm.ClassVisitor;
 import nginx.clojure.asm.MethodVisitor;
@@ -56,6 +57,7 @@ public class InstrumentClass extends ClassVisitor {
 
     static final String COROUTINE_NAME = "nginx/clojure/Coroutine";
     static final String ALREADY_INSTRUMENTED_NAME = Type.getDescriptor(AlreadyInstrumented.class);
+    static final String SUSPENDABLE_NAME = Type.getDescriptor(Suspendable.class);
     
     private final MethodDatabase db;
     private final boolean forceInstrumentation;
