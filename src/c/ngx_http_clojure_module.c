@@ -1140,7 +1140,67 @@ static int ngx_http_clojure_check_little_endian() {
 	return ( 1 != htonl(1) );
 }
 
-static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
+static ngx_int_t ngx_http_clojure_auto_detect_jvm(ngx_conf_t *cf) {
+	ngx_http_clojure_main_conf_t *mcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_clojure_module);
+	ngx_str_t *elts = mcf->jvm_options->elts;
+	int len = mcf->jvm_options->nelts;
+	int i;
+	ngx_pool_t *pool = ngx_create_pool(40960, cf->log);
+	char cmd[40960];
+	char result[4096];
+	char *option;
+	char *p = cmd;
+	int c = 0;
+	FILE *fd;
+
+	strcpy(p, "java");
+	p += sizeof("java") - 1;
+
+	for (i = 0; i < len; i++){
+		option = (char *)ngx_http_clojure_eval_experssion(mcf, &elts[i], pool);
+		if (!ngx_strncmp(option, "-Xbootclasspath", sizeof("-Xbootclasspath") -1)
+				|| !ngx_strncmp(option, "-Djava.class.path", sizeof("-Djava.class.path") -1)
+				|| !ngx_strncmp(option, "-Djava.ext.dirs", sizeof("-Djava.ext.dirs") -1)) {
+			strcpy(p, " ");
+			p++;
+			strcpy(p, option);
+			p += strlen(option);
+		}
+	}
+	ngx_destroy_pool(pool);
+
+	strcpy(p, " nginx.clojure.DiscoverJvm");
+#if !(NGX_WIN32)
+	fd = popen(cmd, "r");
+#else
+	fd = _popen(cmd, "r");
+#endif
+	p = result;
+	i = 0;
+	while (i < sizeof(result)-1 && ((c = fgetc(fd)) != EOF) && c != '\r' && c != '\n') {
+		*p++ = c;
+		i++;
+	}
+#if !(NGX_WIN32)
+	pclose(fd);
+#else
+	_pclose(fd);
+#endif
+	*p = 0;
+	p = strrchr(result, '.');
+	if (p && (!ngx_strcmp(p, ".so") || !ngx_strcmp(p, ".dll") || !ngx_strcmp(p, ".dylib"))) {
+		len = strlen(result);
+		mcf->jvm_path.data = ngx_pcalloc(cf->pool, len);
+		strcpy((char*)mcf->jvm_path.data, result);
+		mcf->jvm_path.len = len;
+		return NGX_OK;
+	}else {
+		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "detect jvm error, cmd : %s \n, result : %s", cmd, result);
+		return NGX_ERROR;
+	}
+}
+
+static ngx_int_t ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 
 	ngx_http_core_main_conf_t *cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
 	ngx_http_clojure_main_conf_t *mcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_clojure_module);
@@ -1174,6 +1234,14 @@ static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "no jvm_options configured!");
 		return NGX_ERROR ;
 	}
+
+	if (!ngx_strcmp(mcf->jvm_path.data, "auto")) {
+		if (ngx_http_clojure_auto_detect_jvm(cf) != NGX_OK) {
+			ngx_log_error(NGX_LOG_ERR, cf->log, 0, "can not find installed JRE/JDK");
+			return NGX_ERROR;
+		}
+	}
+
 
 	if (mcf->enable_rewrite_handler) {
 		h = ngx_array_push(&cmcf->phases[NGX_HTTP_REWRITE_PHASE].handlers);
