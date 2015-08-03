@@ -15,9 +15,8 @@
 
 static JNIEnv *jvm_env = NULL;
 static JavaVM *jvm = NULL;
-static jclass Class_java_lang_String = NULL;
-static jmethodID MID_String_init = NULL;
-static jmethodID MID_String_getBytes = NULL;
+
+int ngx_http_clojure_is_embeded_by_jse = 0;
 
 int ngx_http_clojure_check_jvm() {
 	return jvm == NULL ? NGX_HTTP_CLOJURE_JVM_ERR : NGX_HTTP_CLOJURE_JVM_OK;
@@ -98,15 +97,15 @@ int ngx_http_clojure_init_jvm(char *jvm_path, char * *opts, size_t len) {
 
 	free(options);
 	jvm_env = env;
-	Class_java_lang_String = (*jvm_env)->FindClass(jvm_env, "java/lang/String");
-	MID_String_getBytes = (*jvm_env)->GetMethodID(jvm_env, Class_java_lang_String, "getBytes", "()[B");
-	MID_String_init = (*jvm_env)->GetMethodID(jvm_env, Class_java_lang_String, "<init>", "([B)V");
-
 
 	return NGX_HTTP_CLOJURE_JVM_OK;
-
 }
 
+int ngx_http_clojure_init_by_jse_app(JNIEnv *env) {
+	ngx_http_clojure_is_embeded_by_jse = 1;
+	jvm_env = env;
+	return (*env)->GetJavaVM(env, &jvm);
+}
 
 
 int ngx_http_clojure_close_jvm() {
@@ -114,6 +113,13 @@ int ngx_http_clojure_close_jvm() {
 	jmethodID exitMethod = NULL;
 
 	if (jvm == NULL ||  jvm_env == NULL) {
+		return NGX_HTTP_CLOJURE_JVM_OK;
+	}
+
+	if (ngx_http_clojure_is_embeded_by_jse) {
+		jvm = NULL;
+		jvm_env = NULL;
+		ngx_http_clojure_is_embeded_by_jse = 0;
 		return NGX_HTTP_CLOJURE_JVM_OK;
 	}
 

@@ -706,3 +706,7 @@ int ngx_http_clojure_init_socket_util() {
 
 	return NGX_HTTP_CLOJURE_JVM_OK;
 }
+
+void ngx_http_clojure_destory_socket_util() {
+	ngx_http_clojure_init_socket_flag = NGX_HTTP_CLOJURE_JVM_ERR;
+}

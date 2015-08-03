@@ -15,6 +15,7 @@ static JavaVM *jvm = NULL;
 static JNIEnv *jvm_env = NULL;
 static jclass nc_rt_class;
 static jmethodID nc_rt_eval_mid;
+static jmethodID nc_rt_destory_mid;
 static jmethodID nc_rt_register_code_mid;
 static jmethodID nc_rt_handle_post_event_mid;
 static jmethodID nc_rt_handle_channel_event_mid;
@@ -3272,12 +3273,12 @@ static int ngx_http_clojure_pipe(ngx_socket_t fds[2]) {
 		return -1;
 	}
 #endif
-	if (ngx_nonblocking(nc_jvm_worker_pipe_fds[0]) == -1) {
+	if (ngx_nonblocking(fds[0]) == -1) {
 		ngx_log_error(NGX_LOG_ERR, ngx_http_clojure_global_cycle->log, errno, "ngx clojure create worker_pipe at ngx_nonblocking(fds[0]) failed");
 		return -1;
 	}
 
-	if (ngx_nonblocking(nc_jvm_worker_pipe_fds[1]) == -1) {
+	if (ngx_nonblocking(fds[1]) == -1) {
 		ngx_log_error(NGX_LOG_ERR, ngx_http_clojure_global_cycle->log, errno, "ngx clojure: create worker_pipe at ngx_nonblocking(fds[1]) failed");
 		return -1;
 	}
@@ -3340,7 +3341,7 @@ static int ngx_http_clojure_pipe_close(ngx_socket_t fd) {
 
 }
 
-static ngx_int_t ngx_http_clojure_post_event(ngx_socket_t fd, void *e, size_t size) {
+ngx_int_t ngx_http_clojure_post_event(ngx_socket_t fd, void *e, size_t size) {
 	/*TODO: handle EGAIN*/
 	ngx_int_t wc;
 #if !(NGX_WIN32)
@@ -3392,9 +3393,8 @@ static ngx_int_t ngx_http_clojure_broadcast_event(void *e, size_t size, int has_
 #endif
 }
 
-#define ngx_http_clojure_mem_complex_event_buf_helper(buf, e, data, off, len) \
+#define ngx_http_clojure_mem_complex_event_buf_helper(buf, e, src, len) \
 	do { \
-		char *src = ngx_http_clojure_abs_off_addr(data, off); \
 		len = (int)(0xffffLL & e); \
 		if (len > (int)sizeof(buf) - 8) { \
 				len = sizeof(buf) - 8; \
@@ -3404,6 +3404,14 @@ static ngx_int_t ngx_http_clojure_broadcast_event(void *e, size_t size, int has_
 		memcpy(buf, &e, 8); \
 		memcpy(buf + 8, src, len); \
     }while(0)
+
+ngx_int_t ngx_http_clojure_mem_wakeup_event_loop() {
+	jlong e = 0;
+	if (nc_jvm_worker_pipe_fds[1]) {
+		return ngx_http_clojure_post_event(nc_jvm_worker_pipe_fds[1], &e, 8);
+	}
+	return 1;
+}
 
 static jlong JNICALL jni_ngx_http_clojure_mem_post_event(JNIEnv *env, jclass cls, jlong e, jobject data, jlong off) {
 	/*sizeof(jlong) is zero on win32 vc2010, so we have to use const 8*/
@@ -3415,7 +3423,7 @@ static jlong JNICALL jni_ngx_http_clojure_mem_post_event(JNIEnv *env, jclass cls
 	    char buf[4096];
 #endif
 		int len;
-		ngx_http_clojure_mem_complex_event_buf_helper(buf, e, data, off, len);
+		ngx_http_clojure_mem_complex_event_buf_helper(buf, e, ngx_http_clojure_abs_off_addr(data, off), len);
 		rc = ngx_http_clojure_post_event(nc_jvm_worker_pipe_fds[1], buf, len + 8);
 		log_debug2(ngx_http_clojure_global_cycle->log, "ngx clojure: ngx clojure post event %" PRIu64 ", rc:%d", e,  rc);
 	}else {
@@ -3436,7 +3444,7 @@ static jlong JNICALL jni_ngx_http_clojure_mem_broadcast_event(JNIEnv *env, jclas
 	    char buf[4096];
 #endif
 		int len;
-		ngx_http_clojure_mem_complex_event_buf_helper(buf, e, data, off, len);
+		ngx_http_clojure_mem_complex_event_buf_helper(buf, e, ngx_http_clojure_abs_off_addr(data, off), len);
 		rc = ngx_http_clojure_broadcast_event(buf, len + 8, (int)has_self);
 		log_debug2(ngx_http_clojure_global_cycle->log, "ngx clojure: ngx clojure broadcast event %" PRIu64 ", rc:%d", e,  rc);
 	}else {
@@ -3553,6 +3561,33 @@ int ngx_http_clojure_pipe_init_by_master(int workers) {
 	}
 #else
 	nc_ngx_workers = workers;
+#endif
+	return NGX_OK;
+}
+
+int ngx_http_clojure_pipe_exit_by_master() {
+#if !(NGX_WIN32)
+	int s = 0;
+	int i = 0;
+	for (i = 0; i < nc_ngx_workers; i++) {
+		for (; s < ngx_last_process; s++) {
+			if (ngx_processes[s].pid == -1) {
+				break;
+			}
+		}
+		if (nc_ngx_worker_pipes_fds[s][0]) {
+			ngx_http_clojure_pipe_close(nc_ngx_worker_pipes_fds[s][0]);
+			ngx_http_clojure_pipe_close(nc_ngx_worker_pipes_fds[s][1]);
+			nc_ngx_worker_pipes_fds[s][0] = 0;
+			nc_ngx_worker_pipes_fds[s][1] = 0;
+		}
+		s++;
+	}
+#else
+	if (nc_jvm_worker_pipe_fds[0]) {
+		ngx_http_clojure_pipe_close(nc_jvm_worker_pipe_fds[0]);
+		ngx_http_clojure_pipe_close(nc_jvm_worker_pipe_fds[1]);
+	}
 #endif
 	return NGX_OK;
 }
@@ -3834,6 +3869,9 @@ int ngx_http_clojure_init_memory_util(ngx_http_core_srv_conf_t *cscf, ngx_http_c
 	nc_rt_init_mid = (*env)->GetStaticMethodID(env, nc_rt_class,"initMemIndex", "(J)V");
 	exception_handle(nc_rt_init_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 
+	nc_rt_destory_mid = (*env)->GetStaticMethodID(env, nc_rt_class,"destoryMemIndex", "()V");
+	exception_handle(nc_rt_destory_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+
 	nc_rt_handle_post_event_mid = (*env)->GetStaticMethodID(env, nc_rt_class,"handlePostEvent", "(JJ)I");
 	exception_handle(nc_rt_handle_post_event_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 
@@ -3848,6 +3886,22 @@ int ngx_http_clojure_init_memory_util(ngx_http_core_srv_conf_t *cscf, ngx_http_c
 	return ngx_http_clojure_init_memory_util_flag = NGX_HTTP_CLOJURE_JVM_OK;
 }
 
+int ngx_http_clojure_destroy_memory_util(ngx_log_t *log) {
+	JNIEnv *env;
+	ngx_http_clojure_get_env(&jvm_env);
+
+	if (jvm_env == NULL) {
+		return NGX_HTTP_CLOJURE_JVM_ERR_INIT_SOCKETAPI;
+	}
+
+	ngx_http_clojure_init_memory_util_flag = NGX_HTTP_CLOJURE_JVM_ERR;
+
+	env = jvm_env;
+	(*env)->CallStaticVoidMethod(env, nc_rt_class, nc_rt_destory_mid);
+	exception_handle(1, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+
+	return 0;
+}
 
 
 

@@ -90,6 +90,8 @@ typedef jint (*jni_createvm_pt)(JavaVM **pvm, void **penv, void *args);
 #define ngx_http_clojure_abs_addr(jobj) \
 		(jobj ? (void *)((char *)(*(uintptr_t*)jobj)) : (void *)(uintptr_t)0;
 
+extern int ngx_http_clojure_is_embeded_by_jse;
+
 int ngx_http_clojure_check_jvm();
 
 /*
@@ -97,6 +99,8 @@ int ngx_http_clojure_check_jvm();
  * if jvm has been successfully initialized already it will do nothing and just return NGX_HTTP_CLOJURE_JVM_OK
  */
 int ngx_http_clojure_init_jvm(char *jvm_path, char * *opts, size_t len);
+
+int ngx_http_clojure_init_by_jse_app(JNIEnv *env);
 
 int ngx_http_clojure_get_env(JNIEnv **penv);
 

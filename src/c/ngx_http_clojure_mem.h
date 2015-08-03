@@ -7,7 +7,9 @@
 
 #include <nginx.h>
 #include <ngx_http.h>
+#if (NGX_HAVE_SHA1)
 #include <ngx_sha1.h>
+#endif
 
 
 
@@ -505,11 +507,17 @@ int ngx_http_clojure_check_memory_util();
 
 int ngx_http_clojure_pipe_init_by_master(int workers);
 
+int ngx_http_clojure_pipe_exit_by_master();
+
+ngx_int_t ngx_http_clojure_mem_wakeup_event_loop();
 
 /*
  *
  */
 int ngx_http_clojure_init_memory_util(ngx_http_core_srv_conf_t *cscf, ngx_http_clojure_main_conf_t  *mcf, ngx_log_t *log);
+
+int ngx_http_clojure_destroy_memory_util(ngx_log_t *log);
+
 
 int ngx_http_clojure_register_script(ngx_int_t phase, ngx_str_t *handler_type,
 		ngx_str_t *handler, ngx_str_t *code, ngx_array_t *pros, ngx_int_t *pcid);

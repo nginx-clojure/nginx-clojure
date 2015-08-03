@@ -45,6 +45,8 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 
 static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle);
 
+static void ngx_http_clojure_module_exit(ngx_cycle_t *cycle);
+
 static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle);
 
 static void ngx_http_clojure_process_exit(ngx_cycle_t *cycle);
@@ -471,7 +473,7 @@ ngx_module_t  ngx_http_clojure_module = {
     NULL,                          /* init thread */
     NULL,                          /* exit thread */
     ngx_http_clojure_process_exit, /* exit process */
-    NULL,                          /* exit master */
+    ngx_http_clojure_module_exit,  /* exit master */
     NGX_MODULE_V1_PADDING
 };
 
@@ -517,8 +519,16 @@ static void * ngx_http_clojure_create_main_conf(ngx_conf_t *cf) {
 	if (conf == NULL) {
 		return NGX_CONF_ERROR;
 	}
-	conf->jvm_path.len = NGX_CONF_UNSET_SIZE;
-	conf->jvm_options = NGX_CONF_UNSET_PTR;
+
+	if (ngx_http_clojure_is_embeded_by_jse) {
+		conf->jvm_disable_all = 0;
+		conf->jvm_path.data = (u_char*)"auto";
+		conf->jvm_path.len = sizeof("auto") - 1;
+	}else {
+		conf->jvm_path.len = NGX_CONF_UNSET_SIZE;
+		conf->jvm_options = NGX_CONF_UNSET_PTR;
+	}
+
 	conf->jvm_workers = NGX_CONF_UNSET;
 	conf->max_balanced_tcp_connections = NGX_CONF_UNSET;
 	conf->jvm_init_handler_id = conf->jvm_exit_handler_id = -1;
@@ -843,6 +853,17 @@ static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
 	return NGX_OK;
 }
 
+static void ngx_http_clojure_module_exit(ngx_cycle_t *cycle) {
+#if !(NGX_WIN32)
+	ngx_shm_free(&ngx_http_clojure_shared_memory);
+#else
+	ngx_http_clojure_jvm_be_mad_times_ins = 0;
+	ngx_http_clojure_jvm_num_ins = 1;
+#endif
+	ngx_http_clojure_global_cycle = NULL;
+	ngx_http_clojure_pipe_exit_by_master();
+}
+
 #if defined(_WIN32) || defined(WIN32)
 static ngx_int_t ngx_http_clojure_quit_master(ngx_cycle_t *cycle) {
 	u_long n;
@@ -914,6 +935,8 @@ static void ngx_http_clojure_process_exit(ngx_cycle_t *cycle) {
 		}
 	}
 
+	ngx_http_clojure_destroy_memory_util(cycle->log);
+	ngx_http_clojure_destory_socket_util();
 	ngx_http_clojure_close_jvm();
 }
 
@@ -1012,13 +1035,16 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 		return NGX_OK;
 	}
 
-	if (mcf->jvm_disable_all || mcf->jvm_path.len == NGX_CONF_UNSET_SIZE) {
+	if (!ngx_http_clojure_is_embeded_by_jse
+			&& (mcf->jvm_disable_all || mcf->jvm_path.len == NGX_CONF_UNSET_SIZE) ) {
 		return NGX_OK;
 	}
 
 
 #if !(NGX_WIN32)
-	ngx_setproctitle("worker process");
+	if (!ngx_http_clojure_is_embeded_by_jse) {
+		ngx_setproctitle("worker process");
+	}
 #else
 	ngx_http_clojure_jvm_be_mad_times = &ngx_http_clojure_jvm_be_mad_times_ins;
 	ngx_http_clojure_jvm_num = &ngx_http_clojure_jvm_num_ins;
@@ -1144,7 +1170,7 @@ static ngx_int_t   ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 #endif
 	}
 
-	if (mcf->jvm_options == NGX_CONF_UNSET_PTR) {
+	if (!ngx_http_clojure_is_embeded_by_jse && mcf->jvm_options == NGX_CONF_UNSET_PTR) {
 		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "no jvm_options configured!");
 		return NGX_ERROR ;
 	}

@@ -155,4 +155,6 @@ int ngx_http_clojure_socket_upstream_shutdown(ngx_http_clojure_socket_upstream_t
 /*for jni init*/
 int ngx_http_clojure_init_socket_util();
 
+void ngx_http_clojure_destory_socket_util();
+
 #endif /* NGX_HTTP_CLOJURE_SOCKET_H_ */

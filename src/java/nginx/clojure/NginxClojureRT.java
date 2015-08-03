@@ -375,7 +375,7 @@ public class NginxClojureRT extends MiniConstants {
 					savePostEventData(r, ctx);
 					ngx_http_clojure_mem_post_event(r, null, 0);
 				} catch (InterruptedException e) {
-					log.error("interrupted!", e);
+					log.warn("jvm workers dispather has been interrupted!");
 					break;
 				} catch (ExecutionException e) {
 					log.error("unexpected ExecutionException!", e);
@@ -391,13 +391,14 @@ public class NginxClojureRT extends MiniConstants {
 			try {
 				Thread.sleep(0);
 			} catch (InterruptedException e) {
-				log.error("interrupted!", e);
+				Thread.currentThread().interrupt();
+				log.warn("savePostEventData interrupted!");
 				return;
 			}
 		}
 	}
 	
-	public static void initWorkers(int n) {
+	private static void initWorkers(int n) {
 		
 		if (JavaAgent.db != null) {
 			if (JavaAgent.db.isDoNothing()) {
@@ -475,6 +476,18 @@ public class NginxClojureRT extends MiniConstants {
 		eventDispather.submit(new EventDispatherRunnable(workers));
 	}
 	
+	private static void destoryWorkers() {
+		if (workerExecutorService != null) {
+			workerExecutorService.shutdownNow();
+		}
+		if (eventDispather != null) {
+			eventDispather.shutdownNow();
+		}
+		if (threadPoolOnlyForTestingUsage != null) {
+			threadPoolOnlyForTestingUsage.shutdownNow();
+		}
+	}
+	
 	public static synchronized ExecutorService initThreadPoolOnlyForTestingUsage() {
 		if (threadPoolOnlyForTestingUsage == null) {
 			threadPoolOnlyForTestingUsage = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()+2, new ThreadFactory() {
@@ -505,7 +518,7 @@ public class NginxClojureRT extends MiniConstants {
 			}
 	}
 	
-	public static synchronized void initMemIndex(long idxpt) {
+	private static synchronized void initMemIndex(long idxpt) {
 		getLog();
 		initUnsafe();
 		
@@ -749,6 +762,11 @@ public class NginxClojureRT extends MiniConstants {
 		System.setProperty(NginxHandlerFactory.NGINX_CLOJURE_HANDLER_FACTORY_SYSTEM_PROPERTY_PREFIX + "java", "nginx.clojure.java.NginxJavaHandlerFactory");
 		System.setProperty(NginxHandlerFactory.NGINX_CLOJURE_HANDLER_FACTORY_SYSTEM_PROPERTY_PREFIX + "clojure", "nginx.clojure.clj.NginxClojureHandlerFactory");
 		System.setProperty(NginxHandlerFactory.NGINX_CLOJURE_HANDLER_FACTORY_SYSTEM_PROPERTY_PREFIX + "groovy", "nginx.clojure.groovy.NginxGroovyHandlerFactory");
+	}
+	
+	private static synchronized void destoryMemIndex() {
+		destoryWorkers();
+		MEM_INDEX = null;
 	}
 
 	public static void initUnsafe() {
@@ -1141,6 +1159,9 @@ public class NginxClojureRT extends MiniConstants {
 	private final static byte[] POST_EVENT_BUF = new byte[4096];
 	
 	public static int handlePostEvent(long event, byte[] body, long off) {
+		if (event == 0) { //event loop wake up event
+			return NGX_OK;
+		}
 		int tag = (int)((0xff00000000000000L & event) >>> 56);
 		long data = event & 0x00ffffffffffffffL;
 		if (tag <= POST_EVENT_TYPE_SYSTEM_EVENT_IDX_END) {
