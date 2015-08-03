@@ -195,7 +195,11 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		if (log.isDebugEnabled()) {
 			log.debug("socket#%d: connecting to %s:%d", as.s , host, port);
 		}
-		as.connect(new StringBuilder(host).append(':').append(port).toString());
+		if (port > 0) {
+			as.connect(new StringBuilder(host).append(':').append(port).toString());
+		}else {
+			as.connect(host);
+		}
 		if (!as.isConnected()) {
 			yieldFlag = YIELD_CONNECT;
 			if (log.isTraceEnabled()) {
@@ -234,8 +238,13 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		if (address == null || !(address instanceof InetSocketAddress))
 			throw new IllegalArgumentException("unsupported address type");
 		InetSocketAddress addr = (InetSocketAddress) address;
-		if (addr.isUnresolved())
+		if (addr.isUnresolved()) {
+			if (addr.getHostName().startsWith("unix:")) {
+				connect(addr.getHostName(), -1);
+				return;
+			}
 			throw new UnknownHostException(addr.getHostName());
+		}
 		this.port = addr.getPort();
 		this.address = addr.getAddress();
 		connect(this.address, this.port);
