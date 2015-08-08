@@ -1013,6 +1013,16 @@
            (debug-println "===================/java-ws/echo=======================")
            (ws/send-msg ws-client msg)
            (is (= msg @result))))
+  (testing "/java-ws/nu-echo"
+         (let [base (str "ws://" *host* ":" *port* "/java-ws/nu-echo")
+               msg "hello, nginx-clojure & websocket!"
+               result (promise)
+               ws-client (ws/connect base
+                                     :on-receive #(deliver result %))
+               ]
+           (debug-println "===================/java-ws/nu-echo=======================")
+           (ws/send-msg ws-client msg)
+           (is (= msg @result))))  
   (testing "/ringCompojure/ws-echo"
          (let [base (str "ws://" *host* ":" *port* "/ringCompojure/ws-echo")
                msg "hello, nginx-clojure & websocket!"

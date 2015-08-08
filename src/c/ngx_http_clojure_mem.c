@@ -956,6 +956,11 @@ ngx_http_header_filter(ngx_http_request_t *r)
         r->header_only = 1;
     }
 
+    if (r->err_status) {
+		r->headers_out.status = r->err_status;
+		r->headers_out.status_line.len = 0;
+	}
+
     if (r->headers_out.last_modified_time != -1) {
         if (r->headers_out.status != NGX_HTTP_OK
             && r->headers_out.status != NGX_HTTP_PARTIAL_CONTENT
@@ -1988,6 +1993,7 @@ static void nji_ngx_http_clojure_hijack_write_handler(ngx_http_request_t *r) {
 ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
 #if (NGX_HAVE_SHA1)
 	ngx_http_clojure_module_ctx_t *ctx;
+	ngx_int_t rc = NGX_OK;
 	ngx_table_elt_t *key = NULL;
 	ngx_table_elt_t *accept;
 	ngx_table_elt_t *cver = NULL;
@@ -1997,19 +2003,35 @@ ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
     sha1_val.len = sizeof(degest) - 1;
     sha1_val.data = (u_char *) degest;
 
-	ngx_http_clojure_add_const_header(r->headers_out.headers, "Sec-WebSocket-Version", "13");
+    ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
 
+    if (r->header_sent) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "header was already sent, auto_upgrade_ws is on?");
+        if (ctx->wsctx) {
+        	return NGX_OK;
+        }
+        rc = NGX_HTTP_BAD_REQUEST;
+        goto UPGRADE_DONE;
+    }
+
+    if (r->method != NGX_HTTP_GET || r->headers_in.upgrade == NULL
+    			|| ngx_strcasecmp(r->headers_in.upgrade->value.data, (u_char*)"websocket") != 0) {
+    	rc = NGX_HTTP_BAD_REQUEST;
+    	goto UPGRADE_DONE;
+    }
+
+	ngx_http_clojure_add_const_header(r->headers_out.headers, "Sec-WebSocket-Version", "13");
 
 	ngx_http_clojure_get_header(r->headers_in.headers, "Sec-WebSocket-Version", cver);
 	if (cver == NULL || ngx_atoi(cver->value.data, cver->value.len) != 13) {
-		r->headers_out.status = NGX_HTTP_BAD_REQUEST;
-		return ngx_http_clojure_hijack_send_header(r, 0);
+		rc = NGX_HTTP_BAD_REQUEST;
+		goto UPGRADE_DONE;
 	}
 
 	ngx_http_clojure_get_header(r->headers_in.headers, "Sec-WebSocket-Key", key);
 	if (key == NULL) {
-		r->headers_out.status = NGX_HTTP_BAD_REQUEST;
-		return ngx_http_clojure_hijack_send_header(r, 0);
+		rc = NGX_HTTP_BAD_REQUEST;
+		goto UPGRADE_DONE;
 	}
 
 	r->headers_out.status = NGX_HTTP_SWITCHING_PROTOCOLS;
@@ -2029,22 +2051,36 @@ ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
 
     ngx_encode_base64(&accept->value, &sha1_val);
 
-    ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
     if (ctx->wsctx == NULL) {
     	ctx->wsctx = ngx_pcalloc(r->pool, sizeof(ngx_http_clojure_websocket_ctx_t));
     	ctx->wsctx->ffm = 1;
     	ctx->wsctx->fin = 1;
     }
 
-    return ngx_http_clojure_hijack_send_header(r, 0);
+    rc = ngx_http_clojure_hijack_send_header(r, 0);
+
+UPGRADE_DONE:
+    if (ctx->hijacked_or_async) {
+        if (rc == NGX_HTTP_BAD_REQUEST) {
+        	ngx_http_finalize_request(r, NGX_HTTP_BAD_REQUEST);
+        }
+    }
+    return rc;
 #else
-    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "nginx-clojure websocket support need compile config option --with-http_ssl_module");
+    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "nginx-clojure websocket support need SHA1 enabled");
     return NGX_ERROR;
 #endif
 }
 
-static jlong JNICALL jni_ngx_http_clojure_websocket_upgrade(JNIEnv *env, jclass cls, jlong req) {
-	return ngx_http_clojure_websocket_upgrade((ngx_http_request_t *)(uintptr_t)req);
+static jlong JNICALL jni_ngx_http_clojure_websocket_upgrade(JNIEnv *env, jclass cls, jlong req, jint flag) {
+	ngx_http_request_t * r = (ngx_http_request_t *)(uintptr_t)req;
+	if (!flag) {
+		if (r->headers_in.upgrade == NULL
+    			|| ngx_strcasecmp(r->headers_in.upgrade->value.data, (u_char*)"websocket") != 0) {
+			return NGX_HTTP_BAD_REQUEST;
+		}
+	}
+	return ngx_http_clojure_websocket_upgrade(r);
 }
 
 /**
@@ -2236,8 +2272,11 @@ ngx_int_t ngx_http_clojure_hijack_send_header(ngx_http_request_t *r, ngx_int_t f
 			if (c->destroyed) {
 				return NGX_OK; /*TODO: return NGX_DONE?*/
 			}
+			if (rc == NGX_ERROR) {
+				return rc;
+			}
 			if (rc != NGX_OK) {
-				ngx_http_finalize_request(r, rc);
+				if (ctx->hijacked_or_async) ngx_http_finalize_request(r, rc);
 				return rc;
 			}
 			if (ctx->wsctx) {
@@ -2247,7 +2286,7 @@ ngx_int_t ngx_http_clojure_hijack_send_header(ngx_http_request_t *r, ngx_int_t f
 
 		return rc;
 	}else {
-		ngx_http_finalize_request(r, rc);
+		if (ctx->hijacked_or_async) ngx_http_finalize_request(r, rc);
 		return rc;
 	}
 }
@@ -3137,10 +3176,15 @@ static jlong JNICALL jni_ngx_http_clojure_mem_set_variable(JNIEnv *env, jclass c
 
 static jlong JNICALL jni_ngx_http_clojure_mem_inc_req_count(JNIEnv *env, jclass cls, jlong req, jlong detal) {
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t) req;
+	ngx_http_clojure_module_ctx_t *ctx;
 	int n = 0;
+	ngx_http_clojure_get_ctx(r, ctx);
 	if (r->pool) {
 		jlong old = n = r->main->count;
 		n += (int)detal;
+		if (detal == 1) {
+			ctx->hijacked_or_async = 1;
+		}
 		r->main->count = n;
 		return old;
 	}
@@ -3587,6 +3631,7 @@ int ngx_http_clojure_pipe_exit_by_master() {
 	if (nc_jvm_worker_pipe_fds[0]) {
 		ngx_http_clojure_pipe_close(nc_jvm_worker_pipe_fds[0]);
 		ngx_http_clojure_pipe_close(nc_jvm_worker_pipe_fds[1]);
+		nc_jvm_worker_pipe_fds[0] = nc_jvm_worker_pipe_fds[1] = 0;
 	}
 #endif
 	return NGX_OK;
@@ -3659,7 +3704,7 @@ int ngx_http_clojure_init_memory_util(ngx_http_core_srv_conf_t *cscf, ngx_http_c
 			{"ngx_http_hijack_send_chain", "(JJI)J", jni_ngx_http_hijack_send_chain},
 			{"ngx_http_hijack_set_async_timeout", "(JJ)V", jni_ngx_http_hijack_set_async_timeout},
 			{"ngx_http_clojure_add_listener", "(JLnginx/clojure/ChannelListener;Ljava/lang/Object;I)J", jni_ngx_http_clojure_add_listener},
-			{"ngx_http_clojure_websocket_upgrade", "(J)J", jni_ngx_http_clojure_websocket_upgrade},
+			{"ngx_http_clojure_websocket_upgrade", "(JI)J", jni_ngx_http_clojure_websocket_upgrade},
 			{"ngx_http_hijack_turn_on_event_handler", "(JI)V", jni_ngx_http_hijack_turn_on_event_handler},
 			{"ngx_http_hijack_read", "(JLjava/lang/Object;JJ)J", jni_ngx_http_hijack_read},
 			{"ngx_http_hijack_write", "(JLjava/lang/Object;JJ)J", jni_ngx_http_hijack_write},

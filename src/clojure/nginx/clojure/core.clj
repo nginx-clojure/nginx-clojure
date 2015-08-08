@@ -98,6 +98,10 @@
       the value of :on-close is a function like (fn[ch reason]...)
       the value of :on-error is a function like (fn[ch status])
      ")
+  (websocket-upgrade! [ch send-err-for-nonwebsocekt?]
+   "Send upgrade headers and return true if upgrade success
+    If `send-err-for-nonwebsocekt?` is true it will send error response.
+   ")
   (on-close! [ch attachment listener]
     "Add a close event listener.
      `attachement is a  object which will be passed to listener when close event happens
@@ -175,6 +179,8 @@
                           (onClose ;([c] (if on-close (on-close c "0")))
                                    ([c status reason] (if on-close (on-close c (str status ":" reason)))))
                           (onError [c status] (if on-error (on-error c (NginxClojureAsynSocket/errorCodeToString status)))))))
+  (websocket-upgrade! [ch send-err-for-nonwebsocekt?]
+    (.webSocketUpgrade ch ^boolean send-err-for-nonwebsocekt?))
   (get-context [ch]
     (.getContext ch))
   (set-context! [ch ctx]

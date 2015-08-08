@@ -1177,7 +1177,7 @@ static ngx_int_t ngx_http_clojure_auto_detect_jvm(ngx_conf_t *cf) {
 #endif
 	p = result;
 	i = 0;
-	while (i < sizeof(result)-1 && ((c = fgetc(fd)) != EOF) && c != '\r' && c != '\n') {
+	while (i < (int)sizeof(result)-1 && ((c = fgetc(fd)) != EOF) && c != '\r' && c != '\n') {
 		*p++ = c;
 		i++;
 	}
@@ -1235,7 +1235,7 @@ static ngx_int_t ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 		return NGX_ERROR ;
 	}
 
-	if (!ngx_strcmp(mcf->jvm_path.data, "auto")) {
+	if (!ngx_http_clojure_is_embeded_by_jse && !ngx_strcmp(mcf->jvm_path.data, "auto")) {
 		if (ngx_http_clojure_auto_detect_jvm(cf) != NGX_OK) {
 			ngx_log_error(NGX_LOG_ERR, cf->log, 0, "can not find installed JRE/JDK");
 			return NGX_ERROR;
@@ -1343,6 +1343,8 @@ static ngx_int_t ngx_http_clojure_content_handler(ngx_http_request_t * r) {
 
 			ngx_http_clojure_init_ctx(ctx, -1, r);
 			ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
+	}else {
+	   ctx->hijacked_or_async = 0;
 	}
 
     if (lcf->always_read_body || (r->method & (NGX_HTTP_POST | NGX_HTTP_PUT | NGX_HTTP_PATCH))) {
@@ -1363,10 +1365,7 @@ static ngx_int_t ngx_http_clojure_content_handler(ngx_http_request_t * r) {
     	}
     }else {
 
-    	if (r->method == NGX_HTTP_GET
-    			&& r->headers_in.upgrade != NULL
-    			&& ngx_strcasecmp(r->headers_in.upgrade->value.data, (u_char*)"websocket") == 0
-    			&& lcf->auto_upgrade_ws) {
+    	if (lcf->auto_upgrade_ws) {
     		rc = ngx_http_clojure_websocket_upgrade(r);
     		if (rc != NGX_OK) {
     			return rc;
@@ -1466,6 +1465,7 @@ static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t *r) {
 				"ngx clojure rewrite (enter again) request: %" PRIu64 ", rc: %d", (jlong )(uintptr_t )r, NGX_DECLINED);
 		return ctx->phase_rc;
 	}else {
+	    ctx->hijacked_or_async = 0;
 		ctx->phase = NGX_HTTP_REWRITE_PHASE;
 		rc = ngx_http_clojure_eval(lcf->rewrite_handler_id, r, 0);
 		if (rc != NGX_DONE) {
@@ -1525,6 +1525,7 @@ static ngx_int_t ngx_http_clojure_access_handler(ngx_http_request_t * r) {
 				"ngx clojure access (enter again) request: %" PRIu64 ", rc: %d", (jlong )(uintptr_t )r, NGX_DECLINED);
 		return ctx->phase_rc;
 	}else {
+	    ctx->hijacked_or_async = 0;
 		ctx->phase = NGX_HTTP_ACCESS_PHASE;
 		rc = ngx_http_clojure_eval(lcf->access_handler_id, r, 0);
 		if (rc != NGX_DONE) {

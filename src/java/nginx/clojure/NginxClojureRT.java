@@ -208,7 +208,16 @@ public class NginxClojureRT extends MiniConstants {
 		}
 	}
 	
-	public native static long ngx_http_clojure_websocket_upgrade(long req);
+	public static long ngx_http_clojure_websocket_upgrade(long req) {
+		return ngx_http_clojure_websocket_upgrade(req, 1);
+	}
+	
+	/**
+	 * flag can be either of 
+	 * 0 do nothing for non-websocket request
+	 * 1 error for non-websocket request
+	 */
+	public native static long ngx_http_clojure_websocket_upgrade(long req, int flag);
 	
 	/**
 	 * flag can be either of or combined of

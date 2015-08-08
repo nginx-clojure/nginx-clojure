@@ -29,12 +29,12 @@
 #include <inttypes.h>
 #endif
 
-#define nginx_clojure_ver  4000 /*0.4.0*/
+#define nginx_clojure_ver  4001 /*0.4.0*/
 
 /*the least jar version required*/
-#define nginx_clojure_required_rt_lver 4000
+#define nginx_clojure_required_rt_lver 4001
 
-#define NGINX_CLOJURE_VER_NUM_STR "0.4.0"
+#define NGINX_CLOJURE_VER_NUM_STR "0.4.1"
 
 #define NGINX_CLOJURE_VER "nginx-clojure/" NGINX_CLOJURE_VER_NUM_STR
 
@@ -160,6 +160,7 @@ typedef struct {
 	unsigned wait_for_header_filter : 1;
 	unsigned pending_body_filter : 1;
 	unsigned ignore_next_response : 1;
+	unsigned hijacked_or_async : 1;
 #define NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_READ 1
 #define NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_WRITE 2
 #define NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_NOKEEPALIVE 4
@@ -184,6 +185,7 @@ typedef struct {
 		ctx->wait_for_header_filter = 0 ;\
 		ctx->pending_body_filter = 0 ; \
 		ctx->ignore_next_response = 0; \
+		ctx->hijacked_or_async = 0; \
 		ctx->event_handler_flag = 0; \
 		ctx->wsctx = 0; \
 		ctx->listeners = 0; \

@@ -10,15 +10,18 @@ import java.net.Socket;
 import java.util.Collections;
 import java.util.Map;
 
+import nginx.clojure.Configurable;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.java.ArrayMap;
 import nginx.clojure.java.Constants;
 import nginx.clojure.java.NginxJavaRingHandler;
 import nginx.clojure.logger.LoggerService;
 
-public class SimpleHandler4TestNginxClojureSocket implements NginxJavaRingHandler {
+public class SimpleHandler4TestNginxClojureSocket implements NginxJavaRingHandler, Configurable {
 
 	static LoggerService log;
+	String host = "www.apache.org";
+	int port = 80;
 	
 	public SimpleHandler4TestNginxClojureSocket() {
 		if (log == null) {
@@ -26,12 +29,31 @@ public class SimpleHandler4TestNginxClojureSocket implements NginxJavaRingHandle
 		}
 	}
 	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.Configurable#config(java.util.Map)
+	 */
+	@Override
+	public void config(Map<String, String> properties) {
+		if (properties.get("url") != null) {
+			String url = properties.get("url");
+			if (url.startsWith("unix:")) {
+				host = url;
+				port = 0;
+			}else {
+				String[] a = url.split(":");
+				host = a[0];
+				port = Integer.parseInt(a[1]);
+			}
+		}
+	}
+
+	
 	@Override
 	public Object[] invoke(Map<String, Object> request) {
 		Socket socket = new Socket();
 		try {
 			//http://www.apache.org/apache/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt
-			InetSocketAddress inetSocketAddress = new InetSocketAddress("www.apache.org", 80);
+			InetSocketAddress inetSocketAddress = new InetSocketAddress(host, port);
 			socket.setSoTimeout(50000);
 			socket.setTcpNoDelay(true);
 			socket.setKeepAlive(true);
@@ -42,10 +64,12 @@ public class SimpleHandler4TestNginxClojureSocket implements NginxJavaRingHandle
 			log.info("fininsh connect");
 			OutputStream out = socket.getOutputStream();
 //			out.write("GET /ubuntu/dists/trusty/Release HTTP/1.1\r\nUser-Agent: nginx-clojure/0.2.0\r\nHost: mirrors.163.com\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes());
-			out.write("GET /dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\nUser-Agent: nginx-clojure/0.2.5\r\nHost: www.apache.org\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes());
+			out.write("GET /dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt HTTP/1.1\r\nUser-Agent: nginx-clojure/0.4.1\r\nHost: www.apache.org\r\nAccept: */*\r\nConnection: close\r\n\r\n".getBytes());
 			out.flush();
 			log.info("fininsh request");
-//			socket.shutdownOutput();
+			if (host.startsWith("unix:")) {
+				socket.shutdownOutput();
+			}
 			InputStream in = socket.getInputStream();
 			ByteArrayOutputStream bos = new ByteArrayOutputStream();
 			byte[] buf = new byte[4096];
@@ -78,7 +102,6 @@ public class SimpleHandler4TestNginxClojureSocket implements NginxJavaRingHandle
 		bi.read(ba);
 		System.out.println(new String(ba));
 	}
-
 
 
 }

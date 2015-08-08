@@ -13,10 +13,13 @@ public class WSEcho implements NginxJavaRingHandler {
 	@Override
 	public Object[] invoke(Map<String, Object> request) {
 		NginxJavaRequest r = (NginxJavaRequest)request;
-		if (!r.isWebSocket()) {
-			return NginxJavaHandler.NOT_FOUND_RESPONSE;
-		}
 		NginxHttpServerChannel sc = r.hijack(true);
+		
+		//If we use nginx directive `auto_upgrade_ws on;`, these three lines can be omitted.
+		if (!sc.webSocketUpgrade(true)) {
+			return null;
+		}
+		
 		sc.addListener(sc, new MessageAdapter<NginxHttpServerChannel>() {
 			int total = 0;
 			@Override

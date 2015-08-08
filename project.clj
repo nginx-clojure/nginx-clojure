@@ -7,9 +7,7 @@
                  ]
   :plugins [[lein-junit "1.1.7"]
             ;[venantius/ultra "0.1.9"]
-            [lein-sub "0.3.0"]
             ]
-  :sub ["nginx-tomcat8"]
   ;; CLJ source code path
   :source-paths ["src/clojure"]
   :target-path "target/"

@@ -16,6 +16,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 
 import nginx.clojure.java.NginxJavaResponse;
 import nginx.clojure.net.NginxClojureAsynSocket;
@@ -580,6 +583,27 @@ public class NginxHttpServerChannel implements Closeable {
 			});
 		}else {
 			NginxClojureRT.ngx_http_hijack_set_async_timeout(request.nativeRequest(), asyncTimeout);
+		}
+	}
+	
+	public boolean webSocketUpgrade(final boolean sendErrorForNonWebSocket) {
+		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
+			FutureTask<Boolean> task = new FutureTask<Boolean>(new Callable<Boolean>() {
+				@Override
+				public Boolean call() throws Exception {
+					return NginxClojureRT.ngx_http_clojure_websocket_upgrade(request.nativeRequest(), sendErrorForNonWebSocket ? 1 : 0) == 0;
+				}
+			});
+			NginxClojureRT.postPollTaskEvent(task);
+			try {
+				return task.get();
+			} catch (InterruptedException e) {
+				throw new RuntimeException("webSocketUpgrade  Interrupted", e);
+			} catch (ExecutionException e) {
+				throw new RuntimeException("webSocketUpgrade  Execution error", e.getCause());
+			}
+		}else {
+			return NginxClojureRT.ngx_http_clojure_websocket_upgrade(request.nativeRequest(), sendErrorForNonWebSocket ? 1 : 0) == 0;
 		}
 	}
 }
