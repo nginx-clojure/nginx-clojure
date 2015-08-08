@@ -13,36 +13,35 @@ NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
     $ngx_addon_dir/ngx_http_clojure_socket.h \
 "
 
-#linux ubuntu
-JNI_HEADER_1="/usr/lib/jvm/java-7-oracle/include"
-JNI_HEADER_2="${JNI_HEADER_1}/linux"
+USE_SHA1=YES
 
-#linux centos
-#JNI_HEADER_1="/usr/java/jdk1.6.0_45/include"
-#JNI_HEADER_2="${JNI_HEADER_1}/linux"
+if [ "$JNI_INCS_INCLUDED" != "YES" ]; then
+	if [ -z "$JNI_INCS" ]; then
+		##check jdk
+		if ! type javac; then
+			echo "javac not found, please put it in your PATH"
+			exit 1
+		fi
+		
+		if ! type java; then
+			echo "java not found, please put it in your PATH"
+			exit 1
+		fi
+		
+		javac $ngx_addon_dir/../java/nginx/clojure/DiscoverJvm.java
+		
+		if [ -z $JNI_INCS ]; then
+		  JNI_INCS=`java -classpath $ngx_addon_dir/../java nginx.clojure.DiscoverJvm getJniIncludes`;
+		fi
+	fi
+	CFLAGS="$JNI_INCS $CFLAGS"
+fi
 
-#linux centos 32
-#JNI_HEADER_1="/usr/java/jdk1.7.0_51/include"
-#JNI_HEADER_2="${JNI_HEADER_1}/linux"
-
-
-#windows
-#JNI_HEADER_1="C:/Program Files/Java/jdk1.7.0_25/include"
-#JNI_HEADER_2="${JNI_HEADER_1}/win32"
-
-
-#macosx
-#JNI_HEADER_1="/Library/Java/JavaVirtualMachines/1.6.0_65-b14-462.jdk/Contents/headers"
-#JNI_HEADER_2="${JNI_HEADER_1}/darwin"
-
-CFLAGS="-I \"${JNI_HEADER_1}\" \
-        -I \"${JNI_HEADER_2}\" \
-        -DNGX_CLOJURE_BE_SILENT_WITHOUT_JVM  \
-        $CFLAGS"
+CFLAGS="-DNGX_CLOJURE_BE_SILENT_WITHOUT_JVM $CFLAGS"
 
 #for easy debug on linux or macosx  
-#CFLAGS="-g -O0 $CFLAGS"
+#CFLAGS="$CFLAGS -g -O0 "
 
-if [ "$NGX_PLATFORM" != win32 ]; then
+if [ "$NGX_PLATFORM" != win32 -a "$NGX_PLATFORM" != FreeBSD ]; then
 CORE_LIBS="$CORE_LIBS -ldl";
 fi

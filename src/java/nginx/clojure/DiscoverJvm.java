@@ -5,6 +5,8 @@
 package nginx.clojure;
 
 import java.io.File;
+import java.lang.reflect.Method;
+
 
 
 public class DiscoverJvm {
@@ -58,17 +60,44 @@ public class DiscoverJvm {
 			home = new File(home).getParent();
 		}
 		String incRoot = home + "/include";
-		StringBuilder sb = new StringBuilder("-I " + incRoot);
+		StringBuilder sb = new StringBuilder("-I \"" + incRoot+"\"");
 		for (File f : new File(incRoot).listFiles()) {
 			if (f.isDirectory()) {
-				sb.append(" -I ").append(f.getAbsolutePath());
+				sb.append(" -I \"").append(f.getAbsolutePath()+"\"");
 			}
 		}
 		return sb.toString(); 
 	}
 	
+	public static String detectOSArchExt() {
+		String os = System.getProperty("os.name").toLowerCase().replaceAll("\\s+", "");
+		String ext = ".so";
+		if (os.startsWith("windows")) {
+			os = "windows";
+			ext = ".dll";
+		}else if (os.equals("macosx")) {
+			ext = ".dylib";
+		}
+		String arc = System.getProperty("os.arch").toLowerCase();
+		if (arc.endsWith("amd64") || arc.endsWith("x86_64")) {
+			arc = "x64";
+		}
+		return os +"-"+ arc + ext;
+	}
+
 	public static void main(String[] args) {
-		System.out.println(getJvm());
+		if (args.length == 0) {
+			System.out.println(getJvm());
+			return;
+		}
+		try{
+			String arg = args[0];
+			Method m = DiscoverJvm.class.getMethod(arg);
+			System.out.println(m.invoke(null));
+		}catch(Throwable e) {
+			e.printStackTrace();
+		}
+
 	}
 
 }
