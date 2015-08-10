@@ -680,9 +680,9 @@
         
   )
 
-(deftest ^{:remote true :rewrite-handler true :keepalive true} test-rewrite-handler-keepalive
-  (client/with-connection-pool {:timeout 5 :threads 4 :insecure? false :default-per-route 10}
-    (test-rewrite-handler)))
+;(deftest ^{:remote true :rewrite-handler true :keepalive true} test-rewrite-handler-keepalive
+;  (client/with-connection-pool {:timeout 5 :threads 4 :insecure? false :default-per-route 10}
+;    (test-rewrite-handler)))
 
 (comment
   (deftest ^{:remote true :rewrite-handler true :keepalive true} test-rewrite-hijackbad0
@@ -1008,21 +1008,52 @@
                msg "hello, nginx-clojure & websocket!"
                result (promise)
                ws-client (ws/connect base
+                                     :on-error #(deliver result %)
+                                     :on-close (fn [c r] (deliver result (str c ":" r)))
                                      :on-receive #(deliver result %))
                ]
            (debug-println "===================/java-ws/echo=======================")
            (ws/send-msg ws-client msg)
-           (is (= msg @result))))
+           (is (= msg @result))
+           (ws/close ws-client)))
   (testing "/java-ws/nu-echo"
          (let [base (str "ws://" *host* ":" *port* "/java-ws/nu-echo")
                msg "hello, nginx-clojure & websocket!"
                result (promise)
                ws-client (ws/connect base
+                                     :on-error #(deliver result %)
+                                     :on-close (fn [c r] (deliver result (str c ":" r)))
                                      :on-receive #(deliver result %))
                ]
            (debug-println "===================/java-ws/nu-echo=======================")
            (ws/send-msg ws-client msg)
-           (is (= msg @result))))  
+           (is (= msg @result))
+           (ws/close ws-client)))  
+  (testing "/java-ws/wh-echo"
+         (let [base (str "ws://" *host* ":" *port* "/java-ws/wh-echo")
+               msg (clojure.string/join  (for [i (range 9216)] "a"))
+               result (promise)
+               ws-client (ws/connect base
+                                     :on-error #(deliver result %)
+                                     :on-close (fn [c r] (deliver result (str c ":" r)))
+                                     :on-receive #(deliver result %))
+               ]
+           (debug-println "===================/java-ws/wh-echo=======================")
+           (ws/send-msg ws-client msg)
+           (is (= msg @result))
+           (ws/close ws-client))
+         (let [base (str "ws://" *host* ":" *port* "/java-ws/wh-echo")
+               msg (clojure.string/join  (for [i (range 9217)] "a"))
+               result (promise)
+               ws-client (ws/connect base
+                                     :on-error #(deliver result %)
+                                     :on-close (fn [c r] (deliver result (str c ":" r)))
+                                     :on-receive #(deliver result %))
+               ]
+           (debug-println "===================/java-ws/wh-echo=======================")
+           (ws/send-msg ws-client msg)
+           (is (= "1000:" @result))
+           (ws/close ws-client)))  
   (testing "/ringCompojure/ws-echo"
          (let [base (str "ws://" *host* ":" *port* "/ringCompojure/ws-echo")
                msg "hello, nginx-clojure & websocket!"
@@ -1044,12 +1075,13 @@
              ws-client (ws/connect base
                                      :on-error #(deliver result %)
                                      :on-close (fn [c r] (deliver result (str c ":" r)))
-                                   :on-receive #(deliver result %))
+                                     :on-receive #(deliver result %))
              ]
          (debug-println "===================/ringCompojure/ws-remote=======================")
          (ws/send-msg ws-client msg)
          (Thread/sleep 1000)
          (let [content (:body (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.2.x.txt"))]
+           (Thread/sleep 5000)
            (ws/close ws-client)
            (is (= content @result)))))
 )

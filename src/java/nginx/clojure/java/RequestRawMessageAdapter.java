@@ -82,7 +82,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 								l.onClose(en.getKey());
 							}
 						}catch(Throwable e) {
-							NginxClojureRT.log.error(String.format("#%d: onClose Error!", req.nativeRequest()), e);
+							NginxClojureRT.log.error(String.format("#%d: request %s onClose Error!", req.nativeRequest(), req.uri()), e);
 						}
 					}
 					req.tagReleased();
@@ -151,14 +151,14 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 								((MessageListener) l).onClose(en.getKey(), status, txt);
 							}
 						}catch(Throwable e) {
-							NginxClojureRT.log.error(String.format("#%d: onClose Error!", req.nativeRequest()), e);
+							NginxClojureRT.log.error(String.format("#%d: request %s onClose Error!", req.nativeRequest(), req.uri()), e);
 						}
 					}
 					if (req.channel() != null) {
 						try {
 							req.channel().close();
 						} catch (IOException e) {
-							NginxClojureRT.log.error(String.format("#%d: onClose Error!", req.nativeRequest()), e);
+							NginxClojureRT.log.error(String.format("#%d: request %s onClose Error!", req.nativeRequest(), req.uri()), e);
 						}
 					}else {
 						req.tagReleased();
@@ -205,7 +205,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 						try {
 							en.getValue().onConnect(status, req);
 						}catch(Throwable e) {
-							NginxClojureRT.log.error(String.format("#%d: onConnect Error!", req.nativeRequest()), e);
+							NginxClojureRT.log.error(String.format("#%d: request %s onConnect Error!", req.nativeRequest(), req.uri()), e);
 						}
 					}				
 				}
@@ -247,7 +247,13 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 						try {
 							en.getValue().onRead(status, en.getKey());
 						}catch(Throwable e) {
-							NginxClojureRT.log.error(String.format("#%d: onRead Error!", req.nativeRequest()), e);
+							NginxClojureRT.log.error(String.format("#%d: request %s onRead Error!", req.nativeRequest(), req.uri()), e);
+							try {
+								req.channel().close();
+							} catch (IOException e1) {
+								NginxClojureRT.log.error(String.format("#%d: request %s req.channel().close() Error!", req.nativeRequest(), req.uri()), e1);
+							}
+							return;
 						}
 					}		
 				}
@@ -289,7 +295,13 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 						try {
 							en.getValue().onWrite(status, en.getKey());
 						}catch(Throwable e) {
-							NginxClojureRT.log.error(String.format("#%d: onWrite Error!", req.nativeRequest()), e);
+							NginxClojureRT.log.error(String.format("#%d: request %s onWrite Error!", req.nativeRequest(), req.uri()), e);
+							try {
+								req.channel().close();
+							} catch (IOException e1) {
+								NginxClojureRT.log.error(String.format("#%d: request %s req.channel().close() Error!", req.nativeRequest(), req.uri()), e1);
+							}
+							return;
 						}
 					}	
 				}
@@ -342,7 +354,13 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 								((MessageListener) l).onBinaryMessage(en.getKey(), bb, remining);
 							}
 						}catch(Throwable e) {
-							NginxClojureRT.log.error(String.format("#%d: onBinaryMessage Error!", req.nativeRequest()), e);
+							NginxClojureRT.log.error(String.format("#%d: request %s  onBinaryMessage Error!", req.nativeRequest(), req.uri()), e);
+							try {
+								req.channel().close();
+							} catch (IOException e1) {
+								NginxClojureRT.log.error(String.format("#%d: request %s  req.channel().close() Error!", req.nativeRequest(), req.uri()), e1);
+							}
+							return;
 						}
 					}
 				}
@@ -404,7 +422,13 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 									((MessageListener) l).onTextMessage(en.getKey(), txt, remining);
 								}
 							}catch(Throwable e) {
-								NginxClojureRT.log.error(String.format("#%d: onTextMessage Error!", req.nativeRequest()), e);
+								NginxClojureRT.log.error(String.format("#%d: request %s onTextMessage Error!", req.nativeRequest(), req.uri()), e);
+								try {
+									req.channel().close();
+								} catch (IOException e1) {
+									NginxClojureRT.log.error(String.format("#%d: request %s req.channel().close() Error!", req.nativeRequest(), req.uri()), e1);
+								}
+								return;
 							}
 						}
 					}
