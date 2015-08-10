@@ -20,7 +20,9 @@
   :compile-path "target/classes"
   ;; Leave the contents of :source-paths out of jars (for AOT projects).
   :omit-source false
-  :jar-exclusions [#"^test" #"\.java$" #"Test.*class$" #".*for_test.clj$"]
+  :jar-exclusions [#"^test" 
+                   #"asm/.*\.java$" 
+                   #"Test.*class$" #".*for_test.clj$"]
   :uberjar-exclusions [#"^test" #"\.java$"]
   :manifest {"Premain-Class" "nginx.clojure.wave.JavaAgent"
              "Can-Redefine-Classes" "true"
