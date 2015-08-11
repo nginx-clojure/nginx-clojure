@@ -1,0 +1,27 @@
+NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
+		$ngx_addon_dir/ngx_http_clojure_embed.c \
+"
+USE_SHA1=YES
+
+CFLAGS="$JNI_INCS \
+        -I \"${NGINX_CLOJURE_SRC}/src/c\"  \
+        $CFLAGS"
+JNI_INCS_INCLUDED=YES
+nginx_clojure_embed_link_options="-share -fvisibility=hidden"
+
+case "$NGX_PLATFORM" in
+    win32)
+        nginx_clojure_embed_link_options="-LD"
+    ;;
+    
+    *)
+        CFLAGS="-fpic \
+        -fvisibility=hidden \
+        $CFLAGS"
+        nginx_clojure_embed_link_options="-shared -fvisibility=hidden"
+    ;;
+
+esac
+
+CORE_LIBS="$CORE_LIBS ${nginx_clojure_embed_link_options}";
+

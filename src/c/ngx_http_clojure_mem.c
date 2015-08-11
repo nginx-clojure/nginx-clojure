@@ -1405,7 +1405,7 @@ static ngx_int_t  ngx_http_clojure_hijack_send_chain(ngx_http_request_t *r, ngx_
 
 	if (r->pool == NULL) {
 		ngx_log_error(NGX_LOG_ERR, ngx_http_clojure_global_cycle->log, 0,
-						"ngx_http_clojure_hijack_send:"
+						"ngx_http_clojure_hijack_send 1:"
 						"can not send message because the request was closed");
 		return NGX_ERROR;
 	}
@@ -1505,9 +1505,11 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *me
 	size_t page_size;
 
 	if (r->pool == NULL) {
-		ngx_log_error(NGX_LOG_ERR, ngx_http_clojure_global_cycle->log, 0,
-						"ngx_http_clojure_hijack_send:"
-						"can not send message because the request was closed");
+		if (message) { /*message can be NULL if send a close event without additional data*/
+			ngx_log_error(NGX_LOG_ERR, ngx_http_clojure_global_cycle->log, 0,
+									"ngx_http_clojure_hijack_send 2:"
+									"can not send message because the request was closed");
+		}
 		return NGX_ERROR;
 	}
 
@@ -1515,7 +1517,7 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *me
 
 	if (ctx == NULL) { /*ctx was cleared by finalize_xxx*/
 		ngx_log_error(NGX_LOG_ERR, ngx_http_clojure_global_cycle->log, 0,
-								"ngx_http_clojure_hijack_send:"
+								"ngx_http_clojure_hijack_send 3:"
 								"can not send message because the request is closing");
 		return NGX_OK;
 	}
@@ -1991,8 +1993,8 @@ static void nji_ngx_http_clojure_hijack_write_handler(ngx_http_request_t *r) {
 }
 
 ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
-#if (NGX_HAVE_SHA1)
 	ngx_http_clojure_module_ctx_t *ctx;
+#if (NGX_HAVE_SHA1)
 	ngx_int_t rc = NGX_OK;
 	ngx_table_elt_t *key = NULL;
 	ngx_table_elt_t *accept;
@@ -2067,7 +2069,11 @@ UPGRADE_DONE:
     }
     return rc;
 #else
+    ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
     ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "nginx-clojure websocket support need SHA1 enabled");
+    if (ctx->hijacked_or_async) {
+    	ngx_http_finalize_request(r, 500);
+    }
     return NGX_ERROR;
 #endif
 }

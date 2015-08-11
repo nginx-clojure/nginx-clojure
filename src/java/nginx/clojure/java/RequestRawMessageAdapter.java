@@ -29,12 +29,14 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 	private final static ConcurrentHashMap<NginxRequest, RequestOrderedRunnable> lastFutureTasks = new ConcurrentHashMap<NginxRequest, RequestOrderedRunnable>();
 	
 	public final static class RequestOrderedRunnable extends FutureTask<String> {
+		protected String type;
 		protected Runnable action;
 		protected RequestOrderedRunnable last;
 		protected NginxRequest request;
 		
-		public RequestOrderedRunnable(Runnable action, NginxRequest request) {
+		public RequestOrderedRunnable(String type, Runnable action, NginxRequest request) {
 			super(action, "");
+			this.type = type;
 			this.action = action;
 			this.request = request;
 			this.last = lastFutureTasks.put(request, this);
@@ -46,12 +48,17 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 				if (last != null) {
 					last.get();
 				}
-				lastFutureTasks.remove(request, this);
+				if (request.isReleased()) {
+					return;
+				}
 				super.run();
 			} catch (Throwable e) {
 				super.cancel(false);
-				NginxClojureRT.log.error(e);
-			} 
+				NginxClojureRT.log.error("run error,type=" + type + ", last type=" + (last != null ? last.type : ""), e);
+			} finally{
+				lastFutureTasks.remove(request, this);
+				super.cancel(true);
+			}
 		}
 	}
 	
@@ -105,7 +112,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 			}else if (NginxClojureRT.workers == null) {
 				action.run();
 			}else {
-				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable(action, req));
+				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable("onClose", action, req));
 			}
 		}else {
 			req.tagReleased();
@@ -126,7 +133,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 			NginxClojureRT.log.debug("#%d: request %s onClose2, status=%d", req.nativeRequest(), req.uri(), status);
 		}
 		final List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
-		if (listeners != null && !listeners.isEmpty()) {
+		if (listeners != null && listeners.size() > 1) {
 			ByteBuffer bb = NginxClojureRT.pickByteBuffer();
 			CharBuffer cb = NginxClojureRT.pickCharBuffer();
 			final String txt = size > 0 ? NginxClojureRT.fetchStringValidPart(address, 2, size, MiniConstants.DEFAULT_ENCODING, bb, cb) : null;
@@ -182,7 +189,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 			}else if (NginxClojureRT.workers == null) {
 				action.run();
 			}else {
-				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable(action, req));
+				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable("onClose2", action, req));
 			}
 		}else {
 			req.tagReleased();
@@ -195,7 +202,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 			NginxClojureRT.log.debug("#%d: request %s onConnect, status=%d", req.nativeRequest(), req.uri(), status);
 		}
 		final List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
-		if (listeners != null && !listeners.isEmpty()) {
+		if (listeners != null && listeners.size() > 1) {
 			Runnable action = new Coroutine.FinishAwaredRunnable() {
 				@Override
 				public void run() {
@@ -203,7 +210,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 					for (int i = localListeners.size() - 1; i > -1; i--) {
 						java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>> en = localListeners.get(i);
 						try {
-							en.getValue().onConnect(status, req);
+							en.getValue().onConnect(status, en.getKey());
 						}catch(Throwable e) {
 							NginxClojureRT.log.error(String.format("#%d: request %s onConnect Error!", req.nativeRequest(), req.uri()), e);
 						}
@@ -226,7 +233,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 			}else if (NginxClojureRT.workers == null) {
 				action.run();
 			}else {
-				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable(action, req));
+				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable("onConnect", action, req));
 			}
 		}
 	}
@@ -237,7 +244,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 			NginxClojureRT.log.debug("#%d: request %s onRead, status=%d", req.nativeRequest(), req.uri(), status);
 		}
 		final List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
-		if (listeners != null && !listeners.isEmpty()) {
+		if (listeners != null && listeners.size() > 1) {
 			Runnable action = new Coroutine.FinishAwaredRunnable() {
 				@Override
 				public void run() {
@@ -274,7 +281,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 			}else if (NginxClojureRT.workers == null) {
 				action.run();
 			}else {
-				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable(action, req));
+				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable("onRead", action, req));
 			}
 		}
 	}
@@ -285,7 +292,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 			NginxClojureRT.log.debug("#%d: request %s onWrite, status=%d", req.nativeRequest(), req.uri(), status);
 		}
 		final List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
-		if (listeners != null && !listeners.isEmpty()) {
+		if (listeners != null && listeners.size() > 1) {
 			Runnable action = new Coroutine.FinishAwaredRunnable() {
 				@Override
 				public void run() {
@@ -322,7 +329,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 			}else if (NginxClojureRT.workers == null) {
 				action.run();
 			}else {
-				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable(action, req));
+				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable("onWrite", action, req));
 			}
 		}
 	}
@@ -338,7 +345,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 		}
 		final List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
 		
-		if (listeners != null && !listeners.isEmpty()) {
+		if (listeners != null && listeners.size() > 1) {
 			final ByteBuffer bb = ByteBuffer.allocate(size);
 			NginxClojureRT.ngx_http_clojure_mem_copy_to_obj(NginxClojureRT.UNSAFE.getAddress(message << 16 >> 16), bb.array(), MiniConstants.BYTE_ARRAY_OFFSET, size);
 			bb.limit(size);
@@ -381,7 +388,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 			}else if (NginxClojureRT.workers == null) {
 				action.run();
 			}else {
-				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable(action, req));
+				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable("onBinaryMessage", action, req));
 			}
 		}
 	
@@ -395,7 +402,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 			NginxClojureRT.log.debug("#%d: request %s onTextMessage! size=%d, rem=%s, first=%s, pm=%d, lns=%d",
 					req.nativeRequest(), req.uri(), size, remining, first, NginxClojureRT.UNSAFE.getAddress(message << 16 >> 16), listeners.size());
 		}
-		if (listeners != null && !listeners.isEmpty()) {
+		if (listeners != null && listeners.size() > 1){
 			ByteBuffer bb = NginxClojureRT.pickByteBuffer();
 			CharBuffer cb = NginxClojureRT.pickCharBuffer();
 			long address = message << 16 >> 16;
@@ -449,7 +456,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 				}else if (NginxClojureRT.workers == null) {
 					action.run();
 				}else {
-					NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable(action, req));
+					NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable("onTextMessage", action, req));
 				}
 			}
 		}

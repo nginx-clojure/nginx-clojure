@@ -441,7 +441,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 			}else if (NginxClojureRT.workers == null) {
 				action.run();
 			}else {
-				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable(action, LazyRequestMap.this));
+				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable("onConnect2", action, LazyRequestMap.this));
 			}
 		
 		}

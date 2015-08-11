@@ -487,7 +487,12 @@ public class NginxClojureRT extends MiniConstants {
 	
 	private static void destoryWorkers() {
 		if (workerExecutorService != null) {
-			workerExecutorService.shutdownNow();
+			workerExecutorService.shutdown();
+			try {
+				workerExecutorService.awaitTermination(1000, TimeUnit.SECONDS);
+			} catch (InterruptedException e) {
+				getLog().error("shutdown workerExecutorService error", e);
+			}
 		}
 		if (eventDispather != null) {
 			eventDispather.shutdownNow();
@@ -495,6 +500,9 @@ public class NginxClojureRT extends MiniConstants {
 		if (threadPoolOnlyForTestingUsage != null) {
 			threadPoolOnlyForTestingUsage.shutdownNow();
 		}
+		workerExecutorService = null;
+		eventDispather = null;
+		threadPoolOnlyForTestingUsage = null;
 	}
 	
 	public static synchronized ExecutorService initThreadPoolOnlyForTestingUsage() {
@@ -1190,6 +1198,9 @@ public class NginxClojureRT extends MiniConstants {
 				HijackEvent hijackEvent = (HijackEvent)POSTED_EVENTS_DATA.remove(data);
 				try{
 					if (hijackEvent.channel.request.isReleased()) {
+						if (hijackEvent.message == null) {
+							return NGX_OK;
+						}
 						log.error("#%d: NginxHttpServerChannel released, request=%s", hijackEvent.channel.request.nativeRequest(), hijackEvent.channel.request);
 						return NGX_HTTP_INTERNAL_SERVER_ERROR;
 					}

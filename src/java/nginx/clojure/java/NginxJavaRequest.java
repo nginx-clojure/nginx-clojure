@@ -407,7 +407,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 			}else if (NginxClojureRT.workers == null) {
 				action.run();
 			}else {
-				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable(action, NginxJavaRequest.this));
+				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable("onConnect2", action, NginxJavaRequest.this));
 			}
 		}
 	}

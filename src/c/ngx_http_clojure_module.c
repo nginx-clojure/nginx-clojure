@@ -520,14 +520,9 @@ static void * ngx_http_clojure_create_main_conf(ngx_conf_t *cf) {
 		return NGX_CONF_ERROR;
 	}
 
-	if (ngx_http_clojure_is_embeded_by_jse) {
-		conf->jvm_disable_all = 0;
-		conf->jvm_path.data = (u_char*)"auto";
-		conf->jvm_path.len = sizeof("auto") - 1;
-	}else {
-		conf->jvm_path.len = NGX_CONF_UNSET_SIZE;
-		conf->jvm_options = NGX_CONF_UNSET_PTR;
-	}
+
+	conf->jvm_path.len = NGX_CONF_UNSET_SIZE;
+	conf->jvm_options = NGX_CONF_UNSET_PTR;
 
 	conf->jvm_workers = NGX_CONF_UNSET;
 	conf->max_balanced_tcp_connections = NGX_CONF_UNSET;
@@ -1056,9 +1051,11 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 		ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "jvm may be mad for wrong options! See hs_err_pid****.log for detail! restarted %d", *ngx_http_clojure_jvm_be_mad_times);
 #if defined(_WIN32) || defined(WIN32)
 		ngx_terminate = 1;
-		ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "we try quit master now!");
-		/*We must quit otherwise we'll enter a dead repeatedly case*/
-		ngx_http_clojure_quit_master(cycle);
+		if (ngx_process != NGX_PROCESS_SINGLE) {
+			ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "we try quit master now!");
+			/*We must quit otherwise we'll enter a dead repeatedly case*/
+			ngx_http_clojure_quit_master(cycle);
+		}
 #endif
 		return NGX_ERROR;
 	}
@@ -1207,7 +1204,6 @@ static ngx_int_t ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 	ngx_http_handler_pt *h;
 
 	ngx_http_clojure_is_little_endian = ngx_http_clojure_check_little_endian();
-
 
 	if (mcf->max_balanced_tcp_connections > 0) {
 		ngx_http_clojure_reset_listening_backlog(cf);
