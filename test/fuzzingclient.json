@@ -3,11 +3,9 @@
    "outdir": "./target/reports/clients",
 
    "servers": [
-               {"agent": "nc-clj", "url": "ws://localhost:8080/ringCompojure/ws-echo", "options": {"version": 18}},
-               {"agent": "nc-java", "url": "ws://localhost:8080/java-ws/echo", "options": {"version": 18}},
-               {"agent": "nc-tomcat", "url": "ws://localhost:8080/examples/websocket/echoProgrammatic", "options": {"version": 18}}
+               {"agent": "nc-embed", "url": "ws://localhost:8081/websocket-echo", "options": {"version": 18}}
               ],
-   "cases": ["*"],
+   "cases": ["1.1.1"],
    "exclude-cases": ["12.*", "13.*"],
    "exclude-agent-cases": {}
 }

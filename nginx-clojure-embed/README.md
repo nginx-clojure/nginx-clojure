@@ -29,7 +29,7 @@ For Java (Maven)
 </dependency>
 ```
 
-Quick Start
+Start/Stop Embedded Server
 ================
 
 For Clojure

@@ -4,6 +4,20 @@ Downloads & Release History
 1. [Binaries of Releases](http://sourceforge.net/projects/nginx-clojure/files/)
 1. [Sources of Releases](https://github.com/nginx-clojure/nginx-clojure/releases)
 
+## 0.4.1 (2015-08-12)
+
+1. New Feature: Coroutine based socket supports unix domain socket
+1. New Feature: APIs for Embedding Nginx-Clojure into a standard Clojure/Java/Groovy App (issue #86)
+1. New Feature: Autodetect jvm_path (issue #85)
+1. New Feature: Support to use annotation to mark a class or method to be suspenable in coroutine context (issue #84)
+1. Enhancement: Auto send error when meets a non websocket request with `auto_upgrade_ws` is on 
+1. Enhancement: Add `websocket-upgrade!` to server channel API
+1. Enhancement: Add `WholeMessageAdapter` to make handling small websocket messages easier.
+1. Bug Fix: NginxHttpServerChannel.write(ByteBuffer buf) does not reset the buffer's position (issue #83)
+1. Bug Fix: No access to tomcat server 8.24 from nginx-clojure (issue #82)
+1. Binaries Distribution: Including some java sources for easy debug.
+1. Build Script: Autodetect JNI header files
+
 ## 0.4.0 (2015-07-06)
 
 1. New Feature: Server Side Websocket (issue #73)
