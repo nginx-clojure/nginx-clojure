@@ -88,7 +88,23 @@ public class NginxEmbedServer {
 					out.write(buffer, 0, c);
 				}
 				out.close();
+				if (DiscoverJvm.detectOSArchExt().startsWith("linux")) {
+					/**
+					 * fix SELinux Enabled issue ,e.g.
+					 * Exception in thread "main" java.lang.UnsatisfiedLinkError: 
+					 * nginx-clojure-embed-linux-xxx.so: cannot restore segment prot after reloc: Permission denied 
+					 */
+					Process p = Runtime.getRuntime().exec(new String[] {"/bin/sh", "-c", "chcon -u system_u -r object_r -t textrel_shlib_t " + sofile.getAbsolutePath()});
+					try {
+						if (p.waitFor() != 0) {
+							NginxClojureRT.getLog().debug("fail to change security of nginx clojure embed shared library, just ignore it.");
+						}
+					} catch (InterruptedException e) {
+						NginxClojureRT.getLog().error("can not write so file " + tmpRoot.getAbsoluteFile() + "/" + soname , e);
+					}
+				}
 			}
+			
 			System.load(sofile.getAbsolutePath());
 		} catch (IOException e) {
 			NginxClojureRT.getLog().error("can not write so file " + tmpRoot.getAbsoluteFile() + "/" + soname , e);
