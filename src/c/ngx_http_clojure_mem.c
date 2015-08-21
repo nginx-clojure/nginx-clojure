@@ -3931,7 +3931,7 @@ int ngx_http_clojure_init_memory_util(ngx_http_core_srv_conf_t *cscf, ngx_http_c
 		exception_handle(nc_rt_handle_channel_event_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 	}
 
-	(*env)->CallStaticVoidMethod(env, nc_rt_class, nc_rt_init_mid, (uintptr_t)MEM_INDEX);
+	(*env)->CallStaticVoidMethod(env, nc_rt_class, nc_rt_init_mid, (jlong)(uintptr_t)MEM_INDEX);
 
 	exception_handle(1, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 	return ngx_http_clojure_init_memory_util_flag = NGX_HTTP_CLOJURE_JVM_OK;
