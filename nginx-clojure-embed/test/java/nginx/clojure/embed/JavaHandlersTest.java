@@ -123,12 +123,46 @@ public class JavaHandlersTest {
 		}
 	}
 	
+	public static class WebSocketMixedWithLongPoolingHandler implements NginxJavaRingHandler {
+
+		@Override
+		public Object[] invoke(Map<String, Object> request) throws IOException {
+			NginxHttpServerChannel sc = ((NginxJavaRequest)request).hijack(true);
+			if (sc.webSocketUpgrade(false)) { //websocket
+				sc.addListener(sc, new WholeMessageAdapter<NginxHttpServerChannel>(9*1024){
+					@Override
+					public void onOpen(NginxHttpServerChannel sc)
+							throws IOException {
+						System.out.println("websocket on open!");
+					}
+					@Override
+					public void onWholeTextMessage(NginxHttpServerChannel sc,
+							String message) throws IOException {
+						sc.send(message, true, false);
+					}
+				});
+			}else { //long polling
+				sc.addListener(sc, new MessageAdapter<NginxHttpServerChannel>() {
+					@Override
+					public void onOpen(NginxHttpServerChannel data)
+							throws IOException {
+						System.out.println("general long polling channel on open!");
+					}
+				});
+				sc.sendResponse(new Object[] {200, null, request.get("query-string")});
+			}
+			return null;
+		}
+		
+	}
+	
 	public static class SimpleRouting implements NginxJavaRingHandler {
 		Map<String, NginxJavaRingHandler> handlers = new HashMap<String, NginxJavaRingHandler>();
 		public SimpleRouting() {
 			handlers.put("/hello", new HelloHandler());
 			handlers.put("/websocket-echo", new WebSocketFullFunctionEcho());
 			handlers.put("/websocket-whecho", new WebSocketWholeMessageEcho());
+			handlers.put("/websocketmixed", new WebSocketMixedWithLongPoolingHandler());
 		}
 		@Override
 		public Object[] invoke(Map<String, Object> request) throws IOException {
@@ -160,7 +194,8 @@ public class JavaHandlersTest {
 	public static void main(String[] args) {
 		NginxEmbedServer server = NginxEmbedServer.getServer();
 		server.setWorkDir("test/work-dir");
-		Map<String, String> opts = ArrayMap.create("port", "8081");
-		server.start(SimpleRouting.class.getName(), opts);
+		Map<String, String> opts = ArrayMap.create("port", "0");
+		int port = server.start(SimpleRouting.class.getName(), opts);
+		System.out.println("return port :" + port);
 	}
 }
