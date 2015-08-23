@@ -48,17 +48,23 @@ public class RequestMapTest {
 		
 	}
 	
+	@Test
 	public void testCljRequest() throws Throwable  {
 		LazyRequestMap kk = new LazyRequestMap(null, 0);
 		assertNotNull(kk);
 		Field f = LazyRequestMap.class.getDeclaredField("default_request_array");
+		Field af = LazyRequestMap.class.getDeclaredField("array");
 		long off = HackUtils.UNSAFE.staticFieldOffset(f);
+		long aoff = HackUtils.UNSAFE.objectFieldOffset(af);
 		Object base = HackUtils.UNSAFE.staticFieldBase(f);
 		Object[] array = (Object[]) HackUtils.UNSAFE.getObject(base, off);
+		
 		for (int i = 0; i < array.length; i += 2) {
 			array[i+1] = array[i].toString() + "--v";
 		}
 		LazyRequestMap r = new LazyRequestMap(null, 0, new byte[]{0}, array);
+		Object[] varray = (Object[]) HackUtils.UNSAFE.getObject(r, aoff);
+		
 		assertEquals(array.length/2, r.count());
 		for (int i = 0; i < array.length; i += 2) {
 			assertEquals(array[i]+"--v", r.valAt(array[i]));
@@ -66,6 +72,11 @@ public class RequestMapTest {
 		assertEquals(nginx.clojure.clj.Constants.SCHEME+"--v", r.valAt(nginx.clojure.clj.Constants.SCHEME));
 		r = (LazyRequestMap) r.without(nginx.clojure.clj.Constants.SCHEME);
 		assertEquals(array.length/2-1, r.count());
+		
+		for (int i = r.count() * 2; i < varray.length; i++) {
+			assertNull(varray[i]);
+		}
+		
 		r = (LazyRequestMap) r.assoc(nginx.clojure.clj.Constants.SCHEME, nginx.clojure.clj.Constants.SCHEME+"--good");
 		assertEquals(array.length/2, r.count());
 		assertEquals(nginx.clojure.clj.Constants.SCHEME+"--good", r.valAt(nginx.clojure.clj.Constants.SCHEME));

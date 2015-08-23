@@ -8,6 +8,8 @@ import static nginx.clojure.MiniConstants.BODY_FETCHER;
 import static nginx.clojure.MiniConstants.CHARACTER_ENCODING_FETCHER;
 import static nginx.clojure.MiniConstants.CONTENT_TYPE_FETCHER;
 import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_HEADERS_IN_OFFSET;
 import static nginx.clojure.MiniConstants.QUERY_STRING_FETCHER;
 import static nginx.clojure.MiniConstants.REMOTE_ADDR_FETCHER;
 import static nginx.clojure.MiniConstants.SCHEME_FETCHER;
@@ -27,7 +29,9 @@ import static nginx.clojure.clj.Constants.SCHEME;
 import static nginx.clojure.clj.Constants.SERVER_NAME;
 import static nginx.clojure.clj.Constants.SERVER_PORT;
 import static nginx.clojure.clj.Constants.URI;
+import static nginx.clojure.clj.Constants.WEBSOCKET;
 
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -41,6 +45,7 @@ import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxRequest;
 import nginx.clojure.RequestVarFetcher;
 import nginx.clojure.Stack;
+import nginx.clojure.UnknownHeaderHolder;
 import nginx.clojure.java.NginxJavaRequest;
 import nginx.clojure.java.RequestRawMessageAdapter;
 import nginx.clojure.java.RequestRawMessageAdapter.RequestOrderedRunnable;
@@ -75,6 +80,12 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		REQUEST_METHOD, REQUEST_METHOD_FETCHER,
 		CONTENT_TYPE, CONTENT_TYPE_FETCHER,
 		CHARACTER_ENCODING, CHARACTER_ENCODING_FETCHER,
+		
+		WEBSOCKET, new RequestVarFetcher() {
+			public Object fetch(long r, Charset encoding) {
+				return "websocket".equals(new UnknownHeaderHolder("Upgrade", NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET).fetch(r+NGX_HTTP_CLOJURE_REQ_HEADERS_IN_OFFSET));
+			}
+		}
     };
 	
 	protected int validLen;
@@ -309,11 +320,13 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 			array[validLen++] = val;
 			return this;
 		}else {
-			Object[] newArray = new Object[array.length + 2];
+			Object[] newArray = new Object[array.length + 8];
 			System.arraycopy(array, 0, newArray, 0, array.length);
 			newArray[array.length] = key;
 			newArray[array.length+1] = val;
-			return new LazyRequestMap(this, newArray);
+			validLen += 2;
+			this.array = newArray;
+			return this;
 		}
 	}
 
@@ -332,15 +345,10 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		if (i == -1) {
 			return this;
 		}else {
-			if (validLen == 2) {
-				return EMPTY_MAP;
-			}
-			Object[] newArray = new Object[validLen - 2];
-			if (i > 0) {
-				System.arraycopy(array, 0, newArray, 0, i);
-			}
-			System.arraycopy(array, i + 2, newArray, i, validLen - i - 2);
-			return new LazyRequestMap(this, newArray);
+			System.arraycopy(array, i + 2, array, i, validLen - i - 2);
+			validLen -= 2;
+			Stack.fillNull(array, validLen, array.length - validLen);
+			return this;
 		}
 	}
 	
@@ -393,7 +401,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	}
 	
 	public boolean isWebSocket() {
-		return NginxClojureRT.ngx_http_clojure_mem_get_module_ctx_upgrade(r) == 1;
+		return (Boolean) valAt(WEBSOCKET);
 	}
 	
 	protected LazyRequestMap phase(int phase) {
@@ -413,7 +421,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		}
 		listeners.add(new java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>(data, (ChannelListener)listener));
 		
-		if (isWebSocket()) { //handshake was complete so we need call onConnect manually
+//		if (isWebSocket()) { //handshake was complete so we need call onConnect manually
 			 //handshake was complete so we need call onConnect manually
 			Runnable action = new Coroutine.FinishAwaredRunnable() {
 				@Override
@@ -444,7 +452,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable("onConnect2", action, LazyRequestMap.this));
 			}
 		
-		}
+//		}
 	}
 
 	@Override
@@ -455,7 +463,6 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		validLen = default_request_array.length;
 		if (array.length > validLen) {
 			Stack.fillNull(array, validLen, array.length - validLen);
-			
 		}
 		if (listeners != null) {
 			listeners.clear();

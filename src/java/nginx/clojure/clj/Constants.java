@@ -37,6 +37,8 @@ public class Constants extends MiniConstants {
 	public static final Keyword HEADERS = RT.keyword(null, "headers");
 	public static final Keyword BODY = RT.keyword(null, "body");
 	
+	public static final Keyword WEBSOCKET = RT.keyword(null, "websocket?");
+	
 	public static final Keyword UNKNOWN = RT.keyword(null, "UNKNOWN");
 	public static final Keyword GET = RT.keyword(null, "get");
 	public static final Keyword HEAD = RT.keyword(null, "head");
