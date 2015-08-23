@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.net.Socket;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.HashMap;
@@ -149,6 +150,19 @@ public class NginxEmbedServer {
 		this.workDir = workDir;
 	}
 	
+	public static int pickFreePort() {
+		Socket s = new Socket();
+		try {
+			s.bind(null);
+			int port = s.getLocalPort();
+			s.setReuseAddress(true);
+			s.close();
+			return port;
+		} catch (IOException e) {
+			throw new RuntimeException("can not pickFreePort", e);
+		}
+	}
+	
 	/**
 	 * @param handler class name of a instance of NginxJavaRingHandler
 	 * @param options default options are 
@@ -167,8 +181,9 @@ public class NginxEmbedServer {
 	 *          "server-user-defined", "",
 	 *          "location-user-defined", "" 
 	 * </pre>
+	 * @return the listening port
 	 */
-	public void start(String handler, final Map<String, String> options) {
+	public int start(String handler, final Map<String, String> options) {
 		
 		Map<String, String> moptions = ArrayMap.create(
 				"error-log", "logs/error.log",
@@ -188,6 +203,9 @@ public class NginxEmbedServer {
 				"location-user-defined", ""
 				);
 		for (Map.Entry<String, String> entry : options.entrySet()) {
+			if (entry.getKey().equals("port") && entry.getValue().equals("0")) {
+				entry.setValue(pickFreePort()+"");
+			}
 			if (moptions.containsKey(entry.getKey())) {
 				moptions.put(entry.getKey(), entry.getValue());
 			}else {
@@ -265,7 +283,7 @@ public class NginxEmbedServer {
 		} catch (IOException e) {
 			throw new RuntimeException("can not getCanonicalPath of conf file for nginx-clojure embed server!", e);
 		}
-		
+		return Integer.parseInt(moptions.get("port"));
 	}
 	
 	public void start(final String workDir, final String cfg) {
