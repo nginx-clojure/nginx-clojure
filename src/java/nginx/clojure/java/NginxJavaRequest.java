@@ -380,7 +380,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 			listeners = new ArrayList<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>>(1);
 		}
 		listeners.add(new java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>(data, (ChannelListener)listener));
-		if (isWebSocket()) { //handshake was complete so we need call onConnect manually
+//		if (isWebSocket()) { //handshake was complete so we need call onConnect manually
 			Runnable action = new Coroutine.FinishAwaredRunnable() {
 				@Override
 				public void run() {
@@ -409,7 +409,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 			}else {
 				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable("onConnect2", action, NginxJavaRequest.this));
 			}
-		}
+//		}
 	}
 	
 	@Override

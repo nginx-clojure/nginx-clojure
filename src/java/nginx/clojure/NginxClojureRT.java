@@ -76,7 +76,7 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public static LoggerService log;
 	
-	public static String processId;
+	public static String processId="-1";
 	
 	public native static long ngx_palloc(long pool, long size);
 	
@@ -1308,7 +1308,7 @@ public class NginxClojureRT extends MiniConstants {
 		int tag = (int)((0xff00000000000000L & event) >>> 56);
 		long data = event & 0x00ffffffffffffffL;
 		if (log.isDebugEnabled()) {
-			log.debug("#%s: handlePostEvent tag=%d, len/data=%d", processId, tag, data);
+			log.debug("handlePostEvent tag=%d, len/data=%d", tag, data);
 		}
 		if (tag < POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START) {
 			return handlePostEvent(event, null, 0);
@@ -1316,7 +1316,7 @@ public class NginxClojureRT extends MiniConstants {
 			long rc = ngx_http_clojure_mem_read_raw_pipe(pipe, POST_EVENT_BUF,
 					BYTE_ARRAY_OFFSET, data);
 			if (rc != data) {
-				log.error("#%s: ngx_http_clojure_mem_read_raw_pipe error, return %d, expect %d", processId, rc, data);
+				log.error("ngx_http_clojure_mem_read_raw_pipe error, return %d, expect %d", rc, data);
 				return NGX_HTTP_INTERNAL_SERVER_ERROR;
 			}
 			return handlePostEvent(event, POST_EVENT_BUF, 0);
@@ -1602,7 +1602,7 @@ public class NginxClojureRT extends MiniConstants {
 		long event = (tag << 56) | len;
 		
 		if (log.isDebugEnabled()) {
-			log.debug("#%s: broadcast event tag=%d, body=%s", processId, tag, new String(body, (int)offset, (int)len), DEFAULT_ENCODING);
+			log.debug("broadcast event tag=%d, body=%s", tag, new String(body, (int)offset, (int)len), DEFAULT_ENCODING);
 		}
 		if (Thread.currentThread() == NGINX_MAIN_THREAD) {
 			int rt = (int)ngx_http_clojure_mem_broadcast_event(event, body, BYTE_ARRAY_OFFSET + offset, 0);

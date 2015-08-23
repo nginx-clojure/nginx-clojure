@@ -50,13 +50,15 @@ public class ArrayMap<K, V> implements Map<K, V> {
 	}
 
 	public SimpleEntry<K, V> entry(final int i) {
-		return new SimpleEntry(key(i), val(i), new SimpleEntrySetter() {
+		final SimpleEntry se = new SimpleEntry(key(i), val(i), null);
+		se.setter = new SimpleEntrySetter() {
 			public Object setValue(Object value) {
 				Object old = array[(i << 1) + 1];
-				 array[(i << 1) + 1] = value;
+				se.value = array[(i << 1) + 1] = value;
 				return old;
 			}
-		});
+		};
+		return se;
 	}
 	
 

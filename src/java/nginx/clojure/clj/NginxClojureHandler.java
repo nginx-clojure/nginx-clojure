@@ -9,12 +9,10 @@ import static nginx.clojure.MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NOT_FOUND;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NO_CONTENT;
 import static nginx.clojure.NginxClojureRT.log;
-import static nginx.clojure.NginxClojureRT.processId;
 import static nginx.clojure.clj.Constants.ASYNC_TAG;
 import static nginx.clojure.clj.Constants.BODY;
 import static nginx.clojure.clj.Constants.KNOWN_RESP_HEADERS;
 import static nginx.clojure.clj.Constants.STATUS;
-import static nginx.clojure.clj.Constants.URI;
 
 import java.io.Closeable;
 import java.util.Map;
@@ -181,21 +179,29 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 	@Override
 	public NginxHttpServerChannel hijack(NginxRequest req, boolean ignoreFilter) {
 		if (log.isDebugEnabled()) {
-			log.debug("#%s: hijack at %s", processId, ((LazyRequestMap)req).valAt(URI));
+			log.debug("#%s: hijack at %s", req.nativeRequest(), req.uri());
 		}
 		
-		if (req.isHijacked()) {
-			NginxHttpServerChannel channel =  req.channel();
-			channel.setIgnoreFilter(ignoreFilter);
-			return channel;
+		try {
+			if (req.isHijacked()) {
+				NginxHttpServerChannel channel =  req.channel();
+				channel.setIgnoreFilter(ignoreFilter);
+				return channel;
+			}
+			
+			((LazyRequestMap)req).hijackTag[0] = 1;
+			if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD && (req.phase() == -1 || req.phase() == NGX_HTTP_HEADER_FILTER_PHASE)) {
+				NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest(), 1);
+			}
+			
+			return ((LazyRequestMap)req).channel = new NginxHttpServerChannel(req, ignoreFilter);
+		}finally {
+			if (log.isDebugEnabled()) {
+				log.debug("#%s: hijacked at %s, lns:%s", req.nativeRequest(), req.uri(), req.listeners() == null ? 0 : req.listeners().size());
+			}
 		}
 		
-		((LazyRequestMap)req).hijackTag[0] = 1;
-		if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD && (req.phase() == -1 || req.phase() == NGX_HTTP_HEADER_FILTER_PHASE)) {
-			NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest(), 1);
-		}
-		
-		return ((LazyRequestMap)req).channel = new NginxHttpServerChannel(req, ignoreFilter);
+
 	}
 
 	protected void returnToRequestPool(LazyRequestMap lazyRequestMap) {

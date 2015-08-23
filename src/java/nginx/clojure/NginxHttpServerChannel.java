@@ -163,7 +163,7 @@ public class NginxHttpServerChannel implements Closeable {
 			closed = true;
 		}
 		if (log.isDebugEnabled()) {
-			log.debug("#%s: send message : '%s', flush=%s, last=%s", NginxClojureRT.processId, message, flush, last);
+			log.debug("#%s: send message : '%s', flush=%s, last=%s, lns=%s", request.nativeRequest(), message, flush, last, request.listeners() == null ? 0 : request.listeners().size());
 		}
 		byte[] bs = message == null ? null : message.getBytes(DEFAULT_ENCODING);
 		int flag = computeFlag(flush, last) | MiniConstants.NGX_CLOJURE_BUF_APP_MSGTXT;
@@ -180,7 +180,7 @@ public class NginxHttpServerChannel implements Closeable {
 			closed = true;
 		}
 		if (log.isDebugEnabled()) {
-			log.debug("#%s: send message : '%s', flush=%s, last=%s", NginxClojureRT.processId, message, flush, last);
+			log.debug("#%s: send message : '%s', flush=%s, last=%s, lns=%s", request.nativeRequest(), message, flush, last, request.listeners() == null ? 0 : request.listeners().size());
 		}
 		int flag = computeFlag(flush, last);
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {

@@ -400,7 +400,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 		final List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
 		if (NginxClojureRT.log.isDebugEnabled()) {
 			NginxClojureRT.log.debug("#%d: request %s onTextMessage! size=%d, rem=%s, first=%s, pm=%d, lns=%d",
-					req.nativeRequest(), req.uri(), size, remining, first, NginxClojureRT.UNSAFE.getAddress(message << 16 >> 16), listeners.size());
+					req.nativeRequest(), req.uri(), size, remining, first, NginxClojureRT.UNSAFE.getAddress(message << 16 >> 16), listeners == null ? 0 : listeners.size());
 		}
 		if (listeners != null && listeners.size() > 1){
 			ByteBuffer bb = NginxClojureRT.pickByteBuffer();

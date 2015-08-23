@@ -6,6 +6,8 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
+import nginx.clojure.NginxClojureRT;
+
 /**
  * This tiny log service is mainly for debug use
  */
@@ -146,8 +148,11 @@ public class TinyLogService implements LoggerService {
 		}
 		SimpleDateFormat sf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 		StringBuffer s = new StringBuffer();
-		s.append(sf.format(new Date())).append("[").append(type).append("]:");
-		
+		s.append(sf.format(new Date())).append("[").append(type).append("]");
+		s.append("[").append(NginxClojureRT.processId).append("]");
+		if (type.compareTo(MsgType.debug) >= 0) {
+			s.append("[").append(Thread.currentThread().getName()).append("]");
+		}
 		if (showMethod) {
 			StackTraceElement se = null;
 			boolean meetCurrentMethod = false;
