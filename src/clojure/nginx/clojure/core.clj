@@ -3,7 +3,7 @@
             NginxRequest NginxHttpServerChannel ChannelListener
             AppEventListenerManager AppEventListenerManager$Listener
             AppEventListenerManager$Decoder AppEventListenerManager$PostedEvent
-            MessageAdapter])
+            MessageAdapter WholeMessageAdapter])
   (:import [nginx.clojure.net NginxClojureAsynChannel NginxClojureAsynChannel$CompletionListener
             NginxClojureAsynSocket])
   (:import [nginx.clojure.clj Constants])
@@ -72,6 +72,7 @@
   (-> req (.handler) (.hijack req ignore-nginx-filter?)))
 
 (defprotocol HttpServerChannel
+  (closed? [ch])
   (close! [ch] 
     "Asynchronously close the channel. If there's remaining data to send it won't block 
      current thread  and will flush data on the background asynchronously and later close the channel safely")
@@ -91,10 +92,18 @@
      resp is a ring Response Map, e.g. {:status 200, headers {\"Content-Type\" \"text/html\"}, :body \"Hello, Nginx-Clojure!\" } .
      ")
   (add-listener! [ch callbacks-map]
-    "Add a websocket event listener.
+    "Add a channel event listener.
       callbacks-map is a map whose key can be either of :on-open,:on-message,:on-close,:on-error
       the value of :on-open is a function like (fn[ch]...)
       the value of :on-message is a function like (fn[ch message remaining?]...)
+      the value of :on-close is a function like (fn[ch reason]...)
+      the value of :on-error is a function like (fn[ch status])
+     ")
+  (add-aggregated-listener! [ch max-message-size callbacks-map]
+    "Add an aggregated message listener.
+      callbacks-map is a map whose key can be either of :on-open,:on-message,:on-close,:on-error
+      the value of :on-open is a function like (fn[ch]...)
+      the value of :on-message is a function like (fn[ch message]...)
       the value of :on-close is a function like (fn[ch reason]...)
       the value of :on-error is a function like (fn[ch status])
      ")
@@ -155,6 +164,7 @@
     "return the error string message from the error code"))
 
 (extend-type NginxHttpServerChannel HttpServerChannel
+  (closed? [ch] (.isClosed ch))
   (close [ch] (.close ch))
   (send! [ch data flush? last?]
     (cond
@@ -176,6 +186,14 @@
                           (onOpen [c] (if on-open (on-open c)))
                           (onTextMessage [c msg rem?] (if on-message (on-message c msg rem?)))
                           (onBinaryMessage [c msg rem?] (if on-message (on-message c msg rem?)))
+                          (onClose ;([c] (if on-close (on-close c "0")))
+                                   ([c status reason] (if on-close (on-close c (str status ":" reason)))))
+                          (onError [c status] (if on-error (on-error c (NginxClojureAsynSocket/errorCodeToString status)))))))
+  (add-aggregated-listener! [ch max-message-size {:keys [on-open on-message on-close on-error]}]
+    (.addListener ch ch (proxy [WholeMessageAdapter] [max-message-size]
+                          (onOpen [c] (if on-open (on-open c)))
+                          (onWholeTextMessage [c msg] (if on-message (on-message c msg)))
+                          (onWholeBiniaryMessage [c msg rem?] (if on-message (on-message c msg)))
                           (onClose ;([c] (if on-close (on-close c "0")))
                                    ([c status reason] (if on-close (on-close c (str status ":" reason)))))
                           (onError [c status] (if on-error (on-error c (NginxClojureAsynSocket/errorCodeToString status)))))))
