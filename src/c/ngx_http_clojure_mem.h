@@ -11,6 +11,9 @@
 #include <ngx_sha1.h>
 #endif
 
+#if (NGX_ZLIB)
+#include <zlib.h>
+#endif
 
 
 #if defined(_WIN32) || defined(WIN32)
@@ -139,6 +142,16 @@ typedef struct {
 #define NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_DATA 3
 	unsigned pstate : 2; /*start/len/mask/data*/
 	unsigned left : 2; /*left bytes length from last decoding*/
+
+/*for premessage-deflate --websocket compression extension*/
+	unsigned premsg_deflate   : 1;
+	unsigned in_no_ctx_takeover : 1;
+	unsigned out_no_ctx_takeover : 1;
+	unsigned part_written : 1;
+	z_stream zin;
+	z_stream zout;
+/*end for premessage-deflate*/
+
 	u_char *  left_pos; /*left bytes pointer from last decoding*/
 	char mcode[4]; /*mask code*/
 	uint64_t len;

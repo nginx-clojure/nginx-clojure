@@ -163,8 +163,8 @@ static u_char WS_CLOSE_TOO_BIG[] = { 0x03, 0xf1 };*/
 static u_char WS_CLOSE_NO_EXTENSION[] = { 0x03, 0xf2 };*/
 
 /*1011 indicates that a server is terminating the connection
- * because it encountered an unexpected condition that prevented it from fulfilling the request.
-static u_char WS_CLOSE_UNEXPECTED_CONDITION[] = { 0x03, 0xf3 };*/
+ * because it encountered an unexpected condition that prevented it from fulfilling the request.*/
+static u_char WS_CLOSE_UNEXPECTED_CONDITION[] = { 0x03, 0xf3 };
 
 /*1012 indicates that the service will be restarted.
 static u_char WS_CLOSE_SERVICE_RESTART[] = { 0x03, 0xf4 };*/
@@ -174,6 +174,8 @@ static u_char WS_CLOSE_TRY_AGAIN_LATER[] = { 0x03, 0xf5 };*/
 
 /*1015 is a reserved value and MUST NOT be set as a status code in a Close control frame by an endpoint.
 static u_char WS_CLOSE_TLS_HANDSHAKE_FAILURE[] = { 0x03, 0xf7 };*/
+
+static u_char WS_PMCE_TAIL_DATA[] = {0x00, 0x00, 0xff, 0xff};
 
 ngx_int_t ngx_http_clojure_set_elt_header(ngx_http_request_t *r, ngx_table_elt_t *h, ngx_uint_t offset) {
     ngx_table_elt_t  **ph;
@@ -606,10 +608,12 @@ static ngx_chain_t * ngx_http_clojure_get_and_copy_bufs(size_t page_size, ngx_po
 				src += copy_size;
 			}
 			ll = &(*ll)->next;
+			ngx_log_debug1(NGX_LOG_DEBUG_HTTP, p->log, 0, "[ngx_http_clojure_get_and_copy_bufs] hit free, len; %d", copy_size);
 		}else {
 	    	ngx_bufs_t bufs;
 	    	bufs.size = page_size;
 	    	bufs.num = len / (page_size - head_size);
+			ngx_log_debug1(NGX_LOG_DEBUG_HTTP, p->log, 0, "[ngx_http_clojure_get_and_copy_bufs] new buffer, len; %d", len);
 	    	if (len % (page_size - head_size) != 0 || !len) {
 	    		bufs.num ++;
 	    	}
@@ -1499,10 +1503,14 @@ static ngx_int_t  ngx_http_clojure_hijack_send_chain(ngx_http_request_t *r, ngx_
 	return NGX_OK;
 }
 
+#define recompute_ws_flag(part_written, flag) \
+	((part_written) ? (flag | NGX_CLOJURE_BUF_WEBSOCKET_CONTINUE_FRAME) : (flag & ~NGX_CLOJURE_BUF_WEBSOCKET_CONTINUE_FRAME))
+
 static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *message, size_t len, ngx_int_t flag) {
 	ngx_http_clojure_module_ctx_t *ctx;
 	ngx_chain_t *in;
 	size_t page_size;
+	int need_reset_deflate_ctx = 0;
 
 	if (r->pool == NULL) {
 		if (message) { /*message can be NULL if send a close event without additional data*/
@@ -1532,6 +1540,7 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *me
 
 
 	if (ctx->wsctx) {
+		ngx_http_clojure_websocket_ctx_t *wsctx = ctx->wsctx;
 		flag |= NGX_CLOJURE_BUF_WEBSOCKET_FRAME;
 		if (flag & NGX_CLOJURE_BUF_LAST_FLAG) {
 			flag |= NGX_CLOJURE_BUF_WEBSOCKET_CLOSE_FRAME;
@@ -1545,14 +1554,148 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *me
 			if (!ctx->wsctx->ffm) {
 				flag |= NGX_CLOJURE_BUF_WEBSOCKET_CONTINUE_FRAME;
 			}else {
+				need_reset_deflate_ctx = 1;
 				ctx->wsctx->ffm = 0;
 			}
 			if (flag & NGX_CLOJURE_BUF_FLUSH_FLAG) {
 				ctx->wsctx->ffm = 1;
 			}
+
+			if (wsctx->premsg_deflate) {
+				ngx_chain_t *deflate_chain = NULL;
+				ngx_chain_t **pchain = &deflate_chain;
+				ngx_chain_t *tmp_chain;
+				size_t head_size = 0;
+				int zrc;
+				size_t out_size = 0;
+
+				if (wsctx->out_no_ctx_takeover && need_reset_deflate_ctx && deflateReset(&wsctx->zout)) {
+					ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "deflateReset error");
+					return NGX_ERROR;
+				}
+				need_reset_deflate_ctx = 0;
+				wsctx->zout.avail_in = len;
+				wsctx->zout.next_in = message;
+				do {
+					tmp_chain = ngx_http_clojure_get_and_copy_bufs(page_size, r->pool, &ctx->free, 0, page_size, 0);
+					if (tmp_chain == NULL) {
+						ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_clojure_hijack_send:"
+								"not enough memory, ngx_http_clojure_get_and_copy_bufs fail");
+						return NGX_ERROR;
+					}
+					wsctx->zout.avail_out = page_size - 4; /*4 bytes reserved for header*/
+					tmp_chain->buf->last += 4;
+					wsctx->zout.next_out = tmp_chain->buf->last;
+
+					zrc = deflate(&wsctx->zout, (flag & NGX_CLOJURE_BUF_FLUSH_FLAG) ? Z_SYNC_FLUSH : Z_NO_FLUSH);
+					if (zrc != Z_OK) {
+						ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "deflate error: %d", zrc);
+						return NGX_ERROR;
+					}
+
+					out_size = (size_t)(wsctx->zout.next_out - tmp_chain->buf->last);
+					if (!out_size) {
+						tmp_chain->buf->last = tmp_chain->buf->pos;
+#if nginx_version >= 1001004
+						ngx_chain_update_chains(r->pool, &ctx->free, &ctx->busy, &tmp_chain,
+								(ngx_buf_tag_t) &ngx_http_clojure_module);
+#else
+						ngx_chain_update_chains(&ctx->free, &ctx->busy, &tmp_chain, (ngx_buf_tag_t)&ngx_http_clojure_module);
+#endif
+						if (!deflate_chain) {
+							return NGX_OK;
+						}
+						break;
+					}
+
+					ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0, "[ngx_http_clojure_hijack_send] deflate size %d, isflush %d", out_size, (flag & NGX_CLOJURE_BUF_FLUSH_FLAG));
+					tmp_chain->buf->last = wsctx->zout.next_out;
+					(*pchain) = tmp_chain;
+					pchain = &tmp_chain->next;
+				}while(wsctx->zout.avail_out == 0);
+
+				tmp_chain = (ngx_chain_t *)(((uintptr_t)pchain) - offsetof(ngx_chain_t, next));
+				if (flag & NGX_CLOJURE_BUF_FLUSH_FLAG) {
+					tmp_chain->buf->last -= sizeof(WS_PMCE_TAIL_DATA);
+					out_size -= sizeof(WS_PMCE_TAIL_DATA);
+				}
+
+				if (ctx->wchain) {
+					ngx_buf_t *b = ctx->wchain->buf;
+					out_size = deflate_chain->buf->last - deflate_chain->buf->pos - 4;
+					head_size = out_size > 125 ? 4 : 2;
+					 /*optimize for small message, merge it into last chain*/
+					if (!deflate_chain->next && (size_t) (b->end - b->last) >= out_size + head_size) {
+						set_ws_frame_header(b, head_size, out_size, !(flag & NGX_CLOJURE_BUF_FLUSH_FLAG), recompute_ws_flag(wsctx->part_written, flag));
+						wsctx->part_written = 1;
+						b->last += head_size;
+						ngx_memcpy(b->last, deflate_chain->buf->pos + 4, out_size);
+						b->last += out_size;
+						if (flag & NGX_CLOJURE_BUF_LAST_FLAG) {
+							wsctx->part_written = 0;
+							b->last_buf = 1;
+						}
+						if (flag & NGX_CLOJURE_BUF_FLUSH_FLAG) {
+							wsctx->part_written = 0;
+							b->flush = 1;
+						}
+						deflate_chain->buf->pos = deflate_chain->buf->last;
+#if nginx_version >= 1001004
+						ngx_chain_update_chains(r->pool, &ctx->free, &ctx->busy, &deflate_chain,
+								(ngx_buf_tag_t) &ngx_http_clojure_module);
+#else
+						ngx_chain_update_chains(&ctx->free, &ctx->busy, &deflate_chain, (ngx_buf_tag_t)&ngx_http_clojure_module);
+#endif
+						goto TRY_SEND;
+					}
+				}
+
+				tmp_chain = deflate_chain;
+				do {
+					out_size = tmp_chain->buf->last - tmp_chain->buf->pos - 4;
+					head_size = out_size > 125 ? 4 : 2;
+
+					if (head_size != 4) {
+						tmp_chain->buf->pos += 2;
+					}
+					tmp_chain->buf->last = tmp_chain->buf->pos;
+					set_ws_frame_header(tmp_chain->buf, head_size, out_size, tmp_chain->next, recompute_ws_flag(wsctx->part_written, flag));
+					if (!wsctx->part_written) {
+						tmp_chain->buf->pos[0] |= 0x40; /*rev1=1 for PMCE*/
+					}
+					wsctx->part_written = 1;
+					tmp_chain->buf->last += head_size;
+					tmp_chain->buf->last += out_size;
+
+					if (!tmp_chain->next) {
+						if (flag & NGX_CLOJURE_BUF_LAST_FLAG) {
+							wsctx->part_written = 0;
+							tmp_chain->buf->last_buf = 1;
+						}
+						if (flag & NGX_CLOJURE_BUF_FLUSH_FLAG) {
+							wsctx->part_written = 0;
+							tmp_chain->buf->flush = 1;
+						}
+						break;
+					}
+					tmp_chain = tmp_chain->next;
+				}while(1);
+
+				tmp_chain->buf->flush = 1; /*flush data to reduce memory usage*/
+
+				if (ctx->wchain) {
+					ctx->wchain->next = deflate_chain;
+				}else {
+					ctx->wchain = deflate_chain;
+				}
+
+				goto TRY_SEND;
+			}
 		}
 	}
 
+	/*non premessage deflate messsages*/
+	/*optimize for small message, merge it into last chain*/
 	if (ctx->wchain) {
 		ngx_buf_t *b = ctx->wchain->buf;
 		size_t head_size = 0;
@@ -1575,33 +1718,27 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *me
 			if (flag & NGX_CLOJURE_BUF_FLUSH_FLAG) {
 				b->flush = 1;
 			}
-		}else {
-			in = ngx_http_clojure_get_and_copy_bufs(page_size, r->pool, &ctx->free, message, len, flag);
-			if (in == NULL) {
-					ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-							"ngx_http_clojure_hijack_send:"
-							"not enough memory, ngx_http_clojure_get_and_copy_bufs fail");
-					return NGX_ERROR;
-			}
-			if (!len && !message && ((flag & NGX_CLOJURE_BUF_LAST_FLAG) || (flag & NGX_CLOJURE_BUF_FLUSH_FLAG) )) {
-				in->buf->temporary = 0;
-			}
-			ctx->wchain->next = in;
+			goto TRY_SEND;
 		}
+	}
+
+	in = ngx_http_clojure_get_and_copy_bufs(page_size, r->pool, &ctx->free, message, len, flag);
+	if (in == NULL) {
+			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+					"ngx_http_clojure_hijack_send:"
+					"not enough memory, ngx_http_clojure_get_and_copy_bufs fail");
+			return NGX_ERROR;
+	}
+	if (!len && !message && ((flag & NGX_CLOJURE_BUF_LAST_FLAG) || (flag & NGX_CLOJURE_BUF_FLUSH_FLAG) )) {
+		in->buf->temporary = 0;
+	}
+	if (ctx->wchain) {
+		ctx->wchain->next = in;
 	}else {
-		in = ngx_http_clojure_get_and_copy_bufs(page_size, r->pool, &ctx->free, message, len, flag);
-		if (in == NULL) {
-				ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-						"ngx_http_clojure_hijack_send:"
-						"not enough memory, ngx_http_clojure_get_and_copy_bufs fail");
-				return NGX_ERROR;
-		}
-		if (!len && !message && ((flag & NGX_CLOJURE_BUF_LAST_FLAG) || (flag & NGX_CLOJURE_BUF_FLUSH_FLAG) )) {
-			in->buf->temporary = 0;
-		}
 		ctx->wchain = in;
 	}
 
+TRY_SEND :
 	if ((flag & NGX_CLOJURE_BUF_LAST_FLAG) || (flag & NGX_CLOJURE_BUF_FLUSH_FLAG) || ctx->wchain->next) {
 		in = ctx->wchain;
 		ctx->wchain = NULL;
@@ -1694,6 +1831,7 @@ TOP_WHILE :
 		ngx_int_t rc;
 		size_t size;
 		ngx_buf_t *buf;
+		int start_with_header = 0; /*current received block contains current message header*/
 		if (wsctx->rchain == NULL) {
 			wsctx->rchain = ngx_http_clojure_get_and_copy_bufs(page_size, r->pool, &ctx->free, NULL, page_size, 0);
 		}
@@ -1702,8 +1840,8 @@ TOP_WHILE :
 /*		if (wsctx->len || buf->last == buf->pos || (wsctx->left && !wsctx->len))*/
 		{
 			rc = c->recv(c, buf->last, buf->end - buf->last);
-/*			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "nji_ngx_http_clojure_hijack_read_handler recv rc=%d", rc);*/
-/*			ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "nji_ngx_http_clojure_hijack_read_handler recv rc=%d", rc);*/
+			ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "nji_ngx_http_clojure_hijack_read_handler recv rc=%d, wsctx->len=%d", rc, wsctx->len);
+
 			if (rc == 0) {
 				flag = NGX_HTTP_CLOJURE_SOCKET_ERR_RESET;
 				break;
@@ -1721,6 +1859,7 @@ TOP_WHILE :
 			switch (wsctx->pstate) {
 			case NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_START:
 				check_buf_data_enough(buf, 2 + wsctx->left, TOP_WHILE);
+				start_with_header = 1;
 				if (buf->pos == wsctx->left_pos) {
 					buf->pos += wsctx->left;
 				}
@@ -1748,9 +1887,16 @@ TOP_WHILE :
 				}
 
 				/*check rsv*/
-				if (buf->pos[0] & 0x70) {
-					goto_close(WS_CLOSE_PROTOCOL_ERROR);
+				if (wsctx->premsg_deflate && !(wsctx->opcode & 0x8)) { /*non control frame meets premessage deflate*/
+					if ((buf->pos[0] & 0x30) || (wsctx->cont && (buf->pos[0] & 0x40)))  { /*RSV2 RSV3 is 1 or non-fin message have RSV1 == 1*/
+						goto_close(WS_CLOSE_PROTOCOL_ERROR);
+					}
+				} else {
+					if (buf->pos[0] & 0x70) {
+						goto_close(WS_CLOSE_PROTOCOL_ERROR);
+					}
 				}
+
 				wsctx->mask = (buf->pos[1] >> 7) & 1;
 				wsctx->mpos = 0;
 				wsctx->len = buf->pos[1] & 0x7f;
@@ -1784,12 +1930,21 @@ TOP_WHILE :
 				/* no break */
 			case NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_DATA:
 
+				/*when buf->end == buf->last we need handle data at once because there's no free space to read more,
+				 *otherwise if remaining data length < wsctx->len we can goto TOP_WHILE to take more data*/
 				if (buf->end != buf->last || (wsctx->opcode & 0x8)) {
 					if (buf->pos != wsctx->left_pos) {
 						check_buf_data_enough(buf, wsctx->len, TOP_WHILE);
 					}else {
 						check_buf_data_enough(buf, wsctx->len + wsctx->left, TOP_WHILE);
 					}
+				}else if (buf->pos == wsctx->left_pos && buf->last - buf->pos == wsctx->left) {
+					/*only undecoded data left, we must shrink it and goto TOP_WHILE to take more data*/
+					check_buf_data_enough(buf, wsctx->len + wsctx->left, TOP_WHILE);
+				}
+
+				if (buf->pos == wsctx->left_pos) {
+					buf->pos += wsctx->left;
 				}
 
 				size = buf->last - buf->pos;
@@ -1808,8 +1963,8 @@ TOP_WHILE :
 				}else if (wsctx->left && !(wsctx->opcode & 0x8)) {
 					wsctx->len += wsctx->left;
 					size += wsctx->left;
-					if (buf->pos != wsctx->left_pos) {
-						buf->pos = buf->pos - wsctx->left;
+					if (buf->pos != wsctx->left_pos) { /*last left undecoded data is from last frame*/
+						buf->pos = buf->pos - wsctx->left; //if (buf->pos != wsctx->left_pos)
 						ngx_memmove(buf->pos, wsctx->left_pos, wsctx->left);
 					}
 				}
@@ -1823,7 +1978,7 @@ TOP_WHILE :
 					u_char *pc;
 					u_char *end;
 
-					if (!wsctx->cont) {
+					if (!wsctx->cont && start_with_header) {
 						type |= NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGFIRST;
 					}
 					if (!wsctx->fin || wsctx->len > size) {
@@ -1852,7 +2007,10 @@ TOP_WHILE :
 					}
 
 					pc = buf->pos;
-					if (wsctx->left && !(wsctx->opcode & 0x8)) { /*we should skip the remaining bytes from last decoding*/
+
+					/* We should skip the remaining bytes of last decoding.
+					 * Only data frame need do so.*/
+					if (wsctx->left && !(wsctx->opcode & 0x8)) {
 						pc += wsctx->left;
 					}
 
@@ -1881,7 +2039,98 @@ TOP_WHILE :
 
 					wsctx->len -= size;
 					pc = buf->pos;
-					nji_ngx_http_clojure_hijack_fire_channel_event(type, (uintptr_t)&buf->pos | ((uint64_t)size << 48) , ctx);
+
+					if (wsctx->premsg_deflate && !(wsctx->opcode & 0x8)) { /*PMCEs operate only on data messages.*/
+						u_char deflate_buf[8192];
+						u_char *deflate_buf_pos;
+						int zrc = 0;
+						jint dtype;
+						jint typec = type; /*a copy of variable type, we maybe modify it later*/
+						int first_block = start_with_header;
+						size_t uncompressed_size = 0;
+						int tail_appended = 0;
+						if (wsctx->in_no_ctx_takeover && (typec & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGFIRST) && inflateReset(&wsctx->zin)) {
+							ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "inflateReset error!");
+							goto_close(WS_CLOSE_UNEXPECTED_CONDITION);
+						}
+						wsctx->zin.avail_in = size - wsctx->left; /*remaining bytes of last decoding have been uncompressed already*/
+						wsctx->zin.next_in = buf->pos + wsctx->left;
+
+						do {
+							dtype = typec;
+							if (wsctx->left && wsctx->left_pos != deflate_buf) {
+								ngx_memcpy(deflate_buf, wsctx->left_pos, wsctx->left);
+							}
+							wsctx->zin.avail_out = sizeof(deflate_buf) - wsctx->left;
+							deflate_buf_pos = deflate_buf + wsctx->left;
+							wsctx->zin.next_out = deflate_buf_pos;
+							zrc = inflate(&wsctx->zin, Z_NO_FLUSH);
+							if (zrc == Z_STREAM_END) {
+								if (!wsctx->fin || wsctx->zin.avail_in) {
+									goto_close(WS_CLOSE_PROTOCOL_ERROR);
+								}
+								break;
+							}else if (zrc == Z_BUF_ERROR) {
+								goto TRY_APPENDING_TAIL;
+							}else if (zrc != Z_OK && zrc != Z_BUF_ERROR) {
+								ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "inflate error : %d", zrc);
+								goto_close(WS_CLOSE_UNEXPECTED_CONDITION);
+							}
+
+							if (wsctx->zin.avail_in) {
+								dtype |= NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGREMAIN;
+							}
+
+							uncompressed_size = (size_t)(wsctx->zin.next_out - deflate_buf_pos);
+							if (uncompressed_size || ((first_block || !tail_appended) && wsctx->fin)) { /*we need give a chance to last empty fin frame*/
+								deflate_buf_pos = deflate_buf;
+								uncompressed_size += wsctx->left;
+
+								nji_ngx_http_clojure_hijack_fire_channel_event(dtype,
+										(uintptr_t) &deflate_buf_pos | ((uint64_t) uncompressed_size << 48), ctx);
+								typec &= ~NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGFIRST;
+								if (deflate_buf - deflate_buf_pos > 3) {
+									goto_close(WS_CLOSE_NOT_CONSISTENT);
+								}
+								wsctx->left = deflate_buf - deflate_buf_pos;
+								if (wsctx->left) {
+									deflate_buf_pos += uncompressed_size;
+									ngx_memmove(deflate_buf, deflate_buf_pos, wsctx->left);
+									wsctx->left_pos = deflate_buf;
+								}
+							}
+
+							first_block = 0;
+
+							if (wsctx->zin.avail_out == 0) {
+								if (!wsctx->zin.avail_in) {
+									goto TRY_APPENDING_TAIL;
+								}
+								continue;
+							}
+
+							if (wsctx->zin.avail_in != 0) {
+								continue;
+							}
+TRY_APPENDING_TAIL:
+							if (tail_appended || (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGREMAIN)) {
+								break;
+							}
+							wsctx->zin.avail_in = sizeof(WS_PMCE_TAIL_DATA);
+							wsctx->zin.next_in = WS_PMCE_TAIL_DATA;
+							tail_appended = 1;
+						}while(1);
+
+						/*copy remaining bytes of last decoding to buf->pos*/
+						if (wsctx->left) {
+							buf->pos -= wsctx->left;
+							ngx_memcpy(buf->pos + size, wsctx->left_pos, wsctx->left);
+						}
+
+					}else {
+						nji_ngx_http_clojure_hijack_fire_channel_event(type, (uintptr_t)&buf->pos | ((uint64_t)size << 48) , ctx);
+					}
+
 					if (c->destroyed) {
 						return;
 					}
@@ -1895,7 +2144,7 @@ TOP_WHILE :
 						return;
 					}
 
-					if (pc - buf->pos > 3 || ( (pc - buf->pos) && wsctx->fin)) {
+					if (pc - buf->pos > 3 || ( (pc - buf->pos) && wsctx->fin && !wsctx->len)) {
 						goto_close(WS_CLOSE_NOT_CONSISTENT);
 					}
 
@@ -1992,6 +2241,15 @@ static void nji_ngx_http_clojure_hijack_write_handler(ngx_http_request_t *r) {
 	}
 }
 
+static void *ngx_http_clojure_websocket_alloc(void *opaque, u_int items, u_int size) {
+	ngx_http_clojure_module_ctx_t *ctx = (ngx_http_clojure_module_ctx_t *)opaque;
+	/*TODO: optimize for large buffer to avoid frequently syscalls such as sbrk(), mmap() etc.*/
+	return ngx_palloc(ctx->r->pool, items * size);
+}
+
+static void ngx_http_clojure_websocket_free(void *opaque, void *address) {
+}
+
 ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
 	ngx_http_clojure_module_ctx_t *ctx;
 #if (NGX_HAVE_SHA1)
@@ -2004,6 +2262,7 @@ ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
     ngx_str_t sha1_val;
     sha1_val.len = sizeof(degest) - 1;
     sha1_val.data = (u_char *) degest;
+    ngx_http_clojure_websocket_ctx_t *wsctx;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
 
@@ -2052,21 +2311,62 @@ ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
     ngx_sha1_final(degest, &sha1_ctx);
 
     ngx_encode_base64(&accept->value, &sha1_val);
+    wsctx = ctx->wsctx;
 
-    if (ctx->wsctx == NULL) {
-    	ctx->wsctx = ngx_pcalloc(r->pool, sizeof(ngx_http_clojure_websocket_ctx_t));
-    	ctx->wsctx->ffm = 1;
-    	ctx->wsctx->fin = 1;
+    if (wsctx == NULL) {
+    	ngx_table_elt_t *in_extensions = NULL;
+    	ngx_table_elt_t *out_extensions = NULL;
+    	int in_max_window_bits = 15;
+    	int out_max_window_bits = 15;
+    	/*TODO: negotiate in_max_window_bits & out_max_window_bits, e.g. "permessage-deflate;server_max_window_bits=11;client_max_window_bits=11"*/
+    	char out_extensions_tmp_value[1024] = "permessage-deflate";
+
+    	wsctx = ngx_pcalloc(r->pool, sizeof(ngx_http_clojure_websocket_ctx_t));
+		wsctx->ffm = 1;
+		wsctx->fin = 1;
+
+    	ngx_http_clojure_get_header(r->headers_in.headers, "Sec-WebSocket-Extensions", in_extensions);
+    	if (in_extensions != NULL && ngx_strcasestrn(in_extensions->value.data, "permessage-deflate", 18-1)) {
+    		wsctx->premsg_deflate = 1;
+    		if (ngx_strcasestrn(in_extensions->value.data, "client_no_context_takeover", 26-1)) {
+    			wsctx->out_no_ctx_takeover = 1;
+    			sprintf(out_extensions_tmp_value+strlen(out_extensions_tmp_value), ";%s", "client_no_context_takeover");
+    		}
+    		if (ngx_strcasestrn(in_extensions->value.data, "server_no_context_takeover", 26-1)) {
+    		    wsctx->in_no_ctx_takeover = 1;
+    		    sprintf(out_extensions_tmp_value+strlen(out_extensions_tmp_value), ";%s", "server_no_context_takeover");
+    		}
+    		/*TODO: negotiate in_max_window_bits & out_max_window_bits*/
+    		out_extensions = ngx_list_push(&r->headers_out.headers);
+    		out_extensions->hash = 1;
+    		ngx_str_set(&out_extensions->key, "Sec-WebSocket-Extensions");
+    		out_extensions->value.data = ngx_pcalloc(r->pool, strlen(out_extensions_tmp_value)+1);
+    		out_extensions->value.len = strlen(out_extensions_tmp_value);
+    		ngx_memcpy(out_extensions->value.data, out_extensions_tmp_value, out_extensions->value.len+1);
+    		wsctx->zin.zalloc = wsctx->zout.zalloc = ngx_http_clojure_websocket_alloc;
+    		wsctx->zin.zfree  = wsctx->zout.zfree  = ngx_http_clojure_websocket_free;
+    		wsctx->zin.opaque = wsctx->zout.opaque = ctx;
+
+			if ((rc = deflateInit2(&wsctx->zout, Z_DEFAULT_COMPRESSION, Z_DEFLATED,
+					-out_max_window_bits, 8, Z_DEFAULT_STRATEGY))
+					|| (rc = inflateInit2(&wsctx->zin, -in_max_window_bits) )) {
+				ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "can not initialize deflate context, code=%d", rc);
+				rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+				goto UPGRADE_DONE;
+			}
+    	}
+
     }
 
     rc = ngx_http_clojure_hijack_send_header(r, 0);
 
 UPGRADE_DONE:
     if (ctx->hijacked_or_async) {
-        if (rc == NGX_HTTP_BAD_REQUEST) {
-        	ngx_http_finalize_request(r, NGX_HTTP_BAD_REQUEST);
+        if (rc == NGX_HTTP_BAD_REQUEST || rc == NGX_HTTP_INTERNAL_SERVER_ERROR) {
+        	ngx_http_finalize_request(r, rc);
         }
     }
+    ctx->wsctx = wsctx;
     return rc;
 #else
     ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module);

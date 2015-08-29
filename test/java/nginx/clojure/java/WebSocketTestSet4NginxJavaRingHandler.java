@@ -15,6 +15,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 
+import nginx.clojure.HackUtils;
 import nginx.clojure.MessageAdapter;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHttpServerChannel;
@@ -45,7 +46,7 @@ public class WebSocketTestSet4NginxJavaRingHandler {
 				@Override
 				public void onTextMessage(NginxHttpServerChannel sc, String message, boolean remaining) throws IOException {
 					if (NginxClojureRT.log.isDebugEnabled()) {
-						NginxClojureRT.log.debug("WSEcho onTextMessage: msg=%s, rem=%s", message, remaining);
+						NginxClojureRT.log.debug("WSEcho onTextMessage: msg=%s, rem=%s", HackUtils.truncateToDotAppendString(message, 10), remaining);
 					}
 					total += message.length();
 					sc.send(message, !remaining, false);
@@ -124,7 +125,7 @@ public class WebSocketTestSet4NginxJavaRingHandler {
 				@Suspendable
 				public void onTextMessage(NginxHttpServerChannel sc, String message, boolean remaining) throws IOException, SuspendExecution {
 					if (NginxClojureRT.log.isDebugEnabled()) {
-						NginxClojureRT.log.debug("WSRemote onTextMessage: msg=%s, rem=%s", message, remaining);
+						NginxClojureRT.log.debug("WSRemote onTextMessage: msg=%s, rem=%s", HackUtils.truncateToDotAppendString(message, 10), remaining);
 					}
 					
 					CloseableHttpClient httpclient = HttpClients.createDefault();
@@ -196,6 +197,37 @@ public class WebSocketTestSet4NginxJavaRingHandler {
 				 */
 				@Override
 				public void onWholeTextMessage(NginxHttpServerChannel ch, String message) throws IOException {
+					ch.send(message, true, false);
+				}
+			});
+			return null;
+		}
+	}
+	
+	public static class WSWholeMessageHandler implements NginxJavaRingHandler {
+
+		@Override
+		public Object[] invoke(Map<String, Object> request) throws IOException {
+			NginxJavaRequest r = (NginxJavaRequest)request;
+			NginxHttpServerChannel sc = r.hijack(true);
+			//If we use nginx directive `auto_upgrade_ws on;`, these three lines can be omitted.
+			if (!sc.webSocketUpgrade(true)) {
+				return null;
+			}
+			sc.addListener(sc, new WholeMessageAdapter<NginxHttpServerChannel>(64*1024) {
+				/* (non-Javadoc)
+				 * @see nginx.clojure.WholeMessageAdapter#onWholeTextMessage(java.lang.Object, java.lang.String)
+				 */
+				@Override
+				public void onWholeTextMessage(NginxHttpServerChannel ch, String message) throws IOException {
+					ch.send(message, true, false);
+				}
+				
+				/* (non-Javadoc)
+				 * @see nginx.clojure.WholeMessageAdapter#onWholeBiniaryMessage(java.lang.Object, java.nio.ByteBuffer)
+				 */
+				@Override
+				public void onWholeBiniaryMessage(NginxHttpServerChannel ch, ByteBuffer message) throws IOException {
 					ch.send(message, true, false);
 				}
 			});

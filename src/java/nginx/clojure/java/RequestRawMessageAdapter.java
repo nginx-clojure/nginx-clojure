@@ -15,6 +15,7 @@ import java.util.concurrent.FutureTask;
 
 import nginx.clojure.ChannelListener;
 import nginx.clojure.Coroutine;
+import nginx.clojure.HackUtils;
 import nginx.clojure.MessageListener;
 import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
@@ -409,7 +410,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 			final String txt = NginxClojureRT.fetchStringValidPart(address, 0,  size, MiniConstants.DEFAULT_ENCODING, bb, cb);
 			int invalidNum = bb.remaining();
 			if (NginxClojureRT.log.isDebugEnabled()) {
-				NginxClojureRT.getLog().debug("onTextMessage fetchStringValidPart : %d", invalidNum);
+				NginxClojureRT.getLog().debug("onTextMessage fetchStringValidPart : %d, txt=%s", invalidNum, HackUtils.truncateToDotAppendString(txt, 10));
 			}
 			NginxClojureRT.UNSAFE.putAddress(address, NginxClojureRT.UNSAFE.getAddress(address) - invalidNum);
 			if (txt.length() > 0 || first || !remining) {

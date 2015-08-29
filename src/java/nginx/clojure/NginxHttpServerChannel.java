@@ -163,7 +163,9 @@ public class NginxHttpServerChannel implements Closeable {
 			closed = true;
 		}
 		if (log.isDebugEnabled()) {
-			log.debug("#%s: send message : '%s', flush=%s, last=%s, lns=%s", request.nativeRequest(), message, flush, last, request.listeners() == null ? 0 : request.listeners().size());
+			log.debug("#%s: send message : '%s', len=%s, flush=%s, last=%s, lns=%s", request.nativeRequest(),
+					HackUtils.truncateToDotAppendString(message, 10), message == null ? "<NULL>" : message.length(), flush, last,
+					request.listeners() == null ? 0 : request.listeners().size());
 		}
 		byte[] bs = message == null ? null : message.getBytes(DEFAULT_ENCODING);
 		int flag = computeFlag(flush, last) | MiniConstants.NGX_CLOJURE_BUF_APP_MSGTXT;

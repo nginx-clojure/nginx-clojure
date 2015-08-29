@@ -62,6 +62,7 @@ public class WholeMessageAdapter<T> extends MessageAdapter<T> {
 					byteBuffer.put(message);
 					byteBuffer.flip();
 					onWholeBiniaryMessage(data, byteBuffer);
+					byteBuffer = null;
 				} else {
 					throw new IOException("Message size is too large > " + maxMessageSize
 							+ "(current setting), we need set a larger value");

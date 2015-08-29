@@ -276,4 +276,20 @@ public class HackUtils {
 		return cb;
     }
     
+    public static String truncateToDotAppendString(String s, int max) {
+    	StringBuilder sb = new StringBuilder();
+		if (s == null) {
+			sb.append("<NULL>");
+		}else if (s.length() == 0) {
+			sb.append("<EMPTY>");
+		}else {
+			int alen = Math.min(max, s.length());
+			sb.append(s.substring(0, alen));
+			if (alen < s.length()) {
+				sb.append("...");
+			}
+		}
+		return sb.toString();
+    }
+    
 }
