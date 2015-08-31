@@ -1187,7 +1187,7 @@ static ngx_int_t ngx_http_clojure_auto_detect_jvm(ngx_conf_t *cf) {
 	p = strrchr(result, '.');
 	if (p && (!ngx_strcmp(p, ".so") || !ngx_strcmp(p, ".dll") || !ngx_strcmp(p, ".dylib"))) {
 		len = strlen(result);
-		mcf->jvm_path.data = ngx_pcalloc(cf->pool, len);
+		mcf->jvm_path.data = ngx_pcalloc(cf->pool, len+1);
 		strcpy((char*)mcf->jvm_path.data, result);
 		mcf->jvm_path.len = len;
 		return NGX_OK;
