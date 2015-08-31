@@ -9,7 +9,7 @@ Jar Repository
 For Clojure
 
 ```clojure
-[nginx-clojure/nginx-clojure-embed "0.4.1"]
+[nginx-clojure/nginx-clojure-embed "0.4.2"]
 ```
 
 For Java (Maven)
@@ -25,7 +25,7 @@ For Java (Maven)
 <dependency>
   <groupId>nginx-clojure</groupId>
   <artifactId>nginx-clojure-embed</artifactId>
-  <version>0.4.1</version>
+  <version>0.4.2</version>
 </dependency>
 ```
 
