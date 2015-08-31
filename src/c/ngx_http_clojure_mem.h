@@ -143,6 +143,7 @@ typedef struct {
 	unsigned pstate : 2; /*start/len/mask/data*/
 	unsigned left : 2; /*left bytes length from last decoding*/
 
+#if (NGX_ZLIB)
 /*for premessage-deflate --websocket compression extension*/
 	unsigned premsg_deflate   : 1;
 	unsigned in_no_ctx_takeover : 1;
@@ -151,6 +152,7 @@ typedef struct {
 	z_stream zin;
 	z_stream zout;
 /*end for premessage-deflate*/
+#endif
 
 	u_char *  left_pos; /*left bytes pointer from last decoding*/
 	char mcode[4]; /*mask code*/

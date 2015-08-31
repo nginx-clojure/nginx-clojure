@@ -1560,7 +1560,7 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *me
 			if (flag & NGX_CLOJURE_BUF_FLUSH_FLAG) {
 				ctx->wsctx->ffm = 1;
 			}
-
+#if (NGX_ZLIB)
 			if (wsctx->premsg_deflate) {
 				ngx_chain_t *deflate_chain = NULL;
 				ngx_chain_t **pchain = &deflate_chain;
@@ -1691,6 +1691,7 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *me
 
 				goto TRY_SEND;
 			}
+#endif
 		}
 	}
 
@@ -1887,11 +1888,14 @@ TOP_WHILE :
 				}
 
 				/*check rsv*/
+#if (NGX_ZLIB)
 				if (wsctx->premsg_deflate && !(wsctx->opcode & 0x8)) { /*non control frame meets premessage deflate*/
 					if ((buf->pos[0] & 0x30) || (wsctx->cont && (buf->pos[0] & 0x40)))  { /*RSV2 RSV3 is 1 or non-fin message have RSV1 == 1*/
 						goto_close(WS_CLOSE_PROTOCOL_ERROR);
 					}
-				} else {
+				} else
+#endif
+				{
 					if (buf->pos[0] & 0x70) {
 						goto_close(WS_CLOSE_PROTOCOL_ERROR);
 					}
@@ -1938,7 +1942,7 @@ TOP_WHILE :
 					}else {
 						check_buf_data_enough(buf, wsctx->len + wsctx->left, TOP_WHILE);
 					}
-				}else if (buf->pos == wsctx->left_pos && buf->last - buf->pos == wsctx->left) {
+				}else if (buf->pos == wsctx->left_pos && buf->last - buf->pos == (int)wsctx->left) {
 					/*only undecoded data left, we must shrink it and goto TOP_WHILE to take more data*/
 					check_buf_data_enough(buf, wsctx->len + wsctx->left, TOP_WHILE);
 				}
@@ -2039,7 +2043,7 @@ TOP_WHILE :
 
 					wsctx->len -= size;
 					pc = buf->pos;
-
+#if (NGX_ZLIB)
 					if (wsctx->premsg_deflate && !(wsctx->opcode & 0x8)) { /*PMCEs operate only on data messages.*/
 						u_char deflate_buf[8192];
 						u_char *deflate_buf_pos;
@@ -2127,7 +2131,9 @@ TRY_APPENDING_TAIL:
 							ngx_memcpy(buf->pos + size, wsctx->left_pos, wsctx->left);
 						}
 
-					}else {
+					}else
+#endif
+					{
 						nji_ngx_http_clojure_hijack_fire_channel_event(type, (uintptr_t)&buf->pos | ((uint64_t)size << 48) , ctx);
 					}
 
@@ -2253,6 +2259,7 @@ static void ngx_http_clojure_websocket_free(void *opaque, void *address) {
 ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
 	ngx_http_clojure_module_ctx_t *ctx;
 #if (NGX_HAVE_SHA1)
+    ngx_http_clojure_websocket_ctx_t *wsctx = NULL;
 	ngx_int_t rc = NGX_OK;
 	ngx_table_elt_t *key = NULL;
 	ngx_table_elt_t *accept;
@@ -2262,7 +2269,6 @@ ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
     ngx_str_t sha1_val;
     sha1_val.len = sizeof(degest) - 1;
     sha1_val.data = (u_char *) degest;
-    ngx_http_clojure_websocket_ctx_t *wsctx;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
 
@@ -2324,7 +2330,7 @@ ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
     	wsctx = ngx_pcalloc(r->pool, sizeof(ngx_http_clojure_websocket_ctx_t));
 		wsctx->ffm = 1;
 		wsctx->fin = 1;
-
+  #if (NGX_ZLIB)
     	ngx_http_clojure_get_header(r->headers_in.headers, "Sec-WebSocket-Extensions", in_extensions);
     	if (in_extensions != NULL && ngx_strcasestrn(in_extensions->value.data, "permessage-deflate", 18-1)) {
     		wsctx->premsg_deflate = 1;
@@ -2348,13 +2354,14 @@ ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
     		wsctx->zin.opaque = wsctx->zout.opaque = ctx;
 
 			if ((rc = deflateInit2(&wsctx->zout, Z_DEFAULT_COMPRESSION, Z_DEFLATED,
-					-out_max_window_bits, 8, Z_DEFAULT_STRATEGY))
-					|| (rc = inflateInit2(&wsctx->zin, -in_max_window_bits) )) {
+					-out_max_window_bits, 8, Z_DEFAULT_STRATEGY)) != Z_OK
+					|| (rc = inflateInit2(&wsctx->zin, -in_max_window_bits)) != Z_OK) {
 				ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "can not initialize deflate context, code=%d", rc);
 				rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
 				goto UPGRADE_DONE;
 			}
     	}
+  #endif
 
     }
 
