@@ -1,4 +1,4 @@
-(defproject nginx-clojure/nginx-jersey "0.1.0"
+(defproject nginx-clojure/nginx-jersey "0.1.2"
   :description "Intergrate Jersey into Nginx by Nignx-Clojure Module so that 
                 Nginx can Support Java standard RESTful Web Services (JAX-RS)"
   :url "https://github.com/nginx-clojure/nginx-clojure/nginx-jersey"
@@ -10,7 +10,7 @@
                  [org.glassfish.jersey.core/jersey-common "2.17"]
                  [org.glassfish.jersey.core/jersey-server "2.17"]
                  ;[org.glassfish.jersey.media/jersey-media-json-jackson "2.17"]
-                 [nginx-clojure/nginx-clojure "0.4.0"]
+                 [nginx-clojure/nginx-clojure "0.4.2"]
                  ]
   :source-paths ["src/clojure"]
   :java-source-paths ["src/java"]
