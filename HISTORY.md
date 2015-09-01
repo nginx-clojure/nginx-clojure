@@ -4,6 +4,15 @@ Downloads & Release History
 1. [Binaries of Releases](http://sourceforge.net/projects/nginx-clojure/files/)
 1. [Sources of Releases](https://github.com/nginx-clojure/nginx-clojure/releases)
 
+## 0.4.2 (2015-08-31)
+
+1. New Feature: Support Sente (issue #87, see [this PR](https://github.com/ptaoussanis/sente/pull/160))
+1. New Feature: Per-message Compression Extensions (PMCEs) for WebSocket (issue #88)
+1. New Feature: Add `add-aggregated-listener!` in HttpServerChannel to makes handling small but fragmented websocket messages easier by clojure.
+1. Enhancement: Support to build on a Linux ARM machine
+1. Bug Fix: WebSocket and Server Channel do not Work with Some Ring Middlewares (issue #89)
+1. Bug Fix: Autodetect jvm_path doesn't work sometimes
+
 ## 0.4.1 (2015-08-12)
 
 1. New Feature: Coroutine based socket supports unix domain socket
