@@ -30,7 +30,7 @@
              "Can-Retransform-Classes" "true"
              }
   :javadoc-opts {
-             :package-names [["nginx-clojure"]]
+             :package-names ["nginx.clojure"]
              }
   :profiles {
              :provided {
