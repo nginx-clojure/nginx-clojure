@@ -6,6 +6,7 @@
   :dependencies [
                  ]
   :plugins [[lein-junit "1.1.7"]
+            [lein-javadoc "0.2.0"]
             ;[venantius/ultra "0.1.9"]
             ]
   ;; CLJ source code path
@@ -27,6 +28,9 @@
   :manifest {"Premain-Class" "nginx.clojure.wave.JavaAgent"
              "Can-Redefine-Classes" "true"
              "Can-Retransform-Classes" "true"
+             }
+  :javadoc-opts {
+             :package-names [["nginx-clojure"]]
              }
   :profiles {
              :provided {
