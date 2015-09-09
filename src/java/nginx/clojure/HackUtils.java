@@ -138,7 +138,7 @@ public class HackUtils {
             
             return clone;
         } catch (Exception ex) {
-            throw new AssertionError("can not cloneThreadLocalMap", ex);
+            throw new AssertionError(ex);
         }
     }
     
@@ -151,7 +151,7 @@ public class HackUtils {
         	UNSAFE.putObject(clone, threadLocalMapEntryQueueFieldOffset, UNSAFE.getObject(entry, threadLocalMapEntryQueueFieldOffset));
         	return clone;
         } catch (Exception e) {
-            throw new AssertionError("can not cloneThreadLocalMapEntry", e);
+            throw new AssertionError(e);
         }
     }
 
