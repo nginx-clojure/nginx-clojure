@@ -275,23 +275,28 @@ on MacosX is 504
   (AppEventListenerManager$PostedEvent. tag data offset length))
 
 (defn on-broadcast! 
-  "Add a broadcasted event listener.
+  "Add a broadcasted event listener and return a removal function to delete the listener
    Function f is like (fn[event] ... ) and event has the form {:tag tag, :data `bytes or long`, :offset offset :length length }
    `offset & `length are meamingless if data is a long integer."
   [f]
-  (-> (NginxClojureRT/getAppEventListenerManager)
-      (.addListener (proxy [AppEventListenerManager$Listener] []
-                      (onEvent [e] (f (event-clj-wrap e)))))))
+  (let [l (proxy [AppEventListenerManager$Listener] []
+               (onEvent [e] (f (event-clj-wrap e))))
+        m (NginxClojureRT/getAppEventListenerManager)]
+    (.addListener m l)
+    (fn [] (.removeListener m l))))
 
 (defn on-broadcast-event-decode!
-  "Add a pair of tester & decoder to broadcast event decoder chain.
+  "Add a pair of tester & decoder to broadcast event decoder chain
+and return a removal function to delete the decoder.
    Decoders will be called one by one and the current decode result will be past to the next decoder.
    Decoders should return decoded event which has the form {:tag tag, :data `any type of data`, :offset offset :length length }
    offset & `length are meamingless if data is a long integer.
    Function tester is a checker and only if it return true the decoder will be invoked."
   [tester decoder]
-  (-> (NginxClojureRT/getAppEventListenerManager)
-    (.addDecoder (proxy [AppEventListenerManager$Decoder] []
-                   (shouldDecode [e] (tester (event-clj-wrap e)))
-                   (decode [e] (clj-event-wrap (decoder (event-clj-wrap e))))))))
+  (let [d (proxy [AppEventListenerManager$Decoder] []
+            (shouldDecode [e] (tester (event-clj-wrap e)))
+            (decode [e] (clj-event-wrap (decoder (event-clj-wrap e)))))
+        m (NginxClojureRT/getAppEventListenerManager)]
+  (.addDecoder m d)
+  (fn [] (.removeDecoder m d))))
 
