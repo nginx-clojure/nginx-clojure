@@ -3909,6 +3909,7 @@ int ngx_http_clojure_pipe_init_by_master(int workers) {
 				break;
 			}
 		}
+		ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0, "in master, ngx_last_process:%d, s:%d", ngx_last_process, s);
 		if (!nc_ngx_worker_pipes_fds[s][0]) {
 			if (ngx_http_clojure_pipe(nc_ngx_worker_pipes_fds[s]) != 0) {
 				return NGX_ERROR;
@@ -3954,6 +3955,7 @@ static int ngx_http_clojure_pipe_init_by_worker(ngx_log_t *log) {
 #if !(NGX_WIN32)
 	nc_jvm_worker_pipe_fds[0] = nc_ngx_worker_pipes_fds[ngx_process_slot][0];
 	nc_jvm_worker_pipe_fds[1] = nc_ngx_worker_pipes_fds[ngx_process_slot][1];
+	ngx_log_debug3(NGX_LOG_DEBUG_HTTP, log , 0, "ngx_process_slot:%d, fd1:%d, fd2:%d", ngx_process_slot, nc_jvm_worker_pipe_fds[0], nc_jvm_worker_pipe_fds[1]);
 #endif
 	return ngx_http_clojure_jvm_worker_pipe_init(log);
 }
@@ -4036,7 +4038,8 @@ int ngx_http_clojure_init_memory_util(ngx_http_core_srv_conf_t *cscf, ngx_http_c
 		return NGX_HTTP_CLOJURE_JVM_ERR_INIT_PIPE;
 	}
 
-	memset(MEM_INDEX, -1, NGX_HTTP_CLOJURE_MEM_IDX_END * sizeof(jlong));
+	/*sizeof(jlong) is zero on win32 vc2010, so we have to use const 8*/
+	memset(MEM_INDEX, -1, NGX_HTTP_CLOJURE_MEM_IDX_END * 8);
 	MEM_INDEX[NGX_HTTP_CLOJURE_UINT_SIZE_IDX] = NGX_HTTP_CLOJURE_UINT_SIZE;
 	MEM_INDEX[NGX_HTTP_CLOJURE_PTR_SIZE_IDX] = NGX_HTTP_CLOJURE_PTR_SIZE;
 	MEM_INDEX[NGX_HTTP_CLOJURE_STRT_SIZE_IDX] = 	NGX_HTTP_CLOJURE_STRT_SIZE;
