@@ -280,6 +280,7 @@ public class NginxEmbedServer {
 		cfg.deleteOnExit();
 		try {
 			start(cfg.getCanonicalPath());
+			NginxClojureRT.getLog().info("[nginx-clojure embed] server listening at port %s.", moptions.get("port"));
 		} catch (IOException e) {
 			throw new RuntimeException("can not getCanonicalPath of conf file for nginx-clojure embed server!", e);
 		}

@@ -87,6 +87,23 @@ static void ngx_http_clojure_embed_free_cycle_uncleaned(void * obj, void *data) 
 		ngx_free(cycle->files);
 }
 
+static void ngx_http_clojure_close_all_connections(ngx_cycle_t *cycle) {
+	ngx_queue_t *q;
+	ngx_connection_t *c;
+
+	while (1) {
+		if (ngx_queue_empty(&cycle->reusable_connections_queue)) {
+			break;
+		}
+
+		q = ngx_queue_last(&cycle->reusable_connections_queue);
+		c = ngx_queue_data(q, ngx_connection_t, queue);
+
+		c->close = 1;
+		c->read->handler(c->read);
+	}
+}
+
 static void ngx_http_clojure_single_process_cycle_stop(ngx_cycle_t *cycle, ngx_http_clojure_embed_cleaner_t *cleaners, ngx_http_clojure_embed_cleaner_t *pcleaner) {
 	ngx_uint_t i;
 	ngx_log_t *log;
@@ -102,6 +119,7 @@ static void ngx_http_clojure_single_process_cycle_stop(ngx_cycle_t *cycle, ngx_h
 	}
 
 	ngx_close_listening_sockets(cycle);
+	ngx_http_clojure_close_all_connections(cycle);
 	ngx_done_events(cycle);
 
 	ngx_exit_log = *ngx_log_get_file_log(ngx_cycle->log);
