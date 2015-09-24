@@ -57,6 +57,7 @@ typedef struct {
 	ngx_int_t max_balanced_tcp_connections;
 	ngx_array_t *jvm_options;
 	ngx_array_t *jvm_vars;
+	ngx_array_t *shared_maps;
 	ngx_str_t jvm_path;
 	ngx_int_t jvm_workers;
 	unsigned jvm_disable_all : 1;

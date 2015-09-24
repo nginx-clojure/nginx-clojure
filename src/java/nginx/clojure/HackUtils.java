@@ -184,6 +184,7 @@ public class HackUtils {
     	return c;
     }
     
+    
     public static ByteBuffer encode(String s, Charset cs, ByteBuffer bb)  {
     	//for safe
     	if (s == null) {
@@ -211,7 +212,7 @@ public class HackUtils {
 		}
 		bb.flip();
 		if (bb.remaining() < bb.capacity()) {
-			bb.array()[bb.remaining()] = 0; // for char* c language is ended with '\0'
+			bb.array()[bb.arrayOffset()+bb.remaining()] = 0; // for char* c language is ended with '\0'
 		}
 		return bb;
     }

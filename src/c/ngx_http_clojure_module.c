@@ -8,6 +8,7 @@
 #include <ngx_http.h>
 #include "ngx_http_clojure_jvm.h"
 #include "ngx_http_clojure_mem.h"
+#include "ngx_http_clojure_shared_map.h"
 #include "ngx_http_clojure_socket.h"
 
 ngx_cycle_t *ngx_http_clojure_global_cycle;
@@ -426,6 +427,14 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 		offsetof(ngx_http_clojure_loc_conf_t, always_read_body),
 		NULL
     },
+    {
+    	ngx_string("shared_map"),
+    	NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE2,
+    	ngx_http_clojure_shared_map,
+    	0,
+    	0,
+    	NULL
+    },
 
     ngx_null_command
 };
@@ -704,6 +713,12 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_core_srv_conf_t *csc
 			return NGX_HTTP_CLOJURE_JVM_ERR_INIT_MEMIDX;
 		}
     }
+
+    if (ngx_http_clojure_init_shared_map_util() != NGX_HTTP_CLOJURE_JVM_OK) {
+    	ngx_log_error(NGX_LOG_ERR, log, 0, "can not initialize jvm memory util");
+    	return NGX_HTTP_CLOJURE_JVM_ERR_INIT_SHAREDMAP;
+    }
+
     return NGX_HTTP_CLOJURE_JVM_OK;
 }
 

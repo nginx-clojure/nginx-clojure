@@ -183,7 +183,7 @@ public class NginxClojureRT extends MiniConstants {
 	public native static long ngx_http_clojure_mem_broadcast_event(long e, Object data, long offset, long hasSelf);
 	
 	public native static long ngx_http_clojure_mem_read_raw_pipe(long p, Object buf, long offset, long len);
-	
+
 	/**
 	 * @deprecated
 	 */
@@ -953,31 +953,46 @@ public class NginxClojureRT extends MiniConstants {
 		}
 	}
 	
-	public static final String fetchString(long address, int size, Charset encoding, ByteBuffer bb,  CharBuffer cb) {
-		if (size > bb.limit()) {
-			size = bb.limit();
-		}
-		ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(address), bb.array(), BYTE_ARRAY_OFFSET, size);
-		bb.limit(size);
-		return HackUtils.decode(bb, encoding, cb);
-	}
-	
-	public static final String fetchString(long address, int size, Charset encoding) {
+	public final static String fetchDString(long address, int size) {
 		ByteBuffer bb = pickByteBuffer();
 		CharBuffer cb = pickCharBuffer();
 		if (size > bb.capacity()) {
 			bb = ByteBuffer.allocate(size);
 		}
-		ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(address), bb.array(), BYTE_ARRAY_OFFSET, size);
+		ngx_http_clojure_mem_copy_to_obj(address, bb.array(), BYTE_ARRAY_OFFSET, size);
+		bb.limit(size);
+		return HackUtils.decode(bb, DEFAULT_ENCODING, cb);
+	}
+	
+	public final static String fetchString(long paddress, int size) {
+		return fetchString(paddress, size, DEFAULT_ENCODING);
+	}
+	
+	public static final String fetchString(long paddress, int size, Charset encoding, ByteBuffer bb,  CharBuffer cb) {
+		if (size > bb.limit()) {
+			size = bb.limit();
+		}
+		ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(paddress), bb.array(), BYTE_ARRAY_OFFSET, size);
 		bb.limit(size);
 		return HackUtils.decode(bb, encoding, cb);
 	}
 	
-	public static final String fetchStringValidPart(long address, int off, int size, Charset encoding, ByteBuffer bb, CharBuffer cb) {
+	public static final String fetchString(long paddress, int size, Charset encoding) {
+		ByteBuffer bb = pickByteBuffer();
+		CharBuffer cb = pickCharBuffer();
+		if (size > bb.capacity()) {
+			bb = ByteBuffer.allocate(size);
+		}
+		ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(paddress), bb.array(), BYTE_ARRAY_OFFSET, size);
+		bb.limit(size);
+		return HackUtils.decode(bb, encoding, cb);
+	}
+	
+	public static final String fetchStringValidPart(long paddress, int off, int size, Charset encoding, ByteBuffer bb, CharBuffer cb) {
 		ByteBuffer lb = null;
 		if (size > bb.remaining()) {
 			lb = ByteBuffer.allocate(size);
-			ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(address) + off, lb.array(), BYTE_ARRAY_OFFSET, size);
+			ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(paddress) + off, lb.array(), BYTE_ARRAY_OFFSET, size);
 			lb.limit(size);
 			cb = HackUtils.decodeValid(lb, encoding, cb);
 			if (lb.remaining() == 0) {
@@ -987,28 +1002,28 @@ public class NginxClojureRT extends MiniConstants {
 			}
 			return cb.toString();
 		}
-		ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(address) + off, bb.array(), bb.arrayOffset() + bb.position() + BYTE_ARRAY_OFFSET, size);
+		ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(paddress) + off, bb.array(), bb.arrayOffset() + bb.position() + BYTE_ARRAY_OFFSET, size);
 		bb.limit(size);
 		cb = HackUtils.decodeValid(bb, encoding, cb);
 		return cb.toString();
 	}
 	
-	public static final int pushLowcaseString(long address, String val, Charset encoding, long pool) {
+	public static final int pushLowcaseString(long paddress, String val, Charset encoding, long pool) {
 		ByteBuffer bb = pickByteBuffer();
 		bb = HackUtils.encodeLowcase(val, encoding, bb);
 		int len = bb.remaining();
 		long strAddr = ngx_palloc(pool, len);
-		UNSAFE.putAddress(address, strAddr);
+		UNSAFE.putAddress(paddress, strAddr);
 		ngx_http_clojure_mem_copy_to_addr(bb.array(), BYTE_ARRAY_OFFSET , strAddr, len);
 		return len;
 	}
 	
-	public static final int pushString(long address, String val, Charset encoding, long pool) {
+	public static final int pushString(long paddress, String val, Charset encoding, long pool) {
 		ByteBuffer bb = pickByteBuffer();
 		bb = HackUtils.encode(val, encoding, bb);
 		int len = bb.remaining();
 		long strAddr = ngx_palloc(pool, len);
-		UNSAFE.putAddress(address, strAddr);
+		UNSAFE.putAddress(paddress, strAddr);
 		ngx_http_clojure_mem_copy_to_addr(bb.array(), BYTE_ARRAY_OFFSET , strAddr, len);
 		return len;
 	}

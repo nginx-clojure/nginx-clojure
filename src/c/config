@@ -6,11 +6,17 @@ NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
     $ngx_addon_dir/ngx_http_clojure_jvm.c \
     $ngx_addon_dir/ngx_http_clojure_module.c \
     $ngx_addon_dir/ngx_http_clojure_socket.c \
+    $ngx_addon_dir/ngx_http_clojure_shared_map.c \
+    $ngx_addon_dir/ngx_http_clojure_shared_map_hashmap.c \
+    $ngx_addon_dir/ngx_http_clojure_shared_map_tinymap.c \
 "
 NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
     $ngx_addon_dir/ngx_http_clojure_jvm.h \
     $ngx_addon_dir/ngx_http_clojure_mem.h \
     $ngx_addon_dir/ngx_http_clojure_socket.h \
+    $ngx_addon_dir/ngx_http_clojure_shared_map.h \
+    $ngx_addon_dir/ngx_http_clojure_shared_map_hashmap.h \
+    $ngx_addon_dir/ngx_http_clojure_shared_map_tinymap.h \
 "
 
 USE_SHA1=YES
