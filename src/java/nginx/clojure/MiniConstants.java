@@ -103,6 +103,7 @@ public class MiniConstants {
 	public static final int POST_EVENT_TYPE_HIJACK_SEND_HEADER = 0x03;
 	public static final int POST_EVENT_TYPE_HIJACK_SEND_RESPONSE = 0x04;
 	public static final int POST_EVENT_TYPE_HIJACK_WRITE = 0x05;
+	public static final int POST_EVENT_TYPE_PUB = 0x1e;
 	public static final int POST_EVENT_TYPE_POLL_TASK = 0x1f;
 	public static final int POST_EVENT_TYPE_SYSTEM_EVENT_IDX_END = 0x1f;
 	public static final int POST_EVENT_TYPE_APPICATION_EVENT_IDX_START = 0x20;
@@ -351,8 +352,11 @@ public class MiniConstants {
 	public static int NGX_HTTP_CLOJURE_HEADERSO_HEADERS_IDX  = 153;
 	public static long NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET;
 
-	public static int NGINX_CLOJURE_MODULE_CTX_PHRASE_ID = 251;
-	public static long NGINX_CLOJURE_MODULE_CTX_PHRASE_ID_OFFSET;
+	public static int NGX_WORKER_PROCESSORS_NUM_ID = 250;
+	public static long NGX_WORKER_PROCESSORS_NUM;
+	
+//	public static int NGINX_CLOJURE_MODULE_CTX_PHRASE_ID = 251;
+//	public static long NGINX_CLOJURE_MODULE_CTX_PHRASE_ID_OFFSET;
 	
 	public static int NGINX_CLOJURE_RT_WORKERS_ID = 252;
 	public static long NGINX_CLOJURE_RT_WORKERS;

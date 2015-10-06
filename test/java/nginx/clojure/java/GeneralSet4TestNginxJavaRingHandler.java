@@ -1,27 +1,22 @@
 package nginx.clojure.java;
 
 import static nginx.clojure.MiniConstants.CONTENT_TYPE;
-import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
 import static nginx.clojure.MiniConstants.HEADERS;
 import static nginx.clojure.MiniConstants.NGX_HTTP_OK;
-import static nginx.clojure.MiniConstants.POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START;
 import static nginx.clojure.MiniConstants.QUERY_STRING;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
-import nginx.clojure.AppEventListenerManager.Listener;
-import nginx.clojure.AppEventListenerManager.PostedEvent;
 import nginx.clojure.ChannelCloseAdapter;
 import nginx.clojure.Configurable;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHttpServerChannel;
+import nginx.clojure.util.NginxPubSubTopic;
+import nginx.clojure.util.NginxPubSubTopic.PubSubListenerData;
+import nginx.clojure.util.NginxPubSubListener;
 
 import org.apache.commons.fileupload.FileItemIterator;
 import org.apache.commons.fileupload.FileItemStream;
@@ -137,73 +132,27 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		
 	}
 	
-	public static class Init implements NginxJavaRingHandler, Listener {
-		public static final int LONGPOLL_EVENT = POST_EVENT_TYPE_COMPLEX_EVENT_IDX_START;
-		public static final int SEVER_SENT_EVENTS = LONGPOLL_EVENT + 1;
-		public static Set<NginxHttpServerChannel> longpollSubscribers;
-		public static Set<NginxHttpServerChannel> serverSentEventSubscribers;
-		
-		public Init() {
-		}
-		
-		@Override
-		public Object[] invoke(Map<String, Object> request) {
-			longpollSubscribers = Collections.newSetFromMap(new ConcurrentHashMap<NginxHttpServerChannel, Boolean>());
-			serverSentEventSubscribers = Collections.newSetFromMap(new ConcurrentHashMap<NginxHttpServerChannel, Boolean>());
-			NginxClojureRT.getAppEventListenerManager().addListener(this);
-			return null;
-		}
-		
-		@Override
-		public void onEvent(PostedEvent event) throws IOException {
-			if (event.tag != LONGPOLL_EVENT && event.tag != SEVER_SENT_EVENTS) {
-				return;
-			}
-			String message = new String((byte[])event.data, event.offset, event.length, DEFAULT_ENCODING);
-			if (event.tag == LONGPOLL_EVENT) {
-				for (NginxHttpServerChannel channel : longpollSubscribers) {
-					channel.sendResponse(new Object[] { NGX_HTTP_OK,
-							ArrayMap.create("content-type", "text/json"),
-							message});
-				}
-				longpollSubscribers.clear();
-			}else if (event.tag == SEVER_SENT_EVENTS) {
-				for (NginxHttpServerChannel channel : serverSentEventSubscribers) {
-					if ("shutdown!".equals(message)) {
-						channel.send("data: "+message+"\r\n\r\n", true, true);
-					}else if ("shutdownQuite!".equals(message)) {
-						channel.close();
-					}else if (message.startsWith("DirectByteBufferTest")) {
-						ByteBuffer buffer = ByteBuffer.allocateDirect(event.length + "data: ".length()+4);
-						buffer.put("data: ".getBytes());
-						buffer.put((byte[])event.data, event.offset, event.length);
-						buffer.put("\r\n\r\n".getBytes());
-						buffer.flip();
-						channel.send(buffer, true, false);
-					}else if (message.startsWith("HeapByteBufferTest")) {
-						ByteBuffer buffer = ByteBuffer.allocate(event.length + "data: ".length()+4);
-						buffer.put("data: ".getBytes());
-						buffer.put((byte[])event.data, event.offset, event.length);
-						buffer.put("\r\n\r\n".getBytes());
-						buffer.flip();
-						channel.send(buffer, true, false);
-					}else {
-						channel.send("data: "+message+"\r\n\r\n", true, false);
-					}
-				}
-			}
-			
-		}
-	}
-	
 	public static class Sub implements NginxJavaRingHandler {
+		
+		public static NginxPubSubTopic longPollPubSub = new NginxPubSubTopic("longpoll-topic");;
+		
+		public Sub() {
+		}
 		
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
 			NginxJavaRequest r = ((NginxJavaRequest)request);
 			NginxHttpServerChannel channel = r.hijack(false);
-			Init.longpollSubscribers.add(channel);
-			//nginx-clojure will ignore this return because we have hijacked the request.
+			PubSubListenerData pd = longPollPubSub.subscribe(channel, new NginxPubSubListener<NginxHttpServerChannel>() {
+				@Override
+				public void onMessage(String msg, NginxHttpServerChannel ch) throws IOException {
+					ch.sendResponse(new Object[] { NGX_HTTP_OK,
+							ArrayMap.create("content-type", "text/json"),
+							msg});
+					longPollPubSub.unsubscribe((PubSubListenerData)ch.getContext());
+				}
+			});
+			channel.setContext(pd);
 			return null;
 		}
 	}
@@ -212,30 +161,41 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
-			/*
-			 * Or use NginxClojureRT.broadcastEvent(Init.LONGPOLL_EVENT,request.get(QUERY_STRING).toString());
-			 */
-			PostedEvent event = new PostedEvent(Init.LONGPOLL_EVENT, request.get(QUERY_STRING).toString());
-			NginxClojureRT.getAppEventListenerManager().broadcast(event);
+			Sub.longPollPubSub.pubish(request.get(QUERY_STRING).toString());
 			return new Object[] { NGX_HTTP_OK, null, "OK" };
 		}
 		
 	}
 	
 	public static class SSESub implements NginxJavaRingHandler {
-
+		
+		public static NginxPubSubTopic ssePubSub = new NginxPubSubTopic("sse-topic");;
+		
 		@Override
 		public Object[] invoke(Map<String, Object> request) throws IOException {
 			NginxJavaRequest r = (NginxJavaRequest) request;
 			NginxHttpServerChannel channel = r.hijack(true);
-			channel.addListener(channel, new ChannelCloseAdapter<NginxHttpServerChannel>() {
+			PubSubListenerData pd = ssePubSub.subscribe(channel, new NginxPubSubListener<NginxHttpServerChannel>() {
 				@Override
-				public void onClose(NginxHttpServerChannel data) {
-					Init.serverSentEventSubscribers.remove(data);
-					NginxClojureRT.getLog().info("closing...." + data.request().nativeRequest());
+				public void onMessage(String message, NginxHttpServerChannel ch) throws IOException {
+					if ("shutdown!".equals(message)) {
+						ch.send("data: "+message+"\r\n\r\n", true, true);
+					}else if ("shutdownQuite!".equals(message)) {
+						ch.close();
+					}else {
+						ch.send("data: "+message+"\r\n\r\n", true, false);
+					}
 				}
 			});
-			Init.serverSentEventSubscribers.add(channel);
+			channel.setContext(pd);
+			channel.addListener(channel, new ChannelCloseAdapter<NginxHttpServerChannel>() {
+				@Override
+				public void onClose(NginxHttpServerChannel ch) {
+					ssePubSub.unsubscribe((PubSubListenerData) ch.getContext());
+					NginxClojureRT.getLog().info("closing...." + ch.request().nativeRequest());
+				}
+			});
+			
 			channel.sendHeader(200, ArrayMap.create("Content-Type", "text/event-stream").entrySet(), true, false);
 			channel.send("retry: 4500\r\n", true, false);
 			return null;
@@ -246,11 +206,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
-			/*
-			 * Or use NginxClojureRT.broadcastEvent(Init.SEVER_SENT_EVENTS, request.get(QUERY_STRING).toString());
-			 */
-			PostedEvent event = new PostedEvent(Init.SEVER_SENT_EVENTS, request.get(QUERY_STRING).toString());
-			NginxClojureRT.getAppEventListenerManager().broadcast(event);
+			SSESub.ssePubSub.pubish(request.get(QUERY_STRING).toString());
 			return new Object[] { NGX_HTTP_OK, null, "OK" };
 		}
 		
@@ -260,8 +216,6 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 	private Map<String, NginxJavaRingHandler> routing = new HashMap<String, NginxJavaRingHandler>();
 	
 	public GeneralSet4TestNginxJavaRingHandler() {
-		Init init = new Init();
-		init.invoke(null);
 		routing.put("/hello", new Hello());
 		routing.put("/headers", new Headers());
 		routing.put("/sub", new Sub());

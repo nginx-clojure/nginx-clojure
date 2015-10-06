@@ -300,3 +300,30 @@ and return a removal function to delete the decoder.
   (.addDecoder m d)
   (fn [] (.removeDecoder m d))))
 
+(defn build-topic! [name]
+  "build a topic"
+  (nginx.clojure.util.NginxPubSubTopic. name))
+
+(defprotocol PubSubTopic
+  (pub! [topic message]
+     "Publishs a message to the topic")
+  (sub! [topic att callback]
+     "Subscribes to a topic and returns an unsubscribing function. 
+When a message comes the callback function will be invoked. e.g.
+      (def my-topic (build-topic! \"my-topic\"))
+      (sub! my-topic (atomic 0) 
+           (function [message counter]
+              (println \"received :\" message \", times=\" (swap counter inc)))")
+  (destory! [topic]
+      "Destory the topic."))
+
+(extend-type nginx.clojure.util.NginxPubSubTopic PubSubTopic
+  (pub! [topic message]
+    (.pubish topic message))
+  (sub! [topic att callback]
+    (let [pd (.subscribe topic att 
+               (proxy [nginx.clojure.util.NginxPubSubListener] []
+                 (onMessage [message att]
+                   (callback message att))))]
+      (fn [] (.unsubscribe topic pd))))
+  (destory! [topic] (.destory topic)))

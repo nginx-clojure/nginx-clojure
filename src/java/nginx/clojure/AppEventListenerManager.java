@@ -9,12 +9,15 @@ import static nginx.clojure.MiniConstants.POST_EVENT_TYPE_APPICATION_EVENT_IDX_S
 import static nginx.clojure.NginxClojureRT.broadcastEvent;
 
 import java.io.IOException;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class AppEventListenerManager  {
 	
 	private CopyOnWriteArrayList<Decoder> decorders = new CopyOnWriteArrayList<AppEventListenerManager.Decoder>();
 	private CopyOnWriteArrayList<Listener> listeners = new CopyOnWriteArrayList<AppEventListenerManager.Listener>();
+	private ConcurrentLinkedQueue<PostedEvent> pooledEvents = new ConcurrentLinkedQueue<AppEventListenerManager.PostedEvent>();
+
 	
 	public static class PostedEvent {
 		public int tag;
@@ -59,6 +62,37 @@ public class AppEventListenerManager  {
 			this.length = len;
 		}
 		
+		public void accept(int tag, Object data) {
+			if (data instanceof String){
+				accept(tag, (String)data);
+			}else if (data instanceof byte[]){
+				accept(tag, (byte[])data);
+			}else {
+				this.tag = tag;
+				this.data = data;
+			}
+		}
+		
+		public void accept(int tag, String message) {
+			this.tag = tag;
+			data = message.getBytes(DEFAULT_ENCODING);
+			offset = 0;
+			length = ((byte[])data).length;
+		}
+		
+		public void accept(int tag, byte[] message) {
+			this.tag = tag;
+			data = message;
+			offset = 0;
+			length = message.length;
+		}
+		
+		public void accept(int tag, Object message, int offset, int len) {
+			this.tag = tag;
+			this.data = message;
+			this.offset = offset;
+			this.length = len;
+		}
 	}
 	
 	public static interface Decoder {
@@ -106,7 +140,7 @@ public class AppEventListenerManager  {
 	}
 	
 	public void onBroadcastedEvent(int tag, long data) {
-		PostedEvent e = new PostedEvent(tag, data);
+		PostedEvent e = buildPostedEvent(tag, (Long)data);
 		onBroadcastedEvent(e);
 	}
 	
@@ -130,17 +164,26 @@ public class AppEventListenerManager  {
 	 */
 	public PostedEvent buildPostedEvent(Object otag, Object data) {
 		int tag = otag == null ? POST_EVENT_TYPE_APPICATION_EVENT_IDX_START : (Integer)otag;
-		if (data instanceof Long) {
-			return new PostedEvent(tag, (Long)data);
-		}else if (data instanceof String){
-			return new PostedEvent(tag, (String)data);
-		}else if (data instanceof byte[]){
-			return new PostedEvent(tag, (byte[])data);
-		}else {
-			PostedEvent e = new PostedEvent();
-			e.tag = tag;
-			e.data = data;
-			return e;
+		PostedEvent e = pooledEvents.poll();
+		if (e == null) {
+			e = new PostedEvent();
 		}
+		e.accept(tag, data);
+		return e;
+	}
+	
+	public PostedEvent buildPostedEvent(int tag, Object data) {
+		PostedEvent e = pooledEvents.poll();
+		if (e == null) {
+			e = new PostedEvent();
+		}
+		e.accept(tag, data);
+		return e;
+	}
+	
+	public void returnEvent(PostedEvent e) {
+		e.data = null;
+		e.length = e.offset = e.tag = 0;
+		pooledEvents.add(e);
 	}
 }
