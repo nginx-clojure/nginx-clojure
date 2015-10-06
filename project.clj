@@ -31,7 +31,8 @@
   :profiles {
              :provided {
                         :dependencies [
-                                  [org.clojure/clojure "1.5.1"]]
+                                  [org.clojure/clojure "1.5.1"]
+                                  [org.clojure/tools.reader "0.8.1"]]
                         }
              :dev  {:dependencies [;only for test / compile usage
                                   [org.clojure/clojure "1.5.1"]
