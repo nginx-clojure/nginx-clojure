@@ -16,6 +16,7 @@ import nginx.clojure.WholeMessageAdapter;
 import nginx.clojure.java.ArrayMap;
 import nginx.clojure.java.NginxJavaRequest;
 import nginx.clojure.java.NginxJavaRingHandler;
+import nginx.clojure.util.NginxSharedHashMap;
 
 import org.apache.http.ParseException;
 import org.apache.http.client.ClientProtocolException;
@@ -156,6 +157,35 @@ public class JavaHandlersTest {
 		
 	}
 	
+	public static class CloseWaitIssue implements NginxJavaRingHandler {
+		@Override
+		public Object[] invoke(Map<String, Object> request) throws IOException {
+			NginxHttpServerChannel sc = ((NginxJavaRequest)request).hijack(true);
+			if ( !sc.webSocketUpgrade(false) ) {
+				sc.send((String)null, true, false);
+				sc.setIgnoreFilter(false);
+				sc.sendHeader(200, ArrayMap.create("Content-Type", "text/html").entrySet(), false, false);
+			}
+			return null;
+		}
+	}
+	
+	public static class SharedMapBasedCounter implements NginxJavaRingHandler {
+		NginxSharedHashMap<String, Integer> counters;
+		
+		public SharedMapBasedCounter() {
+			counters = NginxSharedHashMap.build("mycounters");
+			//initialized to 0
+			counters.putInt("SharedMapBasedCounter", 0);
+		}
+		
+		@Override
+		public Object[] invoke(Map<String, Object> request) throws IOException {
+			int oldc = counters.atomicAddInt("SharedMapBasedCounter", 1);
+			return new Object[]{200, null, "visted " + (oldc+1) + " times"};
+		}
+	}
+	
 	public static class SimpleRouting implements NginxJavaRingHandler {
 		Map<String, NginxJavaRingHandler> handlers = new HashMap<String, NginxJavaRingHandler>();
 		public SimpleRouting() {
@@ -163,6 +193,8 @@ public class JavaHandlersTest {
 			handlers.put("/websocket-echo", new WebSocketFullFunctionEcho());
 			handlers.put("/websocket-whecho", new WebSocketWholeMessageEcho());
 			handlers.put("/websocketmixed", new WebSocketMixedWithLongPoolingHandler());
+			handlers.put("/closewait", new CloseWaitIssue());
+			handlers.put("/visitcounter", new SharedMapBasedCounter());
 		}
 		@Override
 		public Object[] invoke(Map<String, Object> request) throws IOException {
@@ -194,8 +226,18 @@ public class JavaHandlersTest {
 	public static void main(String[] args) {
 		NginxEmbedServer server = NginxEmbedServer.getServer();
 		server.setWorkDir("test/work-dir");
-		Map<String, String> opts = ArrayMap.create("port", "0");
+		Map<String, String> opts = ArrayMap.create("port", "8084",
+				"http-user-defined", "shared_map mycounters hashmap?space=32k&entries=400;");
 		int port = server.start(SimpleRouting.class.getName(), opts);
+		System.out.println("return port :" + port);
+		try {
+			System.in.read();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		server.stop();
+		port = server.start(SimpleRouting.class.getName(), opts);
 		System.out.println("return port :" + port);
 	}
 }

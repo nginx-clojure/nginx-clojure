@@ -26,6 +26,7 @@ import nginx.clojure.DiscoverJvm;
 import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.java.ArrayMap;
+import nginx.clojure.java.NginxJavaRingHandler;
 
 public class NginxEmbedServer {
 
@@ -174,6 +175,8 @@ public class NginxEmbedServer {
 	 *          "max-threads", "8",
 	 *          "host", "0.0.0.0",
 	 *          "port", "8080",
+	 *          "jvm-init-handler-type", "java" 
+	 *          "jvm-init-handler-name", "nginx.clojure.embed.NginxEmbedServer$DefaultJvmInitHandler"
 	 *          //user defined zone
 	 *          "global-user-defined", "",
 	 *          "http-user-defined", "",
@@ -193,6 +196,8 @@ public class NginxEmbedServer {
 				"max-threads", "8",
 				"host", "0.0.0.0",
 				"port", "8080",
+				"jvm_handler_type", "java" ,
+				"jvm-init-handler-name", "nginx.clojure.embed.NginxEmbedServer$DefaultJvmInitHandler",
 				"content-handler-type", "java",
 				"content-handler-name", handler,
 				//user defined zone
@@ -351,4 +356,10 @@ public class NginxEmbedServer {
 		}
 	}
 	
+	public static class DefaultJvmInitHandler implements NginxJavaRingHandler {
+		@Override
+		public Object[] invoke(Map<String, Object> request) throws IOException {
+			return null;
+		}
+	}
 }

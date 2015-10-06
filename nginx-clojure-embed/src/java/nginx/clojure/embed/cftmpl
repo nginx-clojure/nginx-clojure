@@ -16,6 +16,10 @@ http {
 
   jvm_path auto;
   
+  jvm_handler_type #{jvm_handler_type};
+  
+  jvm_init_handler_name '#{jvm-init-handler-name}';
+  
 	types {
 	    #{types-user-defined}
 	    text/html                             html htm shtml;
