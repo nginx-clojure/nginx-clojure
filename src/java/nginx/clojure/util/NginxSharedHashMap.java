@@ -9,12 +9,13 @@ import java.nio.ByteOrder;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentMap;
 
 import nginx.clojure.HackUtils;
 import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
 
-public class NginxSharedHashMap<K, V> implements Map<K, V>{
+public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 
 	public final static int NGX_CLOJURE_SHARED_MAP_OK = 0;
 	public final static int NGX_CLOJURE_SHARED_MAP_OUT_OF_MEM = 1;
@@ -31,6 +32,7 @@ public class NginxSharedHashMap<K, V> implements Map<K, V>{
 	
 	private long ctx;
 	private String name;
+	private long nullVal = 0;
 	
 	//shared hashmap 
 	private native static long ngetMap(Object nameBuf, long offset, long len);
@@ -38,6 +40,8 @@ public class NginxSharedHashMap<K, V> implements Map<K, V>{
 	private native static Object nget(long ctx, int ktype, Object keyBuf, long offset, long len);
 	
 	private native static Object nput(long ctx, int ktype, Object keyBuf, long keyOffset, long keyLen, int vtype, Object valBuf, long valueOffset, long valLen);
+	
+	private native static Object nputIfAbsent(long ctx, int ktype, Object keyBuf, long keyOffset, long keyLen, int vtype, Object valBuf, long valueOffset, long valLen);
 	
 	private native static Object nremove(long ctx, int ktype, Object keyBuf, long offset, long len);
 	
@@ -49,16 +53,26 @@ public class NginxSharedHashMap<K, V> implements Map<K, V>{
 	
 	private native static long ngetNumber(long ctx, int ktype, Object keyBuf, long offset, long len, int vtype);
 	
-	private native static long nputNumber(long ctx, int ktype, Object keyBuf, long keyOffset, long keyLen, int vtype, long val);
+	private native static long nputNumber(long ctx, int ktype, Object keyBuf, long keyOffset, long keyLen, int vtype, long val, long nullVal);
+	
+	private native static long nputNumberIfAbsent(long ctx, int ktype, Object keyBuf, long keyOffset, long keyLen, int vtype, long val, long nullVal);
 
-	private native static long nremoveNumber(long ctx, int ktype, Object keyBuf, long offset, long len, int vtype);
+	private native static long nremoveNumber(long ctx, int ktype, Object keyBuf, long offset, long len, int vtype, long nullVal);
 
 	private native static long natomicAddNumber(long ctx, int ktype, Object keyBuf, long offset, long len, int vtype, long delta);
 	
-	/**
-	 * 
-	 */
+
 	private NginxSharedHashMap() {
+	}
+	
+	public NginxSharedHashMap(String name) {
+		ByteBuffer bb = HackUtils.encode(name, MiniConstants.DEFAULT_ENCODING, NginxClojureRT.pickByteBuffer());
+		long ctx = ngetMap(bb.array(), MiniConstants.BYTE_ARRAY_OFFSET, bb.remaining());
+		if (ctx == 0) {
+			throw new RuntimeException("can not find shared map whose name is " + name);
+		}
+		this.name = name;
+		this.ctx = ctx;
 	}
 
 	@SuppressWarnings("restriction")
@@ -81,15 +95,11 @@ public class NginxSharedHashMap<K, V> implements Map<K, V>{
 	}
 	
 	public static <KT, VT> NginxSharedHashMap<KT, VT> build(String name) {
-		ByteBuffer bb = HackUtils.encode(name, MiniConstants.DEFAULT_ENCODING, NginxClojureRT.pickByteBuffer());
-		long ctx = ngetMap(bb.array(), MiniConstants.BYTE_ARRAY_OFFSET, bb.remaining());
-		if (ctx == 0) {
-			return null;
-		}
-		NginxSharedHashMap<KT, VT> m = new NginxSharedHashMap<KT, VT>();
-		m.name = name;
-		m.ctx = ctx;
-		return m;
+		return new NginxSharedHashMap(name);
+	}
+	
+	public void setNullVal(long nullVal) {
+		this.nullVal = nullVal;
 	}
 
 	@Override
@@ -181,12 +191,20 @@ public class NginxSharedHashMap<K, V> implements Map<K, V>{
 		ByteBuffer vb;
 		if (val instanceof Integer) {
 			vtype = NGX_CLOJURE_SHARED_MAP_JINT;
-			return (V) (Integer)((int)nputNumber(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), vtype,
-					((Integer) val).longValue()));
+			long rt = nputNumber(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), vtype,
+					((Integer) val).longValue(), nullVal);
+			if (rt == nullVal) {
+				return null;
+			}
+			return (V) (Integer)(int)(rt);
 		} else if (val instanceof Long) {
 			vtype = NGX_CLOJURE_SHARED_MAP_JLONG;
-			return (V) (Long)(nputNumber(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), vtype,
-					((Long) val).longValue()));
+			long rt =  nputNumber(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), vtype,
+					((Long) val).longValue(), nullVal);
+			if (rt == nullVal) {
+				return null;
+			}
+			return (V)(Long)rt;
 		} else if (val instanceof String) {
 			String value = (String)val;
 			vtype = NGX_CLOJURE_SHARED_MAP_JSTRING;
@@ -219,6 +237,12 @@ public class NginxSharedHashMap<K, V> implements Map<K, V>{
 		ByteBuffer kb = buildKeyBuffer(ktype, key);
 		return (V)nremove(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining());	
 	}
+	
+	public boolean delete(Object key) {
+		int ktype = buildType(key);
+		ByteBuffer kb = buildKeyBuffer(ktype, key);
+		return ndelete(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining()) == NGX_CLOJURE_SHARED_MAP_OK;	
+	}
 
 	public int getInt(Object key) {
 		int ktype = buildType(key);
@@ -229,7 +253,13 @@ public class NginxSharedHashMap<K, V> implements Map<K, V>{
 	public int putInt(K key, int val) {
 		int ktype = buildType(key);
 		ByteBuffer kb = buildKeyBuffer(ktype, key);
-		return (int)nputNumber(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), NGX_CLOJURE_SHARED_MAP_JINT, val);
+		return (int)nputNumber(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), NGX_CLOJURE_SHARED_MAP_JINT, val, nullVal);
+	}
+	
+	public int putIntIfAbsent(K key, int val) {
+		int ktype = buildType(key);
+		ByteBuffer kb = buildKeyBuffer(ktype, key);
+		return (int)nputNumberIfAbsent(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), NGX_CLOJURE_SHARED_MAP_JINT, val, nullVal);
 	}
 	
 	/**
@@ -255,9 +285,6 @@ public class NginxSharedHashMap<K, V> implements Map<K, V>{
 	}
 	
 	public long getLong(Object key) {
-		if (key == null) {
-			throw new NullPointerException("null key not supported!");
-		}
 		int ktype = buildType(key);
 		ByteBuffer kb = buildKeyBuffer(ktype, key);
 		return ngetNumber(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), NGX_CLOJURE_SHARED_MAP_JLONG);
@@ -266,7 +293,13 @@ public class NginxSharedHashMap<K, V> implements Map<K, V>{
 	public long putLong(K key, long val) {
 		int ktype = buildType(key);
 		ByteBuffer kb = buildKeyBuffer(ktype, key);
-		return nputNumber(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), NGX_CLOJURE_SHARED_MAP_JLONG, val);
+		return nputNumber(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), NGX_CLOJURE_SHARED_MAP_JLONG, val, nullVal);
+	}
+	
+	public long putLongIfAbsent(K key, long val) {
+		int ktype = buildType(key);
+		ByteBuffer kb = buildKeyBuffer(ktype, key);
+		return nputNumberIfAbsent(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), NGX_CLOJURE_SHARED_MAP_JLONG, val, nullVal);
 	}
 
 	@Override
@@ -301,5 +334,67 @@ public class NginxSharedHashMap<K, V> implements Map<K, V>{
 		for (Entry<? extends K, ? extends V> en : m.entrySet()) {
 			put(en.getKey(), en.getValue());
 		}
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public V putIfAbsent(K key, V val) {
+		int ktype = buildType(key);
+		int vtype;
+		ByteBuffer kb = buildKeyBuffer(ktype, key);
+		
+		ByteBuffer vb;
+		if (val instanceof Integer) {
+			vtype = NGX_CLOJURE_SHARED_MAP_JINT;
+			long rt = nputNumberIfAbsent(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), vtype,
+					((Integer) val).longValue(), nullVal);
+			if (rt == nullVal) {
+				return null;
+			}
+			return (V) (Integer)(int)(rt);
+		} else if (val instanceof Long) {
+			vtype = NGX_CLOJURE_SHARED_MAP_JLONG;
+			long rt =  nputNumberIfAbsent(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), vtype,
+					((Long) val).longValue(), nullVal);
+			if (rt == nullVal) {
+				return null;
+			}
+			return (V)(Long)rt;
+		} else if (val instanceof String) {
+			String value = (String)val;
+			vtype = NGX_CLOJURE_SHARED_MAP_JSTRING;
+			if (kb.capacity() - kb.remaining() >= value.length()) {
+				kb.position(kb.remaining());
+				kb.limit(kb.capacity());
+				vb = kb.slice();
+				kb.flip();
+			}else {
+				vb = ByteBuffer.allocate(value.length());
+			}
+			vb = HackUtils.encode(value, MiniConstants.DEFAULT_ENCODING, vb);
+			return (V)nputIfAbsent(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET,
+					kb.remaining(), vtype, vb.array(), MiniConstants.BYTE_ARRAY_OFFSET + vb.arrayOffset() + vb.position(), vb.remaining());
+		} else if (val instanceof byte[]) {
+			vtype = NGX_CLOJURE_SHARED_MAP_JBYTEA;
+			return (V)nputIfAbsent(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET,
+					kb.remaining(), vtype, val, MiniConstants.BYTE_ARRAY_OFFSET, ((byte[])val).length);
+		} else {
+			throw new UnsupportedOperationException("val type : " + key.getClass() + ", not supported!");
+		}
+	}
+
+	@Override
+	public boolean remove(Object key, Object value) {
+		throw new UnsupportedOperationException("boolean remove(Object key, Object value)");
+	}
+
+	@Override
+	public boolean replace(K key, V oldValue, V newValue) {
+		throw new UnsupportedOperationException("boolean replace(K key, V oldValue, V newValue)");
+	}
+
+	@Override
+	public V replace(K key, V value) {
+		throw new UnsupportedOperationException("V replace(K key, V value");
 	}
 }

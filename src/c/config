@@ -34,10 +34,10 @@ if [ "$JNI_INCS_INCLUDED" != "YES" ]; then
 			exit 1
 		fi
 		
-		javac $ngx_addon_dir/../java/nginx/clojure/DiscoverJvm.java
+		javac $ngx_addon_dir/../java/nginx/clojure/DiscoverJvm.java -d /tmp
 		
 		if [ -z $JNI_INCS ]; then
-		  JNI_INCS=`java -classpath $ngx_addon_dir/../java nginx.clojure.DiscoverJvm getJniIncludes`;
+		  JNI_INCS=`java -classpath /tmp nginx.clojure.DiscoverJvm getJniIncludes`;
 		fi
 	fi
 	CFLAGS="$JNI_INCS $CFLAGS"

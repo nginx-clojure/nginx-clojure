@@ -84,6 +84,10 @@ ngx_int_t ngx_http_clojure_shared_map_hashmap_put_entry(ngx_http_clojure_shared_
 		const u_char *key, size_t klen, uint8_t vtype, const void *val, size_t vlen,
 		ngx_http_clojure_shared_map_val_handler val_handler, void *handler_data);
 
+ngx_int_t ngx_http_clojure_shared_map_hashmap_put_entry_if_absent(ngx_http_clojure_shared_map_ctx_t *ctx, uint8_t ktype,
+		const u_char *key, size_t klen, uint8_t vtype, const void *val, size_t vlen,
+		ngx_http_clojure_shared_map_val_handler val_handler, void *handler_data);
+
 ngx_int_t ngx_http_clojure_shared_map_hashmap_remove_entry(ngx_http_clojure_shared_map_ctx_t *ctx, uint8_t ktype,
 		const u_char *key, size_t len, ngx_http_clojure_shared_map_val_handler val_handler, void *handler_data);
 

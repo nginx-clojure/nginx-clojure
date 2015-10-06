@@ -27,6 +27,10 @@
 #define PRIu64 "I64u"
 #endif
 
+typedef unsigned __int32 uint32_t;
+typedef unsigned __int8 uint8_t;
+typedef unsigned __int64 uint864_t;
+
 #else
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
@@ -454,6 +458,7 @@ extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 #define NGX_HTTP_CLOJURE_HEADERSO_HEADERS_IDX  153
 #define NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET offsetof(ngx_http_headers_out_t, headers)
 
+#define NGX_WORKER_PROCESSORS_NUM_ID 250
 
 /*ngx_http_clojure_module_ctx_t idx*/
 #define NGINX_CLOJURE_MODULE_CTX_PHRASE_ID 251
@@ -532,7 +537,7 @@ ngx_int_t ngx_http_clojure_mem_wakeup_event_loop();
 /*
  *
  */
-int ngx_http_clojure_init_memory_util(ngx_http_core_srv_conf_t *cscf, ngx_http_clojure_main_conf_t  *mcf, ngx_log_t *log);
+int ngx_http_clojure_init_memory_util(ngx_core_conf_t  *ccf, ngx_http_core_srv_conf_t *cscf, ngx_http_clojure_main_conf_t  *mcf, ngx_log_t *log);
 
 int ngx_http_clojure_destroy_memory_util(ngx_log_t *log);
 

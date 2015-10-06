@@ -2,6 +2,7 @@
  *  Copyright (C) Zhang,Yuexiang (xfeep)
  */
 
+#include <ngx_config.h>
 #include "ngx_http_clojure_mem.h"
 #include "ngx_http_clojure_shared_map_hashmap.h"
 
@@ -282,7 +283,7 @@ static ngx_int_t ngx_http_clojure_shared_map_hashmap_match_key(uint8_t ktype,
 	}
 	switch (ktype) {
 	case NGX_CLOJURE_SHARED_MAP_JINT:
-		if (*((uint32_t*) entry->key) == *((uint32_t*) key)) {
+		if ((uintptr_t)entry->key == *((uint32_t*) key)) {
 			return NGX_CLOJURE_SHARED_MAP_OK;
 		}
 		break;
@@ -320,7 +321,7 @@ ngx_int_t ngx_http_clojure_shared_map_hashmap_get_entry(ngx_http_clojure_shared_
 	for (entry =  ctx->map->table[index_for(hash, ctx->entry_table_size)];
 			entry != NULL;
 			entry = entry->next) {
-		if (!(rc = ngx_http_clojure_shared_map_hashmap_match_key(ktype, key, klen, hash, entry))) {
+		if ((rc = ngx_http_clojure_shared_map_hashmap_match_key(ktype, key, klen, hash, entry)) == NGX_CLOJURE_SHARED_MAP_OK) {
 			if (val_handler) {
 			    	ngx_http_clojure_shared_map_hashmap_invoke_value_handler_helper(entry, val_handler,
 			    			handler_data);
@@ -348,8 +349,65 @@ ngx_int_t ngx_http_clojure_shared_map_hashmap_put_entry(ngx_http_clojure_shared_
 	ngx_shmtx_lock(&ctx->shpool->mutex);
 	for (pentry = &ctx->map->table[index_for(hash, ctx->entry_table_size)];
 			(entry = *pentry) != NULL; pentry = &entry->next) {
-		if (!(rc = ngx_http_clojure_shared_map_hashmap_match_key(ktype, key, klen, hash, entry))) {
+		if (NGX_CLOJURE_SHARED_MAP_OK == (rc = ngx_http_clojure_shared_map_hashmap_match_key(ktype, key, klen, hash, entry))) {
 			rc = ngx_http_clojure_shared_map_hashmap_set_value_helper(ctx->shpool, entry, vtype, val, vlen, old_val_handler, handler_data);
+			ngx_shmtx_unlock(&ctx->shpool->mutex);
+			return rc;
+		}
+	}
+
+	entry = ngx_slab_alloc_locked(ctx->shpool, sizeof(ngx_http_clojure_hashmap_entry_t));
+	if (entry == NULL) {
+		ngx_shmtx_unlock(&ctx->shpool->mutex);
+		return NGX_CLOJURE_SHARED_MAP_OUT_OF_MEM;
+	}
+	entry->next = NULL;
+	entry->hash = hash;
+	entry->vtype = vtype;
+	entry->ktype = ktype;
+	entry->val = NULL;
+
+	rc = ngx_http_clojure_shared_map_hashmap_set_key_helper(ctx->shpool, entry, key, klen);
+	if (rc != NGX_CLOJURE_SHARED_MAP_OK) {
+		ngx_slab_free_locked(ctx->shpool, entry);
+		ngx_shmtx_unlock(&ctx->shpool->mutex);
+		return rc;
+	}
+
+	rc = ngx_http_clojure_shared_map_hashmap_set_value_helper(ctx->shpool, entry, vtype, val, vlen, NULL, NULL);
+
+	if (rc != NGX_CLOJURE_SHARED_MAP_OK) {
+		ngx_slab_free_locked(ctx->shpool, entry->key);
+		ngx_slab_free_locked(ctx->shpool, entry);
+		ngx_shmtx_unlock(&ctx->shpool->mutex);
+		return rc;
+	}
+
+	*pentry = entry;
+	ngx_atomic_fetch_add(&ctx->map->size, 1);
+	ngx_shmtx_unlock(&ctx->shpool->mutex);
+
+	return NGX_CLOJURE_SHARED_MAP_NOT_FOUND;
+}
+
+ngx_int_t ngx_http_clojure_shared_map_hashmap_put_entry_if_absent(ngx_http_clojure_shared_map_ctx_t *sctx, uint8_t ktype,
+		const u_char *key, size_t klen, uint8_t vtype, const void *val, size_t vlen,
+		ngx_http_clojure_shared_map_val_handler old_val_handler, void *handler_data) {
+	ngx_http_clojure_shared_map_hashmap_ctx_t *ctx = sctx->impl_ctx;
+	ngx_http_clojure_hashmap_entry_t **pentry;
+	ngx_http_clojure_hashmap_entry_t *entry;
+	ngx_int_t rc = NGX_CLOJURE_SHARED_MAP_NOT_FOUND;
+	uint32_t hash;
+
+	compute_hash(ctx, ktype, key, klen, hash);
+
+	ngx_shmtx_lock(&ctx->shpool->mutex);
+	for (pentry = &ctx->map->table[index_for(hash, ctx->entry_table_size)];
+			(entry = *pentry) != NULL; pentry = &entry->next) {
+		if (NGX_CLOJURE_SHARED_MAP_OK == (rc = ngx_http_clojure_shared_map_hashmap_match_key(ktype, key, klen, hash, entry))) {
+			if (old_val_handler) {
+				ngx_http_clojure_shared_map_hashmap_invoke_value_handler_helper(entry, old_val_handler, handler_data);
+			}
 			ngx_shmtx_unlock(&ctx->shpool->mutex);
 			return rc;
 		}
@@ -397,20 +455,29 @@ ngx_int_t ngx_http_clojure_shared_map_hashmap_remove_entry(ngx_http_clojure_shar
 	ngx_http_clojure_shared_map_hashmap_ctx_t *ctx = sctx->impl_ctx;
 	ngx_http_clojure_hashmap_entry_t **pentry;
 	ngx_http_clojure_hashmap_entry_t *entry;
-	uint32_t hash = murmur3_32(ctx->hash_seed, key, 0, klen);
+	uint32_t hash;
 	ngx_int_t rc = NGX_CLOJURE_SHARED_MAP_NOT_FOUND;
+
+	compute_hash(ctx, ktype, key, klen, hash);
 
 	ngx_shmtx_lock(&ctx->shpool->mutex);
 	for (pentry =  &ctx->map->table[index_for(hash, ctx->entry_table_size)];
 			(entry = *pentry) != NULL; pentry = &entry->next) {
-		if (!(rc = ngx_http_clojure_shared_map_hashmap_match_key(ktype, key, klen, hash, entry))) {
+		if (NGX_CLOJURE_SHARED_MAP_OK == (rc = ngx_http_clojure_shared_map_hashmap_match_key(ktype, key, klen, hash, entry))) {
 			if (val_handler) {
 				ngx_http_clojure_shared_map_hashmap_invoke_value_handler_helper(entry, val_handler, handler_data);
 			}
 			*pentry = entry->next;
 			ngx_atomic_fetch_add(&ctx->map->size, -1);
-			ngx_slab_free_locked(ctx->shpool, entry->val);
-			ngx_slab_free_locked(ctx->shpool, entry->key);
+
+			if (entry->ktype >= NGX_CLOJURE_SHARED_MAP_JSTRING) {
+				ngx_slab_free_locked(ctx->shpool, entry->key);
+			}
+
+			if (entry->vtype >= NGX_CLOJURE_SHARED_MAP_JSTRING) {
+				ngx_slab_free_locked(ctx->shpool, entry->val);
+			}
+
 			ngx_slab_free_locked(ctx->shpool, entry);
 			break;
 		}
@@ -430,7 +497,7 @@ void ngx_http_clojure_shared_map_for_each(ngx_http_clojure_shared_map_ctx_t *sct
 		ngx_int_t (*handler)(ngx_http_clojure_hashmap_entry_t *, void*), void *handler_data) {
 	ngx_http_clojure_shared_map_hashmap_ctx_t *ctx = sctx->impl_ctx;
 	ngx_http_clojure_hashmap_entry_t *entry;
-	ngx_int_t i;
+	uint32_t i;
 	ngx_shmtx_lock(&ctx->shpool->mutex);
 	for (i = 0; i < ctx->entry_table_size; i++) {
 		entry = ctx->map->table[i];

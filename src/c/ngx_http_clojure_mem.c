@@ -3964,7 +3964,7 @@ int ngx_http_clojure_check_memory_util() {
 	return ngx_http_clojure_init_memory_util_flag;
 }
 
-int ngx_http_clojure_init_memory_util(ngx_http_core_srv_conf_t *cscf, ngx_http_clojure_main_conf_t  *mcf, ngx_log_t *log) {
+int ngx_http_clojure_init_memory_util(ngx_core_conf_t  *ccf, ngx_http_core_srv_conf_t *cscf, ngx_http_clojure_main_conf_t  *mcf, ngx_log_t *log) {
 	jlong MEM_INDEX[NGX_HTTP_CLOJURE_MEM_IDX_END];
 	size_t buf_size;
 	JNIEnv *env;
@@ -4176,6 +4176,8 @@ int ngx_http_clojure_init_memory_util(ngx_http_core_srv_conf_t *cscf, ngx_http_c
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_DATE_TIME_IDX] =  NGX_HTTP_CLOJURE_HEADERSO_DATE_TIME_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_LAST_MODIFIED_TIME_IDX] =  NGX_HTTP_CLOJURE_HEADERSO_LAST_MODIFIED_TIME_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSO_HEADERS_IDX] =  NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET;
+
+	MEM_INDEX[NGX_WORKER_PROCESSORS_NUM_ID] = ccf->master ? ccf->worker_processes : 1;
 
 	MEM_INDEX[NGINX_CLOJURE_RT_WORKERS_ID] = mcf->jvm_workers;
 	MEM_INDEX[NGINX_VER_ID] = nginx_version;

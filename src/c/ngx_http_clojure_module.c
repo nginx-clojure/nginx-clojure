@@ -68,7 +68,7 @@ static ngx_int_t ngx_http_clojure_header_filter(ngx_http_request_t * r);
 
 static ngx_int_t ngx_http_clojure_body_filter(ngx_http_request_t * r, ngx_chain_t *chain);
 
-static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_core_srv_conf_t *cscf, ngx_http_clojure_main_conf_t  *mcf, ngx_log_t *log);
+static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_core_conf_t  *ccf, ngx_http_core_srv_conf_t *cscf, ngx_http_clojure_main_conf_t  *mcf, ngx_log_t *log);
 
 static ngx_int_t ngx_http_clojure_init_locations_handlers_helper(ngx_http_core_loc_conf_t *clcf);
 
@@ -595,7 +595,7 @@ static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_main_conf_t  *
 					int vn = (int)vars->nelts;
 					sp += 2;
 					while (vn--) {
-						if (ngx_strncmp(kv[vn].key.data, sp, ev - sp) == 0) {
+						if (kv[vn].key.len == (size_t)(ev - sp) && ngx_strncmp(kv[vn].key.data, sp, ev - sp) == 0) {
 							if ((size_t)(edp - dp) < kv[vn].value.len + 1) {
 								return NULL;
 							}
@@ -658,7 +658,7 @@ static char * ngx_http_clojure_jvm_options_post_handler(ngx_conf_t *cf, void *da
 	return NGX_CONF_OK;
 }
 
-static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_core_srv_conf_t *cscf, ngx_http_clojure_main_conf_t  *mcf, ngx_log_t *log) {
+static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_core_conf_t  *ccf, ngx_http_core_srv_conf_t *cscf, ngx_http_clojure_main_conf_t  *mcf, ngx_log_t *log) {
 	if (ngx_http_clojure_check_jvm() != NGX_HTTP_CLOJURE_JVM_OK){
     	ngx_str_t *elts = mcf->jvm_options->elts;
     	char  **options;
@@ -708,7 +708,7 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_http_core_srv_conf_t *csc
     }
 
     if (ngx_http_clojure_check_memory_util() != NGX_HTTP_CLOJURE_JVM_OK){
-		if (ngx_http_clojure_init_memory_util(cscf, mcf, log) != NGX_HTTP_CLOJURE_JVM_OK) {
+		if (ngx_http_clojure_init_memory_util(ccf, cscf, mcf, log) != NGX_HTTP_CLOJURE_JVM_OK) {
 			ngx_log_error(NGX_LOG_ERR, log, 0, "can not initialize jvm memory util");
 			return NGX_HTTP_CLOJURE_JVM_ERR_INIT_MEMIDX;
 		}
@@ -856,7 +856,7 @@ static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
 #endif
 	ngx_log_error(NGX_LOG_NOTICE, cycle->log, 0, NGINX_CLOJURE_VER);
 
-	if (ngx_http_clojure_pipe_init_by_master(ccf->worker_processes) != NGX_OK) {
+	if (ngx_http_clojure_pipe_init_by_master(ccf->master ? ccf->worker_processes : 1) != NGX_OK) {
 		return NGX_ERROR;
 	}
 
@@ -1102,7 +1102,7 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 	}
 
 
-    rc = ngx_http_clojure_init_jvm_and_mem(cscf, mcf, cycle->log);
+    rc = ngx_http_clojure_init_jvm_and_mem(ccf,cscf, mcf, cycle->log);
 
     if (rc != NGX_HTTP_CLOJURE_JVM_OK){
     	ngx_log_error(NGX_LOG_ERR, cycle->log, 0, "jvm start times %d", *ngx_http_clojure_jvm_be_mad_times);

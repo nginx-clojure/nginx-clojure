@@ -15,9 +15,9 @@ typedef struct ngx_http_clojure_tinymap_entry_s {
 	unsigned vtype : 4;
 	unsigned ksize : 24; /*key size*/
 	uint32_t key; /*offset of key*/
-	uint32_t vsize; /*value size*/
-	uint32_t val;
 	uint32_t hash;
+	uint32_t val;
+	uint32_t vsize; /*value size*/
 	uint32_t next;
 } ngx_http_clojure_tinymap_entry_t;
 
@@ -40,6 +40,10 @@ ngx_int_t ngx_http_clojure_shared_map_tinymap_get_entry(ngx_http_clojure_shared_
 		const u_char *key, size_t klen, ngx_http_clojure_shared_map_val_handler val_handler, void *handler_data);
 
 ngx_int_t ngx_http_clojure_shared_map_tinymap_put_entry(ngx_http_clojure_shared_map_ctx_t *sctx, uint8_t ktype,
+		const u_char *key, size_t klen, uint8_t vtype, const void *val, size_t vlen,
+		ngx_http_clojure_shared_map_val_handler old_val_handler, void *handler_data);
+
+ngx_int_t ngx_http_clojure_shared_map_tinymap_put_entry_if_absent(ngx_http_clojure_shared_map_ctx_t *sctx, uint8_t ktype,
 		const u_char *key, size_t klen, uint8_t vtype, const void *val, size_t vlen,
 		ngx_http_clojure_shared_map_val_handler old_val_handler, void *handler_data);
 
