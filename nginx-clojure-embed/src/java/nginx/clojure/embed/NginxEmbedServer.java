@@ -312,7 +312,8 @@ public class NginxEmbedServer {
 					started = true;
 					StringBuilder cmdsb = new StringBuilder();
 					cmdsb.append("java\n").append("-p\n").append(workDir).append("\n")
-					.append("-c\n").append(cfg);
+					.append("-c\n").append(cfg).append("\n")
+					.append("-g\n").append("working_directory ").append(workDir).append(";");
 					innerStart(cmdsb.toString());
 				}finally{
 					started = false;
