@@ -31,9 +31,14 @@ typedef unsigned __int32 uint32_t;
 typedef unsigned __int8 uint8_t;
 typedef unsigned __int64 uint864_t;
 
+#define JVM_CP_SEP ';'
+#define JVM_CP_SEP_S ";"
+
 #else
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
+#define JVM_CP_SEP ':'
+#define JVM_CP_SEP_S ":"
 #endif
 
 #define nginx_clojure_ver  4003 /*0.4.3*/
@@ -61,9 +66,13 @@ typedef struct {
 	ngx_int_t max_balanced_tcp_connections;
 	ngx_array_t *jvm_options;
 	ngx_array_t *jvm_vars;
+	ngx_array_t *jvm_cp;
 	ngx_array_t *shared_maps;
 	ngx_str_t jvm_path;
 	ngx_int_t jvm_workers;
+	ngx_flag_t jvm_cp_check;
+	/*either of -Xbootclasspath, -Djava.ext.dirs, -Djava.class.path or jvm_classpath is set*/
+	unsigned jvm_cp_is_set : 1;
 	unsigned jvm_disable_all : 1;
 	unsigned enable_init_handler : 1;
 	unsigned enable_exit_handler : 1;

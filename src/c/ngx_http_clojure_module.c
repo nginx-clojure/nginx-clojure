@@ -22,6 +22,10 @@ static char* ngx_http_clojure_set_max_balanced_tcp_connections(ngx_conf_t *cf, n
 
 static void ngx_http_clojure_reset_listening_backlog(ngx_conf_t *cf) ;
 
+static ngx_int_t ngx_http_clojure_check_access_jvm_cp(ngx_http_clojure_main_conf_t *mcf, ngx_core_conf_t *ccf, ngx_log_t *log);
+
+static char* ngx_http_clojure_set_jvm_classpath(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) ;
+
 static char* ngx_http_clojure_set_str_slot_and_enable_init_handler_tag(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) ;
 
 static char* ngx_http_clojure_set_str_slot_and_enable_exit_handler_tag(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
@@ -83,7 +87,7 @@ static char * ngx_http_clojure_jvm_var_post_handler(ngx_conf_t *cf, void *data, 
 
 static char * ngx_http_clojure_jvm_options_post_handler(ngx_conf_t *cf, void *data, void *conf);
 
-static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_main_conf_t  *mcf, ngx_str_t *exp, ngx_pool_t *pool);
+static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_main_conf_t  *mcf, ngx_str_t *exp, ngx_pool_t *pool, size_t *len);
 
 static void ngx_http_clojure_client_body_handler(ngx_http_request_t *r);
 
@@ -159,6 +163,22 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 		NGX_HTTP_MAIN_CONF_OFFSET,
 		offsetof(ngx_http_clojure_main_conf_t, jvm_vars),
 		&ngx_http_clojure_jvm_var_post
+    },
+    {
+		ngx_string("jvm_classpath"),
+		NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
+		ngx_http_clojure_set_jvm_classpath,
+		NGX_HTTP_MAIN_CONF_OFFSET,
+		0,
+		NULL
+    },
+    {
+		ngx_string("jvm_classpath_check"),
+		NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
+		ngx_conf_set_flag_slot,
+		NGX_HTTP_MAIN_CONF_OFFSET,
+		offsetof(ngx_http_clojure_main_conf_t, jvm_cp_check),
+		NULL
     },
     {
 		ngx_string("jvm_workers"),
@@ -537,6 +557,8 @@ static void * ngx_http_clojure_create_main_conf(ngx_conf_t *cf) {
 	conf->max_balanced_tcp_connections = NGX_CONF_UNSET;
 	conf->jvm_init_handler_id = conf->jvm_exit_handler_id = -1;
 
+	conf->jvm_cp_check = NGX_CONF_UNSET;
+
 	if (ngx_http_clojure_init_headers_out_holder_hash(cf, &conf->headers_out_holder_hash) != NGX_OK) {
 		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "can not ngx_http_clojure_init_headers_out_holder_hash");
 		return NGX_CONF_ERROR;
@@ -575,13 +597,14 @@ static ngx_int_t ngx_http_clojure_init_clojure_script(ngx_int_t phase, char *typ
 
 #define NGX_CLOJURE_CONF_LINE_MAX 8192
 
-static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_main_conf_t  *mcf, ngx_str_t *exp, ngx_pool_t *pool) {
+static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_main_conf_t  *mcf, ngx_str_t *exp, ngx_pool_t *pool, size_t *len) {
 	ngx_array_t *vars = mcf->jvm_vars;
 	if (vars == NULL) {
+		*len = exp->len;
 		return exp->data;
 	} else {
 		u_char *sp = exp->data;
-		u_char *esp = sp + exp->len + 1;
+		u_char *esp = sp + exp->len;
 		u_char tmp[NGX_CLOJURE_CONF_LINE_MAX];
 		u_char *dp = tmp;
 		u_char *edp = dp + NGX_CLOJURE_CONF_LINE_MAX;
@@ -619,8 +642,9 @@ static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_main_conf_t  *
 			return NULL;
 		}
 
-		rt = ngx_palloc(pool, dp-tmp + 1);
-		ngx_cpystrn(rt, tmp, dp-tmp + 1);
+		*len = dp-tmp;
+		rt = ngx_palloc(pool, *len+1);
+		ngx_cpystrn(rt, tmp, *len+1);
 		return rt;
 	}
 }
@@ -628,24 +652,26 @@ static u_char * ngx_http_clojure_eval_experssion(ngx_http_clojure_main_conf_t  *
 static char * ngx_http_clojure_jvm_var_post_handler(ngx_conf_t *cf, void *data, void *conf) {
 	ngx_keyval_t *kv = conf;
 	ngx_http_clojure_main_conf_t *mcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_clojure_module);
+	size_t vlen;
 	if (ngx_strnstr(kv->value.data, "#{", kv->value.len) != NULL) {
-		kv->value.data = ngx_http_clojure_eval_experssion(mcf, &kv->value, cf->pool);
+		kv->value.data = ngx_http_clojure_eval_experssion(mcf, &kv->value, cf->pool, &vlen);
 		if (kv->value.data == NULL) {
 			ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
 			                       "too long expanded jvm_var \"%s\"",
 			                       kv->key.data);
 			return NGX_CONF_ERROR;
 		}
-		kv->value.len = ngx_strlen(kv->value.data);
+		kv->value.len = vlen;
 	}
 	return NGX_CONF_OK;
 }
 
 static char * ngx_http_clojure_jvm_options_post_handler(ngx_conf_t *cf, void *data, void *conf) {
 	ngx_str_t *v = conf;
+	size_t vlen;
 	ngx_http_clojure_main_conf_t *mcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_clojure_module);
 	if (ngx_strnstr(v->data, "#{", v->len) != NULL) {
-		u_char * ev = ngx_http_clojure_eval_experssion(mcf, v, cf->pool);
+		u_char * ev = ngx_http_clojure_eval_experssion(mcf, v, cf->pool, &vlen);
 		if (ev == NULL) {
 			ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
 					"too long expanded jvm_options \"%*s...\" started",
@@ -653,8 +679,21 @@ static char * ngx_http_clojure_jvm_options_post_handler(ngx_conf_t *cf, void *da
 			return NGX_CONF_ERROR;
 		}
 		v->data = ev;
-		v->len = ngx_strlen(ev);
+		v->len = vlen;
 	}
+
+	if (!ngx_strncmp(v->data, "-Xbootclasspath", sizeof("-Xbootclasspath") -1)
+			|| !ngx_strncmp(v->data, "-Djava.ext.dirs", sizeof("-Djava.ext.dirs") -1)) {
+		mcf->jvm_cp_is_set = 1;
+	}
+
+	if (!ngx_strncmp(v->data, "-Djava.class.path", sizeof("-Djava.class.path") -1)) {
+		mcf->jvm_cp_is_set = 1;
+		ngx_conf_log_error(NGX_LOG_ALERT, cf, 0, "jvm_options \"-Djava.class.path\" is deprecated please use jvm_classpath which is better.\n"
+				"e.g. \t\tjvm_classpath '/my-jars-path1/*:/my-classes'; \n"
+				"\tall jars and sub-directory in my-jars-path1 will be set to the jvm classpath.\n");
+	}
+
 	return NGX_CONF_OK;
 }
 
@@ -663,10 +702,15 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_core_conf_t  *ccf, ngx_ht
     	ngx_str_t *elts = mcf->jvm_options->elts;
     	char  **options;
     	char *jvm_path;
-    	int i;
-    	int len = mcf->jvm_options->nelts;
+    	ngx_uint_t i, j;
+    	ngx_uint_t len = mcf->jvm_options->nelts;
     	int rc;
+    	size_t vlen;
     	ngx_pool_t *pool = ngx_create_pool(40960, log);
+
+    	if (mcf->jvm_cp) {
+    		len += 1;
+    	}
 
     	options = ngx_pcalloc(pool, len * sizeof(char *));
     	if (!options) {
@@ -677,7 +721,33 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_core_conf_t  *ccf, ngx_ht
     	jvm_path = (char *)mcf->jvm_path.data;
 
     	for (i = 0; i < len; i++){
-    		options[i] = (char *)ngx_http_clojure_eval_experssion(mcf, &elts[i], pool);
+    		if (i == len -1 && mcf->jvm_cp) {
+    			size_t total = sizeof("-Djava.class.path=")-1;
+    			u_char *cp_all;
+    			elts = mcf->jvm_cp->elts;
+
+    			for (j = 0; j < mcf->jvm_cp->nelts; j++) {
+    				total += elts[j].len+1;
+    			}
+
+    			options[i] = ngx_pcalloc(pool, total);
+    			cp_all = (u_char*)options[i];
+    			cp_all = ngx_cpystrn(cp_all, (u_char*)"-Djava.class.path=", sizeof("-Djava.class.path="));
+
+    			if (cp_all) {
+        			for (j = 0; j < mcf->jvm_cp->nelts; j++) {
+        				cp_all = ngx_cpystrn(cp_all, elts[j].data, elts[j].len+1);
+        				*cp_all = JVM_CP_SEP;
+        				cp_all++;
+        			}
+        			*--cp_all = 0;
+        			break;
+    			}
+
+    		}else {
+        		options[i] = (char *)ngx_http_clojure_eval_experssion(mcf, &elts[i], pool, &vlen);
+    		}
+
     		if (options[i] == NULL) {
     			ngx_log_error(NGX_LOG_EMERG, log, 0,
     			                                       "too long expanded jvm_options \"%*s...\" started",
@@ -823,6 +893,11 @@ static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
 
 	if (mcf->jvm_path.len == NGX_CONF_UNSET_SIZE) {
 		return NGX_OK;
+	}
+
+	/*check whether nginx worker processes can access classpath files or not*/
+	if (mcf->jvm_cp_check && ngx_http_clojure_check_access_jvm_cp(mcf, ccf, cycle->log) != NGX_OK) {
+		return NGX_ERROR;
 	}
 
 #if !(NGX_WIN32)
@@ -1156,6 +1231,7 @@ static ngx_int_t ngx_http_clojure_auto_detect_jvm(ngx_conf_t *cf) {
 	ngx_http_clojure_main_conf_t *mcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_clojure_module);
 	ngx_str_t *elts = mcf->jvm_options->elts;
 	int len = mcf->jvm_options->nelts;
+	size_t vlen;
 	int i;
 	ngx_pool_t *pool = ngx_create_pool(40960, cf->log);
 	char cmd[40960];
@@ -1169,17 +1245,29 @@ static ngx_int_t ngx_http_clojure_auto_detect_jvm(ngx_conf_t *cf) {
 	p += sizeof("java") - 1;
 
 	for (i = 0; i < len; i++){
-		option = (char *)ngx_http_clojure_eval_experssion(mcf, &elts[i], pool);
+		option = (char *)ngx_http_clojure_eval_experssion(mcf, &elts[i], pool, &vlen);
 		if (!ngx_strncmp(option, "-Xbootclasspath", sizeof("-Xbootclasspath") -1)
 				|| !ngx_strncmp(option, "-Djava.class.path", sizeof("-Djava.class.path") -1)
 				|| !ngx_strncmp(option, "-Djava.ext.dirs", sizeof("-Djava.ext.dirs") -1)) {
 			strcpy(p, " ");
 			p++;
-			strcpy(p, option);
-			p += strlen(option);
+			ngx_cpystrn((u_char*)p, (u_char*)option, vlen+1);
+			p += vlen;
 		}
 	}
 	ngx_destroy_pool(pool);
+
+	if (mcf->jvm_cp != NULL) {
+		len = mcf->jvm_cp->nelts;
+		elts = mcf->jvm_cp->elts;
+		strcpy(p, " -Djava.class.path=");
+		p += sizeof(" -Djava.class.path=")-1;
+		for (i = 0; i < len; i++) {
+			ngx_cpystrn((u_char*)p, elts[i].data, elts[i].len + 1);
+			p += elts[i].len;
+			*p++ = JVM_CP_SEP;
+		}
+	}
 
 	strcpy(p, " nginx.clojure.DiscoverJvm");
 #if !(NGX_WIN32)
@@ -1212,13 +1300,223 @@ static ngx_int_t ngx_http_clojure_auto_detect_jvm(ngx_conf_t *cf) {
 	}
 }
 
-static ngx_int_t ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 
+static ngx_int_t ngx_http_clojure_expand_jvm_classpath(ngx_conf_t *cf, ngx_str_t *d, ngx_array_t *cps, ngx_int_t recursive) {
+	ngx_dir_t dir;
+	ngx_err_t err;
+	ngx_str_t *path;
+	size_t len;
+
+	if (ngx_open_dir(d, &dir) == NGX_ERROR) {
+		err = ngx_errno;
+
+		if (err == NGX_ENOENT || err == NGX_ENOTDIR || err == NGX_ENAMETOOLONG) {
+			ngx_conf_log_error(NGX_LOG_EMERG, cf, err, "no such dir: \"%V\"", d);
+		} else if (err == NGX_EACCES) {
+			ngx_conf_log_error(NGX_LOG_EMERG, cf, err, "no permission to access dir: \"%V\"", d);
+		} else {
+			ngx_conf_log_error(NGX_LOG_EMERG, cf, err, "can not open dir: \"%V\"", d);
+		}
+		return NGX_ERROR;
+	}
+
+	while (1) {
+		if (ngx_read_dir(&dir) == NGX_ERROR) {
+			err = ngx_errno;
+			if (err != NGX_ENOMOREFILES) {
+				ngx_conf_log_error(NGX_LOG_EMERG, cf, err, ngx_read_dir_n " \"%V\" failed", d);
+				return NGX_ERROR;
+			}
+			break;
+		}
+
+		if (ngx_de_name(&dir)[0] == '.') {
+			continue;
+		}
+
+		len = ngx_de_namelen(&dir);
+
+		ngx_log_debug1(NGX_LOG_DEBUG_HTTP, cf->log, 0,
+		                       "jvm cp file: \"%s\"", ngx_de_name(&dir));
+		if (recursive && ngx_de_is_dir(&dir)) {
+			ngx_str_t tmpd;
+			tmpd.data = ngx_de_name(&dir);
+			tmpd.len = len;
+			if (ngx_http_clojure_expand_jvm_classpath(cf, &tmpd, cps, 0) != NGX_OK) {
+				return NGX_ERROR;
+			}
+		}else {
+			path = ngx_array_push(cps);
+			path->len = d->len + len;
+			path->data = ngx_pnalloc(cps->pool, d->len + len + 1);
+			ngx_cpystrn(path->data, d->data, d->len+1);
+			ngx_cpystrn(path->data+d->len, ngx_de_name(&dir), len + 1);
+		}
+	}
+
+	return NGX_OK;
+}
+
+#if !(NGX_WIN32)
+static int ngx_http_clojure_faccessat(int fd, const char *name, int mode, int flag) {
+	/*Linux faccessat implementation can incorrectly ignore AT_EACCESS
+	 * @see https://www.sourceware.org/ml/glibc-bugs/2015-07/msg00118.html*/
+#if (NGX_LINUX)
+	uid_t uid;
+	struct stat stats;
+	int granted;
+
+	if (!(flag & AT_EACCESS)) {
+		return faccessat(fd, name, mode, flag);
+	}
+
+	if (fstatat(fd, name, &stats, flag & AT_SYMLINK_NOFOLLOW)) {
+		return -1;
+	}
+
+	if (mode == F_OK) {
+		return 0;
+	}
+
+	uid = geteuid();
+	if (uid == 0 && ((mode & X_OK) == 0
+					  || (stats.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)))) {
+		return 0;
+	}
+
+    granted = (
+				uid == stats.st_uid ? (unsigned int) (stats.st_mode & (mode << 6)) >> 6 :
+				(stats.st_gid == ((flag & AT_EACCESS) ? getegid() : getgid()) || group_member(stats.st_gid)) ?
+						(unsigned int) (stats.st_mode & (mode << 3)) >> 3 : (stats.st_mode & mode));
+
+    if (granted == mode) {
+	  return 0;
+    }
+
+    ngx_set_errno(EACCES);
+    return -1;
+
+#else
+	return faccessat(fd, name, type, flag);
+#endif
+}
+#endif
+
+static ngx_int_t ngx_http_clojure_check_access_jvm_cp(ngx_http_clojure_main_conf_t *mcf, ngx_core_conf_t *ccf, ngx_log_t *log) {
+	ngx_int_t rc = NGX_OK;
+#if !(NGX_WIN32)
+	{
+		int i;
+		ngx_err_t err;
+		ngx_str_t *elts = mcf->jvm_cp->elts;
+		ngx_uid_t ouid = geteuid();
+		ngx_gid_t ogid = getegid();
+		char *username = ccf->username;
+		struct passwd *pw;
+
+		/*TODO: remove this check nwhen we merge -Djava.class.path with jvm_classpath.*/
+		if (!mcf->jvm_cp) {
+			return rc;
+		}
+
+		ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "user & group %d:%d", ccf->user, ccf->group);
+
+		if (ouid == 0) {
+			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "seteuid %d:%d", ccf->user, ccf->group);
+			seteuid(ccf->user);
+			setegid(ccf->group);
+			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "geteuid now %d:%d", geteuid(), getegid());
+		}else if (ccf->user == (uid_t) NGX_CONF_UNSET_UINT) {
+			pw = getpwuid (ouid);
+			username = pw->pw_name;
+		}
+
+		for (i = 0; i < mcf->jvm_cp->nelts; i++) {
+			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "checking %V, nginx user:%s", &elts[i], username);
+			if (ngx_http_clojure_faccessat(AT_FDCWD, elts[i].data, R_OK, AT_EACCESS) != 0) {
+				err = ngx_errno;
+				ngx_log_error(NGX_LOG_EMERG, log, err, "check access jvm classpath file \"%V\" failed by os user \"%s\"", &elts[i], username);
+				rc = NGX_ERROR;
+
+				if (err == EACCES) {
+					ngx_log_error(NGX_LOG_EMERG, log, 0,
+							"it is caused by os user \"%s\" has no direct access permission, "
+									"or search permission (viz. x-permission for a directory) is denied "
+									"for one of the directories in the path prefix of pathname", username);
+				}
+				break;
+			}
+		}
+
+		if (ouid == 0) {
+			setegid(ogid);
+			seteuid(ouid);
+			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "restore uid %d:%d", geteuid(), getegid());
+		}
+	}
+#endif
+	return rc;
+}
+
+static char* ngx_http_clojure_set_jvm_classpath(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
+	ngx_http_clojure_main_conf_t *mcf = conf;
+	ngx_str_t *value = 1 + (ngx_str_t *)cf->args->elts;
+	u_char *start = value->data;
+	u_char *pos = start;
+	ngx_str_t dir;
+	size_t evlen;
+
+	mcf->jvm_cp_is_set = 1;
+
+	if (ngx_strnstr(start, "#{", value->len) != NULL) {
+		value->data = pos = start = ngx_http_clojure_eval_experssion(mcf, value, cf->pool, &evlen);
+		if (value->data == NULL) {
+			ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "jvm_classpath is too long to expend:  \"%*s...\" started", 10, value->data);
+			return NGX_CONF_ERROR;
+		}
+		value->len = evlen;
+	}else {
+		evlen = value->len;
+	}
+	mcf->jvm_cp = ngx_array_create(cf->pool, 1, sizeof(ngx_str_t));
+	if (mcf->jvm_cp == NULL) {
+		return NGX_CONF_ERROR;
+	}
+
+	do {
+		pos++;
+		if (*pos == JVM_CP_SEP || pos == value->data+evlen) {
+			if (pos[-1] == '*') {
+				dir.data = start;
+				dir.len = pos - start - 1;
+				dir.data[dir.len] = 0;
+				if (ngx_http_clojure_expand_jvm_classpath(cf, &dir, mcf->jvm_cp, 0) != NGX_OK) {
+					return NGX_CONF_ERROR;
+				}
+			}else {
+				ngx_str_t *cp = ngx_array_push(mcf->jvm_cp);
+				cp->data = start;
+				cp->len = pos - start;
+				*pos = 0;
+			}
+			start = ++pos;
+		}
+	}while(pos < value->data+evlen);
+
+	return NGX_CONF_OK;
+}
+
+
+static ngx_int_t ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 	ngx_http_core_main_conf_t *cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
 	ngx_http_clojure_main_conf_t *mcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_clojure_module);
 	ngx_http_handler_pt *h;
 
 	ngx_http_clojure_is_little_endian = ngx_http_clojure_check_little_endian();
+
+	if (mcf->jvm_cp_check == NGX_CONF_UNSET) {
+		mcf->jvm_cp_check = 1;
+	}
 
 	if (mcf->max_balanced_tcp_connections > 0) {
 		ngx_http_clojure_reset_listening_backlog(cf);
@@ -1241,8 +1539,8 @@ static ngx_int_t ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 #endif
 	}
 
-	if (!ngx_http_clojure_is_embeded_by_jse && mcf->jvm_options == NGX_CONF_UNSET_PTR) {
-		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "no jvm_options configured!");
+	if (!ngx_http_clojure_is_embeded_by_jse && !mcf->jvm_cp_is_set) {
+		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "no jvm classpath configured!");
 		return NGX_ERROR ;
 	}
 
