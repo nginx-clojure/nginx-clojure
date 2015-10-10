@@ -3,7 +3,7 @@
             NginxRequest NginxHttpServerChannel ChannelListener
             AppEventListenerManager AppEventListenerManager$Listener
             AppEventListenerManager$Decoder AppEventListenerManager$PostedEvent
-            MessageAdapter WholeMessageAdapter])
+            MessageAdapter WholeMessageAdapter ChannelCloseAdapter])
   (:import [nginx.clojure.net NginxClojureAsynChannel NginxClojureAsynChannel$CompletionListener
             NginxClojureAsynSocket])
   (:import [nginx.clojure.clj Constants])
@@ -177,7 +177,7 @@
   (send-response! [ch resp]
     (.sendResponse ch resp))
   (on-close! [ch attachment listener]
-    (.addListener ch attachment (proxy [ChannelListener] []
+    (.addListener ch attachment (proxy [ChannelCloseAdapter] []
                        (onClose [att]
                          (listener att)))))
   
