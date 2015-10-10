@@ -51,6 +51,7 @@
      (first (clojure.string/split (decode user-pass) #":")))
    ""))
 
+
 (defn check-authorisation [context]
   (let [authorised? (= "nginx-clojure"
                       (get-username-from-authorization-header (get-in context [:request
@@ -61,29 +62,19 @@
 
 (def sse-subscribers (atom {}))
 (def long-polling-subscribers (atom {}))
-(def sse-event-tag (int (+ 0x80 10)))
-(def long-polling-event-tag (int (+ 0x80 11)))
 
-(def init-broadcast-event-listener
-  (delay 
-    (on-broadcast-event-decode!
-      ;;tester
-      (fn [{tag :tag}] 
-        (or (= tag sse-event-tag) (= tag long-polling-event-tag)))
-      ;;decoder
-      (fn [{:keys [tag data offset length] :as e}]
-        (assoc e :data (String. data offset length "utf-8"))))
-    (on-broadcast! 
-      (fn [{:keys [tag data]}]
-        (log "#%s ring_handlers_for_test: onbroadcast {%d %s} %s" process-id tag data @sse-subscribers)
-        (condp = tag
-          sse-event-tag 
-            (doseq [ch (keys @sse-subscribers)]
-              (send! ch (str "data: " data "\r\n\r\n") true (= "finish!" data) ))
-          long-polling-event-tag 
-            (doseq [ch (keys @long-polling-subscribers)]
-              (send-response! ch {:status 200, :headers {"content-type" "text/plain"}, :body data}))
-            nil)))))
+(def init-topics
+  (delay
+    (def sse-topic (build-topic! "sse-topic"))
+    (def long-polling-topic (build-topic! "long-polling-topic"))
+    (sub! sse-topic nil 
+          (fn [m _]
+            (doseq [[ch _] @sse-subscribers]
+              (send! ch (str "data: " m "\r\n\r\n") true (= "finish!" m) ))))
+    (sub! long-polling-topic nil
+          (fn [m _]
+            (doseq [[ch _] @long-polling-subscribers]
+              (send-response! ch {:status 200, :headers {"content-type" "text/plain"}, :body m}))))))
 
 
 (defroutes ring-compojure-test-handler
@@ -122,12 +113,12 @@
   ;;server sent events publisher
   (GET "/sse-pub" [] 
        (fn [req]
-         (broadcast! {:tag sse-event-tag, :data (:query-string req)})
+         (pub! sse-topic (:query-string req))
          {:body "OK"}))
   ;;server sent events subscriber
   (GET "/sse-sub" [] 
        (fn [^NginxRequest req]
-         @init-broadcast-event-listener
+         @init-topics
          (let [ch (hijack! req true)]
            (on-close! ch ch 
                       (fn [ch] (log "channel closed. id=%d" (.nativeRequest req))
@@ -138,11 +129,11 @@
            (send! ch "retry: 4500\r\n" true false))))
   (GET "/pub" []
        (fn [req]
-         (broadcast! {:tag long-polling-event-tag, :data (:query-string req)})
+         (pub! long-polling-topic (:query-string req))
          {:body "OK"}))
   (GET "/sub" []
        (fn [^NginxRequest req]
-         @init-broadcast-event-listener
+         @init-topics
          (let [ch (hijack! req true)]
            (on-close! ch ch (fn [ch] 
                               (log "#%s channel closed. id=%d" process-id (.nativeRequest req))
