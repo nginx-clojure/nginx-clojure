@@ -113,6 +113,7 @@
   ;;server sent events publisher
   (GET "/sse-pub" [] 
        (fn [req]
+         @init-topics
          (pub! sse-topic (:query-string req))
          {:body "OK"}))
   ;;server sent events subscriber
@@ -129,6 +130,7 @@
            (send! ch "retry: 4500\r\n" true false))))
   (GET "/pub" []
        (fn [req]
+         @init-topics
          (pub! long-polling-topic (:query-string req))
          {:body "OK"}))
   (GET "/sub" []

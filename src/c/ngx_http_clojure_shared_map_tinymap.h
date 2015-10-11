@@ -2,7 +2,7 @@
  *  Copyright (C) Zhang,Yuexiang (xfeep)
  */
 #ifndef NGX_HTTP_CLOJURE_SHARED_MAP_TINYMAP_H_
-#define NGX_HTTP_CLOJURE_SHARED_MAP_TINYHMAP_H_
+#define NGX_HTTP_CLOJURE_SHARED_MAP_TINYMAP_H_
 
 #include "ngx_http_clojure_shared_map.h"
 

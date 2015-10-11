@@ -48,6 +48,7 @@ CFLAGS="-DNGX_CLOJURE_BE_SILENT_WITHOUT_JVM $CFLAGS"
 #for easy debug on linux or macosx  
 #CFLAGS="$CFLAGS -g -O0 "
 
-if [ "$NGX_PLATFORM" != win32 -a "$NGX_PLATFORM" != FreeBSD ]; then
+if [ "$NGX_PLATFORM" != win32 -a "$NGX_SYSTEM" != FreeBSD ]; then
+echo "append -ldl for $NGX_PLATFORM"
 CORE_LIBS="$CORE_LIBS -ldl";
 fi

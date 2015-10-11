@@ -13,7 +13,7 @@
   [^NginxClojureAsynSocket as, ^long sc]
   (if (not= sc NginxClojureAsynSocket/NGX_HTTP_CLOJURE_SOCKET_OK)
     (do 
-      (.error logger (format "on connect error: %s" (.errorCodeToString as sc)))
+      (.error logger (format "on connect error: %s" (NginxClojureAsynSocket/errorCodeToString sc)))
       (.close as)
       (NginxClojureRT/completeAsyncResponse (-> as .getContext deref :creq) 500))
     ;else
@@ -25,7 +25,7 @@
   [^NginxClojureAsynSocket as, ^long sc]
   (if (not= sc NginxClojureAsynSocket/NGX_HTTP_CLOJURE_SOCKET_OK)
     (do 
-      (.error logger (format ["on write error: %s" (.errorCodeToString as sc)]))
+      (.error logger (format ["on write error: %s" (NginxClojureAsynSocket/errorCodeToString sc)]))
       (.close as)
       (NginxClojureRT/completeAsyncResponse (-> as .getContext deref :creq) 500))
     ;else
@@ -41,7 +41,7 @@
           (let [n (.write as req wc (- (alength req) wc))]
             (if (< n 0) 
               (when (not= n NginxClojureAsynSocket/NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN)
-                (.error logger (format "write error :%s" (.errorCodeToString as sc)))
+                (.error logger (format "write error :%s" (NginxClojureAsynSocket/errorCodeToString sc)))
                 (.close as)
                 (NginxClojureRT/completeAsyncResponse creq 500))
               (do 
@@ -59,7 +59,7 @@
   [^NginxClojureAsynSocket as, ^long sc]
   (if (not= sc NginxClojureAsynSocket/NGX_HTTP_CLOJURE_SOCKET_OK)
     (do 
-      (.error logger (format "on read error: %s" (.errorCodeToString as sc)))
+      (.error logger (format "on read error: %s" (NginxClojureAsynSocket/errorCodeToString sc)))
       (.close as)
       (NginxClojureRT/completeAsyncResponse (-> as .getContext deref :creq) 500))
     ;else
@@ -73,7 +73,7 @@
           (let [n (.read as buf 0 buf-len)]
             (if (< n 0) 
               (when (not= n NginxClojureAsynSocket/NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN)
-                (.error logger (format "read error :%s" (.errorCodeToString as sc)))
+                (.error logger (format "read error :%s" (NginxClojureAsynSocket/errorCodeToString sc)))
                 (.close as)
                 (NginxClojureRT/completeAsyncResponse  creq 500))
               (do 

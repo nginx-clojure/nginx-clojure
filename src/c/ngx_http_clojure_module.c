@@ -1321,6 +1321,7 @@ static ngx_int_t ngx_http_clojure_expand_jvm_classpath(ngx_conf_t *cf, ngx_str_t
 	}
 
 	while (1) {
+		ngx_set_errno(0);
 		if (ngx_read_dir(&dir) == NGX_ERROR) {
 			err = ngx_errno;
 			if (err != NGX_ENOMOREFILES) {
@@ -1397,7 +1398,7 @@ static int ngx_http_clojure_faccessat(int fd, const char *name, int mode, int fl
     return -1;
 
 #else
-	return faccessat(fd, name, type, flag);
+	return faccessat(fd, name, mode, flag);
 #endif
 }
 #endif
@@ -1406,7 +1407,7 @@ static ngx_int_t ngx_http_clojure_check_access_jvm_cp(ngx_http_clojure_main_conf
 	ngx_int_t rc = NGX_OK;
 #if !(NGX_WIN32)
 	{
-		int i;
+		ngx_uint_t i;
 		ngx_err_t err;
 		ngx_str_t *elts = mcf->jvm_cp->elts;
 		ngx_uid_t ouid = geteuid();
@@ -1433,7 +1434,7 @@ static ngx_int_t ngx_http_clojure_check_access_jvm_cp(ngx_http_clojure_main_conf
 
 		for (i = 0; i < mcf->jvm_cp->nelts; i++) {
 			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "checking %V, nginx user:%s", &elts[i], username);
-			if (ngx_http_clojure_faccessat(AT_FDCWD, elts[i].data, R_OK, AT_EACCESS) != 0) {
+			if (ngx_http_clojure_faccessat(AT_FDCWD, (char *)elts[i].data, R_OK, AT_EACCESS) != 0) {
 				err = ngx_errno;
 				ngx_log_error(NGX_LOG_EMERG, log, err, "check access jvm classpath file \"%V\" failed by os user \"%s\"", &elts[i], username);
 				rc = NGX_ERROR;
@@ -1516,6 +1517,10 @@ static ngx_int_t ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 
 	if (mcf->jvm_cp_check == NGX_CONF_UNSET) {
 		mcf->jvm_cp_check = 1;
+	}
+
+	if (mcf->jvm_options == NGX_CONF_UNSET_PTR) {
+		mcf->jvm_options = ngx_array_create(cf->pool, 1, sizeof(ngx_str_t));
 	}
 
 	if (mcf->max_balanced_tcp_connections > 0) {

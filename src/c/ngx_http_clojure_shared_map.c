@@ -9,7 +9,7 @@
 #include "ngx_http_clojure_shared_map_hashmap.h"
 #include "ngx_http_clojure_shared_map_tinymap.h"
 
-#define null_shared_map_impl {0}
+#define null_shared_map_impl {NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 
 static ngx_http_clojure_shared_map_impl_t ngx_http_clojure_shared_map_registered_impls[] = {
 		{

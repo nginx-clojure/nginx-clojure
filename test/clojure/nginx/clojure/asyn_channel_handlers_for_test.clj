@@ -12,7 +12,7 @@
 (defn- error-handler [status {:keys [buf upstream downstream] :as pipe}]
   (aclose! upstream)
   (log "error happend: %d, %s" status (error-str upstream status))
-  (if (= "sent" (aget-context downstream))
+  (if (= "sent" (get-context downstream))
     (send! downstream (error-str upstream status) true true)
     (send-response! downstream {:status 500 
                                 :headers {"Content-Type" "text/html"} 

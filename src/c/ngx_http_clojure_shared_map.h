@@ -23,6 +23,8 @@ extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 #define NGX_CLOJURE_SHARED_MAP_JBYTEA 3
 #define NGX_CLOJURE_SHARED_MAP_JOBJECT 4
 
+struct ngx_http_clojure_shared_map_ctx_s;
+
 typedef struct ngx_http_clojure_shared_map_ctx_s ngx_http_clojure_shared_map_ctx_t;
 
 typedef void (*ngx_http_clojure_shared_map_val_handler)(uint8_t /*vtype*/, const void * /*val*/, size_t /*vsize*/,
@@ -60,13 +62,13 @@ typedef struct {
 } ngx_http_clojure_shared_map_impl_t;
 
 
-typedef struct ngx_http_clojure_shared_map_ctx_s {
+struct ngx_http_clojure_shared_map_ctx_s {
 	ngx_str_t name;
 	ngx_log_t *log;
 	ngx_array_t *arguments;
 	void *impl_ctx;
 	ngx_http_clojure_shared_map_impl_t *impl;
-} ngx_http_clojure_shared_map_ctx_t;
+};
 
 char * ngx_http_clojure_shared_map(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
