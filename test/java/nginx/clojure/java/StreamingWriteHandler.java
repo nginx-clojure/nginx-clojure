@@ -86,11 +86,6 @@ public class StreamingWriteHandler implements NginxJavaRingHandler {
 				if (ctx.buffer.hasRemaining()) {
 					int oldPos = ctx.buffer.position();
 					c = (int)ch.write(ctx.buffer);
-					//v0.4.0 does not reset position so we reset it here
-					//more detail can be found from https://github.com/nginx-clojure/nginx-clojure/issues/83
-					if  (c > 0 && oldPos == ctx.buffer.position()) { 
-						ctx.buffer.position(oldPos + c);
-					}
 					if (c == 0) {
 						break;
 					}
