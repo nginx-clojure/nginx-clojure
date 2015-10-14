@@ -458,7 +458,7 @@ ngx_int_t ngx_http_clojure_shared_map_tinymap_clear(ngx_http_clojure_shared_map_
 		return NGX_OK;
 	}
 
-	log_ctx_name.len = strlen(ctx->shpool->log_ctx);
+	log_ctx_name.len = ngx_strlen(ctx->shpool->log_ctx);
 	log_ctx_name.data = tmp_name;
 
 	if (log_ctx_name.data == NULL) {
