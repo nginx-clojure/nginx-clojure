@@ -1409,7 +1409,7 @@ static ngx_int_t ngx_http_clojure_check_access_jvm_cp(ngx_http_clojure_main_conf
 	{
 		ngx_uint_t i;
 		ngx_err_t err;
-		ngx_str_t *elts = mcf->jvm_cp->elts;
+		ngx_str_t *elts;
 		ngx_uid_t ouid = geteuid();
 		ngx_gid_t ogid = getegid();
 		char *username = ccf->username;
@@ -1419,6 +1419,8 @@ static ngx_int_t ngx_http_clojure_check_access_jvm_cp(ngx_http_clojure_main_conf
 		if (!mcf->jvm_cp) {
 			return rc;
 		}
+
+		elts = mcf->jvm_cp->elts;
 
 		ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "user & group %d:%d", ccf->user, ccf->group);
 
