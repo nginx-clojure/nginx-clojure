@@ -49,6 +49,8 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 	
 	private native static long nsize(long ctx);
 	
+	private native static long nclear(long ctx);
+	
 	private native static long ncontains(long ctx, int ktype, Object keyBuf, long offset, long len);
 	
 	private native static long ngetNumber(long ctx, int ktype, Object keyBuf, long offset, long len, int vtype);
@@ -304,7 +306,10 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 
 	@Override
 	public void clear() {
-		throw new UnsupportedOperationException("clear");
+		long rc = nclear(ctx);
+		if (rc != 0) {
+			throw new RuntimeException("unexcepted error, rc=" + rc);
+		}
 	}
 
 

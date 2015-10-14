@@ -52,4 +52,6 @@ ngx_int_t ngx_http_clojure_shared_map_tinymap_remove_entry(ngx_http_clojure_shar
 
 ngx_int_t ngx_http_clojure_shared_map_tinymap_size(ngx_http_clojure_shared_map_ctx_t * sctx);
 
+ngx_int_t ngx_http_clojure_shared_map_tinymap_clear(ngx_http_clojure_shared_map_ctx_t * sctx);
+
 #endif /* NGX_HTTP_CLOJURE_SHARED_MAP_CHASHMAP_H_ */

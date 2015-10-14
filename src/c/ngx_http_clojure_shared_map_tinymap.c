@@ -52,7 +52,8 @@ static ngx_int_t ngx_http_clojure_shared_map_tinymap_init_zone(ngx_shm_zone_t *s
 
 
 	ctx->map->table = (void*)((uintptr_t)ctx->map + sizeof(ngx_http_clojure_tinymap_t));
-	ngx_memzero(ctx->map->table, sizeof(uint32_t) * ctx->entry_table_size);
+	/*ngx slab already made them be zero*/
+	/*ngx_memzero(ctx->map->table, sizeof(uint32_t) * ctx->entry_table_size);*/
 
 	ctx->shpool->log_ctx = (void*)((uintptr_t)ctx->map->table + sizeof(uint32_t) * ctx->entry_table_size);
 
@@ -442,4 +443,59 @@ ngx_int_t ngx_http_clojure_shared_map_tinymap_remove_entry(ngx_http_clojure_shar
 
 ngx_int_t ngx_http_clojure_shared_map_tinymap_size(ngx_http_clojure_shared_map_ctx_t * sctx) {
 	 return ((ngx_http_clojure_shared_map_tinymap_ctx_t *)sctx->impl_ctx)->map->size;
+}
+
+ngx_int_t ngx_http_clojure_shared_map_tinymap_clear(ngx_http_clojure_shared_map_ctx_t * sctx) {
+	ngx_http_clojure_shared_map_tinymap_ctx_t *ctx = sctx->impl_ctx;
+	u_char tmp_name[NGX_CLOJURE_SHARED_MAP_NAME_MAX_LEN+1];
+	ngx_str_t log_ctx_name;
+
+
+	ngx_shmtx_lock(&ctx->shpool->mutex);
+
+	if (ctx->map->size == 0) {
+		ngx_shmtx_unlock(&ctx->shpool->mutex);
+		return NGX_OK;
+	}
+
+	log_ctx_name.len = strlen(ctx->shpool->log_ctx);
+	log_ctx_name.data = tmp_name;
+
+	if (log_ctx_name.data == NULL) {
+		ngx_shmtx_unlock(&ctx->shpool->mutex);
+		return NGX_ERROR;
+	}
+
+	ngx_memcpy(log_ctx_name.data, ctx->shpool->log_ctx, log_ctx_name.len);
+
+	ctx->shpool->log_nomem = 0;
+	ctx->shpool->min_size = 0;
+	ctx->shpool->start = ctx->shpool->data = NULL;
+	ctx->shpool->pages = ctx->shpool->last = NULL;
+	ngx_memzero(&ctx->shpool->free, sizeof(ngx_slab_page_t));
+	ngx_slab_init(ctx->shpool);
+	ctx->map = ngx_slab_alloc_locked(ctx->shpool, sizeof(ngx_http_clojure_tinymap_t) + sizeof(uint32_t) * ctx->entry_table_size + log_ctx_name.len + 1);
+	if (ctx->map == NULL) {
+		ngx_shmtx_unlock(&ctx->shpool->mutex);
+		return NGX_ERROR;
+	}
+
+	ctx->shpool->data = ctx->map;
+	ctx->map->size = 0;
+/*	ctx->hash_seed = (uint32_t)ngx_pid | (uintptr_t)ctx->shpool;*/
+	ctx->hash_seed = 1;
+
+
+	ctx->map->table = (void*)((uintptr_t)ctx->map + sizeof(ngx_http_clojure_tinymap_t));
+	/*ngx slab already made them be zero*/
+	/*ngx_memzero(ctx->map->table, sizeof(uint32_t) * ctx->entry_table_size);*/
+
+	ctx->shpool->log_ctx = (void*)((uintptr_t)ctx->map->table + sizeof(uint32_t) * ctx->entry_table_size);
+
+	ngx_sprintf(ctx->shpool->log_ctx, " in tinymap \"%V\"%Z",
+			&log_ctx_name);
+
+	ngx_shmtx_unlock(&ctx->shpool->mutex);
+	return NGX_OK;
+
 }

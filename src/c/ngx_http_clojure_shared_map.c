@@ -9,7 +9,7 @@
 #include "ngx_http_clojure_shared_map_hashmap.h"
 #include "ngx_http_clojure_shared_map_tinymap.h"
 
-#define null_shared_map_impl {NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+#define null_shared_map_impl {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 
 static ngx_http_clojure_shared_map_impl_t ngx_http_clojure_shared_map_registered_impls[] = {
 		{
@@ -19,7 +19,8 @@ static ngx_http_clojure_shared_map_impl_t ngx_http_clojure_shared_map_registered
 			ngx_http_clojure_shared_map_hashmap_put_entry,
 			ngx_http_clojure_shared_map_hashmap_put_entry_if_absent,
 			ngx_http_clojure_shared_map_hashmap_remove_entry,
-			ngx_http_clojure_shared_map_hashmap_size
+			ngx_http_clojure_shared_map_hashmap_size,
+			ngx_http_clojure_shared_map_hashmap_clear
 		},
 		{
 			"tinymap",
@@ -28,7 +29,8 @@ static ngx_http_clojure_shared_map_impl_t ngx_http_clojure_shared_map_registered
 			ngx_http_clojure_shared_map_tinymap_put_entry,
 			ngx_http_clojure_shared_map_tinymap_put_entry_if_absent,
 			ngx_http_clojure_shared_map_tinymap_remove_entry,
-			ngx_http_clojure_shared_map_tinymap_size
+			ngx_http_clojure_shared_map_tinymap_size,
+			ngx_http_clojure_shared_map_tinymap_clear
 		 },
 		 null_shared_map_impl
 };
@@ -66,6 +68,11 @@ char * ngx_http_clojure_shared_map(ngx_conf_t *cf, ngx_command_t *cmd, void *con
 	}
 
 	ctx->name = value[1];
+
+	if (ctx->name.len > NGX_CLOJURE_SHARED_MAP_NAME_MAX_LEN) {
+		ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "invalid shared map arguments, too long name \"%V\"", &ctx->name);
+		return NGX_CONF_ERROR;
+	}
 
 	/* parse shared map arguments of implementation, e.g.
 	 * hashmap?space=8M&entries=10k, redis?host=localhost&port=6379*/
@@ -292,6 +299,12 @@ static jlong jni_ngx_http_clojure_shared_map_size(JNIEnv *env, jclass cls, jlong
 			(ngx_http_clojure_shared_map_ctx_t *) (uintptr_t) jctx);
 }
 
+
+static jlong jni_ngx_http_clojure_shared_map_clear(JNIEnv *env, jclass cls, jlong jctx) {
+	return ((ngx_http_clojure_shared_map_ctx_t *) (uintptr_t) jctx)->impl->clear(
+			(ngx_http_clojure_shared_map_ctx_t *) (uintptr_t) jctx);
+}
+
 static jlong jni_ngx_http_clojure_shared_map_contains(JNIEnv *env, jclass cls, jlong jctx,
 		jint ktype, jobject key, jlong koff, jlong klen) {
 	ngx_http_clojure_shared_map_ctx_t *ctx = (ngx_http_clojure_shared_map_ctx_t *)(uintptr_t)jctx;
@@ -488,6 +501,7 @@ int ngx_http_clojure_init_shared_map_util() {
 				{"ndelete", "(JILjava/lang/Object;JJ)J", jni_ngx_http_clojure_shared_map_delete},
 				{"nremove", "(JILjava/lang/Object;JJ)Ljava/lang/Object;", jni_ngx_http_clojure_shared_map_remove},
 				{"nsize", "(J)J", jni_ngx_http_clojure_shared_map_size},
+				{"nclear", "(J)J", jni_ngx_http_clojure_shared_map_clear},
 				{"ncontains", "(JILjava/lang/Object;JJ)J", jni_ngx_http_clojure_shared_map_contains},
 				{"ngetNumber", "(JILjava/lang/Object;JJI)J", jni_ngx_http_clojure_shared_map_get_number},
 				{"nputNumber", "(JILjava/lang/Object;JJIJJ)J", jni_ngx_http_clojure_shared_map_put_number},

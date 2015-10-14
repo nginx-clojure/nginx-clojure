@@ -17,6 +17,8 @@
 
 extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 
+#define NGX_CLOJURE_SHARED_MAP_NAME_MAX_LEN 255
+
 #define NGX_CLOJURE_SHARED_MAP_JINT 0
 #define NGX_CLOJURE_SHARED_MAP_JLONG 1
 #define NGX_CLOJURE_SHARED_MAP_JSTRING 2
@@ -51,6 +53,8 @@ typedef ngx_int_t (*ngx_http_clojure_shared_map_remove_entry_f)(ngx_http_clojure
 
 typedef ngx_int_t (*ngx_http_clojure_shared_map_size_f)(ngx_http_clojure_shared_map_ctx_t * /*ctx*/);
 
+typedef ngx_int_t (*ngx_http_clojure_shared_map_clear_f)(ngx_http_clojure_shared_map_ctx_t * /*ctx*/);
+
 typedef struct {
 	const char* name;
 	ngx_http_clojure_shared_map_init_f init;
@@ -59,6 +63,7 @@ typedef struct {
 	ngx_http_clojure_shared_map_put_entry_f put_if_absent;
 	ngx_http_clojure_shared_map_remove_entry_f remove;
 	ngx_http_clojure_shared_map_size_f size;
+	ngx_http_clojure_shared_map_clear_f clear;
 } ngx_http_clojure_shared_map_impl_t;
 
 
