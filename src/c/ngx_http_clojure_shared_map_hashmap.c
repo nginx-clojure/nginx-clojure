@@ -529,11 +529,6 @@ ngx_int_t ngx_http_clojure_shared_map_hashmap_clear(ngx_http_clojure_shared_map_
 	log_ctx_name.len = ngx_strlen(ctx->shpool->log_ctx);
 	log_ctx_name.data = tmp_name;
 
-	if (log_ctx_name.data == NULL) {
-		ngx_shmtx_unlock(&ctx->shpool->mutex);
-		return NGX_ERROR;
-	}
-
 	ngx_memcpy(log_ctx_name.data, ctx->shpool->log_ctx, log_ctx_name.len);
 
 	ctx->shpool->log_nomem = 0;
