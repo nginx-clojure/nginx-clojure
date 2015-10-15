@@ -283,7 +283,7 @@ static ngx_int_t ngx_http_clojure_shared_map_hashmap_match_key(uint8_t ktype,
 	}
 	switch (ktype) {
 	case NGX_CLOJURE_SHARED_MAP_JINT:
-		if ((uintptr_t)entry->key == *((uint32_t*) key)) {
+		if (*((uint32_t *)&entry->key) == *((uint32_t*) key)) {
 			return NGX_CLOJURE_SHARED_MAP_OK;
 		}
 		break;

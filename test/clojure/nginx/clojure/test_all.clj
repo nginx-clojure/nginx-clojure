@@ -1086,6 +1086,114 @@
            (is (= content @result)))))
 )
 
+
+(deftest ^{:remote true :shared-map true} test-shared-map
+  (doseq [target [;"tinyMap" 
+                  "hashMap"]]
+    (let [base (str "http://" *host* ":" *port* "/java-sharedmap/" target)]
+      (client/get base {:coerce :unexceptional, :query-params {:op "clear"}})
+      (testing (str target "-strstr")
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "put" :key "nginx-clojure" :val "shared map is OK?"}})]
+           (is (= 200 (:status r)))
+           (is (= "put:nginx-clojure:shared map is OK?, old=null, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "get" :key "nginx-clojure"}})]
+           (is (= 200 (:status r)))
+           (is (= "get:nginx-clojure:shared map is OK?, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "put" :key "nginx-clojure" :val "OK!"}})]
+           (is (= 200 (:status r)))
+           (is (= "put:nginx-clojure:OK!, old=shared map is OK?, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "get" :key "nginx-clojure"}})]
+           (is (= 200 (:status r)))
+           (is (= "get:nginx-clojure:OK!, size=1" (:body r))))   
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "remove" :key "nginx-clojure"}})]
+           (is (= 200 (:status r)))
+           (is (= "remove:nginx-clojure:OK!, size=0" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "remove" :key "nginx-clojure"}})]
+           (is (= 200 (:status r)))
+           (is (= "remove:nginx-clojure:null, size=0" (:body r))))
+      )
+      (testing (str target "-intstr")
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "iput" :key 2147483647 :val "shared map is OK?"}})]
+           (is (= 200 (:status r)))
+           (is (= "iput:2147483647:shared map is OK?, old=null, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "iget" :key 2147483647}})]
+           (is (= 200 (:status r)))
+           (is (= "iget:2147483647:shared map is OK?, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "iput" :key 2147483647 :val "OK!"}})]
+           (is (= 200 (:status r)))
+           (is (= "iput:2147483647:OK!, old=shared map is OK?, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "iget" :key 2147483647}})]
+           (is (= 200 (:status r)))
+           (is (= "iget:2147483647:OK!, size=1" (:body r))))   
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "iremove" :key 2147483647}})]
+           (is (= 200 (:status r)))
+           (is (= "iremove:2147483647:OK!, size=0" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "iremove" :key 2147483647}})]
+           (is (= 200 (:status r)))
+           (is (= "iremove:2147483647:null, size=0" (:body r))))
+      ) 
+      (testing (str target "-longstr")
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "lput" :key 9223372036854775807 :val "shared map is OK?"}})]
+           (is (= 200 (:status r)))
+           (is (= "lput:9223372036854775807:shared map is OK?, old=null, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "lget" :key 9223372036854775807}})]
+           (is (= 200 (:status r)))
+           (is (= "lget:9223372036854775807:shared map is OK?, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "lput" :key 9223372036854775807 :val "OK!"}})]
+           (is (= 200 (:status r)))
+           (is (= "lput:9223372036854775807:OK!, old=shared map is OK?, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "lget" :key 9223372036854775807}})]
+           (is (= 200 (:status r)))
+           (is (= "lget:9223372036854775807:OK!, size=1" (:body r))))       
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "lremove" :key 9223372036854775807}})]
+           (is (= 200 (:status r)))
+           (is (= "lremove:9223372036854775807:OK!, size=0" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "lremove" :key 9223372036854775807}})]
+           (is (= 200 (:status r)))
+           (is (= "lremove:9223372036854775807:null, size=0" (:body r))))
+      )
+      (testing (str target "-strint")
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "puti" :key "int"  :val 2147483647}})]
+           (is (= 200 (:status r)))
+           (is (= "puti:int:2147483647, old=0, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "get" :key "int"}})]
+           (is (= 200 (:status r)))
+           (is (= "get:int:2147483647, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "puti" :key "int" :val 2147483646}})]
+           (is (= 200 (:status r)))
+           (is (= "puti:int:2147483646, old=2147483647, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "get" :key "int"}})]
+           (is (= 200 (:status r)))
+           (is (= "get:int:2147483646, size=1" (:body r))))       
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "remove" :key "int"}})]
+           (is (= 200 (:status r)))
+           (is (= "remove:int:2147483646, size=0" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "remove" :key "int"}})]
+           (is (= 200 (:status r)))
+           (is (= "remove:int:null, size=0" (:body r))))
+      ) 
+      (testing (str target "-strlong")
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "putl" :key "long"  :val 9223372036854775807}})]
+           (is (= 200 (:status r)))
+           (is (= "putl:long:9223372036854775807, old=0, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "get" :key "long"}})]
+           (is (= 200 (:status r)))
+           (is (= "get:long:9223372036854775807, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "putl" :key "long" :val 9223372036854775806}})]
+           (is (= 200 (:status r)))
+           (is (= "putl:long:9223372036854775806, old=9223372036854775807, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "get" :key "long"}})]
+           (is (= 200 (:status r)))
+           (is (= "get:long:9223372036854775806, size=1" (:body r))))      
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "remove" :key "long"}})]
+           (is (= 200 (:status r)))
+           (is (= "remove:long:9223372036854775806, size=0" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "remove" :key "long"}})]
+           (is (= 200 (:status r)))
+           (is (= "remove:long:null, size=0" (:body r))))
+      )       
+      )))
+
 ;eg. (concurrent-run 10 (run-tests 'nginx.clojure.test-all))
 (defmacro concurrent-run 
   [n, form]
