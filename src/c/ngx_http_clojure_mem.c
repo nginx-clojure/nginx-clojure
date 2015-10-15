@@ -2247,6 +2247,8 @@ static void nji_ngx_http_clojure_hijack_write_handler(ngx_http_request_t *r) {
 	}
 }
 
+#if (NGX_HAVE_SHA1 && NGX_ZLIB)
+
 static void *ngx_http_clojure_websocket_alloc(void *opaque, u_int items, u_int size) {
 	ngx_http_clojure_module_ctx_t *ctx = (ngx_http_clojure_module_ctx_t *)opaque;
 	/*TODO: optimize for large buffer to avoid frequently syscalls such as sbrk(), mmap() etc.*/
@@ -2255,6 +2257,8 @@ static void *ngx_http_clojure_websocket_alloc(void *opaque, u_int items, u_int s
 
 static void ngx_http_clojure_websocket_free(void *opaque, void *address) {
 }
+
+#endif
 
 ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
 	ngx_http_clojure_module_ctx_t *ctx;
