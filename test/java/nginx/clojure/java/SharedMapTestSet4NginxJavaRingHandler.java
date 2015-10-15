@@ -45,12 +45,21 @@ public class SharedMapTestSet4NginxJavaRingHandler implements NginxJavaRingHandl
 			
 			if (op.equals("put")) {
 				oval = map.put(key, val);
+				if (oval instanceof byte[]) {
+					oval = new String((byte[])oval, "utf-8");
+				}
 				NginxClojureRT.getLog().info(rt = "put:" + key + ":" + val + ", old=" + oval + ", size=" + map.size());
 			} else if (op.equals("get")) {
 				oval = map.get(key);
+				if (oval instanceof byte[]) {
+					oval = new String((byte[])oval, "utf-8");
+				}
 				NginxClojureRT.getLog().info(rt = "get:" + key + ":" + oval + ", size=" + map.size());
 			} else if (op.equals("remove")) {
 				oval = map.remove(key);
+				if (oval instanceof byte[]) {
+					oval = new String((byte[])oval, "utf-8");
+				}
 				NginxClojureRT.getLog().info(rt = "remove:" + key + ":" + oval + ", size=" + map.size());
 			}else if (op.equals("puti")) {
 				int old = map.putInt(key, Integer.parseInt(val));
@@ -58,6 +67,9 @@ public class SharedMapTestSet4NginxJavaRingHandler implements NginxJavaRingHandl
 			}else if (op.equals("putl")) {
 				long old = map.putLong(key, Long.parseLong(val));
 				NginxClojureRT.getLog().info(rt = "putl:" + key + ":" + val + ", old=" + old + ", size=" + map.size());
+			}else if (op.equals("puta")) {
+				byte[] old = (byte[])map.put(key, val.getBytes("utf-8"));
+				NginxClojureRT.getLog().info(rt = "puta:" + key + ":" + val + ", old=" + (old == null ? null : new String(old, "utf-8")) + ", size=" + map.size());
 			}else if (op.equals("atomici")) {
 				val = params.get("delta");
 				int old = map.atomicAddInt(key, Integer.parseInt(val));
@@ -80,6 +92,15 @@ public class SharedMapTestSet4NginxJavaRingHandler implements NginxJavaRingHandl
 			}else if (op.equals("lremove")) {
 				Object old = map.remove(Long.parseLong(key));
 				NginxClojureRT.getLog().info(rt = "lremove:" + key + ":" +  old + ", size=" + map.size());
+			}else if (op.equals("aget")) {
+				Object old = map.get(key.getBytes("utf-8"));
+				NginxClojureRT.getLog().info(rt = "aget:" + key + ":" +  old + ", size=" + map.size());
+			}else if (op.equals("aput")) {
+				Object old = map.put(key.getBytes("utf-8"), val);
+				NginxClojureRT.getLog().info(rt = "aput:" + key + ":" + val + ", old=" + old + ", size=" + map.size());
+			}else if (op.equals("aremove")) {
+				Object old = map.remove(key.getBytes("utf-8"));
+				NginxClojureRT.getLog().info(rt = "aremove:" + key + ":" +  old + ", size=" + map.size());
 			}else if (op.equals("size")) {
 				NginxClojureRT.getLog().info(rt = "size:" + map.size());
 			}else if (op.equals("clear")) {

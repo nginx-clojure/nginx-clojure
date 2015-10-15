@@ -1088,7 +1088,7 @@
 
 
 (deftest ^{:remote true :shared-map true} test-shared-map
-  (doseq [target [;"tinyMap" 
+  (doseq [target ["tinyMap" 
                   "hashMap"]]
     (let [base (str "http://" *host* ":" *port* "/java-sharedmap/" target)]
       (client/get base {:coerce :unexceptional, :query-params {:op "clear"}})
@@ -1191,7 +1191,47 @@
          (let [r (client/get base {:coerce :unexceptional, :query-params {:op "remove" :key "long"}})]
            (is (= 200 (:status r)))
            (is (= "remove:long:null, size=0" (:body r))))
-      )       
+      )
+      (testing (str target "-strbyte[]")
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "puta" :key "nginx-clojure" :val "shared map is OK?"}})]
+           (is (= 200 (:status r)))
+           (is (= "puta:nginx-clojure:shared map is OK?, old=null, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "get" :key "nginx-clojure"}})]
+           (is (= 200 (:status r)))
+           (is (= "get:nginx-clojure:shared map is OK?, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "puta" :key "nginx-clojure" :val "OK!"}})]
+           (is (= 200 (:status r)))
+           (is (= "puta:nginx-clojure:OK!, old=shared map is OK?, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "get" :key "nginx-clojure"}})]
+           (is (= 200 (:status r)))
+           (is (= "get:nginx-clojure:OK!, size=1" (:body r))))   
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "remove" :key "nginx-clojure"}})]
+           (is (= 200 (:status r)))
+           (is (= "remove:nginx-clojure:OK!, size=0" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "remove" :key "nginx-clojure"}})]
+           (is (= 200 (:status r)))
+           (is (= "remove:nginx-clojure:null, size=0" (:body r))))
+      )
+      (testing (str target "-byte[]str")
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "aput" :key "nginx-clojure" :val "shared map is OK?"}})]
+           (is (= 200 (:status r)))
+           (is (= "aput:nginx-clojure:shared map is OK?, old=null, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "aget" :key "nginx-clojure"}})]
+           (is (= 200 (:status r)))
+           (is (= "aget:nginx-clojure:shared map is OK?, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "aput" :key "nginx-clojure" :val "OK!"}})]
+           (is (= 200 (:status r)))
+           (is (= "aput:nginx-clojure:OK!, old=shared map is OK?, size=1" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "aget" :key "nginx-clojure"}})]
+           (is (= 200 (:status r)))
+           (is (= "aget:nginx-clojure:OK!, size=1" (:body r))))   
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "aremove" :key "nginx-clojure"}})]
+           (is (= 200 (:status r)))
+           (is (= "aremove:nginx-clojure:OK!, size=0" (:body r))))
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "aremove" :key "nginx-clojure"}})]
+           (is (= 200 (:status r)))
+           (is (= "aremove:nginx-clojure:null, size=0" (:body r))))
+      )      
       )))
 
 ;eg. (concurrent-run 10 (run-tests 'nginx.clojure.test-all))
