@@ -52,8 +52,7 @@ static ngx_int_t ngx_http_clojure_shared_map_tinymap_init_zone(ngx_shm_zone_t *s
 
 
 	ctx->map->table = (void*)((uintptr_t)ctx->map + sizeof(ngx_http_clojure_tinymap_t));
-	/*ngx slab already made them be zero*/
-	/*ngx_memzero(ctx->map->table, sizeof(uint32_t) * ctx->entry_table_size);*/
+	ngx_memzero(ctx->map->table, sizeof(uint32_t) * ctx->entry_table_size);
 
 	ctx->shpool->log_ctx = (void*)((uintptr_t)ctx->map->table + sizeof(uint32_t) * ctx->entry_table_size);
 
@@ -482,8 +481,7 @@ ngx_int_t ngx_http_clojure_shared_map_tinymap_clear(ngx_http_clojure_shared_map_
 
 
 	ctx->map->table = (void*)((uintptr_t)ctx->map + sizeof(ngx_http_clojure_tinymap_t));
-	/*ngx slab already made them be zero*/
-	/*ngx_memzero(ctx->map->table, sizeof(uint32_t) * ctx->entry_table_size);*/
+	ngx_memzero(ctx->map->table, sizeof(uint32_t) * ctx->entry_table_size);
 
 	ctx->shpool->log_ctx = (void*)((uintptr_t)ctx->map->table + sizeof(uint32_t) * ctx->entry_table_size);
 

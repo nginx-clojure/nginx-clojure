@@ -164,8 +164,7 @@ static ngx_int_t ngx_http_clojure_shared_map_hashmap_init_zone(ngx_shm_zone_t *s
 	ctx->hash_seed = 1;
 
 	ctx->map->table = (void*)((uintptr_t)ctx->map + sizeof(ngx_http_clojure_hashmap_t));
-	/*ngx slab already made them be zero*/
-	/*ngx_memzero(ctx->map->table, sizeof(ngx_http_clojure_hashmap_entry_t *) * ctx->entry_table_size);*/
+	ngx_memzero(ctx->map->table, sizeof(ngx_http_clojure_hashmap_entry_t *) * ctx->entry_table_size);
 
 	ctx->shpool->log_ctx = (void*)((uintptr_t)ctx->map->table + sizeof(ngx_http_clojure_hashmap_entry_t *) * ctx->entry_table_size);
 
@@ -553,8 +552,7 @@ ngx_int_t ngx_http_clojure_shared_map_hashmap_clear(ngx_http_clojure_shared_map_
 	ctx->hash_seed = 1;
 
 	ctx->map->table = (void*)((uintptr_t)ctx->map + sizeof(ngx_http_clojure_hashmap_t));
-	/*ngx slab already made them be zero*/
-	/*ngx_memzero(ctx->map->table, sizeof(ngx_http_clojure_hashmap_entry_t *) * ctx->entry_table_size);*/
+	ngx_memzero(ctx->map->table, sizeof(ngx_http_clojure_hashmap_entry_t *) * ctx->entry_table_size);
 	ctx->shpool->log_ctx = (void*)((uintptr_t)ctx->map->table + sizeof(ngx_http_clojure_hashmap_entry_t *) * ctx->entry_table_size);
 
 	ngx_sprintf(ctx->shpool->log_ctx, " in hashmap_zone \"%V\"%Z",
