@@ -109,11 +109,11 @@ public class SharedMapTestSet4NginxJavaRingHandler implements NginxJavaRingHandl
 			}else if (op.equals("perfi")) {
 				long s = System.currentTimeMillis();
 				rt = "";
-				int c = 1000;
+				int c = 30000;
 				for (int i = 0; i < c; i++) {
 					map.put(i, i);
 				}
-				rt += "add cost:"+ (System.currentTimeMillis() - s) + "ms\n";
+				rt += c + " add cost:"+ (System.currentTimeMillis() - s) + "ms, size=" + map.size() + "\n";
 				
 				s = System.currentTimeMillis();
 				for (int i = 0; i < c; i++) {
@@ -121,7 +121,7 @@ public class SharedMapTestSet4NginxJavaRingHandler implements NginxJavaRingHandl
 						throw new RuntimeException("wrong return of get");
 					}
 				}
-				rt += "get cost:"+ (System.currentTimeMillis() - s) + "ms\n";
+				rt += c + " get cost:"+ (System.currentTimeMillis() - s) + "ms, size=" + map.size() + "\n";
 				
 				
 				s = System.currentTimeMillis();
@@ -130,7 +130,17 @@ public class SharedMapTestSet4NginxJavaRingHandler implements NginxJavaRingHandl
 						throw new RuntimeException("wrong return of remove");
 					}
 				}
-				rt += "del cost:"+ (System.currentTimeMillis() - s) + "ms\n";
+				rt += c + " remove cost:"+ (System.currentTimeMillis() - s) + "ms, size=" + map.size() + "\n";
+				
+				for (int i = 0; i < c; i++) {
+					map.put(i, i);
+				}
+				
+				s = System.currentTimeMillis();
+				for (int i = 0; i < c; i++) {
+					map.delete(i);
+				}
+				rt += c + " del cost:"+ (System.currentTimeMillis() - s) + "ms, size=" + map.size() + "\n";
 			}
 			
 			return new Object[] {200, null, rt};

@@ -64,8 +64,8 @@
      )
   (GET "/fetch-two-pages" []
        (let [[r1 r2] (co-pvalues 
-                       (client/get "http://www.apache.org/dist/httpcomponents/httpclient/KEYS")
-                       (client/get "http://www.apache.org/dist/httpcomponents/httpcore/KEYS"))]
+                       (client/get "http://www.apache.org/dist/httpcomponents/httpclient/KEYS" {:socket-timeout 10000})
+                       (client/get "http://www.apache.org/dist/httpcomponents/httpcore/KEYS" {:socket-timeout 10000}))]
          {:status 200, 
           :headers {"content-type" "text/html"}, 
           :body (str (:body r1) "\n==========================\n" (:body r2)) }))

@@ -1231,6 +1231,10 @@
          (let [r (client/get base {:coerce :unexceptional, :query-params {:op "aremove" :key "nginx-clojure"}})]
            (is (= 200 (:status r)))
            (is (= "aremove:nginx-clojure:null, size=0" (:body r))))
+      )
+      (testing (str target "-perfi")
+         (let [r (client/get base {:coerce :unexceptional, :query-params {:op "perfi" :key 2147483647 :val "shared map is OK?"}})]
+           (is (= 200 (:status r))))
       )      
       )))
 

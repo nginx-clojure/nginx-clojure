@@ -10,8 +10,8 @@
   (.info logger (apply (partial format fmt) ss)))
 
 (defn- error-handler [status {:keys [buf upstream downstream] :as pipe}]
-  (aclose! upstream)
   (log "error happend: %d, %s" status (error-str upstream status))
+  (aclose! upstream)
   (if (= "sent" (get-context downstream))
     (send! downstream (error-str upstream status) true true)
     (send-response! downstream {:status 500 

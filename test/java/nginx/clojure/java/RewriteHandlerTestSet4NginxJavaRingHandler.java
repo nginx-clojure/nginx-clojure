@@ -14,6 +14,7 @@ import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.SuspendExecution;
 
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -181,6 +182,7 @@ public class RewriteHandlerTestSet4NginxJavaRingHandler {
 			CloseableHttpClient httpclient = HttpClients.createDefault();
 //			HttpGet httpget = new HttpGet("http://cn.bing.com/");
 			HttpGet httpget = new HttpGet("http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt");
+			httpget.setConfig(RequestConfig.custom().setConnectTimeout(10000).setSocketTimeout(10000).build());
 			CloseableHttpResponse response = null;
 			try {
 				response = httpclient.execute(httpget);

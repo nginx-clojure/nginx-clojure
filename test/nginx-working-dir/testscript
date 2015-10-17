@@ -1,3 +1,8 @@
+**************************************************************************
+*** DO NOT execute this script to test nginx-clojure,
+*** please read https://github.com/nginx-clojure/nginx-clojure/issues/33
+*********************************************************************
+
 curl -v "http://${testhost}:8080/clojure"
 
 curl -v "http://172.16.111.135:8080/clojure"
