@@ -134,7 +134,7 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public native static long  ngx_http_clojure_mem_build_temp_chain(long req, long preChain,  Object obj, long offset, long len);
 	
-	public native static long  ngx_http_clojure_mem_build_file_chain(long req, long preChain,  Object path, long offset, long len);
+	public native static long  ngx_http_clojure_mem_build_file_chain(long req, long preChain,  Object path, long offset, long len, boolean safe);
 	
 	public native static long ngx_http_clojure_mem_get_obj_addr(Object obj);
 	

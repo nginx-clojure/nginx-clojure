@@ -3059,7 +3059,7 @@ static jlong JNICALL jni_ngx_http_clojure_mem_build_temp_chain(JNIEnv *env, jcla
 }
 
 
-static jlong JNICALL jni_ngx_http_clojure_mem_build_file_chain(JNIEnv *env, jclass cls, jlong req , jlong prevChain, jobject  file, jlong offset, jlong len) {
+static jlong JNICALL jni_ngx_http_clojure_mem_build_file_chain(JNIEnv *env, jclass cls, jlong req , jlong prevChain, jobject  file, jlong offset, jlong len, jboolean safe) {
 	ngx_chain_t *pre = (ngx_chain_t*)(uintptr_t)prevChain;
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t)req;
 	ngx_buf_t *b;
@@ -3097,7 +3097,7 @@ static jlong JNICALL jni_ngx_http_clojure_mem_build_file_chain(JNIEnv *env, jcla
 	of.errors = clcf->open_file_cache_errors;
 	of.events = clcf->open_file_cache_events;
 
-	if (ngx_open_cached_file(clcf->open_file_cache, &path, &of, r->pool) != NGX_OK) {
+	if (ngx_open_cached_file(safe ? clcf->open_file_cache : NULL, &path, &of, r->pool) != NGX_OK) {
 		ngx_int_t rc = 0;
 
 		switch (of.err) {
@@ -3290,9 +3290,14 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_headers_items(JNIEnv *env, jcl
 	jlong *pvalue = (jlong *)ngx_http_clojure_abs_off_addr(buf, off);
 	ngx_str_t *hn = NULL;
 	jlong c = 0;
+	ngx_http_request_t *r;
 
 	if (flag & NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT) {
 		hout = (ngx_http_headers_out_t *)(uintptr_t)header;
+		r = (ngx_http_request_t *)((uintptr_t)header - NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET);
+		if (!r->pool) {
+			return NGX_ERROR;
+		}
 		list = &hout->headers;
 		if (hout->content_type.len) {
 			if (i == 0) {
@@ -3305,6 +3310,10 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_headers_items(JNIEnv *env, jcl
 			i--;
 		}
 	}else {
+		r = (ngx_http_request_t *)((uintptr_t)header - NGX_HTTP_CLOJURE_REQ_HEADERS_IN_OFFSET);
+		if (!r->pool) {
+			return NGX_ERROR;
+		}
 		hin = (ngx_http_headers_in_t *)(uintptr_t)header;
 		list = &hin->headers;
 	}
@@ -3996,7 +4005,7 @@ int ngx_http_clojure_init_memory_util(ngx_core_conf_t  *ccf, ngx_http_core_srv_c
 			{"ngx_http_filter_continue_next", "(JJ)J",  jni_ngx_http_filter_continue_next},
 			{"ngx_http_clojure_mem_init_ngx_buf", "(JLjava/lang/Object;JJI)J", jni_ngx_http_clojure_mem_init_ngx_buf}, //jlong buf, jlong obj, jlong offset, jlong len, jint last_buf
 			{"ngx_http_clojure_mem_build_temp_chain", "(JJLjava/lang/Object;JJ)J", jni_ngx_http_clojure_mem_build_temp_chain},
-			{"ngx_http_clojure_mem_build_file_chain", "(JJLjava/lang/Object;JJ)J", jni_ngx_http_clojure_mem_build_file_chain} ,
+			{"ngx_http_clojure_mem_build_file_chain", "(JJLjava/lang/Object;JJZ)J", jni_ngx_http_clojure_mem_build_file_chain} ,
 			{"ngx_http_clojure_mem_get_obj_addr", "(Ljava/lang/Object;)J", jni_ngx_http_clojure_mem_get_obj_addr},
 			{"ngx_http_clojure_mem_get_list_size", "(J)J", jni_ngx_http_clojure_mem_get_list_size},
 			{"ngx_http_clojure_mem_get_list_item", "(JJ)J", jni_ngx_http_clojure_mem_get_list_item},

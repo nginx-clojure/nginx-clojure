@@ -84,8 +84,8 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 		bb.clear();
 		Object v;
 		long tp;
-		if (c == 0){
-			throw new IllegalStateException("[JavaLazyHeaderMap] no entry at position : " + i);
+		if (c <= 0){
+			throw new IllegalStateException("[JavaLazyHeaderMap] no entry at position : " + i + ", maybe request is released!");
 		}else if (c == 1) {
 			bb.limit(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE);
 			tp = lbb.get(0);
@@ -117,8 +117,8 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 		bb.position(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE);
 		LongBuffer lbb =bb.order(ByteOrder.nativeOrder()).asLongBuffer();
 		bb.clear();
-		if (c == 0){
-			throw new IllegalStateException("[JavaLazyHeaderMap] no entry at position : " + i);
+		if (c <= 0){
+			throw new IllegalStateException("[JavaLazyHeaderMap] no entry at position : " + i + ", maybe request is released!");
 		}
 		bb.limit(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE);
 		return  fetchNGXString(lbb.get(0)+ NGX_HTTP_CLOJURE_TEL_KEY_OFFSET, DEFAULT_ENCODING,  bb ,  pickCharBuffer());
@@ -135,8 +135,8 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 		LongBuffer lbb =bb.order(ByteOrder.nativeOrder()).asLongBuffer();
 		bb.clear();
 		Object v;
-		if (c == 0){
-			throw new IllegalStateException("[JavaLazyHeaderMap] no entry at position : " + i);
+		if (c <= 0){
+			throw new IllegalStateException("[JavaLazyHeaderMap] no entry at position : " + i + ", maybe request is released!");
 		}else if (c == 1) {
 			bb.limit(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE);
 			v =  fetchNGXString( lbb.get(0)+ NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING,  bb ,  pickCharBuffer());

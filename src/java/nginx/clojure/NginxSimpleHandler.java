@@ -367,7 +367,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		if (b.remaining() < b.capacity()) {
 			b.array()[b.remaining()] = 0; // for file name in c language is ended with '\0'
 		}
-		chain = ngx_http_clojure_mem_build_file_chain(r, chain, b.array(), BYTE_ARRAY_OFFSET, b.remaining());
+		chain = ngx_http_clojure_mem_build_file_chain(r, chain, b.array(), BYTE_ARRAY_OFFSET, b.remaining(), Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD);
 		if (chain <= 0) {
 			return chain;
 		}
