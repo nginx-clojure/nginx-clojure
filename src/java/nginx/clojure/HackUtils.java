@@ -5,6 +5,7 @@
 package nginx.clojure;
 
 import static nginx.clojure.MiniConstants.STRING_CHAR_ARRAY_OFFSET;
+import static nginx.clojure.MiniConstants.STRING_OFFSET_OFFSET;
 
 import java.lang.ref.Reference;
 import java.lang.reflect.Array;
@@ -57,10 +58,15 @@ public class HackUtils {
 	        field.setAccessible(true);
 	        UNSAFE = (Unsafe)field.get(null);
 	        STRING_CHAR_ARRAY_OFFSET = UNSAFE.objectFieldOffset(String.class.getDeclaredField("value"));
-	    }
-	    catch (Exception e){
+	    }catch (Exception e){
 	        throw new RuntimeException(e);
 	    }
+	    
+        try {
+			STRING_OFFSET_OFFSET = UNSAFE.objectFieldOffset(String.class.getDeclaredField("offset"));
+		}  catch (NoSuchFieldException e) {
+			STRING_OFFSET_OFFSET = -1;
+		}
 	}
 	
 	
@@ -193,7 +199,8 @@ public class HackUtils {
 		CharsetEncoder ce =  ThreadLocalCoders.encoderFor(cs)
 				.onMalformedInput(CodingErrorAction.REPLACE)
 				.onUnmappableCharacter(CodingErrorAction.REPLACE);
-		CharBuffer cb = CharBuffer.wrap((char[])UNSAFE.getObject(s, STRING_CHAR_ARRAY_OFFSET));
+		CharBuffer cb = CharBuffer.wrap((char[])UNSAFE.getObject(s, STRING_CHAR_ARRAY_OFFSET),
+				STRING_OFFSET_OFFSET > 0 ? UNSAFE.getInt(s, STRING_OFFSET_OFFSET) : 0, s.length());
 		ce.reset();
 		CoderResult rt = ce.encode(cb, bb, true);
 		if (rt == CoderResult.OVERFLOW) {

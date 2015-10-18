@@ -113,6 +113,8 @@ public class MiniConstants {
 	
 	public static int BYTE_ARRAY_OFFSET;
 	public static long STRING_CHAR_ARRAY_OFFSET;
+	public static long STRING_OFFSET_OFFSET;
+	
 	
 	public static final int  NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT = 1;
 	public static final int  NGX_HTTP_CLOJURE_GET_HEADER_FLAG_MERGE_KEY = 2;
