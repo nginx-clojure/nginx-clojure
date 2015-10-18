@@ -88,9 +88,9 @@ ngx_int_t ngx_http_clojure_shared_map_hashmap_init(ngx_conf_t *cf, ngx_http_cloj
 			if (size == NGX_ERROR) {
 				ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "invalid shared map argument: entries \"%V\"", &arg->value);
 				return NGX_ERROR ;
-			} else if (size > 0x80000000) { /*so far we have not supported > 2G entries*/
-				ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "invalid shared map argument: space is too large (at most %d) \"%V\"",
-						0x80000000, &arg->value);
+			} else if ((uint64_t)size > (uint64_t)0x80000000LL) { /*so far we have not supported > 2G entries*/
+				ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "invalid shared map argument: entries is too large (at most %ll) \"%V\"",
+						0x80000000LL, &arg->value);
 				return NGX_ERROR ;
 			}
 			hmctx->entry_table_size = (uint32_t) size;
@@ -196,10 +196,10 @@ static ngx_int_t ngx_http_clojure_shared_map_hashmap_set_key_helper(ngx_slab_poo
 
 	switch (entry->ktype) {
 	case NGX_CLOJURE_SHARED_MAP_JINT:
-		*((uint32_t *)&entry->key) = *((uint32_t *)key);
+		*((uint32_t *)(void*)&entry->key) = *((uint32_t *)key);
 		return NGX_CLOJURE_SHARED_MAP_OK;
 	case NGX_CLOJURE_SHARED_MAP_JLONG:
-		*((uint64_t *) &entry->key) = *((uint64_t *) key);
+		*((uint64_t *)(void*)&entry->key) = *((uint64_t *) key);
 		return NGX_CLOJURE_SHARED_MAP_OK;
 	case NGX_CLOJURE_SHARED_MAP_JSTRING:
 	case NGX_CLOJURE_SHARED_MAP_JBYTEA:
@@ -246,10 +246,10 @@ static ngx_int_t ngx_http_clojure_shared_map_hashmap_set_value_helper(ngx_slab_p
 
 	switch (vtype) {
 	case NGX_CLOJURE_SHARED_MAP_JINT:
-		*((uint32_t *)&entry->val) = *((uint32_t *)val);
+		*((uint32_t *)(void*)&entry->val) = *((uint32_t *)val);
 		goto HANDLE_CPX_OLDV;
 	case NGX_CLOJURE_SHARED_MAP_JLONG:
-		*((uint64_t *) &entry->val) = *((uint64_t *) val);
+		*((uint64_t *)(void*)&entry->val) = *((uint64_t *) val);
 		goto HANDLE_CPX_OLDV;
 	case NGX_CLOJURE_SHARED_MAP_JSTRING:
 	case NGX_CLOJURE_SHARED_MAP_JBYTEA:
@@ -283,12 +283,12 @@ static ngx_int_t ngx_http_clojure_shared_map_hashmap_match_key(uint8_t ktype,
 	}
 	switch (ktype) {
 	case NGX_CLOJURE_SHARED_MAP_JINT:
-		if (*((uint32_t *)&entry->key) == *((uint32_t*) key)) {
+		if (*((uint32_t *)(void*)&entry->key) == *((uint32_t*) key)) {
 			return NGX_CLOJURE_SHARED_MAP_OK;
 		}
 		break;
 	case NGX_CLOJURE_SHARED_MAP_JLONG:
-		if (*((uint64_t*) &entry->key) == *((uint64_t*) key)) {
+		if (*((uint64_t*)(void*)&entry->key) == *((uint64_t*) key)) {
 			return NGX_CLOJURE_SHARED_MAP_OK;
 		}
 		break;
