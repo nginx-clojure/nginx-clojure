@@ -44,7 +44,7 @@
                         (ashutdown! upstream :soft-write)
                         (arecv! upstream buf pipe error-handler pipe-handler)
                         )]
-    (aset-timeout! upstream 10000 10000 10000)
+    (aset-timeout! upstream 20000 20000 20000)
     (aconnect! upstream "www.apache.org:80" upstream error-handler
                (fn [status att]
                  (.info logger "connected successfully")

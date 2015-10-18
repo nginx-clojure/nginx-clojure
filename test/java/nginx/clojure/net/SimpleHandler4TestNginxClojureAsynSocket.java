@@ -155,6 +155,7 @@ public class SimpleHandler4TestNginxClojureAsynSocket implements NginxJavaRingHa
 				log.info("connected now!");
 			}
 		});
+		asynSocket.setTimeout(10000, 10000, 10000);
 		asynSocket.connect("www.apache.org:80");
 		return null;
 	}
