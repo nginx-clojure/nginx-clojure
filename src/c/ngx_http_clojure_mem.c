@@ -3744,6 +3744,12 @@ static ngx_int_t ngx_http_clojure_broadcast_event(void *e, size_t size, int has_
 			continue;
 		}
 
+		if (nc_ngx_worker_pipes_fds[s][1] == 0) {
+			ngx_log_error(NGX_LOG_ERR, ngx_http_clojure_global_cycle->log, 0,
+					"when broadcast_event find pipe[%d] fd == 0 which is unexpected, "
+					"skipping this fd now, ngx_process_slot=%d", s, ngx_process_slot);
+		}
+
 		if (rc == 0) { /*only store first error code*/
 			rc = ngx_http_clojure_post_event(nc_ngx_worker_pipes_fds[s][1], e, size);
 		}else {
