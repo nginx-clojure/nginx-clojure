@@ -16,7 +16,6 @@ import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.net.URL;
 import java.net.URLConnection;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -26,6 +25,7 @@ import nginx.clojure.DiscoverJvm;
 import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.java.ArrayMap;
+import nginx.clojure.java.NginxJavaRequest;
 import nginx.clojure.java.NginxJavaRingHandler;
 
 public class NginxEmbedServer {
@@ -140,6 +140,12 @@ public class NginxEmbedServer {
 	}
 	
 	private static void notifyFromNative(int type, String message) {
+		if (type == EMBED_PASS_ALL) {
+			NginxJavaRequest.fixDefaultRequestArray();
+			try{
+				nginx.clojure.clj.LazyRequestMap.fixDefaultRequestArray();
+			}catch(Throwable e) {};
+		}
 		embedStarteEventQueue.add(new EmbedStartEvent(type, message));
 	}
 	
@@ -328,6 +334,7 @@ public class NginxEmbedServer {
 				EmbedStartEvent event = embedStarteEventQueue.take();
 				switch (event.type) {
 				case EMBED_ERR :
+					started = false;
 					throw new RuntimeException("start error:"+ event.message);
 				case EMBED_PASS_CONF:
 					NginxClojureRT.getLog().info("[nginx-clojure embed] finish configuration check");

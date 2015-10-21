@@ -20,9 +20,7 @@
          opts (java.util.HashMap.)]
      (when *nginx-work-dir* (.setWorkDir server *nginx-work-dir*))
      (def default-handler handler)
-     (if (:jvm-init-handler options)
-       (def default-jvm-init-handler (:jvm-init-handler options))
-       (fn [_] nil))
+     (def default-jvm-init-handler (:jvm-init-handler options (fn [_] nil)))
      (doseq [[k v] (dissoc options :jvm-init-handler)]
        (.put opts (name k) (str v)))
      (.put opts "jvm_handler_type" "clojure")
@@ -32,7 +30,8 @@
   ([nginx-conf]
     (let [server (NginxEmbedServer/getServer)]
       (when *nginx-work-dir* (.setWorkDir server *nginx-work-dir*))
-      (.start server nginx-conf)))
+      (.start server nginx-conf)
+      (when (.isStarted server) (nginx.clojure.clj.LazyRequestMap/fixDefaultRequestArray))))
   )
 
 (defn stop-server []

@@ -306,14 +306,19 @@ static ngx_int_t ngx_http_clojure_embed_start(int argc, char *const *argv){
 }
 
 static jlong jni_ngx_http_clojure_embed_start(JNIEnv *env, jclass clz, jstring cmdline) {
+#if !(NGX_WIN32)
 	char path[NGX_MAX_PATH];
+#else
+	char path[4096];
+#endif
+
 	size_t len = (*env)->GetStringUTFLength(env, cmdline);
 	int rc = 0;
 	int argc = 0;
 	char* argv[10];
 	char *pos = path;
 
-	if (len > NGX_MAX_PATH - 2) {
+	if (len > sizeof(path) - 2) {
 		nji_ngx_http_clojure_notify(EMBED_ERR, "too long nginx args!");
 		return 1;
 	}

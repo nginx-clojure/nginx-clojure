@@ -214,7 +214,8 @@ public class JavaHandlersTest {
 	@Test
 	public void testStartAndStop() throws ParseException, ClientProtocolException, IOException {
 		NginxEmbedServer server = NginxEmbedServer.getServer();
-		Map<String, String> opts = ArrayMap.create("port", "8081");
+		Map<String, String> opts = ArrayMap.create("port", "8081",
+				"http-user-defined", "shared_map mycounters hashmap?space=32k&entries=400;");
 		server.start(SimpleRouting.class.getName(), opts);
 		CloseableHttpClient httpclient = HttpClients.createDefault();
 		HttpGet httpget = new HttpGet("http://localhost:8081/hello");

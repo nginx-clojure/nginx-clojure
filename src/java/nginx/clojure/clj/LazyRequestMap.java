@@ -88,6 +88,23 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		}
     };
 	
+	public static void fixDefaultRequestArray() {
+		if (default_request_array[1] == null) {
+			int i = 0;
+			default_request_array[(i++ << 1) + 1] = URI_FETCHER; 
+			default_request_array[(i++ << 1) + 1] = BODY_FETCHER; 
+			default_request_array[(i++ << 1) + 1] = HEADER_FETCHER; 
+			default_request_array[(i++ << 1) + 1] = SERVER_PORT_FETCHER; 
+			default_request_array[(i++ << 1) + 1] = SERVER_NAME_FETCHER; 
+			default_request_array[(i++ << 1) + 1] = REMOTE_ADDR_FETCHER; 
+			default_request_array[(i++ << 1) + 1] = QUERY_STRING_FETCHER; 
+			default_request_array[(i++ << 1) + 1] = SCHEME_FETCHER; 
+			default_request_array[(i++ << 1) + 1] = REQUEST_METHOD_FETCHER; 
+			default_request_array[(i++ << 1) + 1] = CONTENT_TYPE_FETCHER; 
+			default_request_array[(i++ << 1) + 1] = CHARACTER_ENCODING_FETCHER;
+		}
+	}
+	
 	protected int validLen;
 	protected long r;
 	protected Object[] array;
@@ -280,7 +297,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 				return null;
 			}
 			if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
-				throw new IllegalAccessError("fetching lazy value of " + array[i] + " in LazyRequestMap can only be called in main thread, please pre-access it in main thread OR call LazyRequestMap.prefetchAll() first in main thread");
+				throw new IllegalAccessError("fetching lazy value of " + array[i-1] + " in LazyRequestMap can only be called in main thread, please pre-access it in main thread OR call LazyRequestMap.prefetchAll() first in main thread");
 			}
 			RequestVarFetcher rf = (RequestVarFetcher) o;
 			array[i+1] = null;

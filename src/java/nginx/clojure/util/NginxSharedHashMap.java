@@ -402,4 +402,8 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 	public V replace(K key, V value) {
 		throw new UnsupportedOperationException("V replace(K key, V value");
 	}
+	
+	public String getName() {
+		return name;
+	}
 }
