@@ -1369,36 +1369,49 @@ static ngx_int_t ngx_http_clojure_expand_jvm_classpath(ngx_conf_t *cf, ngx_str_t
 	return NGX_OK;
 }
 
+
 #if !(NGX_WIN32)
-static int ngx_http_clojure_faccessat(int fd, const char *name, int mode, int flag) {
-	/*Linux faccessat implementation can incorrectly ignore AT_EACCESS
-	 * @see https://www.sourceware.org/ml/glibc-bugs/2015-07/msg00118.html*/
-#if (NGX_LINUX)
-	uid_t uid;
+static int ngx_http_clojure_faccessat(const char *name, ngx_log_t *log) {
 	struct stat stats;
-	int granted;
+	int mode = R_OK;
 
-	if (!(flag & AT_EACCESS)) {
-		return faccessat(fd, name, mode, flag);
-	}
-
-	if (fstatat(fd, name, &stats, flag & AT_SYMLINK_NOFOLLOW)) {
+#if !(NGX_DARWIN)
+	if (fstatat(AT_FDCWD, name, &stats, 0)) {
 		return -1;
 	}
-
-	if (mode == F_OK) {
-		return 0;
+#else
+	if (stat(name, &stats)) {
+		return -1;
 	}
+#endif
+
+	if (S_ISDIR(stats.st_mode)) {
+		mode |= X_OK;
+	}
+
+/*Linux faccessat implementation can incorrectly ignore AT_EACCESS
+ * @see https://www.sourceware.org/ml/glibc-bugs/2015-07/msg00118.html
+ * MacOSX does not define faccessat*/
+#if (NGX_LINUX || NGX_DARWIN)
+{
+	uid_t uid;
+	int granted;
 
 	uid = geteuid();
 	if (uid == 0 && ((mode & X_OK) == 0
 					  || (stats.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)))) {
 		return 0;
 	}
+	{
+		char tmpbuf[32];
+		sprintf(tmpbuf, "%o", stats.st_mode);
+		ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "checking file %s mode %s", name, tmpbuf);
+	}
+
 
     granted = (
 				uid == stats.st_uid ? (unsigned int) (stats.st_mode & (mode << 6)) >> 6 :
-				(stats.st_gid == ((flag & AT_EACCESS) ? getegid() : getgid()) || group_member(stats.st_gid)) ?
+				(stats.st_gid == getegid()) ?
 						(unsigned int) (stats.st_mode & (mode << 3)) >> 3 : (stats.st_mode & mode));
 
     if (granted == mode) {
@@ -1407,9 +1420,9 @@ static int ngx_http_clojure_faccessat(int fd, const char *name, int mode, int fl
 
     ngx_set_errno(EACCES);
     return -1;
-
+}
 #else
-	return faccessat(fd, name, mode, flag);
+	return faccessat(AT_FDCWD, name, mode, AT_EACCESS);
 #endif
 }
 #endif
@@ -1433,13 +1446,13 @@ static ngx_int_t ngx_http_clojure_check_access_jvm_cp(ngx_http_clojure_main_conf
 
 		elts = mcf->jvm_cp->elts;
 
-		ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "user & group %d:%d", ccf->user, ccf->group);
+		ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "user & group %ud:%ud", ccf->user, ccf->group);
 
 		if (ouid == 0) {
-			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "seteuid %d:%d", ccf->user, ccf->group);
-			seteuid(ccf->user);
+			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "seteuid %ud:%ud", ccf->user, ccf->group);
 			setegid(ccf->group);
-			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "geteuid now %d:%d", geteuid(), getegid());
+			seteuid(ccf->user);
+			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "geteuid now %ud:%ud", geteuid(), getegid());
 		}else if (ccf->user == (uid_t) NGX_CONF_UNSET_UINT) {
 			pw = getpwuid (ouid);
 			username = pw->pw_name;
@@ -1447,7 +1460,7 @@ static ngx_int_t ngx_http_clojure_check_access_jvm_cp(ngx_http_clojure_main_conf
 
 		for (i = 0; i < mcf->jvm_cp->nelts; i++) {
 			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "checking %V, nginx user:%s", &elts[i], username);
-			if (ngx_http_clojure_faccessat(AT_FDCWD, (char *)elts[i].data, R_OK, AT_EACCESS) != 0) {
+			if (ngx_http_clojure_faccessat((char *)elts[i].data, log) != 0) {
 				err = ngx_errno;
 				ngx_log_error(NGX_LOG_EMERG, log, err, "check access jvm classpath file \"%V\" failed by os user \"%s\"", &elts[i], username);
 				rc = NGX_ERROR;
@@ -1465,7 +1478,7 @@ static ngx_int_t ngx_http_clojure_check_access_jvm_cp(ngx_http_clojure_main_conf
 		if (ouid == 0) {
 			setegid(ogid);
 			seteuid(ouid);
-			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "restore uid %d:%d", geteuid(), getegid());
+			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "restore uid %ud:%ud", geteuid(), getegid());
 		}
 	}
 #endif

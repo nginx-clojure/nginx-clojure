@@ -335,7 +335,7 @@ ngx_int_t ngx_http_clojure_shared_map_tinymap_put_entry(ngx_http_clojure_shared_
 	}
 
 	*peaddr = (uint32_t)((u_char*)entry - ctx->shpool->start);
-	ngx_atomic_fetch_add(&ctx->map->size, 1);
+	(void)ngx_atomic_fetch_add(&ctx->map->size, 1);
 	ngx_shmtx_unlock(&ctx->shpool->mutex);
 
 	return NGX_CLOJURE_SHARED_MAP_NOT_FOUND;
@@ -394,7 +394,7 @@ ngx_int_t ngx_http_clojure_shared_map_tinymap_put_entry_if_absent(ngx_http_cloju
 	}
 
 	*peaddr = (uint32_t)((u_char*)entry - ctx->shpool->start);
-	ngx_atomic_fetch_add(&ctx->map->size, 1);
+	(void)ngx_atomic_fetch_add(&ctx->map->size, 1);
 	ngx_shmtx_unlock(&ctx->shpool->mutex);
 
 	return NGX_CLOJURE_SHARED_MAP_NOT_FOUND;
@@ -421,7 +421,7 @@ ngx_int_t ngx_http_clojure_shared_map_tinymap_remove_entry(ngx_http_clojure_shar
 				ngx_http_clojure_shared_map_tinymap_invoke_value_handler_helper(ctx->shpool, entry, val_handler, handler_data);
 			}
 			*peaddr = entry->next;
-			ngx_atomic_fetch_add(&ctx->map->size, -1);
+			(void)ngx_atomic_fetch_add(&ctx->map->size, -1);
 
 			if (entry->ktype >= NGX_CLOJURE_SHARED_MAP_JSTRING) {
 				ngx_slab_free_locked(ctx->shpool, ctx->shpool->start + entry->key);
