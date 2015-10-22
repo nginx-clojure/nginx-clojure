@@ -7,10 +7,10 @@
 #include "ngx_http_clojure_shared_map.h"
 
 typedef struct ngx_http_clojure_hashmap_entry_s {
-	unsigned ktype : 4;
-	unsigned vtype : 4;
 	char *key;
 	uint32_t ksize; /*key size*/
+	unsigned ktype : 4;
+	unsigned vtype : 4;
 	char *val;
 	uint32_t vsize; /*value size*/
 	uint32_t hash;
