@@ -12,6 +12,7 @@ import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.Map;
 
+import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.bridge.NginxBridge;
 import nginx.clojure.java.NginxJavaRequest;
@@ -240,7 +241,8 @@ public class NginxTomcatBridge extends Catalina implements NginxBridge {
 	@Override
 	public Object[] handle(NginxJavaRequest req) throws IOException {
 		NginxEndpoint nginxEndpoint = nginxDirectProtocol.getEndpoint();
-		req.get("body");
+		req.get(MiniConstants.BODY);
+		req.get(MiniConstants.REMOTE_ADDR);
 		nginxEndpoint.accept(req, ignoreNginxFilter, dispatch);
 		return null;
 	}
