@@ -4,13 +4,12 @@
   :url "https://github.com/nginx-clojure/nginx-clojure/nginx-jersey"
   :license {:name "BSD 3-Clause license"
             :url "http://opensource.org/licenses/BSD-3-Clause"}
-  :plugins [[lein-junit "1.1.7"]]
   :dependencies [
                  [javax.ws.rs/javax.ws.rs-api "2.0.1"]
                  [org.glassfish.jersey.core/jersey-common "2.17"]
                  [org.glassfish.jersey.core/jersey-server "2.17"]
                  ;[org.glassfish.jersey.media/jersey-media-json-jackson "2.17"]
-                 [nginx-clojure/nginx-clojure "0.4.2"]
+                 [nginx-clojure/nginx-clojure "0.4.3"]
                  ]
   :source-paths ["src/clojure"]
   :java-source-paths ["src/java"]

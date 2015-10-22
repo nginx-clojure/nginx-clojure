@@ -5,8 +5,8 @@
             :url "http://opensource.org/licenses/BSD-3-Clause"}
   :plugins []
   :dependencies [
-                 [nginx-clojure/nginx-clojure "0.4.2"]
-                 [org.apache.tomcat/tomcat-catalina "8.0.23"]
+                 [nginx-clojure/nginx-clojure "0.4.3"]
+                 [org.apache.tomcat/tomcat-catalina "8.0.27"]
                  ]
   :source-paths ["src/clojure"]
   :java-source-paths ["src/java"]
