@@ -37,15 +37,16 @@ if ! type java; then
 	exit 1
 fi
 
-javac $NGINX_CLOJURE_SRC/src/java/nginx/clojure/DiscoverJvm.java
+mkdir /tmp/nc-DiscoverJvm
+javac $NGINX_CLOJURE_SRC/src/java/nginx/clojure/DiscoverJvm.java -d /tmp/nc-DiscoverJvm
 
 if [ -z $JNI_INCS ]; then
-  JNI_INCS=`java -classpath $NGINX_CLOJURE_SRC/src/java nginx.clojure.DiscoverJvm getJniIncludes`;
+  JNI_INCS=`java -classpath /tmp/nc-DiscoverJvm nginx.clojure.DiscoverJvm getJniIncludes`;
 fi
 
-nginx_clojure_embed_ext=`java -classpath $NGINX_CLOJURE_SRC/src/java nginx.clojure.DiscoverJvm detectOSArchExt`
+nginx_clojure_embed_ext=`java -classpath /tmp/nc-DiscoverJvm nginx.clojure.DiscoverJvm detectOSArchExt`
 nginx_clojure_embed_ext="-$nginx_clojure_embed_ext"
-rm $NGINX_CLOJURE_SRC/src/java/nginx/clojure/DiscoverJvm.class
+rm -rf /tmp/nc-DiscoverJvm
 
 cd $NGINX_SRC
 if ! [ -f src/core/nginx.c.org ]; then
