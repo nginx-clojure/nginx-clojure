@@ -23,7 +23,7 @@
 
 (def my-session-store
 ;; When worker_processes  > 1 in nginx.conf, we can not use the default in-memory session store
-;; because there're more than one JVM instances and requests from the same session perphaps
+;; because there're more than one JVM instances and requests from the same session perhaps
 ;; will be handled by different JVM instances. So here we use cookie store, or nginx shared map store
 ;; and if we use redis to shared sessions we can try [carmine-store] (https://github.com/ptaoussanis/carmine) or 
 ;; [redis session store] (https://github.com/wuzhe/clj-redis-session)
@@ -39,7 +39,7 @@
 
 (def sub-listener-removal-fn)
 
-;; Because when we use embeded nginx-clojure the nginx-clojure JNI methods 
+;; Because if we use embeded nginx-clojure the nginx-clojure JNI methods 
 ;; won't be registered until the first startup of the nginx server so we need
 ;; use delayed initialization to make sure some initialization work 
 ;; to be done after nginx-clojure JNI methods being registered.

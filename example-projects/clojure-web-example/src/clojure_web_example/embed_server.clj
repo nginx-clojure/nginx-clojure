@@ -9,7 +9,7 @@
 
 (defn start-server 
   "Run an emebed nginx-clojure for debug/test usage."
-  [dev?]
+  [dev? port]
   (embed/run-server
     (if dev?
       ;; Use wrap-reload to enable auto-reload namespaces of modified files
@@ -18,7 +18,7 @@
         (log/info "enable auto-reloading in dev enviroment")
         (wrap-reload #'app))
       app)
-    {:port 8080
+    {:port port
      ;;setup jvm-init-handler
      :jvm-init-handler jvm-init-handler
      ;; define shared map for PubSubTopic
@@ -32,8 +32,12 @@
 
 (defn -main 
   [& args]
-  (let [port (start-server (empty? args))]
-    (try
-      (.browse (java.awt.Desktop/getDesktop) (java.net.URI. (str "http://localhost:" port "/")))
-      (catch java.awt.HeadlessException _))))
+  (let [dev? (empty? args)
+        port (or (first args) 8080)
+        port (start-server dev? port)]
+    (when-not (System/getProperty "java.awt.headless")
+      (try
+        (.browse (java.awt.Desktop/getDesktop) (java.net.URI. (str "http://localhost:" port "/")))
+        (catch java.awt.HeadlessException _)))))
+
 
