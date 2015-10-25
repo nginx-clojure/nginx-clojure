@@ -1,4 +1,5 @@
 (ns nginx.clojure.core
+  "Core functions."
   (:import [nginx.clojure Coroutine Stack NginxClojureRT 
             NginxRequest NginxHttpServerChannel ChannelListener
             AppEventListenerManager AppEventListenerManager$Listener
@@ -12,7 +13,7 @@
 (def process-id NginxClojureRT/processId)
 
 (defn without-coroutine 
-  "wrap a handler f to a new handler which will keep away the coroutine context"
+  "wrap a handler `f` to a new handler which will keep away the coroutine context"
   [f]
   (fn [& args]
     (let [s (Stack/getStack)]
@@ -124,6 +125,7 @@
   )
 
 (defprotocol AsynchronousChannel
+  "Only works on non-threadpool mode, viz. coroutine mode or default mode."
   (aclose! [ch]
      "Close the channel")
   (aconnect! [ch url attachment on-err on-done]
@@ -243,7 +245,9 @@
   (error-str [ch code]
     (.buildError ch code)))
 
-(defn achannel []
+(defn achannel 
+  "create an asynchrouse socket channal."
+  []
   (NginxClojureAsynChannel.))
 
 (defn broadcast!

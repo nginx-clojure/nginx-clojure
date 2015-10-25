@@ -25,5 +25,9 @@
     (dissoc! @delayed-smap key)
     nil))
 
-(defn shared-map-store [name]
+(defn shared-map-store 
+    "Creates an shared map based session storage engine.
+    `name` is a shared map name declared in the nginx.conf.
+    See [shared map](http://nginx-clojure.github.io/directives.html#shared_map)"
+    [name]
   (SharedMemoryStore. (delay (ClojureSharedHashMap. name))))

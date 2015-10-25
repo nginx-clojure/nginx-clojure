@@ -1,4 +1,4 @@
-(defproject nginx-clojure/nginx-tomcat8 "0.2.2"
+(defproject nginx-clojure/nginx-tomcat8 "0.2.3"
   :description "Embed Tomcat into Nginx by Nignx-Clojure Module so that Nginx can  Support Java Standard Web Applications"
   :url "https://github.com/nginx-clojure/nginx-clojure/nginx-tomcat8"
   :license {:name "BSD 3-Clause license"
