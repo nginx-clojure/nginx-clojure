@@ -170,5 +170,5 @@ Make Clojure/Java/Groovy handler configurations have the same form. e.g. The old
 [jvm_classpath]: //nginx-clojure.github.io/directives.html#jvm_classpath
 [NginxPubSubTopic(Java)/PubSubTopic(Clojure)]: //nginx-clojure.github.io/subpub.html
 [an example project about clojure web dev]: https://github.com/nginx-clojure/nginx-clojure/tree/master/example-projects/clojure-web-example
-[Shared Hash Map based on shared memory]: 
+[Shared Map based on shared memory]: //nginx-clojure.github.io/sharedmap.html
 [Shared Map based Ring session store]: //nginx-clojure.github.io/sharedmap.html
