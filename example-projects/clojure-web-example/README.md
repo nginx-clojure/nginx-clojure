@@ -25,13 +25,13 @@ so that we need not restart lein repl.
 
 ## Deploy with embeded Nginx-Clojure (for Small Projects)
 
-1. Build embed standalone jar file
+*  **Build embed standalone jar file**
 ```shell
 $ cd $EXAMPLE_ROOT
 ## build a standalone clojure-web-example-embed.jar at target/uberjar/
 $ lein with-profile embed uberjar
 ```
-1. Start the embed server
+*  **Start the embed server**
 ```shell
 ## suppose we deploy it to directory testdeploy
 $ cd testdeploy
@@ -42,13 +42,16 @@ $ java -cp . -jar clojure-web-example-embed.jar 8080
 
 ## Deploy on Normal Nginx
 
-1. Build stand-alone jar file
+*  **Build stand-alone jar file**
+
 ```shell
 $ cd $EXAMPLE_ROOT
 ## build a standalone clojure-web-example-default.jar at target/uberjar/
 $ lein uberjar
 ```
-1. Download the binaries of Nginx compiled with Nginx-Clojure or we can compile nginx-clojure with
+*  **Get binaries of Nginx-Clojure**
+
+We can download the binaries of Nginx compiled with Nginx-Clojure or we can compile nginx-clojure with
 our nginx by [this guide](http://nginx-clojure.github.io/installation.html).
 ```shell
 $ cd /tmp
@@ -56,13 +59,15 @@ $ wget https://sourceforge.net/projects/nginx-clojure/files/latest/download?sour
 $ tar -xzvf nginx-clojure-0.4.3.tar.gz
 $ sudo mv nginx-clojure-0.4.3 /opt/
 ```
-1. Create OS user
+*  **Create OS user**
+
 ```shell
 ## create user nginx who will be run as by Nginx Worker processes
 ## we have specified this by directive `user nginx nginx;` in nginx.conf
 $ sudo adduser --system --no-create-home --disabled-login --disabled-password --group nginx
 ```
-1. Copy files
+*  **Copy files**
+
 ```shell
 $ sudo mkdir -p /opt/nginx-clojure-0.4.3/libs/res
 $ sudo cp $EXAMPLE_ROOT/target/uberjar/clojure-web-example-default.jar /opt/nginx-clojure-0.4.3/libs
@@ -70,7 +75,8 @@ $ sudo cp $EXAMPLE_ROOT/conf/logback.xml /opt/nginx-clojure-0.4.3/libs/res
 $ sudo cp $EXAMPLE_ROOT/conf/nginx.conf /opt/nginx-clojure-0.4.3/conf/nginx.conf
 $ sudo cp -R $EXAMPLE_ROOT/resources/public /opt/nginx-clojure-0.4.3/
 ```
-1. Grant permissions
+*  **Grant permissions**
+
 ```shell
 ## make /opt/nginx-clojure-0.4.3 searchable
 $ sudo chmod o+x /opt
@@ -89,11 +95,13 @@ $ sudo chmod u+rx $(sudo find public -type d)
 $ sudo chmod u+r $(sudo find public -type f)
 $ sudo chown nginx 
 ```
-1. Check configuration
+*  **Check configuration**
+
 ```shell
 $ sudo ./nginx -t
 ```
-1. Start/Reload/Stop
+*  **Start/Reload/Stop**
+
 ```shell
 ##start and we can check error in file logs/error.log
 $ sudo ./nginx
