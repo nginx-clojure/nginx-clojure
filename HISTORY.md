@@ -4,6 +4,23 @@ Downloads & Release History
 1. [Binaries of Releases](http://sourceforge.net/projects/nginx-clojure/files/)
 1. [Sources of Releases](https://github.com/nginx-clojure/nginx-clojure/releases)
 
+## 0.4.3 (2015-10-25)
+1. New Feature: Add directive [jvm_classpath][] which supports wildcard character * (issue #95)
+1. New Feature: Add directive [jvm_classpath_check][] which is enabled by default and when it is enabled access permission about classpaths will be checked.
+1. New Feature: Add [NginxPubSubTopic(Java)/PubSubTopic(Clojure)][] to simplify handling messages among Nginx worker processes. (issue #97)
+1. New Feature: [Shared Map based on shared memory][] (issue #96) and it has two implementations : tinymap & hashmap.
+1. New Feature: [Shared Map based Ring session store][] (issue #98)
+1. Enhancement: on-broadcast-event-decode!/on-broadcast! returns a removal function which can be used to remove the registered decoder/listener
+1. Enhancement: embedded nginx-clojure becomes friendly to mock tests and  also fix issue #101
+1. Bug Fix: After stopping an embedded Nginx-Clojure server keep-alived connections become CLOSE_WAIT.
+1. Bug Fix: HackUtil.decode decodes unnecessary chars when several strings share one char[] generally on JDK 6
+1. Bug Fix: jvm crashes with thread pool mode when open_file_cache is enabled.
+1. Bug Fix: Fix compile errors when no sha1-implementation/zlib can be found (issue #99)
+1. Example Project: Add [an example project about clojure web dev][] to show how to develop & deploy with Nginx-Clojure. Thanks to [Peter Taoussanis](https://github.com/ptaoussanis) without whose
+comments there would not be such example project. (issue #91)
+1. Documents: Add [Directives Reference](http://nginx-clojure.github.io/directives.html)
+
+
 ## 0.4.2 (2015-08-31)
 
 1. New Feature: Support Sente (issue #87, see [this PR](https://github.com/ptaoussanis/sente/pull/160))
@@ -149,5 +166,9 @@ Make Clojure/Java/Groovy handler configurations have the same form. e.g. The old
 1. Supports Java Thread Pool for handle request
 1. Fast Static File Service
 
-
-
+[jvm_classpath_check]: //nginx-clojure.github.io/directives.html#jvm_classpath_check
+[jvm_classpath]: //nginx-clojure.github.io/directives.html#jvm_classpath
+[NginxPubSubTopic(Java)/PubSubTopic(Clojure)]: //nginx-clojure.github.io/subpub.html
+[an example project about clojure web dev]: https://github.com/nginx-clojure/nginx-clojure/tree/master/example-projects/clojure-web-example
+[Shared Hash Map based on shared memory]: 
+[Shared Map based Ring session store]: //nginx-clojure.github.io/sharedmap.html

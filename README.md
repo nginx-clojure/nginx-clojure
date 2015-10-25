@@ -7,16 +7,18 @@
 Core Features
 =================
 
-The latest release is v0.4.2, more detail changes about it can be found from [Release History](downloads.html).
+The latest release is v0.4.3, more detail changes about it can be found from [Release History](//nginx-clojure.github.io/downloads.html).
 
 1. Compatible with [Ring](https://github.com/ring-clojure/ring/blob/master/SPEC) and obviously supports those Ring based frameworks, such as Compojure etc.
 1. Http Services by  using Clojure / Java / Groovy to write simple handlers for http services.
 1. Nginx Access Handler by Clojure / Java / Groovy
-1. Nginx  Header Filter by Clojure / Java / Groovy
+1. Nginx Header Filter by Clojure / Java / Groovy
+1. **_NEW_**: Pub/Sub Among Nginx Worker Processes
+1. **_NEW_**: Shared Map based on shared memory & Shared Map based Ring session store
 1. **_NEW_**: Support Sente, see [this PR](https://github.com/ptaoussanis/sente/pull/160)
 1. **_NEW_**: Support Per-message Compression Extensions (PMCEs) for WebSocket
-1. **_NEW_**: APIs for Embedding Nginx-Clojure into a Standard Clojure/Java/Groovy App
-1. **_NEW_**: Server Side Websocket
+1. APIs for Embedding Nginx-Clojure into a Standard Clojure/Java/Groovy App
+1. Server Side Websocket
 1. A build-in Jersey container to support java standard RESTful web services (JAX-RS 2.0)
 1. Tomcat 8 embedding support (so servlet 3.1/jsp/sendfile/JSR-356 websocket work within nginx!)
 1. Dynamic proxying by using Clojure / Java / Groovy to write a simple nginx rewrite handler to set var or return errors before proxy pass or content ring handler
@@ -25,7 +27,6 @@ With this feature  one java main thread can handle thousands of connections.
 1. Handle multiple sockets parallel in sub coroutines, e.g. we can invoke two remote services at the same time.
 1. Asynchronous callback API of socket/Channel  for some advanced usage
 1. Long Polling & Server Sent Events
-1. More easier to archive  Sub/Pub services with broadcast events API
 1. Run initialization clojure code when nginx worker starting
 1. Support user defined http request method
 1. Compatible with the Nginx lastest stable version 1.8.0. (Nginx 1.6.x, 1.4.x is also ok, older version is not tested and maybe works.)
@@ -34,6 +35,7 @@ With this feature  one java main thread can handle thousands of connections.
 1. Utilizes [Nginx](http://nginx.org/) zero copy file sending mechanism to fast handle static contents controlled by Clojure or Java code.
 1. Supports Linux x64, Linux x86 32bit, Win32, Win64  and Mac OS X. Freebsd version can also be got from Freebsd ports.
 
+By the way it is very fast, the benchmarks can be found [HERE(with wrk2)](https://github.com/ptaoussanis/clojure-web-server-benchmarks/).
 Jar Repository
 ================
 
