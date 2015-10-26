@@ -93,7 +93,6 @@ $ sudo chown -R nginx public logs temp
 $ sudo chmod -R u+rwx logs temp
 $ sudo chmod u+rx $(sudo find public -type d)
 $ sudo chmod u+r $(sudo find public -type f)
-$ sudo chown nginx 
 ```
 *  **Check configuration**
 
