@@ -55,7 +55,7 @@ We can download the binaries of Nginx compiled with Nginx-Clojure or we can comp
 our nginx by [this guide](http://nginx-clojure.github.io/installation.html).
 ```shell
 $ cd /tmp
-$ wget https://sourceforge.net/projects/nginx-clojure/files/latest/download?source=files
+$ wget https://sourceforge.net/projects/nginx-clojure/files/nginx-clojure-0.4.3.tar.gz
 $ tar -xzvf nginx-clojure-0.4.3.tar.gz
 $ sudo mv nginx-clojure-0.4.3 /opt/
 ```
