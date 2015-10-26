@@ -14,7 +14,7 @@ Suppose our example project path is `/home/who/git/nginx-clojure/example-project
 ```shell
 $ export EXAMPLE_ROOT=/home/who/git/nginx-clojure/example-projects/clojure-web-example
 $ cd $EXAMPLE_ROOT
-$ lein run
+$ lein with-profile embed run
 ```
 
 Then browser http://localhost:8080/
