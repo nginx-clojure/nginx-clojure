@@ -1375,15 +1375,10 @@ static int ngx_http_clojure_faccessat(const char *name, ngx_log_t *log) {
 	struct stat stats;
 	int mode = R_OK;
 
-#if !(NGX_DARWIN)
-	if (fstatat(AT_FDCWD, name, &stats, 0)) {
-		return -1;
-	}
-#else
+
 	if (stat(name, &stats)) {
 		return -1;
 	}
-#endif
 
 	if (S_ISDIR(stats.st_mode)) {
 		mode |= X_OK;
