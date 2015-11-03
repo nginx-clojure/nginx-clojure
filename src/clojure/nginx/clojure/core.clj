@@ -246,7 +246,7 @@
     (.buildError ch code)))
 
 (defn achannel 
-  "create an asynchrouse socket channal."
+  "create an asynchronous socket channal."
   []
   (NginxClojureAsynChannel.))
 
