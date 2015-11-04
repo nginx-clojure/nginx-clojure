@@ -30,8 +30,7 @@
   ([nginx-conf]
     (let [server (NginxEmbedServer/getServer)]
       (when *nginx-work-dir* (.setWorkDir server *nginx-work-dir*))
-      (.start server nginx-conf)
-      (when (.isStarted server) (nginx.clojure.clj.LazyRequestMap/fixDefaultRequestArray))))
+      (.start server nginx-conf)))
   )
 
 (defn stop-server []
