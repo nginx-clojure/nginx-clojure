@@ -3,13 +3,20 @@
 A Java library designed to intergrate Jersey into Nginx by Nignx-Clojure Module so that 
 Nginx can Support Java standard RESTful Web Services (JAX-RS)
 
-## Usage
+* **Get Jar File**
 
-To get nginx-jersey-x.x.x.jar
+We can get the released version from [clojars](https://clojars.org/nginx-clojure/nginx-jersey) or 
+the jar in [nginx-clojure binary release](https://sourceforge.net/projects/nginx-clojure/files/) 
+
+For get the latest version from the github source
 
 ```shell
+git clone https://github.com/nginx-clojure/nginx-clojure
+cd nginx-clojure/nginx-jersey
 lein jar
 ```
+
+*  **Configuration**
 
 in nginx.conf
 
