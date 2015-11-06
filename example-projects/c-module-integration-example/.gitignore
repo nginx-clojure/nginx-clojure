@@ -1,0 +1,10 @@
+/bin/
+/target/
+/client_body_temp/
+/fastcgi_temp/
+/proxy_temp/
+/uwsgi_temp/
+/logs/
+/.settings/
+/.classpath
+/.project

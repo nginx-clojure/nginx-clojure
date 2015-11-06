@@ -1,0 +1,4 @@
+ngx_addon_name=x_module
+HTTP_INCS="$HTTP_INCS /home/who/git/nginx-clojure/src/c"
+HTTP_MODULES="$HTTP_MODULES x_module"
+NGX_ADDON_SRCS="$NGX_ADDON_SRCS $ngx_addon_dir/x_module.c"
