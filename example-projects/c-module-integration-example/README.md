@@ -4,7 +4,7 @@ This simple example show how a nginx C module integrates existing Java libraries
 In this example we have a nginx c module say x-module which will send "HELLO, WORLD" to the client.
 When a request whose uri is matched with the location using x-module's directive say `"x"`:
 
-1. x-module will initialize the Java handler say  HelloHandler if it has not been initialized
+1. x-module will initialize the Java handler say  MyHandler if it has not been initialized
 2. x-module will set the value of variable `my_array` to "hello, world"
 3. x-module will invoke MyHandler by nginx-clojure API
 4. MyHandler will get the value of variable `my_array` and set the upper-cased result back to variable `my_array`
