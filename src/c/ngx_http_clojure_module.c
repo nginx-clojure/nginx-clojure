@@ -1445,8 +1445,16 @@ static ngx_int_t ngx_http_clojure_check_access_jvm_cp(ngx_http_clojure_main_conf
 
 		if (ouid == 0) {
 			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "seteuid %ud:%ud", ccf->user, ccf->group);
-			setegid(ccf->group);
-			seteuid(ccf->user);
+			if (setegid(ccf->group) != 0) {
+				err = ngx_errno;
+				ngx_log_error(NGX_LOG_EMERG, log, err, "setegid error when check access jvm classpath  by group \"%ud\"", ccf->group);
+				return NGX_ERROR;
+			}
+			if (seteuid(ccf->user) != 0) {
+				err = ngx_errno;
+				ngx_log_error(NGX_LOG_EMERG, log, err, "seteuid error when check access jvm classpath by os user \"%s\"", username);
+				return NGX_ERROR;
+			}
 			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "geteuid now %ud:%ud", geteuid(), getegid());
 		}else if (ccf->user == (uid_t) NGX_CONF_UNSET_UINT) {
 			pw = getpwuid (ouid);
@@ -1471,8 +1479,18 @@ static ngx_int_t ngx_http_clojure_check_access_jvm_cp(ngx_http_clojure_main_conf
 		}
 
 		if (ouid == 0) {
-			setegid(ogid);
-			seteuid(ouid);
+			if (setegid(ogid) != 0) {
+				err = ngx_errno;
+				ngx_log_error(NGX_LOG_EMERG, log, err, "setegid error when restore gid to \"%ud\"",
+						ogid);
+				return NGX_ERROR;
+			}
+			if (seteuid(ouid) != 0) {
+				err = ngx_errno;
+				ngx_log_error(NGX_LOG_EMERG, log, err, "seteuid error when restore user to\"%ud\"",
+						ouid);
+				return NGX_ERROR;
+			}
 			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "restore uid %ud:%ud", geteuid(), getegid());
 		}
 	}
