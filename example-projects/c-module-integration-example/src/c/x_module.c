@@ -24,7 +24,7 @@ static ngx_command_t x_commands[] = {
 };
 
 
-static ngx_int_t black_box_wrapper_handler_code_id = 0;
+static ngx_int_t my_handler_code_id = 0;
 
 static ngx_str_t java_type = ngx_string("java");
 static ngx_str_t java_handler = ngx_string("example.MyHandler");
@@ -69,11 +69,11 @@ static ngx_int_t x_handler(ngx_http_request_t *r)
     ngx_http_clojure_module_ctx_t *ctx;
     ngx_http_variable_value_t *my_array_vp;
 
-    if (black_box_wrapper_handler_code_id == 0) {
+    if (my_handler_code_id == 0) {
     	int rc = 0;
 
-    	/*initialize black_box_wrapper_handler_code_id*/
-    	rc = ngx_http_clojure_register_script(0, &java_type, &java_handler, 0, 0, &black_box_wrapper_handler_code_id);
+    	/*initialize MyHandler*/
+    	rc = ngx_http_clojure_register_script(0, &java_type, &java_handler, 0, 0, &my_handler_code_id);
 
     	if (rc != NGX_OK) { /*error*/
     		return rc;
@@ -106,7 +106,7 @@ static ngx_int_t x_handler(ngx_http_request_t *r)
 
 	/*invoke java handler which will get the value of variable $my_array and convert every char to upper case and
 	 * set the new value back to the variable $my_array*/
-    ngx_http_clojure_eval(black_box_wrapper_handler_code_id, r, 0);
+    ngx_http_clojure_eval(my_handler_code_id, r, 0);
     r->main->count --;
 
     r->headers_out.content_type.len = sizeof("text/plain") - 1;
