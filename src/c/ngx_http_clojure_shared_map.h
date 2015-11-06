@@ -75,6 +75,8 @@ struct ngx_http_clojure_shared_map_ctx_s {
 	ngx_http_clojure_shared_map_impl_t *impl;
 };
 
+ngx_http_clojure_shared_map_ctx_t* ngx_http_clojure_shared_map_get_map(u_char *name, size_t len);
+
 char * ngx_http_clojure_shared_map(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 int ngx_http_clojure_init_shared_map_util();
