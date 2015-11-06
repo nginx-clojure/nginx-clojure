@@ -8,7 +8,7 @@ When a request whose uri is matched with the location using x-module's directive
 2. x-module will set the value of variable `my_array` to "hello, world"
 3. x-module will invoke MyHandler by nginx-clojure API
 4. MyHandler will get the value of variable `my_array` and set the upper-cased result back to variable `my_array`
-5. x-module the the new value of variable `my_array`, viz "HELLO, WORLD" and sent it to the client.
+5. x-module will get the new value of variable `my_array`, viz "HELLO, WORLD" and sent it to the client.
 
 
 ## Build C Module
