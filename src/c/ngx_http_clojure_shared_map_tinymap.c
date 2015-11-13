@@ -461,11 +461,15 @@ ngx_int_t ngx_http_clojure_shared_map_tinymap_clear(ngx_http_clojure_shared_map_
 	log_ctx_name.data = tmp_name;
 
 	ngx_memcpy(log_ctx_name.data, ctx->shpool->log_ctx, log_ctx_name.len);
-
+#if nginx_version >= 1005013
 	ctx->shpool->log_nomem = 0;
+#endif
 	ctx->shpool->min_size = 0;
 	ctx->shpool->start = ctx->shpool->data = NULL;
-	ctx->shpool->pages = ctx->shpool->last = NULL;
+#if nginx_version >= 1007002
+	ctx->shpool->last = NULL;
+#endif
+	ctx->shpool->pages = NULL;
 	ngx_memzero(&ctx->shpool->free, sizeof(ngx_slab_page_t));
 	ngx_slab_init(ctx->shpool);
 	ctx->map = ngx_slab_alloc_locked(ctx->shpool, sizeof(ngx_http_clojure_tinymap_t) + sizeof(uint32_t) * ctx->entry_table_size + log_ctx_name.len + 1);
