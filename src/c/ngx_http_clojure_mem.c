@@ -3529,6 +3529,9 @@ static void JNICALL jni_ngx_http_clojure_mem_continue_current_phase(JNIEnv *env,
 	                   "[jni_ngx_http_clojure_mem_continue_current_phase] uri:%s count:%d brd:%d rc:%d", r->uri.data, r->count, r->buffered, rc);
 	ctx->phase = ~ctx->phase;
 	ctx->phase_rc = rc;
+	if (r->write_event_handler == ngx_http_request_empty_handler) {
+		r->write_event_handler = ngx_http_core_run_phases;
+	}
 	ngx_http_core_run_phases(r);
 }
 

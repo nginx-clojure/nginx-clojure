@@ -1805,12 +1805,15 @@ static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t *r) {
 		}
 		ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0, "ngx clojure rewrite (null ctx) request: %" PRIu64 ", rc: %d", (jlong)(uintptr_t)r, rc);
 		return rc;
-	}else if (++ ctx->handled_couter > 32) { /*reach dead cycle*/
+	}else if (++ ctx->handled_couter > 64) { /*reach dead cycle*/
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "too much times by rewrite/access handler %d", ctx->handled_couter);
 		ctx->phase = -1;
 		return NGX_HTTP_INTERNAL_SERVER_ERROR;
 	}else if (ctx->phase == NGX_HTTP_REWRITE_PHASE) { /*enter again but we not finished*/
 		ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0, "ngx clojure rewrite (enter again but we not finished) request: %" PRIu64 ", rc: %d", (jlong)(uintptr_t)r, NGX_DECLINED);
+		if (r->write_event_handler == ngx_http_core_run_phases) {
+			r->write_event_handler = ngx_http_request_empty_handler;
+		}
 		return NGX_DONE;
 	} else if (ctx->phase == ~NGX_HTTP_REWRITE_PHASE) {
 		ctx->phase = -1;
@@ -1865,12 +1868,15 @@ static ngx_int_t ngx_http_clojure_access_handler(ngx_http_request_t * r) {
 		}
 		ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0, "ngx clojure access (null ctx) request: %" PRIu64 ", rc: %d", (jlong)(uintptr_t)r, rc);
 		return rc;
-	}else if (++ ctx->handled_couter > 32) { /*reach dead cycle*/
+	}else if (++ ctx->handled_couter > 64) { /*reach dead cycle*/
 		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "too much times by  access handler %d", ctx->handled_couter);
 		ctx->phase = -1;
 		return NGX_HTTP_INTERNAL_SERVER_ERROR;
 	}else if (ctx->phase == NGX_HTTP_ACCESS_PHASE) { /*enter again but we not finished*/
 		ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0, "ngx clojure access (enter again but we not finished) request: %" PRIu64 ", rc: %d", (jlong)(uintptr_t)r, NGX_DECLINED);
+		if (r->write_event_handler == ngx_http_core_run_phases) {
+			r->write_event_handler = ngx_http_request_empty_handler;
+		}
 		return NGX_DONE;
 	} else if (ctx->phase == ~NGX_HTTP_ACCESS_PHASE) {
 		ctx->phase = -1;
