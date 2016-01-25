@@ -1137,12 +1137,12 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 	 *because we try to avoid Nginx bug on windows where Nginx does not initialize
 	 *ngx_slab_max_size correctly with Nginx worker processes*/
 	{
-		ngx_slab_pool_t *sp = malloc(8192);
-	    sp->end = (u_char*)sp + 8192;
-	    sp->min_shift = 3;
-	    sp->addr = (void*)sp;
-	    ngx_slab_init(sp);
-	    free(sp);
+      ngx_slab_pool_t *sp = malloc(8192);
+	  sp->end = (u_char*)sp + 8192;
+	  sp->min_shift = 3;
+	  sp->addr = (void*)sp;
+	  ngx_slab_init(sp);
+	  free(sp);
 	}
 #endif
 

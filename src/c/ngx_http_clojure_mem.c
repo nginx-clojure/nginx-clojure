@@ -24,53 +24,53 @@ static int nc_ngx_workers;
 static ngx_socket_t nc_ngx_worker_pipes_fds[NGX_MAX_PROCESSES][2];
 static ngx_socket_t nc_jvm_worker_pipe_fds[2];
 
-static  ngx_str_t  ngx_http_clojure_core_variables_names[] = {
-		ngx_string("http_host"),
-		ngx_string("http_user_agent"),
-		ngx_string("http_referer"),
-		ngx_string("http_via"),
-		ngx_string("http_x_forwarded_for"),
-		ngx_string("http_cookie"),
-		ngx_string("content_length"),
-		ngx_string("content_type"),
-		ngx_string("host"),
-		ngx_string("binary_remote_addr"),
-		ngx_string("remote_addr"),
-		ngx_string("remote_port"),
-		ngx_string("server_addr"),
-		ngx_string("server_port"),
-		ngx_string("server_protocol"),
-		ngx_string("scheme"),
-		ngx_string("request_uri"),
-		ngx_string("uri"),
-		ngx_string("document_uri"),
-		ngx_string("request"),
-		ngx_string("document_root"),
-		ngx_string("realpath_root"),
-		ngx_string("query_string"),
-		ngx_string("args"),
-	    ngx_string("is_args"),
-	    ngx_string("request_filename"),
-	    ngx_string("server_name"),
-	    ngx_string("request_method"),
-	    ngx_string("remote_user"),
-	    ngx_string("body_bytes_sent"),
-	    ngx_string("request_completion"),
-	    ngx_string("request_body"),
-	    ngx_string("request_body_file"),
-	    ngx_string("sent_http_content_type"),
-	    ngx_string("sent_http_content_length"),
-	    ngx_string("sent_http_location"),
-	    ngx_string("sent_http_last_modified"),
-	    ngx_string("sent_http_connection"),
-	    ngx_string("sent_http_keep_alive"),
-	    ngx_string("sent_http_transfer_encoding"),
-	    ngx_string("sent_http_cache_control"),
-	    ngx_string("limit_rate"),
-	    ngx_string("nginx_version"),
-	    ngx_string("hostname"),
-	    ngx_string("pid"),
-	    ngx_null_string
+static ngx_str_t ngx_http_clojure_core_variables_names[] = {
+    ngx_string("http_host"),
+    ngx_string("http_user_agent"),
+    ngx_string("http_referer"),
+    ngx_string("http_via"),
+    ngx_string("http_x_forwarded_for"),
+    ngx_string("http_cookie"),
+    ngx_string("content_length"),
+    ngx_string("content_type"),
+    ngx_string("host"),
+    ngx_string("binary_remote_addr"),
+    ngx_string("remote_addr"),
+    ngx_string("remote_port"),
+    ngx_string("server_addr"),
+    ngx_string("server_port"),
+    ngx_string("server_protocol"),
+    ngx_string("scheme"),
+    ngx_string("request_uri"),
+    ngx_string("uri"),
+    ngx_string("document_uri"),
+    ngx_string("request"),
+    ngx_string("document_root"),
+    ngx_string("realpath_root"),
+    ngx_string("query_string"),
+    ngx_string("args"),
+    ngx_string("is_args"),
+    ngx_string("request_filename"),
+    ngx_string("server_name"),
+    ngx_string("request_method"),
+    ngx_string("remote_user"),
+    ngx_string("body_bytes_sent"),
+    ngx_string("request_completion"),
+    ngx_string("request_body"),
+    ngx_string("request_body_file"),
+    ngx_string("sent_http_content_type"),
+    ngx_string("sent_http_content_length"),
+    ngx_string("sent_http_location"),
+    ngx_string("sent_http_last_modified"),
+    ngx_string("sent_http_connection"),
+    ngx_string("sent_http_keep_alive"),
+    ngx_string("sent_http_transfer_encoding"),
+    ngx_string("sent_http_cache_control"),
+    ngx_string("limit_rate"),
+    ngx_string("nginx_version"),
+    ngx_string("hostname"),
+    ngx_string("pid"),
+    ngx_null_string
 };
 
 static ngx_str_t ngx_http_clojure_headers_names[] = {
@@ -349,44 +349,44 @@ static jlong JNICALL jni_ngx_create_temp_buf_by_jstring (JNIEnv *env, jclass cls
 
 
 static jlong JNICALL jni_ngx_create_temp_buf_by_obj(JNIEnv *env, jclass cls, jlong req, jobject obj, jlong off, jlong len,  jint last_buf) {
-	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t) req;
-	ngx_buf_t *b;
+    ngx_http_request_t *r = (ngx_http_request_t *) (uintptr_t) req;
+    ngx_buf_t *b;
 
-	if (len == 0) {
-		return 0;
-	}
+    if (len == 0) {
+        return 0;
+    }
 
     b = ngx_calloc_buf(r->pool);
     if (b == NULL) {
         return 0;
     }
 
-	b->start = (u_char *)ngx_http_clojure_abs_off_addr(obj, off);
+    b->start = (u_char *) ngx_http_clojure_abs_off_addr(obj, off);
     b->pos = b->start;
     b->last = b->start + len;
     b->end = b->last;
     b->memory = 1;
 
-	if (last_buf & NGX_BUF_LAST_OF_RESPONSE) {
-		b->last_buf = b->last_in_chain = 1;
-	}else {
-		b->last_in_chain = last_buf & NGX_BUF_LAST_OF_CHAIN;
-	}
+    if (last_buf & NGX_BUF_LAST_OF_RESPONSE) {
+        b->last_buf = b->last_in_chain = 1;
+    } else {
+        b->last_in_chain = last_buf & NGX_BUF_LAST_OF_CHAIN;
+    }
 
-	if (r->headers_out.content_length_n < 0 ) {
-		r->headers_out.content_length_n = len;
-	}else {
-		r->headers_out.content_length_n += len;
-	}
+    if (r->headers_out.content_length_n < 0) {
+        r->headers_out.content_length_n = len;
+    } else {
+        r->headers_out.content_length_n += len;
+    }
 
-	/*
-	 * If File and String are in the same ISeq of one response body,
-	 * we should clear the last_modified_time.
-	 */
-	r->headers_out.last_modified_time = -2;
-	r->headers_out.last_modified = NULL;
+    /*
+     * If File and String are in the same ISeq of one response body,
+     * we should clear the last_modified_time.
+     */
+    r->headers_out.last_modified_time = -2;
+    r->headers_out.last_modified = NULL;
 
-	return (uintptr_t)b;
+    return (uintptr_t) b;
 }
 
 static jlong JNICALL jni_ngx_create_file_buf (JNIEnv *env, jclass cls, jlong r, jlong file, jlong name_len, jint last_buf) {
