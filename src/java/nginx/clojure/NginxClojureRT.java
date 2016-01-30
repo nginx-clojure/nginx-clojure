@@ -109,7 +109,12 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public native static long ngx_http_send_header(long r);
 	
-	public native static void ngx_http_clear_header_and_reset_ctx_phase(long r, long phase);
+	public native static void ngx_http_clear_header_and_reset_ctx_phase(long r, long phase, boolean clearHeader);
+	
+	public static void ngx_http_clear_header_and_reset_ctx_phase(long r, long phase) {
+		ngx_http_clear_header_and_reset_ctx_phase(r, phase, true);
+	}
+
 	
 	public native static void ngx_http_ignore_next_response(long r);
 	
@@ -132,9 +137,11 @@ public class NginxClojureRT extends MiniConstants {
 	 */
 	public native static long ngx_http_clojure_mem_init_ngx_buf(long buf, Object obj, long offset, long len, int last_buf);
 	
-	public native static long  ngx_http_clojure_mem_build_temp_chain(long req, long preChain,  Object obj, long offset, long len);
+	public native static long ngx_http_clojure_mem_build_temp_chain(long req, long preChain,  Object obj, long offset, long len);
 	
-	public native static long  ngx_http_clojure_mem_build_file_chain(long req, long preChain,  Object path, long offset, long len, boolean safe);
+	public native static long ngx_http_clojure_mem_build_file_chain(long req, long preChain,  Object path, long offset, long len, boolean safe);
+	
+	public native static long ngx_http_clojure_mem_get_chain_info(long chain, Object buf, long offset, long len);
 	
 	public native static long ngx_http_clojure_mem_get_obj_addr(Object obj);
 	
@@ -302,7 +309,11 @@ public class NginxClojureRT extends MiniConstants {
 					chain = req.handler().buildOutputChain(resp);
 				}
 			}else {
-				chain = 0;
+				if (resp.type() == NginxResponse.TYPE_FAKE_BODY_FILTER_TAG) {
+					chain = req.handler().buildOutputChain(resp);
+				}else {
+					chain = 0;
+				}
 			}
 		}
 	}
@@ -1396,10 +1407,23 @@ public class NginxClojureRT extends MiniConstants {
 				rc = ngx_http_filter_continue_next(r, -1);
 				ngx_http_finalize_request(r, rc);
 				return NGX_OK;
+			}else if (ctx.request.phase() == NGX_HTTP_BODY_FILTER_PHASE) {
+				rc = ngx_http_filter_continue_next(r, ctx.chain);
+				if (resp.isLast()) {
+					ngx_http_finalize_request(r, rc);
+				}
+				return NGX_OK;
 			}
 			ngx_http_clojure_mem_continue_current_phase(r, NGX_DECLINED);
 			return NGX_OK;
+		}else if (ctx.request.phase() == NGX_HTTP_BODY_FILTER_PHASE) {
+			rc = ngx_http_filter_continue_next(r, ctx.chain);
+			if (resp.isLast()) {
+				ngx_http_finalize_request(r, rc);
+			}
+			return NGX_OK;
 		}
+		
 		long chain = ctx.chain;
 		int phase = req.phase();
 		long nr = req.nativeRequest();
@@ -1410,7 +1434,7 @@ public class NginxClojureRT extends MiniConstants {
 			rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
 		} else {
 			int status = ctx.response.fetchStatus(NGX_HTTP_OK);
-			if (phase == NGX_HTTP_HEADER_FILTER_PHASE) {
+			if (phase == NGX_HTTP_HEADER_FILTER_PHASE || phase == NGX_HTTP_BODY_FILTER_PHASE) {
 				ngx_http_clear_header_and_reset_ctx_phase(nr, ~phase);
 			}
 			req.handler().prepareHeaders(req, status, resp.fetchHeaders());
@@ -1470,6 +1494,7 @@ public class NginxClojureRT extends MiniConstants {
 			if (phase == NGX_HTTP_REWRITE_PHASE || phase == NGX_HTTP_ACCESS_PHASE) {
 				return NGX_DECLINED;
 			}
+			//header filter
 			return  (int)ngx_http_filter_continue_next(r.nativeRequest(), -1);
 		}
 		
@@ -1484,6 +1509,9 @@ public class NginxClojureRT extends MiniConstants {
 		long nr = r.nativeRequest();
 		if (phase == NGX_HTTP_HEADER_FILTER_PHASE) {
 			ngx_http_clear_header_and_reset_ctx_phase(nr, ~phase);
+		}else if (phase == NGX_HTTP_BODY_FILTER_PHASE) {
+			ngx_http_clear_header_and_reset_ctx_phase(nr, ~phase, false);
+			return (int)ngx_http_filter_continue_next(r.nativeRequest(), chain);
 		}
 		handler.prepareHeaders(r, status, resp.fetchHeaders());
 		long rc = ngx_http_send_header(r.nativeRequest());

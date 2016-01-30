@@ -112,6 +112,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	protected NginxHttpServerChannel channel;
 	protected byte[] hijackTag;
 	protected int phase = -1;
+	protected int evalCount = 0;
 	protected volatile boolean released = false;
 	protected List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners;
 	
@@ -155,6 +156,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	public void reset(long r, NginxClojureHandler handler) {
 		this.r = r;
 		this.released = false;
+		this.evalCount = 0;
 		this.hijackTag[0] = 0;
 		phase = -1;
 		this.handler = handler;
@@ -504,5 +506,10 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	
 	public long nativeCount() {
 		return NginxClojureRT.ngx_http_clojure_mem_inc_req_count(r, 0);
+	}
+	
+	@Override
+	public int getAndIncEvalCount() {
+		return evalCount++;
 	}
 }

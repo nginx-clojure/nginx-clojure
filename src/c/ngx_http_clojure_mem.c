@@ -520,10 +520,14 @@ static jlong JNICALL jni_ngx_http_send_header (JNIEnv *env, jclass cls, jlong re
 	return ngx_http_send_header(r);
 }
 
-static void JNICALL jni_ngx_http_clear_header_and_reset_ctx_phase(JNIEnv *env, jclass cls, jlong req,  jlong phase) {
+static void JNICALL jni_ngx_http_clear_header_and_reset_ctx_phase(JNIEnv *env, jclass cls, jlong req,  jlong phase, jboolean clear_header) {
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t) req;
 	ngx_http_clojure_module_ctx_t *ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
-	ngx_http_clean_header(r);
+
+	if (clear_header) {
+	  ngx_http_clean_header(r);
+	}
+
 	r->err_status = 0;
 
 	if (ctx && phase) {
@@ -550,6 +554,8 @@ static jlong JNICALL jni_ngx_http_output_filter (JNIEnv *env, jclass cls, jlong 
 #define NGX_CLOJURE_BUF_LAST_FLAG 0x01
 #define NGX_CLOJURE_BUF_FLUSH_FLAG 0x02
 #define NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG 0x04
+#define NGX_CLOJURE_BUF_FILE_FLAG 0x08
+#define NGX_CLOJURE_BUF_MEM_FLAG 0x10
 /*this constant hints whether we send java.lang.String or bytes (byte[], ByteBuffer) from app level*/
 #define NGX_CLOJURE_BUF_APP_MSGTXT 0x08
 #define NGX_CLOJURE_BUF_WEBSOCKET_FRAME 0x10
@@ -2968,7 +2974,7 @@ static jlong JNICALL jni_ngx_http_filter_continue_next(JNIEnv *env, jclass cls, 
 
 	ngx_http_clojure_get_ctx(r, ctx);
 
-	if (chain < 0) {
+	if (chain < 0) { /*header filter*/
 		rc = ngx_http_clojure_next_header_filter( r);
 		ctx->wait_for_header_filter = 0;
 		if (ctx->pending_body_filter) {
@@ -2996,6 +3002,9 @@ static jlong JNICALL jni_ngx_http_clojure_mem_init_ngx_buf(JNIEnv *env, jclass c
 	return (uintptr_t)b;
 }
 
+#define NGX_CHAIN_FILTER_CHUNK_NO_LAST -1
+#define NGX_CHAIN_FILTER_CHUNK_HAS_LAST -2
+
 static jlong JNICALL jni_ngx_http_clojure_mem_build_temp_chain(JNIEnv *env, jclass cls, jlong req , jlong prevChain, jobject obj, jlong offset, jlong len) {
 	ngx_chain_t *pre = (ngx_chain_t*)(uintptr_t)prevChain;
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t)req;
@@ -3006,24 +3015,30 @@ static jlong JNICALL jni_ngx_http_clojure_mem_build_temp_chain(JNIEnv *env, jcla
 		return NGX_ERROR;
 	}
 
+	if (prevChain < 0) {
+	  pre = NULL;
+	}
+
 	if (pre != NULL) {
 		while (pre->next != NULL) {
 			pre = pre->next;
 		}
 	}
 
-	if (r->headers_out.content_length_n < 0 ) {
-		r->headers_out.content_length_n = len;
-	}else {
-		r->headers_out.content_length_n += len;
-	}
+  if (prevChain >= 0) {
+    if (r->headers_out.content_length_n < 0) {
+      r->headers_out.content_length_n = len;
+    } else {
+      r->headers_out.content_length_n += len;
+    }
 
-	/*
-	 * If File and String are in the same ISeq of one response body,
-	 * we should clear the last_modified_time.
-	 */
-	r->headers_out.last_modified_time = -2;
-	r->headers_out.last_modified = NULL;
+    /*
+     * If File and String are in the same ISeq of one response body,
+     * we should clear the last_modified_time.
+     */
+    r->headers_out.last_modified_time = -2;
+    r->headers_out.last_modified = NULL;
+  }
 
 	b = ngx_create_temp_buf(r->pool, (size_t)len);
 	if (b == NULL){
@@ -3052,7 +3067,7 @@ static jlong JNICALL jni_ngx_http_clojure_mem_build_temp_chain(JNIEnv *env, jcla
 	 }else {
 		 cl->next = NULL;
 		 b->last_in_chain = 1;
-		 b->last_buf = 1;
+		 b->last_buf = prevChain == NGX_CHAIN_FILTER_CHUNK_NO_LAST ? 0 : 1;
 	 }
 
 	 return (uintptr_t)cl;
@@ -3073,6 +3088,10 @@ static jlong JNICALL jni_ngx_http_clojure_mem_build_file_chain(JNIEnv *env, jcla
 	if (!r->pool) {
 		return NGX_ERROR;
 	}
+
+  if (prevChain < 0) {
+    pre = NULL;
+  }
 
 	clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
 
@@ -3171,14 +3190,16 @@ static jlong JNICALL jni_ngx_http_clojure_mem_build_file_chain(JNIEnv *env, jcla
     b->file->log = log;
     b->file->directio = of.is_directio;
 
-    if (r->headers_out.content_length_n < 0) {
-		r->headers_out.content_length_n = of.size;
-	} else {
-		r->headers_out.content_length_n += of.size;
-	}
+    if (prevChain >= 0) {
+      if (r->headers_out.content_length_n < 0) {
+        r->headers_out.content_length_n = of.size;
+      } else {
+        r->headers_out.content_length_n += of.size;
+      }
 
-    if (r->headers_out.last_modified_time != -2 && r->headers_out.last_modified_time < of.mtime) {
-    	r->headers_out.last_modified_time = of.mtime;
+      if (r->headers_out.last_modified_time != -2 && r->headers_out.last_modified_time < of.mtime) {
+        r->headers_out.last_modified_time = of.mtime;
+      }
     }
 
 	 cl = ngx_palloc(r->pool, sizeof(ngx_chain_t));
@@ -3198,10 +3219,61 @@ static jlong JNICALL jni_ngx_http_clojure_mem_build_file_chain(JNIEnv *env, jcla
 	 }else {
 		 cl->next = NULL;
 		 b->last_in_chain = 1;
-		 b->last_buf = 1;
+		 b->last_buf = prevChain == NGX_CHAIN_FILTER_CHUNK_NO_LAST ? 0 : 1;
 	 }
 
 	 return (uintptr_t)cl;
+}
+
+static jlong JNICALL jni_ngx_http_clojure_mem_get_chain_info(JNIEnv *env, jclass cls, jlong chain, jobject buf, jlong offset, jlong len) {
+  ngx_chain_t *cl = (ngx_chain_t *)(uintptr_t)chain;
+  uint64_t *pnum = ngx_http_clojure_abs_off_addr(buf, offset);
+  uint64_t *pinfo = pnum + 1;
+  uint8_t flag;
+  uint64_t n = 0;
+
+  len -= 8; /*keep room for stream number*/
+
+  if (chain == 0 || len < 16) {
+    return NGX_ERROR;
+  }
+
+  while (cl && len >= 16) {
+    flag = 0;
+
+    if (cl->buf->last_buf) {
+      flag |= NGX_CLOJURE_BUF_LAST_FLAG;
+    }
+
+    if (cl->buf->file) {
+      uint16_t nameLen = (uint16_t)cl->buf->file->name.len;
+      if (len < nameLen + 16) {
+        *pnum = n;
+        return (uintptr_t)cl;
+      }
+
+      flag |= NGX_CLOJURE_BUF_FILE_FLAG;
+      *pinfo++ = (uint64_t)flag << 56 | (cl->buf->file_last - cl->buf->file_pos);
+      len -= 8;
+      *pinfo++ = (uint64_t)nameLen << 48 | cl->buf->file_pos;
+      len -= 8;
+      ngx_memcpy((char*)(uintptr_t)pinfo, cl->buf->file->name.data, nameLen);
+      len -= nameLen;
+      pinfo = (uint64_t *)((uintptr_t)pinfo + nameLen);
+    }else {
+      flag |= NGX_CLOJURE_BUF_MEM_FLAG;
+      *pinfo++ = (uint64_t)flag << 56 | (cl->buf->last - cl->buf->pos);
+      len -= 8;
+      *pinfo++ = (uint64_t) cl->buf->pos;
+      len -= 8;
+    }
+
+    n++;
+    cl = cl->next;
+  }
+
+  *pnum = n;
+  return 0;
 }
 
 static jlong JNICALL jni_ngx_http_clojure_mem_get_obj_addr(JNIEnv *env, jclass cls, jobject obj){
@@ -4006,7 +4078,7 @@ int ngx_http_clojure_init_memory_util(ngx_core_conf_t  *ccf, ngx_http_core_srv_c
 			{"ngx_create_file_buf", "(JJJI)J", jni_ngx_create_file_buf},
 			{"ngx_http_set_content_type", "(J)J", jni_ngx_http_set_content_type},
 			{"ngx_http_send_header", "(J)J", jni_ngx_http_send_header},
-			{"ngx_http_clear_header_and_reset_ctx_phase", "(JJ)V", jni_ngx_http_clear_header_and_reset_ctx_phase},
+			{"ngx_http_clear_header_and_reset_ctx_phase", "(JJZ)V", jni_ngx_http_clear_header_and_reset_ctx_phase},
 			{"ngx_http_ignore_next_response", "(J)V", jni_ngx_http_ignore_next_response},
 			{"ngx_http_output_filter", "(JJ)J", jni_ngx_http_output_filter},
 			{"ngx_http_finalize_request", "(JJ)V", jni_ngx_http_finalize_request},
@@ -4015,6 +4087,7 @@ int ngx_http_clojure_init_memory_util(ngx_core_conf_t  *ccf, ngx_http_core_srv_c
 			{"ngx_http_clojure_mem_init_ngx_buf", "(JLjava/lang/Object;JJI)J", jni_ngx_http_clojure_mem_init_ngx_buf}, //jlong buf, jlong obj, jlong offset, jlong len, jint last_buf
 			{"ngx_http_clojure_mem_build_temp_chain", "(JJLjava/lang/Object;JJ)J", jni_ngx_http_clojure_mem_build_temp_chain},
 			{"ngx_http_clojure_mem_build_file_chain", "(JJLjava/lang/Object;JJZ)J", jni_ngx_http_clojure_mem_build_file_chain} ,
+			{"ngx_http_clojure_mem_get_chain_info", "(JLjava/lang/Object;JJ)J", jni_ngx_http_clojure_mem_get_chain_info},
 			{"ngx_http_clojure_mem_get_obj_addr", "(Ljava/lang/Object;)J", jni_ngx_http_clojure_mem_get_obj_addr},
 			{"ngx_http_clojure_mem_get_list_size", "(J)J", jni_ngx_http_clojure_mem_get_list_size},
 			{"ngx_http_clojure_mem_get_list_item", "(JJ)J", jni_ngx_http_clojure_mem_get_list_item},
@@ -4309,7 +4382,7 @@ int ngx_http_clojure_eval(int cid, ngx_http_request_t *r, ngx_chain_t *c) {
 	int rc;
 /*	log_debug1(ngx_http_clojure_global_cycle->log, "ngx clojure eval request: %ul", (uintptr_t)r);*/
 	log_debug2(ngx_http_clojure_global_cycle->log, "ngx clojure eval request to jlong: %" PRIu64 ", size: %d", (jlong)(uintptr_t)r, 8);
-	rc = (*env)->CallStaticIntMethod(env, nc_rt_class,  nc_rt_eval_mid, (jint)cid, (jlong)(uintptr_t)r);
+	rc = (*env)->CallStaticIntMethod(env, nc_rt_class,  nc_rt_eval_mid, (jint)cid, (jlong)(uintptr_t)r, (jlong)(uintptr_t)c);
 	log_debug2(ngx_http_clojure_global_cycle->log, "ngx clojure eval request to jlong: %" PRIu64 ", rc: %d", (jlong)(uintptr_t)r, rc);
 	exception_handle(1, env, return 500);
 	return rc;

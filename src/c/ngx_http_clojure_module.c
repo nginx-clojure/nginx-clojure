@@ -1954,12 +1954,57 @@ static ngx_int_t ngx_http_clojure_header_filter(ngx_http_request_t *r) {
 }
 
 static ngx_int_t ngx_http_clojure_body_filter(ngx_http_request_t *r,  ngx_chain_t *chain) {
-	/*JAVA body filter has not implemented*/
+  ngx_int_t rc;
+  ngx_http_clojure_loc_conf_t  *lcf;
 	ngx_http_clojure_module_ctx_t *ctx  = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
+	ngx_int_t  src_phase;
+	ngx_chain_t **ppchain;
+
 	if (ctx && ctx->ignore_next_response) {
 		return NGX_OK;
 	}
-	return ngx_http_clojure_filter_continue_next_body_filter(r, chain);
+
+	lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
+
+	ngx_http_clojure_init_handler_script(lcf, NGX_HTTP_BODY_FILTER_PHASE, body_filter);
+  if (!lcf->enable_body_filter || (lcf->body_filter_code.len == 0 && lcf->body_filter_name.len == 0)) {
+    if (ctx != NULL && ctx->phase == ~NGX_HTTP_BODY_FILTER_PHASE) {
+      ctx->phase = -1;
+      ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0,
+              "ngx clojure body filter (enter again but without real nginx-clojure body filter) request: %" PRIu64 ", rc: %d", (jlong )(uintptr_t )r,  NGX_OK);
+    }
+    return ngx_http_clojure_filter_continue_next_body_filter(r, chain);
+  }
+
+  if ((ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module)) == NULL) {
+    ctx = ngx_palloc(r->pool, sizeof(ngx_http_clojure_module_ctx_t));
+    if (ctx == NULL) {
+      ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "OutOfMemory of create ngx_http_clojure_module_ctx_t");
+      return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    ngx_http_clojure_init_ctx(ctx, -1, r);
+    ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
+  }
+
+  if (ctx->phase == ~NGX_HTTP_BODY_FILTER_PHASE) {
+    ctx->phase = -1;
+     /*this case was  issued  by itself to send  user defined error response to client
+      * so we just turn to next filter*/
+    return ngx_http_clojure_filter_continue_next_body_filter(r, chain);
+  }
+
+  src_phase = ctx->phase;
+  ctx->phase = NGX_HTTP_BODY_FILTER_PHASE;
+
+  ppchain = ngx_pcalloc(r->pool, sizeof(ngx_chain_t *));
+  ngx_chain_add_copy(r->pool, ppchain, chain);
+
+  /*if under thread pool mode ctx->phase must be copied in java*/
+  rc = ngx_http_clojure_eval(lcf->body_filter_id, r, *ppchain);
+  ctx->phase = src_phase;
+
+	return rc;
 }
 
 

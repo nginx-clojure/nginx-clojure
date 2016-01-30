@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import nginx.clojure.Configurable;
+import nginx.clojure.MiniConstants;
+import nginx.clojure.NginxChainWrappedInputStream;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.NginxRequest;
@@ -27,6 +29,7 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 
 	protected NginxJavaRingHandler ringHandler;
 	protected NginxJavaHeaderFilter headerFilter;
+	protected NginxJavaBodyFilter bodyFilter;
 	
 	protected static ConcurrentLinkedQueue<NginxJavaRequest> pooledRequests = new ConcurrentLinkedQueue<NginxJavaRequest>();
 	
@@ -45,7 +48,21 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 		super();
 		this.headerFilter = headerFilter;
 	}
+	
+	public NginxJavaHandler(NginxJavaBodyFilter bodyFilter) {
+		super();
+		this.bodyFilter = bodyFilter;
+	}
 
+	@Override
+	protected long defaultChainFlag(NginxResponse response) {
+		if (response instanceof NginxJavaBodyFilterChunkResponse) {
+			NginxJavaBodyFilterChunkResponse bresp = (NginxJavaBodyFilterChunkResponse) response;
+			return bresp.isLast() ? 
+					MiniConstants.NGX_CHAIN_FILTER_CHUNK_HAS_LAST : MiniConstants.NGX_CHAIN_FILTER_CHUNK_NO_LAST;
+		}
+		return super.defaultChainFlag(response);
+	}
 
 	@Override
 	public NginxRequest makeRequest(long r, long c) {
@@ -61,8 +78,13 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 		NginxJavaRequest req;
 		switch (phase) {
 		case NGX_HTTP_HEADER_FILTER_PHASE : 
-		case NGX_HTTP_BODY_FILTER_PHASE:
 			req = new NginxJavaFilterRequest(this, r, c);
+			break;
+		case NGX_HTTP_BODY_FILTER_PHASE:
+			req = NginxJavaFilterRequest.cloneExisted(r, c);
+			if (req == null) {
+				req = new NginxJavaFilterRequest(this, r, c);
+			}
 			break;
 		default :
 			req = pooledRequests.poll();
@@ -86,9 +108,16 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 				resp = headerFilter.doFilter(freq.responseStatus(), freq, freq.responseHeaders());
 				break;
 			case NGX_HTTP_BODY_FILTER_PHASE:
-				throw new UnsupportedOperationException("body filter has not been supported yet!");
+				NginxJavaFilterRequest breq = (NginxJavaFilterRequest)r;
+				NginxChainWrappedInputStream chunk = new NginxChainWrappedInputStream(r, breq.c);
+				Object[] chunkedResp = bodyFilter.doFilter(breq, chunk, chunk.isLast());
+				if (!breq.isHijacked()) {
+					return new NginxJavaBodyFilterChunkResponse(breq, chunkedResp);
+				}else {
+					return toNginxResponse(r, ASYNC_TAG);
+				}
 			default:
-				 resp = ringHandler.invoke((NginxJavaRequest)req);
+				resp = ringHandler.invoke((NginxJavaRequest)req);
 			}
 			return r.isHijacked() ? toNginxResponse(r, ASYNC_TAG) : toNginxResponse(r, resp);
 		}finally {
@@ -139,7 +168,9 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 			}
 			((NginxJavaRequest)req).hijacked = true;
 			//content phase we need increase r->count to make request not to be released in current event cycle.
-			if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD && (req.phase() == -1 || req.phase() == NGX_HTTP_HEADER_FILTER_PHASE)) {
+			if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD && 
+					(req.phase() == -1 || req.phase() == NGX_HTTP_HEADER_FILTER_PHASE
+					                   || req.phase() == NGX_HTTP_BODY_FILTER_PHASE)) {
 				NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest(), 1);
 			}
 			return ((NginxJavaRequest)req).channel = new NginxHttpServerChannel(req, ignoreFilter);
@@ -162,13 +193,21 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 				NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!", 
 						ringHandler.getClass());
 			}
-		}else {
+		}else if (headerFilter != null){
 			if (headerFilter instanceof Configurable) {
 				Configurable cr = (Configurable) headerFilter;
 				cr.config(properties);
 			}else {
 				NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!", 
 						headerFilter.getClass());
+			}
+		}else {
+			if (bodyFilter instanceof Configurable) {
+				Configurable cr = (Configurable) bodyFilter;
+				cr.config(properties);
+			}else {
+				NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!", 
+						bodyFilter.getClass());
 			}
 		}
 		

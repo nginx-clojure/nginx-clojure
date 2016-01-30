@@ -22,4 +22,9 @@ public abstract class NginxSimpleResponse implements NginxResponse {
 	public int type() {
 		return type;
 	}
+	
+	@Override
+	public boolean isLast() {
+		return true;
+	}
 }

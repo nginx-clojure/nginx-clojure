@@ -54,6 +54,6 @@ public class NativeInputStream extends InputStream {
 	
 	@Override
 	public int available() throws IOException {
-		return (int) (len - pos);
+		return len - pos >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int)(len - pos);
 	}
 }

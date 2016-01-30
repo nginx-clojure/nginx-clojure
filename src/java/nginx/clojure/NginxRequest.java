@@ -32,6 +32,8 @@ public interface NginxRequest {
 	
 	public long nativeCount();
 	
+	public int getAndIncEvalCount();
+	
 	public NginxHttpServerChannel hijack(boolean ignoreFilter);
 	
 }

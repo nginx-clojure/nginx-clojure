@@ -25,7 +25,7 @@ public class NginxJavaHandlerFactory extends NginxHandlerFactory {
 			case NGX_HTTP_HEADER_FILTER_PHASE:
 				return new NginxJavaHandler((NginxJavaHeaderFilter) handler);
 			case NGX_HTTP_BODY_FILTER_PHASE:
-				throw new UnsupportedOperationException("body filter has not been supported yet!");
+				return new NginxJavaHandler((NginxJavaBodyFilter)handler);
 			default:
 				return new NginxJavaHandler((NginxJavaRingHandler) handler);
 			}

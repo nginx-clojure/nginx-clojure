@@ -82,9 +82,15 @@ public class MiniConstants {
 	public static final int NGX_CLOJURE_BUF_LAST_OF_CHAIN = 1;
 	public static final int NGX_CLOJURE_BUF_LAST_OF_RESPONSE = 2;
 	
+	public static final int NGX_CHAIN_FILTER_CHUNK_NO_LAST = -1;
+	public static final int NGX_CHAIN_FILTER_CHUNK_HAS_LAST = -2;
+	
 	public static final int NGX_CLOJURE_BUF_LAST_FLAG = 0x01;
 	public static final int NGX_CLOJURE_BUF_FLUSH_FLAG = 0x02;
 	public static final int NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG = 0x04;
+	public static final int NGX_CLOJURE_BUF_FILE_FLAG = 0x08;
+	public static final int NGX_CLOJURE_BUF_MEM_FLAG = 0x10;
+	
 	/**
 	 * this constant hints whether we send java.lang.String or bytes (byte[], ByteBuffer) from app level
 	 */
@@ -377,8 +383,8 @@ public class MiniConstants {
 	public static int NGX_HTTP_CLOJURE_MEM_IDX_END = 255;
 	
 	//nginx clojure java runtime required the lowest version of nginx-clojure c module
-	public  static long NGINX_CLOJURE_RT_REQUIRED_LVER = 4003;
-	public  static long NGINX_CLOJURE_RT_VER = 4003;
+	public  static long NGINX_CLOJURE_RT_REQUIRED_LVER = 4004;
+	public  static long NGINX_CLOJURE_RT_VER = 4004;
 	
 	//ngx_core.h
 	public final static int  NGX_OK       =   0;

@@ -138,6 +138,9 @@ lazyclass:nginx/clojure/java/NginxJavaRingHandler
   
 lazyclass:nginx/clojure/java/NginxJavaHeaderFilter
   doFilter(ILjava/util/Map;Ljava/util/Map;)[Ljava/lang/Object;:just_mark
+
+lazyclass:nginx/clojure/java/NginxJavaBodyFilter
+  /doFilter.*:just_mark
     
 lazyclass:nginx/clojure/NginxHandler
 #mark from sub nginx/clojure/NginxSimpleHandler
@@ -163,6 +166,7 @@ fuzzyclass:nginx/clojure/NginxSimpleHandler\$(\d+)
   
 lazyclass:nginx/clojure/NginxClojureRT
   coBatchCall([Ljava/util/concurrent/Callable;)[Ljava/lang/Object;:normal
+  eval(IJJ)I:normal
 
 lazyclass:nginx/clojure/core$co_pcalls
   doInvoke(Ljava/lang/Object;)Ljava/lang/Object;:normal
@@ -189,6 +193,22 @@ lazyclass:sun/net/www/MeteredStream
 
 fuzzyclass:sun/reflect/GeneratedMethodAccessor(\d+)
   /invoke.*:skip
+
+lazyclass:nginx/clojure/NginxHttpServerChannel
+  send(Ljava/lang/String;ZZ)V:normal
+  send([BJII)I:normal
+  sendHeader(I)V:normal
+  sendHeader(JLjava/util/Collection;ZZ)V:normal
+
+lazyclass:nginx/clojure/NginxSimpleHandler
+  execute(JJ)I:normal
+
+fuzzyclass:nginx/clojure/java/GeneralSet(\d+)TestNginxJavaRingHandler\$MultipleChainHandler
+  invoke(Ljava/util/Map;)[Ljava/lang/Object;:normal
+
+lazyclass:nginx/clojure/NginxHandler
+#mark from sub nginx/clojure/NginxSimpleHandler
+  execute(JJ)I:just_mark
 
 
 filter:clojure/asm

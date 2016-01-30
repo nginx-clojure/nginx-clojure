@@ -89,6 +89,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	protected boolean hijacked = false;
 	protected NginxHttpServerChannel channel;
 	protected int phase = -1;
+	protected int evalCount = 0;
 	protected volatile boolean released = false;
 	protected List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners;
 	
@@ -453,5 +454,10 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	@Override
 	public NginxHttpServerChannel hijack(boolean ignoreFilter) {
 		return handler.hijack(this, ignoreFilter);
+	}
+	
+	@Override
+	public int getAndIncEvalCount() {
+		return evalCount++;
 	}
 }

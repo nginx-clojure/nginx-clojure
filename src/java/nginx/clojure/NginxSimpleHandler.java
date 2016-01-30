@@ -5,6 +5,7 @@ import static nginx.clojure.MiniConstants.CONTENT_TYPE;
 import static nginx.clojure.MiniConstants.DEFAULT_ENCODING;
 import static nginx.clojure.MiniConstants.KNOWN_RESP_HEADERS;
 import static nginx.clojure.MiniConstants.NGX_DONE;
+import static nginx.clojure.MiniConstants.NGX_HTTP_BODY_FILTER_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_LEN_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_CONTENT_TYPE_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET;
@@ -49,7 +50,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Future;
 
 import nginx.clojure.Coroutine.FinishAwaredRunnable;
 import nginx.clojure.NginxClojureRT.WorkerResponseContext;
@@ -62,6 +65,8 @@ import sun.nio.cs.ThreadLocalCoders;
 public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 	
 	protected static ConcurrentLinkedQueue<Coroutine> pooledCoroutines = new ConcurrentLinkedQueue<Coroutine>();
+	
+	protected static ConcurrentHashMap<Long, Future<WorkerResponseContext>> lastRequestEvalFutures = new ConcurrentHashMap<Long, Future<WorkerResponseContext>>();
 
 	public abstract NginxRequest makeRequest(long r, long c);
 	
@@ -83,7 +88,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		}
 		
 		final NginxRequest req = makeRequest(r, c);
-		int phase = req.phase();
+		final int phase = req.phase();
 		boolean isWebSocket = req.isWebSocket();
 		if (workers == null || (isWebSocket && phase == -1)) {
 			if (isWebSocket) {
@@ -97,7 +102,9 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
  *				&& !( req.isHijacked() && (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE))  //skips those increased hijacked requests 
  *				&& (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE)  //must be content handler
  */				
-				if (!req.isReleased() && !req.isHijacked() && (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE)) {
+				if (!req.isReleased() && !req.isHijacked() 
+						&& (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE
+						                || phase == NGX_HTTP_BODY_FILTER_PHASE)) {
 					ngx_http_clojure_mem_inc_req_count(r, 1);
 				}
 				return NGX_DONE;
@@ -107,19 +114,28 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		
 		//for safe access with another thread
 		req.prefetchAll();
-
-		if (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE) { // -1 means from content handler invoking 
+		
+		if (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE 
+				|| phase == NGX_HTTP_BODY_FILTER_PHASE
+				) { // -1 means from content handler invoking 
 			ngx_http_clojure_mem_inc_req_count(r, 1);
 		}
-		workers.submit(new Callable<NginxClojureRT.WorkerResponseContext>() {
+		
+		final Future<WorkerResponseContext> lastFuture = lastRequestEvalFutures.get(req.nativeRequest());
+		Future<WorkerResponseContext> future = workers.submit(new Callable<NginxClojureRT.WorkerResponseContext>() {
 			@Override
 			public WorkerResponseContext call() throws Exception {
+				if (lastFuture != null) {
+					lastFuture.get();
+				}
 				NginxResponse resp = handleRequest(req);
 				//let output chain built before entering the main thread
 				return new WorkerResponseContext(resp, req);
 			}
 		});
+		lastRequestEvalFutures.put(req.nativeRequest(), future);
 
+		
 		return NGX_DONE;
 	}
 	
@@ -334,7 +350,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 
 			
 			Object body = response.fetchBody();
-			long chain = 0;
+			long chain = defaultChainFlag(response);
 			
 			if (body != null) {
 				chain = buildResponseItemBuf(r, body, chain);
@@ -348,10 +364,18 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 			}
 			
 			if (chain == -NGX_HTTP_NO_CONTENT) {
-				if (status == NGX_HTTP_OK) {
-					status = NGX_HTTP_NO_CONTENT;
+				if (response.type() == NginxResponse.TYPE_FAKE_BODY_FILTER_TAG) {
+					if (response.isLast()) {
+						chain = ngx_http_clojure_mem_build_temp_chain(r, defaultChainFlag(response), null, 0, 0);
+					}else {
+						return 0;
+					}
+				}else {
+					if (status == NGX_HTTP_OK) {
+						status = NGX_HTTP_NO_CONTENT;
+					}
+					return -status;
 				}
-				return -status;
 			}
 			
 			return chain;
@@ -360,6 +384,10 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 			log.error("server unhandled exception!", e);
 			return -NGX_HTTP_INTERNAL_SERVER_ERROR;
 		}
+	}
+	
+	protected  long defaultChainFlag(NginxResponse response) {
+		return 0;
 	}
 	
 	protected  long buildResponseFileBuf(File f, long r, long chain) {
@@ -405,7 +433,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 				}
 			}
 			
-			return preChain == 0 ? (first == 0 ? -NGX_HTTP_NO_CONTENT : first)  : chain;
+			return preChain <= 0 ? (first == 0 ? -NGX_HTTP_NO_CONTENT : first)  : chain;
 		}catch(IOException e) {
 			log.error("can not read from InputStream", e);
 			return -500; 
@@ -479,7 +507,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 			bb.clear();
 		}
 
-		return preChain == 0 ? first : chain ;
+		return preChain <= 0 ? first : chain ;
 	}
 	
 	protected long buildResponseByteBufferBuf(ByteBuffer b, long r,  final long preChain) {
@@ -544,7 +572,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 				}
 			}
 		}
-		return preChain == 0 ? (first == 0 ? -NGX_HTTP_NO_CONTENT : first)  : chain;
+		return preChain <= 0 ? (first == 0 ? -NGX_HTTP_NO_CONTENT : first)  : chain;
 	}
 	
 	
