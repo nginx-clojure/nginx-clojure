@@ -7,6 +7,7 @@ import static nginx.clojure.MiniConstants.QUERY_STRING;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -53,6 +54,46 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 					ArrayMap.create(CONTENT_TYPE, "text/plain"), //headers map
 					"Hello, Java & Nginx!"  //response body can be string, File or Array/Collection of string or File
 					};
+		}
+	}
+	
+	
+	public static class MultipleChainHandler implements NginxJavaRingHandler {
+
+		@Override
+		public Object[] invoke(Map<String, Object> request) throws IOException {
+			NginxJavaRequest r = (NginxJavaRequest)request;
+			NginxClojureRT.log.info("before hijack" + r.nativeCount());
+			NginxHttpServerChannel channel = r.hijack(false);
+			NginxClojureRT.log.info("after hijack" + r.nativeCount());
+			channel.sendHeader(200, null, true, false);
+			channel.send("first part.\r\n", true, false);
+			channel.send("second part.\r\n", true, false);
+			channel.send("third part.\r\n", true, false);
+			channel.send("last part.\r\n", true, true);
+			NginxClojureRT.log.info("after send all" + r.nativeCount());
+			return null;
+		}
+	}
+	
+	public static class Utf8MultipleChainHandler implements NginxJavaRingHandler {
+
+		@Override
+		public Object[] invoke(Map<String, Object> request) throws IOException {
+			NginxJavaRequest r = (NginxJavaRequest)request;
+			System.out.println("before hijack" + r.nativeCount());
+			NginxHttpServerChannel channel = r.hijack(false);
+			System.out.println("after hijack" + r.nativeCount());
+			channel.sendHeader(200, null, true, false);
+			String s = "来1点中文，在utf8分隔下，中文字符会被截到不同的chain中";
+			byte[] all = s.getBytes(Charset.forName("utf8"));
+			int len = all.length;
+			channel.send(all, 0, 1, true, false);
+			len --;
+			channel.send(all, 1, 10, true, false);
+			len -= 10;
+			channel.send(all, 11, len, true, true);
+			return null;
 		}
 	}
 	

@@ -905,6 +905,53 @@
            )        
   )
 
+(deftest ^{:remote true}  test-java-body-filter
+  (testing "body filter with static file"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javabodyfilter/small.html") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)
+                 eb (slurp (clojure.java.io/file "test/nginx-working-dir/testfiles/small.html"))
+                 eb (.toUpperCase eb)]
+             (debug-println r)
+             (debug-println "=================/javabodyfilter/small.html=============================")
+             (is (= 200 (:status r)))
+             (is  (= "680" (h  "content-length")) )
+             (is (= 680 (.length b)))
+             )
+
+           )
+    (testing "body filter with simple hello"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javabodyfilter/hello") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javabodyfilter/hello=============================")
+             (is (= 200 (:status r)))
+             (is  (= (.toUpperCase "Hello, Java & Nginx!") b) ))
+           )
+    
+    (testing "body filter with multiple-chained response"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javabodyfilter/mchain") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javabodyfilter/mchain=============================")
+             (is (= 200 (:status r)))
+             (is  (= "FIRST PART.\r\nSECOND PART.\r\nTHIRD PART.\r\nLAST PART.\r\n" b) ))
+           ) 
+
+    (testing "body filter with utf8 multiple-chained response"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javabodyfilter/utf8mchain") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/javabodyfilter/mchain=============================")
+             (is (= 200 (:status r)))
+             (is  (= "来1点中文，在UTF8分隔下，中文字符会被截到不同的CHAIN中" b) ))
+           )     
+  )
+
+
 (deftest ^{:remote true}  test-clj-header-filter
   (testing "header filter add with static file"
            (let [r (client/get (str "http://" *host* ":" *port* "/cljfilter/small.html") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
@@ -1000,6 +1047,52 @@
               ;;;content-type: text/html
              (is (= "Hello, Java & Nginx!" b) ))
            )        
+  )
+
+(deftest ^{:remote true}  test-clj-body-filter
+  (testing "body filter with static file"
+           (let [r (client/get (str "http://" *host* ":" *port* "/cljbodyfilter/small.html") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)
+                 eb (slurp (clojure.java.io/file "test/nginx-working-dir/testfiles/small.html"))
+                 eb (.toUpperCase eb)]
+             (debug-println r)
+             (debug-println "=================/cljbodyfilter/small.html=============================")
+             (is (= 200 (:status r)))
+             (is  (= "680" (h  "content-length")) )
+             (is (= 680 (.length b)))
+             )
+
+           )
+    (testing "body filter with simple hello"
+           (let [r (client/get (str "http://" *host* ":" *port* "/cljbodyfilter/hello") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/cljbodyfilter/hello=============================")
+             (is (= 200 (:status r)))
+             (is  (= (.toUpperCase "Hello, Java & Nginx!") b) ))
+           )
+    
+    (testing "body filter with multiple-chained response"
+           (let [r (client/get (str "http://" *host* ":" *port* "/cljbodyfilter/mchain") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/cljbodyfilter/mchain=============================")
+             (is (= 200 (:status r)))
+             (is  (= "FIRST PART.\r\nSECOND PART.\r\nTHIRD PART.\r\nLAST PART.\r\n" b) ))
+           ) 
+
+    (testing "body filter with utf8 multiple-chained response"
+           (let [r (client/get (str "http://" *host* ":" *port* "/cljbodyfilter/utf8mchain") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/cljbodyfilter/mchain=============================")
+             (is (= 200 (:status r)))
+             (is  (= "来1点中文，在UTF8分隔下，中文字符会被截到不同的CHAIN中" b) ))
+           )     
   )
 
 (deftest ^{:remote true :websocket true} test-websocket-basic

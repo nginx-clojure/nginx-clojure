@@ -21,3 +21,8 @@
              body (:body resp)]
     (assoc! response-headers "remote-content-length" (.length body))
     phase-done))
+
+(defn uppercase-filter [request body-chunk last?]
+  (let [upper-body (.toUpperCase body-chunk)]
+      (if last? {:status 200 :body upper-body}
+        {:body upper-body})))
