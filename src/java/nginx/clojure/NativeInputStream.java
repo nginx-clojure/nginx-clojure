@@ -56,4 +56,8 @@ public class NativeInputStream extends InputStream {
 	public int available() throws IOException {
 		return len - pos >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int)(len - pos);
 	}
+	
+	public void rewind() throws IOException {
+		pos = 0;
+	}
 }

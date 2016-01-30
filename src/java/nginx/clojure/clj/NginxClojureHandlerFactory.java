@@ -47,7 +47,7 @@ public class NginxClojureHandlerFactory extends NginxHandlerFactory {
 		case NGX_HTTP_HEADER_FILTER_PHASE:
 			return new NginxClojureHandler(null, f);
 		case NGX_HTTP_BODY_FILTER_PHASE:
-			throw new UnsupportedOperationException("body filter has not been supported yet!");
+			return new NginxClojureHandler(f);
 		default:
 			return new NginxClojureHandler(f, null);
 		}

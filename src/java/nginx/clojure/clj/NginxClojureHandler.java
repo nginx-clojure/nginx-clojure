@@ -15,9 +15,17 @@ import static nginx.clojure.clj.Constants.KNOWN_RESP_HEADERS;
 import static nginx.clojure.clj.Constants.STATUS;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import clojure.lang.IFn;
+import clojure.lang.ISeq;
+import clojure.lang.Keyword;
+import clojure.lang.RT;
+import clojure.lang.Seqable;
+import nginx.clojure.MiniConstants;
+import nginx.clojure.NginxChainWrappedInputStream;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHeaderHolder;
 import nginx.clojure.NginxHttpServerChannel;
@@ -25,11 +33,6 @@ import nginx.clojure.NginxRequest;
 import nginx.clojure.NginxResponse;
 import nginx.clojure.NginxSimpleHandler;
 import nginx.clojure.java.ArrayMap;
-import clojure.lang.IFn;
-import clojure.lang.ISeq;
-import clojure.lang.Keyword;
-import clojure.lang.RT;
-import clojure.lang.Seqable;
 
 public class NginxClojureHandler extends NginxSimpleHandler {
 
@@ -39,6 +42,7 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 	
 	protected IFn ringHandler;
 	protected IFn headerFilter;
+	protected StringFacedClojureBodyFilter bodyFilter;
 	
 	public NginxClojureHandler() {
 	}
@@ -46,6 +50,10 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 	public NginxClojureHandler(IFn ringHandler, IFn headerFilter) {
 		this.ringHandler = ringHandler;
 		this.headerFilter = headerFilter;
+	}
+	
+	public NginxClojureHandler(IFn bodyFilter) {
+		this.bodyFilter = new StringFacedClojureBodyFilter(bodyFilter);
 	}
 	
 	public static  String normalizeHeaderNameHelper(Object nameObj) {
@@ -79,8 +87,13 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 		LazyRequestMap req;
 		switch (phase) {
 		case NGX_HTTP_HEADER_FILTER_PHASE : 
-		case NGX_HTTP_BODY_FILTER_PHASE:
 			req = new LazyFilterRequestMap(this, r, c);
+			break;
+		case NGX_HTTP_BODY_FILTER_PHASE:
+			req = LazyFilterRequestMap.cloneExisted(r, c);
+			if (req == null) {
+				req = new LazyFilterRequestMap(this, r, c);
+			}
 			break;
 		default :
 			req = pooledRequests.poll();
@@ -94,7 +107,16 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 	}
 	
 	@Override
-	public NginxResponse process(NginxRequest req) {
+	protected long defaultChainFlag(NginxResponse response) {
+		if (response instanceof NginxClojureBodyFilterChunkResponse) {
+			return response.isLast() ? 
+					MiniConstants.NGX_CHAIN_FILTER_CHUNK_HAS_LAST : MiniConstants.NGX_CHAIN_FILTER_CHUNK_NO_LAST;
+		}
+		return super.defaultChainFlag(response);
+	}
+	
+	@Override
+	public NginxResponse process(NginxRequest req) throws IOException {
 		LazyRequestMap r = (LazyRequestMap)req;
 		try{
 			Map resp;
@@ -104,7 +126,14 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 				resp = (Map) headerFilter.invoke(freq.responseStatus(), freq, freq.responseHeaders());
 				break;
 			case NGX_HTTP_BODY_FILTER_PHASE:
-				throw new UnsupportedOperationException("body filter has not been supported yet!");
+				LazyFilterRequestMap breq = (LazyFilterRequestMap) r;
+				NginxChainWrappedInputStream chunk = new NginxChainWrappedInputStream(r, breq.c);
+				Map chunkedResp = bodyFilter.invoke(breq, chunk, chunk.isLast());
+				if (!breq.isHijacked()) {
+					return new NginxClojureBodyFilterChunkResponse(breq, chunkedResp);
+				} else {
+					return toNginxResponse(r, ASYNC_TAG);
+				}
 			default:
 				 resp = (Map) ringHandler.invoke(req);
 			}
@@ -190,7 +219,9 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 			}
 			
 			((LazyRequestMap)req).hijackTag[0] = 1;
-			if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD && (req.phase() == -1 || req.phase() == NGX_HTTP_HEADER_FILTER_PHASE)) {
+			if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD 
+					&& (req.phase() == -1 || req.phase() == NGX_HTTP_HEADER_FILTER_PHASE
+							              || req.phase() == NGX_HTTP_BODY_FILTER_PHASE)) {
 				NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest(), 1);
 			}
 			

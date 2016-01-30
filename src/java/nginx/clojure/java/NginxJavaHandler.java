@@ -57,8 +57,7 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 	@Override
 	protected long defaultChainFlag(NginxResponse response) {
 		if (response instanceof NginxJavaBodyFilterChunkResponse) {
-			NginxJavaBodyFilterChunkResponse bresp = (NginxJavaBodyFilterChunkResponse) response;
-			return bresp.isLast() ? 
+			return response.isLast() ? 
 					MiniConstants.NGX_CHAIN_FILTER_CHUNK_HAS_LAST : MiniConstants.NGX_CHAIN_FILTER_CHUNK_NO_LAST;
 		}
 		return super.defaultChainFlag(response);

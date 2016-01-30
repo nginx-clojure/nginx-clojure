@@ -580,6 +580,8 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 
 		if (item instanceof File) {
 			return buildResponseFileBuf((File)item, r, chain);
+		}else if (item instanceof NginxChainWrappedInputStream) {
+			 return buildNginxChainWrappedInputStreamItemBuf(r, (NginxChainWrappedInputStream)item, chain);
 		}else if (item instanceof InputStream) {
 			return buildResponseInputStreamBuf((InputStream)item, r, chain);
 		}else if (item instanceof String) {
@@ -590,6 +592,10 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 			return buildResponseByteArrayBuf((byte[])item, r, chain);
 		}
 		return buildResponseComplexItemBuf(r, item, chain);
+	}
+	
+	protected long buildNginxChainWrappedInputStreamItemBuf(long r, NginxChainWrappedInputStream item, long chain) {
+		return item.chain;
 	}
 	
 	protected long buildResponseComplexItemBuf(long r, Object item, long chain) {

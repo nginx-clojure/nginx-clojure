@@ -21,6 +21,7 @@ public class NginxChainWrappedInputStream extends InputStream {
 	protected int index;
 	protected InputStream[] streams;
 	protected int flag;
+	protected long total;
 
 	public static class RangeSeekableFileInputStream extends InputStream {
 
@@ -74,15 +75,21 @@ public class NginxChainWrappedInputStream extends InputStream {
 			return len;
 		}
 		
+		public void rewind() throws IOException {
+			pos = start;
+			file.seek(pos);
+		}
+		
 	}
 	
 	public NginxChainWrappedInputStream() {
-		this.chain = 0;
+		this.chain = total = 0;
 	}
 	
 	public NginxChainWrappedInputStream(NginxRequest r, long chain) throws IOException {
 		this.r = r;
 		this.chain = chain;
+		this.total = 0;
 		
 		while (chain != 0) {
 			ByteBuffer buf = NginxClojureRT.pickByteBuffer();
@@ -126,6 +133,8 @@ public class NginxChainWrappedInputStream extends InputStream {
 				if ( (type & NGX_CLOJURE_BUF_FLUSH_FLAG) != 0) {
 					flag |= NGX_CLOJURE_BUF_FLUSH_FLAG;
 				}
+				
+				total += len;
 			}
 		}
 	}
@@ -178,5 +187,21 @@ public class NginxChainWrappedInputStream extends InputStream {
 	
 	public boolean isLast() {
 		return  (flag & NGX_CLOJURE_BUF_LAST_FLAG) != 0;
+	}
+	
+	public long total() {
+		return total;
+	}
+	
+	public void rewind() throws IOException {
+		index = 0;
+		for (InputStream in : streams) {
+			if (in instanceof RangeSeekableFileInputStream) {
+				RangeSeekableFileInputStream rin = (RangeSeekableFileInputStream) in;
+				rin.rewind();
+			}else {
+				((NativeInputStream)in).rewind();
+			}
+		}
 	}
 }
