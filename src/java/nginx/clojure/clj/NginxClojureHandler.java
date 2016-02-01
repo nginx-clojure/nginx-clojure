@@ -128,11 +128,15 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 			case NGX_HTTP_BODY_FILTER_PHASE:
 				LazyFilterRequestMap breq = (LazyFilterRequestMap) r;
 				NginxChainWrappedInputStream chunk = new NginxChainWrappedInputStream(r, breq.c);
-				Map chunkedResp = bodyFilter.invoke(breq, chunk, chunk.isLast());
-				if (!breq.isHijacked()) {
-					return new NginxClojureBodyFilterChunkResponse(breq, chunkedResp);
-				} else {
-					return toNginxResponse(r, ASYNC_TAG);
+				try{
+					Map chunkedResp = bodyFilter.invoke(breq, chunk, chunk.isLast());
+					if (!breq.isHijacked()) {
+						return new NginxClojureBodyFilterChunkResponse(breq, chunkedResp);
+					} else {
+						return toNginxResponse(r, ASYNC_TAG);
+					}
+				}finally{
+					chunk.close();
 				}
 			default:
 				 resp = (Map) ringHandler.invoke(req);

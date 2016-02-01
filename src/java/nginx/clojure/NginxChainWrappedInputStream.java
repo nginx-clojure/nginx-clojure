@@ -80,6 +80,13 @@ public class NginxChainWrappedInputStream extends InputStream {
 			file.seek(pos);
 		}
 		
+		@Override
+		public void close() throws IOException {
+			if (file != null) {
+				file.close();
+			}
+		}
+		
 	}
 	
 	public NginxChainWrappedInputStream() {
@@ -201,6 +208,29 @@ public class NginxChainWrappedInputStream extends InputStream {
 				rin.rewind();
 			}else {
 				((NativeInputStream)in).rewind();
+			}
+		}
+	}
+	
+	@Override
+	public void close() throws IOException {
+		index = streams.length;
+		Throwable e = null;
+		for (InputStream in : streams) {
+			try {
+				in.close();
+			}catch(Throwable ex) {
+				if (e == null) {
+					e = ex;
+				}
+			}
+		}
+		
+		if (e != null) {
+			if (e instanceof IOException) {
+				throw (IOException)e;
+			}else {
+				throw new IOException("NginxChainWrappedInputStream.close meets error", e);
 			}
 		}
 	}
