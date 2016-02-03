@@ -59,9 +59,17 @@ public class DiscoverJvm {
 		if (home.endsWith("jre")) {
 			home = new File(home).getParent();
 		}
+		
 		String incRoot = home + "/include";
+		File incRootFile = new File(incRoot);
+		if (!incRootFile.isDirectory()) {
+			System.err.println("Failed to detect JNI header path, please set JNI_INCS manually, e.g :");
+			System.err.println("  export JNI_INCS=\"-I /usr/lib/jvm/java-7-oracle/include -I /usr/lib/jvm/java-7-oracle/include/linux\"");
+			return null;
+		}
+		
 		StringBuilder sb = new StringBuilder("-I \"" + incRoot+"\"");
-		for (File f : new File(incRoot).listFiles()) {
+		for (File f : incRootFile.listFiles()) {
 			if (f.isDirectory()) {
 				sb.append(" -I \"").append(f.getAbsolutePath()+"\"");
 			}
