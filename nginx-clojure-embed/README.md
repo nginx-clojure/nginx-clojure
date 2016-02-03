@@ -101,3 +101,8 @@ User defined zones
           ;;at nginx.conf location block
           "location-user-defined", "" 
 ```
+
+License
+================
+
+Copyright © 2013-2016 Zhang, Yuexiang (xfeep) and released under the BSD 3-Clause license.
