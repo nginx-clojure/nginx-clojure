@@ -444,7 +444,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_http_clojure_set_always_read_body,
 		NGX_HTTP_LOC_CONF_OFFSET,
-		offsetof(ngx_http_clojure_loc_conf_t, always_read_body),
+		0,
 		NULL
     },
     {
@@ -574,7 +574,7 @@ static void * ngx_http_clojure_create_loc_conf(ngx_conf_t *cf) {
 		return NGX_CONF_ERROR;
 	}
 	conf->handlers_lazy_init = NGX_CONF_UNSET;
-	conf->always_read_body = NGX_CONF_UNSET;
+	conf->always_read_body = NGX_HTTP_CLOJURE_ALWATS_READ_BODY_UNSET;
 	conf->auto_upgrade_ws = NGX_CONF_UNSET;
 	conf->content_handler_id = -1;
 	conf->rewrite_handler_id = -1;
@@ -846,7 +846,12 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 	ngx_http_clojure_loc_conf_t *conf = child;
 	ngx_http_clojure_main_conf_t *mcf = ngx_http_conf_get_module_main_conf(cf,  ngx_http_clojure_module);
 	ngx_http_core_loc_conf_t *clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
-	ngx_conf_merge_value(conf->always_read_body, prev->always_read_body, 0);
+
+	if (conf->always_read_body == NGX_HTTP_CLOJURE_ALWATS_READ_BODY_UNSET) {
+    conf->always_read_body = (prev->always_read_body == NGX_HTTP_CLOJURE_ALWATS_READ_BODY_UNSET)
+        ? NGX_HTTP_CLOJURE_BEFORE_CONTENT_HANDLER : prev->always_read_body;
+  }
+
 	ngx_conf_merge_value(conf->handlers_lazy_init, prev->handlers_lazy_init, 0);
 	ngx_conf_merge_value(conf->auto_upgrade_ws, prev->auto_upgrade_ws, 0);
 	ngx_conf_merge_size_value(conf->write_page_size, prev->write_page_size, ngx_pagesize);
@@ -1700,7 +1705,8 @@ static ngx_int_t ngx_http_clojure_content_handler(ngx_http_request_t * r) {
 	   ctx->hijacked_or_async = 0;
 	}
 
-    if (lcf->always_read_body || (r->method & (NGX_HTTP_POST | NGX_HTTP_PUT | NGX_HTTP_PATCH))) {
+    if (lcf->always_read_body == NGX_HTTP_CLOJURE_BEFORE_CONTENT_HANDLER
+        && (r->method & (NGX_HTTP_POST | NGX_HTTP_PUT | NGX_HTTP_PATCH))) {
     	if (!ctx->client_body_done) {/*maybe done by rewrite handler*/
     		r->request_body_in_single_buf = 1;
     		r->request_body_in_clean_file = 1;
@@ -1725,10 +1731,13 @@ static ngx_int_t ngx_http_clojure_content_handler(ngx_http_request_t * r) {
     		}
     	}
 
-    	rc = ngx_http_discard_request_body(r);
-    	if (rc != NGX_OK && rc != NGX_AGAIN) {
-    	   return rc;
+    	if (!(r->method & (NGX_HTTP_POST | NGX_HTTP_PUT | NGX_HTTP_PATCH))) {
+        rc = ngx_http_discard_request_body(r);
+        if (rc != NGX_OK && rc != NGX_AGAIN) {
+           return rc;
+        }
     	}
+
     }
 
     rc = ngx_http_clojure_eval(lcf->content_handler_id, r, 0);
@@ -1746,7 +1755,7 @@ static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t *r) {
 	ngx_http_clojure_init_handler_script(lcf, NGX_HTTP_REWRITE_PHASE, rewrite_handler);
 
 	/*Once alwarys_read_body enabled, we want to let it  work even if there no java/groovy/clojure rewrite handler*/
-	if (lcf->always_read_body) {
+	if (lcf->always_read_body == NGX_HTTP_CLOJURE_BEFORE_REWRITE_HANDLER) {
 		if (ctx== NULL) {
 			if ( ngx_http_clojure_prepare_server_header(r) != NGX_OK ) {
 				ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_clojure_prepare_server_header error");
@@ -2154,9 +2163,32 @@ static char* ngx_http_clojure_set_str_slot_and_enable_access_handler_tag(ngx_con
 static char* ngx_http_clojure_set_always_read_body(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
 	ngx_http_clojure_loc_conf_t *lcf = conf;
 	ngx_http_clojure_main_conf_t *mcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_clojure_module);
-	char *rt =  ngx_conf_set_flag_slot(cf, cmd, conf);
-	if (lcf->always_read_body) {
+  char *p = conf;
+  ngx_str_t *value;
+
+  if (lcf->always_read_body != NGX_HTTP_CLOJURE_ALWATS_READ_BODY_UNSET) {
+      return "is duplicate";
+  }
+
+  value = cf->args->elts;
+
+  if (ngx_strcasecmp(value[1].data, (u_char *) "on") == 0
+      || ngx_strcasecmp(value[1].data, (u_char *) "before_rewrite_handler") == 0) {
+    lcf->always_read_body = NGX_HTTP_CLOJURE_BEFORE_REWRITE_HANDLER;
+  } else if (ngx_strcasecmp(value[1].data, (u_char *) "off") == 0) {
+    lcf->always_read_body = NGX_HTTP_CLOJURE_BEFORE_NONE;
+  } else if (ngx_strcasecmp(value[1].data, (u_char *) "before_content_handler") == 0) {
+    lcf->always_read_body = NGX_HTTP_CLOJURE_BEFORE_CONTENT_HANDLER;
+  } else {
+      ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                   "invalid value \"%s\" in \"%s\" directive, "
+                   "it must be \"on\" , \"off\" , \"before_rewrite_handler\" or \"before_content_handler\"",
+                   value[1].data, cmd->name.data);
+      return NGX_CONF_ERROR;
+  }
+
+	if (lcf->always_read_body == NGX_HTTP_CLOJURE_BEFORE_REWRITE_HANDLER) {
 		mcf->enable_rewrite_handler = 1;
 	}
-	return rt;
+	return NGX_CONF_OK;
 }

@@ -2468,19 +2468,81 @@ static void JNICALL jni_ngx_http_hijack_turn_on_event_handler(JNIEnv *env, jclas
 	}
 }
 
+/*Originally this function is from ngx_http_request_body.c because it is static so we have to copy it here*/
+static ngx_int_t ngx_http_test_expect(ngx_http_request_t *r) {
+  ngx_int_t n;
+  ngx_str_t *expect;
+
+  if (r->expect_tested || r->headers_in.expect == NULL || r->http_version < NGX_HTTP_VERSION_11) {
+    return NGX_OK;
+  }
+
+  r->expect_tested = 1;
+
+  expect = &r->headers_in.expect->value;
+
+  if (expect->len != sizeof("100-continue") - 1
+      || ngx_strncasecmp(expect->data, (u_char *) "100-continue", sizeof("100-continue") - 1) != 0) {
+    return NGX_OK;
+  }
+
+  ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "send 100 Continue");
+
+  n = r->connection->send(r->connection, (u_char *) "HTTP/1.1 100 Continue" CRLF CRLF,
+      sizeof("HTTP/1.1 100 Continue" CRLF CRLF) - 1);
+
+  if (n == sizeof("HTTP/1.1 100 Continue" CRLF CRLF) - 1) {
+    return NGX_OK;
+  }
+
+  /* we assume that such small packet should be send successfully */
+
+  return NGX_ERROR;
+}
+
 static jlong JNICALL jni_ngx_http_hijack_read(JNIEnv *env, jclass cls, jlong req, jobject buf, jlong off, jlong len) {
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t)req;
 	ngx_connection_t *c;
 	ngx_int_t rc;
-/*	ngx_http_core_loc_conf_t *clcf;*/
+	ngx_int_t prrlen = 0;
+	ngx_http_clojure_loc_conf_t *lcf;
+	ngx_http_clojure_module_ctx_t *ctx;
+	u_char* pbuf = (u_char*)ngx_http_clojure_abs_off_addr(buf, off);
 
 	if (!r->pool) {
 		return NGX_HTTP_CLOJURE_SOCKET_ERR_READ;
 	}
 
+	ngx_http_clojure_get_ctx(r, ctx);
+	lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
+
+	if (!ctx->client_body_done && !ctx->wsctx && lcf->always_read_body == NGX_HTTP_CLOJURE_BEFORE_NONE) {
+	  if (ngx_http_test_expect(r) != NGX_OK) {
+	    return NGX_HTTP_CLOJURE_SOCKET_ERR_READ;
+	  }
+
+	  prrlen = r->header_in->last > r->header_in->pos;
+	  if (prrlen) {
+	    if (prrlen > len) {
+	      prrlen = len;
+	    }
+	    ngx_memcpy(pbuf, r->header_in->pos, prrlen);
+	    r->header_in->pos += prrlen;
+	    pbuf += prrlen;
+
+	    if (r->header_in->pos == r->header_in->last) {
+	      ctx->client_body_done = 1;
+	    }else {
+	      return len;
+	    }
+	  }else {
+	    ctx->client_body_done = 1;
+	  }
+	}
+
 	c = r->connection;
 /*	clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);*/
-	rc = c->recv(c, (u_char*)ngx_http_clojure_abs_off_addr(buf, off), len);
+	rc = c->recv(c, pbuf, len - prrlen);
 
 	if (rc == NGX_AGAIN) {
 /*websocket should have infinite timeout */
@@ -2488,12 +2550,12 @@ static jlong JNICALL jni_ngx_http_hijack_read(JNIEnv *env, jclass cls, jlong req
 			ngx_add_timer(c->read, clcf->client_body_timeout);
 		}*/
 
-		rc = NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN;
+		return NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN;
 	}else if (rc < 0) {
-		rc = NGX_HTTP_CLOJURE_SOCKET_ERR_READ;
+		return NGX_HTTP_CLOJURE_SOCKET_ERR_READ;
 	}
 	/*TODO: if rc == 0 we need release the request ? */
-	return rc;
+	return rc + prrlen;
 
 }
 

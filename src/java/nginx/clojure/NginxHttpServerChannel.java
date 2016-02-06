@@ -234,9 +234,9 @@ public class NginxHttpServerChannel implements Closeable {
 		
 		if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
 			return 0;
-		}
-		
-		if (rc < 0) {
+		}else if (rc == 0) {
+			return -1;
+		}else if (rc < 0) {
 			throw new IOException(NginxClojureAsynSocket.errorCodeToString(rc));
 		}else {
 			buf.position(buf.position() + (int)rc);
@@ -267,8 +267,9 @@ public class NginxHttpServerChannel implements Closeable {
 		}
 		if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
 			return 0;
-		}
-		if (rc < 0) {
+		}else if (rc == 0) {
+			return -1;
+		}else if (rc < 0) {
 			throw new IOException(NginxClojureAsynSocket.errorCodeToString(rc));
 		}
 		return rc;
@@ -310,8 +311,9 @@ public class NginxHttpServerChannel implements Closeable {
 		
 		if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
 			return 0;
-		}
-		if (rc < 0) {
+		}else if (rc == 0) {
+			return -1;
+		}else if (rc < 0) {
 			throw new IOException(NginxClojureAsynSocket.errorCodeToString(rc));
 		}
 		
@@ -334,9 +336,9 @@ public class NginxHttpServerChannel implements Closeable {
 		
 		if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
 			return 0;
-		}
-		
-		if (rc < 0) {
+		}else if (rc == 0) {
+			return -1;
+		}else if (rc < 0) {
 			throw new IOException(NginxClojureAsynSocket.errorCodeToString(rc));
 		}
 		return rc;

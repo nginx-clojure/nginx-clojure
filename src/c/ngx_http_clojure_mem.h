@@ -97,9 +97,14 @@ typedef struct {
 	unsigned enable_header_filter :1;
 	unsigned enable_body_filter :1;
 	unsigned enable_access_handler : 1;
+#define NGX_HTTP_CLOJURE_ALWATS_READ_BODY_UNSET 0
+#define NGX_HTTP_CLOJURE_BEFORE_REWRITE_HANDLER 1
+#define NGX_HTTP_CLOJURE_BEFORE_ACCESS_HANDLER 2
+#define NGX_HTTP_CLOJURE_BEFORE_CONTENT_HANDLER 3
+#define NGX_HTTP_CLOJURE_BEFORE_NONE 4
+	unsigned always_read_body : 3;
 	ngx_flag_t auto_upgrade_ws;
 	ngx_flag_t handlers_lazy_init;
-	ngx_flag_t always_read_body;
 	ngx_str_t content_handler_type;
 	ngx_str_t content_handler_code;
 	ngx_int_t content_handler_id;
