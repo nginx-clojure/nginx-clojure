@@ -2163,7 +2163,6 @@ static char* ngx_http_clojure_set_str_slot_and_enable_access_handler_tag(ngx_con
 static char* ngx_http_clojure_set_always_read_body(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
 	ngx_http_clojure_loc_conf_t *lcf = conf;
 	ngx_http_clojure_main_conf_t *mcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_clojure_module);
-  char *p = conf;
   ngx_str_t *value;
 
   if (lcf->always_read_body != NGX_HTTP_CLOJURE_ALWATS_READ_BODY_UNSET) {
