@@ -146,12 +146,13 @@ static void ngx_http_clojure_shared_map_tinymap_invoke_value_handler_helper(ngx_
 static ngx_int_t ngx_http_clojure_shared_map_tinymap_set_key_helper(ngx_slab_pool_t *shpool, ngx_http_clojure_tinymap_entry_t *entry,
 		const void *key, size_t klen) {
 	u_char *tmp;
+	void *ek = &entry->key; /**((uint64_t *)(void*)&entry->key) will cause gcc 4.4 warning*/
 	switch (entry->ktype) {
 	case NGX_CLOJURE_SHARED_MAP_JINT:
 		entry->key = *((uint32_t *)key);
 		return NGX_CLOJURE_SHARED_MAP_OK;
 	case NGX_CLOJURE_SHARED_MAP_JLONG:
-		*((uint64_t *)(void*)&entry->key) = *((uint64_t *) key);
+		*((uint64_t *)ek) = *((uint64_t *) key);
 		return NGX_CLOJURE_SHARED_MAP_OK;
 	case NGX_CLOJURE_SHARED_MAP_JSTRING:
 	case NGX_CLOJURE_SHARED_MAP_JBYTEA:
@@ -174,6 +175,7 @@ static ngx_int_t ngx_http_clojure_shared_map_tinymap_set_value_helper(ngx_slab_p
 	void* oldv = NULL;
 	size_t oldv_size = 0;
 	u_char *tmp;
+	void *ev = &entry->val; /**((uint64_t *)(void*)&entry->key) will cause gcc 4.4 warning*/
 	switch (entry->vtype) {
 	case NGX_CLOJURE_SHARED_MAP_JINT:
 		if (old_handler) {
@@ -204,7 +206,7 @@ static ngx_int_t ngx_http_clojure_shared_map_tinymap_set_value_helper(ngx_slab_p
 		goto HANDLE_CPX_OLDV;
 	case NGX_CLOJURE_SHARED_MAP_JLONG:
 		entry->vtype = vtype;
-		*((uint64_t *)(void*)&entry->val) = *((uint64_t *) val);
+		*((uint64_t *)ev) = *((uint64_t *) val);
 		goto HANDLE_CPX_OLDV;
 	case NGX_CLOJURE_SHARED_MAP_JSTRING:
 	case NGX_CLOJURE_SHARED_MAP_JBYTEA:
@@ -232,6 +234,7 @@ HANDLE_CPX_OLDV:
 static ngx_int_t ngx_http_clojure_shared_map_tinymap_match_key(uint8_t ktype,
 		const u_char *key, size_t klen, uint32_t hash, ngx_slab_pool_t *shpool,
 		ngx_http_clojure_tinymap_entry_t *entry) {
+  void *ek = &entry->key; /**((uint64_t *)(void*)&entry->key) will cause gcc 4.4 warning*/
 	if (ktype != entry->ktype) {
 		return NGX_CLOJURE_SHARED_MAP_NOT_FOUND;
 	}
@@ -242,7 +245,7 @@ static ngx_int_t ngx_http_clojure_shared_map_tinymap_match_key(uint8_t ktype,
 		}
 		break;
 	case NGX_CLOJURE_SHARED_MAP_JLONG:
-		if (*((uint64_t*)(void*)&entry->key) == *((uint64_t*) key)) {
+		if (*((uint64_t*)ek) == *((uint64_t*) key)) {
 			return NGX_CLOJURE_SHARED_MAP_OK;
 		}
 		break;

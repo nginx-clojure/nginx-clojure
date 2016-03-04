@@ -8,6 +8,12 @@
 #include <nginx.h>
 #include <ngx_http.h>
 
+#if defined(__GNUC__) && (__GNUC__ >= 4)
+  #define NGX_CLOJURE_ATTR_MAY_ALIAS __attribute__((__may_alias__))
+#else
+  #define NGX_CLOJURE_ATTR_MAY_ALIAS
+#endif
+
 #define NGX_CLOJURE_SHARED_MAP_OK 0
 #define NGX_CLOJURE_SHARED_MAP_OUT_OF_MEM 1
 #define NGX_CLOJURE_SHARED_MAP_NOT_FOUND 2

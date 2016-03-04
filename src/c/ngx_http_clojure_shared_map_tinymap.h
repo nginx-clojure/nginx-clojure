@@ -19,7 +19,7 @@ typedef struct ngx_http_clojure_tinymap_entry_s {
 	uint32_t val;
 	uint32_t vsize; /*value size*/
 	uint32_t next;
-} ngx_http_clojure_tinymap_entry_t;
+} NGX_CLOJURE_ATTR_MAY_ALIAS ngx_http_clojure_tinymap_entry_t;
 
 typedef struct {
 	ngx_atomic_uint_t size;

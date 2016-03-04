@@ -3326,7 +3326,7 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_chain_info(JNIEnv *env, jclass
       flag |= NGX_CLOJURE_BUF_MEM_FLAG;
       *pinfo++ = (uint64_t)flag << 56 | (cl->buf->last - cl->buf->pos);
       len -= 8;
-      *pinfo++ = (uint64_t) cl->buf->pos;
+      *pinfo++ = (uint64_t)(uintptr_t) cl->buf->pos;
       len -= 8;
     }
 

@@ -194,12 +194,13 @@ static void ngx_http_clojure_shared_map_hashmap_invoke_value_handler_helper(ngx_
 static ngx_int_t ngx_http_clojure_shared_map_hashmap_set_key_helper(ngx_slab_pool_t *shpool, ngx_http_clojure_hashmap_entry_t *entry,
 		const void *key, size_t klen) {
 
+	void *ek = &entry->key; /* *((uint64_t *)(void*)&entry->key) will cause gcc 4.4 warning*/
 	switch (entry->ktype) {
 	case NGX_CLOJURE_SHARED_MAP_JINT:
-		*((uint32_t *)(void*)&entry->key) = *((uint32_t *)key);
+		*((uint32_t *)ek) = *((uint32_t *)key);
 		return NGX_CLOJURE_SHARED_MAP_OK;
 	case NGX_CLOJURE_SHARED_MAP_JLONG:
-		*((uint64_t *)(void*)&entry->key) = *((uint64_t *) key);
+		*((uint64_t *)ek) = *((uint64_t *) key);
 		return NGX_CLOJURE_SHARED_MAP_OK;
 	case NGX_CLOJURE_SHARED_MAP_JSTRING:
 	case NGX_CLOJURE_SHARED_MAP_JBYTEA:
@@ -219,6 +220,7 @@ static ngx_int_t ngx_http_clojure_shared_map_hashmap_set_value_helper(ngx_slab_p
 		uint8_t vtype, const void *val, size_t vlen, ngx_http_clojure_shared_map_val_handler old_handler, void *handler_data) {
 	void* oldv = NULL;
 	size_t oldv_size = 0;
+	void *ev = &entry->val; /* *((uint64_t *)(void*)&entry->val) will cause gcc 4.4 warning*/
 
 	switch (entry->vtype) {
 	case NGX_CLOJURE_SHARED_MAP_JINT:
@@ -246,10 +248,10 @@ static ngx_int_t ngx_http_clojure_shared_map_hashmap_set_value_helper(ngx_slab_p
 
 	switch (vtype) {
 	case NGX_CLOJURE_SHARED_MAP_JINT:
-		*((uint32_t *)(void*)&entry->val) = *((uint32_t *)val);
+		*((uint32_t *)ev) = *((uint32_t *)val);
 		goto HANDLE_CPX_OLDV;
 	case NGX_CLOJURE_SHARED_MAP_JLONG:
-		*((uint64_t *)(void*)&entry->val) = *((uint64_t *) val);
+		*((uint64_t *)ev) = *((uint64_t *) val);
 		goto HANDLE_CPX_OLDV;
 	case NGX_CLOJURE_SHARED_MAP_JSTRING:
 	case NGX_CLOJURE_SHARED_MAP_JBYTEA:
@@ -278,17 +280,18 @@ HANDLE_CPX_OLDV:
 static ngx_int_t ngx_http_clojure_shared_map_hashmap_match_key(uint8_t ktype,
 		const u_char *key, size_t klen, uint32_t hash,
 		ngx_http_clojure_hashmap_entry_t *entry) {
+	void *ek = &entry->key; /* *((uint64_t *)(void*)&entry->key) will cause gcc 4.4 warning*/
 	if (ktype != entry->ktype) {
 		return NGX_CLOJURE_SHARED_MAP_NOT_FOUND;
 	}
 	switch (ktype) {
 	case NGX_CLOJURE_SHARED_MAP_JINT:
-		if (*((uint32_t *)(void*)&entry->key) == *((uint32_t*) key)) {
+		if (*((uint32_t *)ek) == *((uint32_t*) key)) {
 			return NGX_CLOJURE_SHARED_MAP_OK;
 		}
 		break;
 	case NGX_CLOJURE_SHARED_MAP_JLONG:
-		if (*((uint64_t*)(void*)&entry->key) == *((uint64_t*) key)) {
+		if (*((uint64_t*)ek) == *((uint64_t*) key)) {
 			return NGX_CLOJURE_SHARED_MAP_OK;
 		}
 		break;
@@ -348,7 +351,8 @@ ngx_int_t ngx_http_clojure_shared_map_hashmap_put_entry(ngx_http_clojure_shared_
 
 	ngx_shmtx_lock(&ctx->shpool->mutex);
 	for (pentry = &ctx->map->table[index_for(hash, ctx->entry_table_size)];
-			(entry = *pentry) != NULL; pentry = &entry->next) {
+			(entry = *pentry) != NULL;
+			pentry = (void*)&entry->next) {
 		if (NGX_CLOJURE_SHARED_MAP_OK == (rc = ngx_http_clojure_shared_map_hashmap_match_key(ktype, key, klen, hash, entry))) {
 			rc = ngx_http_clojure_shared_map_hashmap_set_value_helper(ctx->shpool, entry, vtype, val, vlen, old_val_handler, handler_data);
 			ngx_shmtx_unlock(&ctx->shpool->mutex);
@@ -403,7 +407,8 @@ ngx_int_t ngx_http_clojure_shared_map_hashmap_put_entry_if_absent(ngx_http_cloju
 
 	ngx_shmtx_lock(&ctx->shpool->mutex);
 	for (pentry = &ctx->map->table[index_for(hash, ctx->entry_table_size)];
-			(entry = *pentry) != NULL; pentry = &entry->next) {
+			(entry = *pentry) != NULL;
+			pentry = (void*)&entry->next) {
 		if (NGX_CLOJURE_SHARED_MAP_OK == (rc = ngx_http_clojure_shared_map_hashmap_match_key(ktype, key, klen, hash, entry))) {
 			if (old_val_handler) {
 				ngx_http_clojure_shared_map_hashmap_invoke_value_handler_helper(entry, old_val_handler, handler_data);
@@ -462,7 +467,8 @@ ngx_int_t ngx_http_clojure_shared_map_hashmap_remove_entry(ngx_http_clojure_shar
 
 	ngx_shmtx_lock(&ctx->shpool->mutex);
 	for (pentry =  &ctx->map->table[index_for(hash, ctx->entry_table_size)];
-			(entry = *pentry) != NULL; pentry = &entry->next) {
+			(entry = *pentry) != NULL;
+			pentry = (void*)&entry->next) {
 		if (NGX_CLOJURE_SHARED_MAP_OK == (rc = ngx_http_clojure_shared_map_hashmap_match_key(ktype, key, klen, hash, entry))) {
 			if (val_handler) {
 				ngx_http_clojure_shared_map_hashmap_invoke_value_handler_helper(entry, val_handler, handler_data);

@@ -6,6 +6,7 @@
 
 #include "ngx_http_clojure_shared_map.h"
 
+
 typedef struct ngx_http_clojure_hashmap_entry_s {
 	char *key;
 	uint32_t ksize; /*key size*/
@@ -14,8 +15,9 @@ typedef struct ngx_http_clojure_hashmap_entry_s {
 	char *val;
 	uint32_t vsize; /*value size*/
 	uint32_t hash;
-	struct ngx_http_clojure_hashmap_entry_s *next;
-} ngx_http_clojure_hashmap_entry_t;
+	struct ngx_http_clojure_hashmap_entry_s * next;
+} NGX_CLOJURE_ATTR_MAY_ALIAS ngx_http_clojure_hashmap_entry_t;
+
 
 typedef struct {
 	ngx_atomic_uint_t size;
