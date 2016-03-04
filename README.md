@@ -7,16 +7,17 @@
 Core Features
 =================
 
-The latest release is v0.4.3, more detail changes about it can be found from [Release History](//nginx-clojure.github.io/downloads.html).
+The latest release is v0.4.4, more detail changes about it can be found from [Release History](//nginx-clojure.github.io/downloads.html).
 
 1. Compatible with [Ring](https://github.com/ring-clojure/ring/blob/master/SPEC) and obviously supports those Ring based frameworks, such as Compojure etc.
 1. Http Services by  using Clojure / Java / Groovy to write simple handlers for http services.
 1. Nginx Access Handler by Clojure / Java / Groovy
 1. Nginx Header Filter by Clojure / Java / Groovy
-1. **_NEW_**: Pub/Sub Among Nginx Worker Processes
-1. **_NEW_**: Shared Map based on shared memory & Shared Map based Ring session store
-1. **_NEW_**: Support Sente, see [this PR](https://github.com/ptaoussanis/sente/pull/160)
-1. **_NEW_**: Support Per-message Compression Extensions (PMCEs) for WebSocket
+1. **_NEW_**: Nginx Body Filter by Clojure / Java / Groovy
+1. Pub/Sub Among Nginx Worker Processes
+1. Shared Map based on shared memory & Shared Map based Ring session store
+1. Support Sente, see [this PR](https://github.com/ptaoussanis/sente/pull/160)
+1. Support Per-message Compression Extensions (PMCEs) for WebSocket
 1. APIs for Embedding Nginx-Clojure into a Standard Clojure/Java/Groovy App
 1. Server Side Websocket
 1. A build-in Jersey container to support java standard RESTful web services (JAX-RS 2.0)
@@ -48,19 +49,19 @@ Nginx-Clojure has already been published to https://clojars.org/ whose maven rep
 </repository>
 ``` 
 
-After adding clojars repository, you can reference nginx-clojure 0.4.3 , e.g.
+After adding clojars repository, you can reference nginx-clojure 0.4.4 , e.g.
 
  Leiningen (clojure, no need to add clojars repository which is a default repository for Leiningen) 
 -----------------
  
 ```clojure
-[nginx-clojure "0.4.3"]
+[nginx-clojure "0.4.4"]
 ```
 Gradle (groovy/java)
 -----------------
  
 ```
-compile "nginx-clojure:nginx-clojure:0.4.3"
+compile "nginx-clojure:nginx-clojure:0.4.4"
 ```
 Maven
 -----------------
@@ -69,7 +70,7 @@ Maven
 <dependency>
   <groupId>nginx-clojure</groupId>
   <artifactId>nginx-clojure</artifactId>
-  <version>0.4.3</version>
+  <version>0.4.4</version>
 </dependency>
 ```
 
