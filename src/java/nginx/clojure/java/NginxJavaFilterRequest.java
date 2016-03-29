@@ -1,9 +1,11 @@
 package nginx.clojure.java;
 
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_STATUS_LINE_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
 import static nginx.clojure.NginxClojureRT.fetchNGXInt;
 import static nginx.clojure.NginxClojureRT.pushNGXInt;
+import static nginx.clojure.NginxClojureRT.pushNGXString;
 
 import java.io.IOException;
 import java.util.Map;
@@ -70,6 +72,7 @@ public class NginxJavaFilterRequest extends NginxJavaRequest implements NginxFil
 
 	public NginxJavaFilterRequest responseStatus(int status) {
 		pushNGXInt(ho + NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET, status );
+		pushNGXString(ho + NGX_HTTP_CLOJURE_HEADERSO_STATUS_LINE_OFFSET, null, null, 0);
 		return this;
 	}
 	
