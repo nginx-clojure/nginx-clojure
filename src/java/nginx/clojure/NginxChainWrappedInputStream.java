@@ -87,6 +87,14 @@ public class NginxChainWrappedInputStream extends InputStream {
 			}
 		}
 		
+		/* (non-Javadoc)
+		 * @see java.io.InputStream#available()
+		 */
+		@Override
+		public int available() throws IOException {
+			return length - pos >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int)(length - pos);
+		}
+		
 	}
 	
 	public NginxChainWrappedInputStream() {
@@ -233,5 +241,23 @@ public class NginxChainWrappedInputStream extends InputStream {
 				throw new IOException("NginxChainWrappedInputStream.close meets error", e);
 			}
 		}
+	}
+	
+	/* (non-Javadoc)
+	 * @see java.io.InputStream#available()
+	 */
+	@Override
+	public int available() throws IOException {
+		if (chain == 0 || index >= streams.length) {
+			return 0;
+		}
+		
+		long a = 0;
+		
+		for (int i = index; i < streams.length; i++) {
+			a += streams[i].available();
+		}
+		
+		return a > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int)a;
 	}
 }
