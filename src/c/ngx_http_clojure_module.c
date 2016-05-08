@@ -459,6 +459,12 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     ngx_null_command
 };
 
+ngx_event_t ngx_http_clojure_reload_delay_event;
+
+static void ngx_http_clojure_reload_delay_event_handler(ngx_event_t *event) {
+
+}
+
 static ngx_http_clojure_header_holder_t ngx_http_clojure_headers_out_holders[] = {
 		{ngx_string("Server"), ngx_http_clojure_set_elt_header, offsetof(ngx_http_headers_out_t, server)},
 		{ngx_string("Date"), ngx_http_clojure_set_elt_header, offsetof(ngx_http_headers_out_t, date)},
@@ -939,6 +945,9 @@ static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
 	if (ngx_http_clojure_pipe_init_by_master(ccf->master ? ccf->worker_processes : 1) != NGX_OK) {
 		return NGX_ERROR;
 	}
+
+	ngx_http_clojure_reload_delay_event.handler = ngx_http_clojure_reload_delay_event_handler;
+	ngx_http_clojure_reload_delay_event.log = cycle->log;
 
 	return NGX_OK;
 }
@@ -1741,6 +1750,11 @@ static ngx_int_t ngx_http_clojure_content_handler(ngx_http_request_t * r) {
     }
 
     rc = ngx_http_clojure_eval(lcf->content_handler_id, r, 0);
+
+    if (ctx->hijacked_or_async && (ngx_http_clojure_reload_delay_event.data = (char*)ngx_http_clojure_reload_delay_event.data + 1) == (void*)1) {
+      ngx_add_timer(&ngx_http_clojure_reload_delay_event, ngx_current_msec >> 1);
+    }
+
     return rc;
 }
 
@@ -1809,6 +1823,11 @@ static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t *r) {
 		ngx_http_clojure_init_ctx(ctx, NGX_HTTP_REWRITE_PHASE, r);
 		ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
 		rc = ngx_http_clojure_eval(lcf->rewrite_handler_id, r, 0);
+
+    if (rc == NGX_DONE && (ngx_http_clojure_reload_delay_event.data = (char*)ngx_http_clojure_reload_delay_event.data + 1) == (void*)1) {
+      ngx_add_timer(&ngx_http_clojure_reload_delay_event, ngx_current_msec >> 1);
+    }
+
 		if (rc != NGX_DONE) {
 			ctx->phase = -1;
 		}
@@ -1830,9 +1849,14 @@ static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t *r) {
 				"ngx clojure rewrite (enter again) request: %" PRIu64 ", rc: %d", (jlong )(uintptr_t )r, NGX_DECLINED);
 		return ctx->phase_rc;
 	}else {
-	    ctx->hijacked_or_async = 0;
+	  ctx->hijacked_or_async = 0;
 		ctx->phase = NGX_HTTP_REWRITE_PHASE;
 		rc = ngx_http_clojure_eval(lcf->rewrite_handler_id, r, 0);
+
+    if (rc == NGX_DONE && (ngx_http_clojure_reload_delay_event.data = (char*)ngx_http_clojure_reload_delay_event.data + 1) == (void*)1) {
+      ngx_add_timer(&ngx_http_clojure_reload_delay_event, ngx_current_msec >> 1);
+    }
+
 		if (rc != NGX_DONE) {
 			ctx->phase = -1;
 		}
@@ -1872,6 +1896,11 @@ static ngx_int_t ngx_http_clojure_access_handler(ngx_http_request_t * r) {
 		ngx_http_clojure_init_ctx(ctx, NGX_HTTP_ACCESS_PHASE, r);
 		ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
 		rc = ngx_http_clojure_eval(lcf->access_handler_id, r, 0);
+
+    if (rc == NGX_DONE && (ngx_http_clojure_reload_delay_event.data = (char*)ngx_http_clojure_reload_delay_event.data + 1) == (void*)1) {
+      ngx_add_timer(&ngx_http_clojure_reload_delay_event, ngx_current_msec >> 1);
+    }
+
 		if (rc != NGX_DONE) {
 			ctx->phase = -1;
 		}
@@ -1893,9 +1922,14 @@ static ngx_int_t ngx_http_clojure_access_handler(ngx_http_request_t * r) {
 				"ngx clojure access (enter again) request: %" PRIu64 ", rc: %d", (jlong )(uintptr_t )r, NGX_DECLINED);
 		return ctx->phase_rc;
 	}else {
-	    ctx->hijacked_or_async = 0;
+	  ctx->hijacked_or_async = 0;
 		ctx->phase = NGX_HTTP_ACCESS_PHASE;
 		rc = ngx_http_clojure_eval(lcf->access_handler_id, r, 0);
+
+    if (rc == NGX_DONE && (ngx_http_clojure_reload_delay_event.data = (char*)ngx_http_clojure_reload_delay_event.data + 1) == (void*)1) {
+      ngx_add_timer(&ngx_http_clojure_reload_delay_event, ngx_current_msec >> 1);
+    }
+
 		if (rc != NGX_DONE) {
 			ctx->phase = -1;
 		}
@@ -1952,6 +1986,10 @@ static ngx_int_t ngx_http_clojure_header_filter(ngx_http_request_t *r) {
 	/*if under thread pool mode ctx->phase must be copied in java*/
     rc = ngx_http_clojure_eval(lcf->header_filter_id, r, 0);
     ctx->phase = src_phase;
+
+    if (rc == NGX_DONE && (ngx_http_clojure_reload_delay_event.data = (char*)ngx_http_clojure_reload_delay_event.data + 1) == (void*)1) {
+      ngx_add_timer(&ngx_http_clojure_reload_delay_event, ngx_current_msec >> 1);
+    }
 
     if (rc == NGX_DONE && !r->header_sent) {
     	ctx->wait_for_header_filter = 1;
@@ -2012,6 +2050,10 @@ static ngx_int_t ngx_http_clojure_body_filter(ngx_http_request_t *r,  ngx_chain_
   /*if under thread pool mode ctx->phase must be copied in java*/
   rc = ngx_http_clojure_eval(lcf->body_filter_id, r, *ppchain);
   ctx->phase = src_phase;
+
+  if (rc == NGX_DONE && (ngx_http_clojure_reload_delay_event.data = (char*)ngx_http_clojure_reload_delay_event.data + 1) == (void*)1) {
+    ngx_add_timer(&ngx_http_clojure_reload_delay_event, ngx_current_msec >> 1);
+  }
 
 	return rc;
 }

@@ -583,6 +583,8 @@ extern ngx_http_output_body_filter_pt ngx_http_clojure_next_body_filter;
 
 extern int ngx_http_clojure_is_little_endian;
 
+extern ngx_event_t ngx_http_clojure_reload_delay_event;
+
 #define ngx_http_clojure_get_ctx(r, octx)  \
 	 if (!(r)->pool)  { octx = NULL;  } \
      else if ( (octx = (r)->ctx[ngx_http_clojure_module.ctx_index]) != NULL )  { \
