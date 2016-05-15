@@ -2011,6 +2011,10 @@ static ngx_int_t ngx_http_clojure_body_filter(ngx_http_request_t *r,  ngx_chain_
 		return NGX_OK;
 	}
 
+	if (chain == NULL) {
+	  return ngx_http_clojure_filter_continue_next_body_filter(r, NULL);
+	}
+
 	lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
 
 	ngx_http_clojure_init_handler_script(lcf, NGX_HTTP_BODY_FILTER_PHASE, body_filter);

@@ -143,6 +143,13 @@ public class NginxChainWrappedInputStream extends InputStream {
 				
 				if ( (type & NGX_CLOJURE_BUF_LAST_FLAG) != 0) {
 					flag |= NGX_CLOJURE_BUF_LAST_FLAG;
+					total += len;
+					if (streamsPos != streams.length) {
+						InputStream[] sa = new InputStream[streamsPos];
+						System.arraycopy(streams, 0, sa, 0, streamsPos);
+						streams = sa;
+					}
+					break;
 				}
 				
 				if ( (type & NGX_CLOJURE_BUF_FLUSH_FLAG) != 0) {
@@ -159,7 +166,7 @@ public class NginxChainWrappedInputStream extends InputStream {
 	 */
 	@Override
 	public int read() throws IOException {
-		if (chain == 0 || index >= streams.length) {
+		if (chain == 0 || total == 0 || index >= streams.length) {
 			return -1;
 		}
 		
@@ -222,6 +229,11 @@ public class NginxChainWrappedInputStream extends InputStream {
 	
 	@Override
 	public void close() throws IOException {
+		
+		if (streams == null) {
+			return;
+		}
+		
 		index = streams.length;
 		Throwable e = null;
 		for (InputStream in : streams) {
@@ -248,7 +260,7 @@ public class NginxChainWrappedInputStream extends InputStream {
 	 */
 	@Override
 	public int available() throws IOException {
-		if (chain == 0 || index >= streams.length) {
+		if (chain == 0 || total == 0 || index >= streams.length) {
 			return 0;
 		}
 		
