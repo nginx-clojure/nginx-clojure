@@ -7,6 +7,8 @@ package nginx.clojure;
 import static nginx.clojure.MiniConstants.STRING_CHAR_ARRAY_OFFSET;
 import static nginx.clojure.MiniConstants.STRING_OFFSET_OFFSET;
 
+import java.io.FileDescriptor;
+import java.io.RandomAccessFile;
 import java.lang.ref.Reference;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
@@ -41,6 +43,10 @@ public class HackUtils {
 	private static final long  threadLocalMapEntryReferentFieldOffset;
 	private static final long threadLocalMapEntryQueueFieldOffset;
 	
+	private static final Class randomAccessFileClass;
+	private static final long randomAccessFileFdFieldOffset;
+	private static final Class fileDescriptorClass;
+	private static final long  fileDescriptorClassFdFieldOffset;
 	
 	/*use it carefully!!*/
 	public static Unsafe UNSAFE = null;
@@ -100,9 +106,27 @@ public class HackUtils {
             threadLocalMapEntryReferentFieldOffset = UNSAFE.objectFieldOffset(Reference.class.getDeclaredField("referent"));
             threadLocalMapEntryQueueFieldOffset = UNSAFE.objectFieldOffset(Reference.class.getDeclaredField("queue"));
             
+            randomAccessFileClass = Class.forName("java.io.RandomAccessFile");
+            randomAccessFileFdFieldOffset = UNSAFE.objectFieldOffset(randomAccessFileClass.getDeclaredField("fd"));
+            fileDescriptorClass = Class.forName("java.io.FileDescriptor");
+            fileDescriptorClassFdFieldOffset  = UNSAFE.objectFieldOffset(fileDescriptorClass.getDeclaredField("fd"));
         } catch (Exception ex) {
             throw new AssertionError(ex);
         }
+    }
+    
+    public static RandomAccessFile buildShadowRandomAccessFile(int fd) {
+    	RandomAccessFile rf = null;
+    	try {
+			rf = (RandomAccessFile) UNSAFE.allocateInstance(randomAccessFileClass);
+		} catch (InstantiationException e) {
+			throw new RuntimeException(e);
+		}
+    	FileDescriptor fileDescriptor = new FileDescriptor();
+    	UNSAFE.putInt(fileDescriptor, fileDescriptorClassFdFieldOffset, fd);
+    	UNSAFE.putObject(rf, randomAccessFileFdFieldOffset, fileDescriptor);
+    	return rf;
+    	
     }
 
     public static Object getThreadLocals(Thread thread) {

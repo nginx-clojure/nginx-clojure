@@ -3327,6 +3327,8 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_chain_info(JNIEnv *env, jclass
       len -= 8;
       *pinfo++ = (uint64_t)nameLen << 48 | cl->buf->file_pos;
       len -= 8;
+      *pinfo++ = (uint64_t)cl->buf->file->fd;
+      len -= 8;
       ngx_memcpy((char*)(uintptr_t)pinfo, cl->buf->file->name.data, nameLen);
       len -= nameLen;
       pinfo = (uint64_t *)((uintptr_t)pinfo + nameLen);
