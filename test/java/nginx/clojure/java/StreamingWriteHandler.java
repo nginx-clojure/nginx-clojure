@@ -6,6 +6,7 @@ import java.util.Map;
 
 import nginx.clojure.ChannelCloseAdapter;
 import nginx.clojure.HackUtils;
+import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHttpServerChannel;
 import nginx.clojure.logger.LoggerService;
@@ -54,6 +55,9 @@ public class StreamingWriteHandler implements NginxJavaRingHandler {
 	@Override
 	public Object[] invoke(Map<String, Object> request) throws IOException {
 		NginxHttpServerChannel ch = ((NginxJavaRequest)request).hijack(true);
+		//make access log have correct http status
+		NginxClojureRT.pushNGXInt(((NginxJavaRequest) request).nativeRequest() + MiniConstants.NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET
+				+ MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET, 200);
 		ch.turnOnEventHandler(false, true, true);//turn on write event trigger and non-keepalive
 		ByteBuffer headers = ByteBuffer.wrap(resp_headers);
 		ByteBuffer content = ByteBuffer.wrap(large_content_for_demo);
