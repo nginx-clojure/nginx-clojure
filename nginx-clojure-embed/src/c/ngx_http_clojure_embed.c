@@ -205,7 +205,9 @@ static ngx_int_t ngx_http_clojure_embed_start(int argc, char *const *argv){
 	ngx_log_t *log;
 	ngx_cycle_t *cycle, init_cycle;
 	ngx_core_conf_t  *ccf;
+#if nginx_version < 1009011
 	ngx_int_t i;
+#endif
 	ngx_int_t rc;
 	ngx_http_clojure_embed_cleaner_t cleaners[64];
 	ngx_http_clojure_embed_cleaner_t *pcleaner = cleaners -1;
@@ -271,11 +273,16 @@ static ngx_int_t ngx_http_clojure_embed_start(int argc, char *const *argv){
     	ngx_http_clojure_embed_clean_and_return_error("ngx_crc32_table_init", cleaners, pcleaner);
     }
 
+#if nginx_version >= 1009011
+	if (ngx_preinit_modules() != NGX_OK) {
+		ngx_http_clojure_embed_clean_and_return_error("ngx_preinit_modules", cleaners, pcleaner);
+	}
+#else
     ngx_max_module = 0;
     for (i = 0; ngx_modules[i]; i++) {
         ngx_modules[i]->index = ngx_max_module++;
     }
-
+#endif
 /*  init_cycle.conf_file.data = conf_file->data;
     init_cycle.conf_file.len = conf_file->len;*/
 
