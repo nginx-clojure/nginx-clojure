@@ -1,8 +1,6 @@
 ngx_addon_name=ngx_http_clojure_module
-HTTP_AUX_FILTER_MODULES="$HTTP_AUX_FILTER_MODULES ngx_http_clojure_module"
-#HTTP_MODULES="$HTTP_MODULES ngx_http_clojure_module"
-NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
-		$ngx_addon_dir/ngx_http_clojure_mem.c \
+
+CLOJURE_SRCS="$ngx_addon_dir/ngx_http_clojure_mem.c \
     $ngx_addon_dir/ngx_http_clojure_jvm.c \
     $ngx_addon_dir/ngx_http_clojure_module.c \
     $ngx_addon_dir/ngx_http_clojure_socket.c \
@@ -10,14 +8,28 @@ NGX_ADDON_SRCS="$NGX_ADDON_SRCS \
     $ngx_addon_dir/ngx_http_clojure_shared_map_hashmap.c \
     $ngx_addon_dir/ngx_http_clojure_shared_map_tinymap.c \
 "
-NGX_ADDON_DEPS="$NGX_ADDON_DEPS \
-    $ngx_addon_dir/ngx_http_clojure_jvm.h \
-    $ngx_addon_dir/ngx_http_clojure_mem.h \
-    $ngx_addon_dir/ngx_http_clojure_socket.h \
-    $ngx_addon_dir/ngx_http_clojure_shared_map.h \
-    $ngx_addon_dir/ngx_http_clojure_shared_map_hashmap.h \
-    $ngx_addon_dir/ngx_http_clojure_shared_map_tinymap.h \
+CLOJURE_DEPS="$NGX_ADDON_DEPS \
+      $ngx_addon_dir/ngx_http_clojure_jvm.h \
+      $ngx_addon_dir/ngx_http_clojure_mem.h \
+      $ngx_addon_dir/ngx_http_clojure_socket.h \
+      $ngx_addon_dir/ngx_http_clojure_shared_map.h \
+      $ngx_addon_dir/ngx_http_clojure_shared_map_hashmap.h \
+      $ngx_addon_dir/ngx_http_clojure_shared_map_tinymap.h \
 "
+
+if test -n "$ngx_module_link"; then
+    ngx_module_type=HTTP_AUX_FILTER
+    ngx_module_name=ngx_http_clojure_module
+    ngx_module_srcs=$CLOJURE_SRCS
+    ngx_module_deps=$CLOJURE_DEPS
+
+    . auto/module
+else
+  HTTP_AUX_FILTER_MODULES="$HTTP_AUX_FILTER_MODULES ngx_http_clojure_module"
+  #HTTP_MODULES="$HTTP_MODULES ngx_http_clojure_module"
+  NGX_ADDON_SRCS="$NGX_ADDON_SRCS $CLOJURE_SRCS"
+  NGX_ADDON_DEPS="$NGX_ADDON_DEPS $CLOJURE_DEPS"
+fi
 HTTP_INCS="$HTTP_INCS $ngx_addon_dir"
 
 USE_SHA1=YES
