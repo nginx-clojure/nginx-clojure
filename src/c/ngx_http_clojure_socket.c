@@ -317,7 +317,11 @@ void ngx_http_clojure_socket_upstream_connect_by_url(ngx_http_clojure_socket_ups
 	}
 	u->resolved->host.data = url->host.data;
 	u->resolved->host.len = url->host.len;
+#if nginx_version < 1011000
 	ngx_http_clojure_socket_upstream_connect(u, (struct sockaddr *)url->sockaddr, url->socklen);
+#else
+	ngx_http_clojure_socket_upstream_connect(u, &url->sockaddr.sockaddr, url->socklen);
+#endif
 }
 
 static void ngx_http_clojure_socket_upstream_connect_inner(ngx_http_clojure_socket_upstream_t *u) {
