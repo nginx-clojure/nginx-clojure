@@ -894,6 +894,10 @@ static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
 
 	ngx_core_conf_t  *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 	ngx_http_conf_ctx_t *ctx = (ngx_http_conf_ctx_t *)ngx_get_conf(cycle->conf_ctx, ngx_http_module);
+	if (ctx == NULL) {
+		// No HTTP block in config
+		return NGX_OK;
+	}
 	ngx_http_clojure_main_conf_t *mcf = ctx->main_conf[ngx_http_clojure_module.ctx_index];
 #if !(NGX_WIN32)
 	ngx_uint_t cl = 8;
@@ -1022,6 +1026,10 @@ static ngx_int_t ngx_http_clojure_quit_master(ngx_cycle_t *cycle) {
 static void ngx_http_clojure_process_exit(ngx_cycle_t *cycle) {
 	ngx_http_clojure_main_conf_t *mcf = ngx_http_cycle_get_module_main_conf(cycle, ngx_http_clojure_module);
 
+	if (mcf == NULL) {
+		return;
+	}
+
 	if (mcf->jvm_disable_all) {
 		return;
 	}
@@ -1122,6 +1130,10 @@ static ngx_int_t ngx_http_clojure_init_locations_handlers(ngx_http_core_main_con
 static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 	ngx_http_conf_ctx_t *ctx = (ngx_http_conf_ctx_t *)ngx_get_conf(cycle->conf_ctx, ngx_http_module);
 	ngx_int_t rc = 0;
+	if (ctx == NULL) {
+		// No HTTP block in config
+		return NGX_OK;
+	}
 	ngx_http_core_main_conf_t *cmcf = ctx->main_conf[ngx_http_core_module.ctx_index];
 	ngx_http_core_srv_conf_t *cscf = ctx->srv_conf[ngx_http_core_module.ctx_index];
 	ngx_http_clojure_main_conf_t *mcf = ctx->main_conf[ngx_http_clojure_module.ctx_index];
