@@ -894,17 +894,19 @@ static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
 
 	ngx_core_conf_t  *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 	ngx_http_conf_ctx_t *ctx = (ngx_http_conf_ctx_t *)ngx_get_conf(cycle->conf_ctx, ngx_http_module);
-	if (ctx == NULL) {
-		// No HTTP block in config
-		return NGX_OK;
-	}
-	ngx_http_clojure_main_conf_t *mcf = ctx->main_conf[ngx_http_clojure_module.ctx_index];
+	ngx_http_clojure_main_conf_t *mcf;
+
 #if !(NGX_WIN32)
 	ngx_uint_t cl = 8;
 	ngx_uint_t ssize = 0;
 #endif
 	ngx_http_clojure_global_cycle = cycle;
 
+	if (ctx == NULL) {
+		// No HTTP block in config
+		return NGX_OK;
+	}
+	mcf = ctx->main_conf[ngx_http_clojure_module.ctx_index];
 
 	if (mcf->jvm_path.len == NGX_CONF_UNSET_SIZE) {
 		return NGX_OK;
@@ -1130,15 +1132,20 @@ static ngx_int_t ngx_http_clojure_init_locations_handlers(ngx_http_core_main_con
 static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 	ngx_http_conf_ctx_t *ctx = (ngx_http_conf_ctx_t *)ngx_get_conf(cycle->conf_ctx, ngx_http_module);
 	ngx_int_t rc = 0;
+
+	ngx_http_core_main_conf_t *cmcf;
+	ngx_http_core_srv_conf_t *cscf;
+	ngx_http_clojure_main_conf_t *mcf;
+	ngx_core_conf_t  *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
+	ngx_int_t jvm_num = 0;
+
 	if (ctx == NULL) {
 		// No HTTP block in config
 		return NGX_OK;
 	}
-	ngx_http_core_main_conf_t *cmcf = ctx->main_conf[ngx_http_core_module.ctx_index];
-	ngx_http_core_srv_conf_t *cscf = ctx->srv_conf[ngx_http_core_module.ctx_index];
-	ngx_http_clojure_main_conf_t *mcf = ctx->main_conf[ngx_http_clojure_module.ctx_index];
-	ngx_core_conf_t  *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
-	ngx_int_t jvm_num = 0;
+	cmcf = ctx->main_conf[ngx_http_core_module.ctx_index];
+	cscf = ctx->srv_conf[ngx_http_core_module.ctx_index];
+	mcf = ctx->main_conf[ngx_http_clojure_module.ctx_index];
 
 	/*Fix issue #64 about proxy cache manger process
 	 * We won't initialize jvm unless the current process is worker process or single process*/
