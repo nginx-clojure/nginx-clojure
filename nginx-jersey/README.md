@@ -24,7 +24,8 @@ in nginx.conf
       location /jersey {
           content_handler_type java;
           content_handler_name 'nginx.clojure.bridge.NginxBridgeHandler';
-          content_handler_property system.m2rep '/home/who/.m2/repository';
+          ##we can set system properties ,e.g. m2rep
+          #content_handler_property system.m2rep '/home/who/.m2/repository';
           
           ##we can put jars into some dir then all of their path will be appended into the classpath
           #content_handler_property bridge.lib.dirs 'my-jersey-libs-dir:myother-dir';
