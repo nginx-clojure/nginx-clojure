@@ -3140,6 +3140,9 @@ static jlong JNICALL jni_ngx_http_clojure_mem_build_temp_chain(JNIEnv *env, jcla
 		 b->last_buf = prevChain == NGX_CHAIN_FILTER_CHUNK_NO_LAST ? 0 : 1;
 	 }
 
+	 if (b->last_buf && ngx_buf_size(b) == 0) {
+	   b->temporary = 0;
+	 }
 	 return (uintptr_t)cl;
 }
 
