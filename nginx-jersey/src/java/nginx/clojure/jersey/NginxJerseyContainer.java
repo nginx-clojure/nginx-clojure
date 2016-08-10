@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.core.Application;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.SecurityContext;
 
@@ -56,23 +57,41 @@ public class NginxJerseyContainer implements NginxBridge {
 		if (appPath == null) {
 			appPath = "";
 		}
-		String res = properties.get("jersey.app.resources");
-		List<Class> clzList = new ArrayList<Class>();
-		if (res != null) {
-			for (String clz : res.split(",") ) {
-				try {
-					clzList.add(loader.loadClass(clz.trim()));
-				} catch (Throwable e) {
-					NginxClojureRT.log.warn("can not load resource %s, skiping", clz, e);
-				}
+		
+		String application = properties.get("jersey.app.Appclass");
+		if (application != null) {
+			Class appClz = null;
+			try {
+				appClz = loader.loadClass(application.trim());
+			} catch (ClassNotFoundException e) {
+				NginxClojureRT.log.warn("can not load jersey.app.Appclass %s", application, e);
+				throw new RuntimeException("can not load jersey.app.Appclass " + e.getMessage(), e);
 			}
-			appResources = clzList.toArray(new Class[clzList.size()]);
+			try {
+				appHandler = new ApplicationHandler((Class<? extends Application>) appClz.newInstance());
+			} catch (Exception e) {
+				throw new RuntimeException("can not create jersey.app.Appclass" + e.getMessage(), e);
+			} 
+		}else {
+			String res = properties.get("jersey.app.resources");
+			List<Class> clzList = new ArrayList<Class>();
+			if (res != null) {
+				for (String clz : res.split(",") ) {
+					try {
+						clzList.add(loader.loadClass(clz.trim()));
+					} catch (Throwable e) {
+						NginxClojureRT.log.warn("can not load resource %s, skiping", clz, e);
+					}
+				}
+				appResources = clzList.toArray(new Class[clzList.size()]);
+			}
+			
+			if (appResources == null || appResources.length == 0){
+				NginxClojureRT.log.warn("no resource defined, property %s is null", "jersey.app.resources");
+			}
+			appHandler = new ApplicationHandler(configure());
 		}
 		
-		if (appResources == null || appResources.length == 0){
-			NginxClojureRT.log.warn("no resource defined, property %s is null", "jersey.app.resources");
-		}
-		appHandler = new ApplicationHandler(configure());
 	}
 	
 	@Override

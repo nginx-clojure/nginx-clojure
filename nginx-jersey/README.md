@@ -39,7 +39,12 @@ in nginx.conf
           ##aplication path usually it is the same with nginx location 
           content_handler_property jersey.app.path '/jersey';
           
-          ##application resources which can be either of JAX-RS resources, providers
+          ## jersey application class
+          content_handler_property jersey.app.Appclass 'org.glassfish.jersey.examples.MyApplication';
+          
+          ## If we have no jersey application class we can define JAX-RS resources, providers here
+          ## If jersey.app.Appclass is defined jersey.app.resources will be ignored.
+          ## application resources which can be either of JAX-RS resources, providers
           content_handler_property jersey.app.resources '
                 org.glassfish.jersey.examples.jackson.EmptyArrayResource,
                 org.glassfish.jersey.examples.jackson.NonJaxbBeanResource,
