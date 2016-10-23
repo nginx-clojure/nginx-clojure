@@ -1284,6 +1284,19 @@ static ngx_int_t ngx_http_clojure_auto_detect_jvm(ngx_conf_t *cf) {
 	char *p = cmd;
 	int c = 0;
 	FILE *fd;
+	char *java_home = getenv("JAVA_HOME");
+
+	if (java_home) {
+	  strcpy(p, java_home);
+	  p += strlen(java_home);
+#if !(NGX_WIN32)
+	  strcpy(p, "/bin/");
+	  p += strlen("/bin/");
+#else
+	  strcpy(p, "\\bin\\");
+	  p += strlen("\\bin\\");
+#endif
+	}
 
 	strcpy(p, "java");
 	p += sizeof("java") - 1;
