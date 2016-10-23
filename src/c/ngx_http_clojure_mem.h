@@ -586,17 +586,20 @@ extern int ngx_http_clojure_is_little_endian;
 extern ngx_event_t ngx_http_clojure_reload_delay_event;
 
 #define ngx_http_clojure_get_ctx(r, octx)  \
-	 if (!(r)->pool)  { octx = NULL;  } \
-     else if ( (octx = (r)->ctx[ngx_http_clojure_module.ctx_index]) != NULL )  { \
+	octx = (r)->ctx[ngx_http_clojure_module.ctx_index]; \
+  if (!octx && (r)->pool)  { \
     	 ngx_http_cleanup_t *cln = r->cleanup; \
     	 while (cln) { \
     		 if (cln->handler == ngx_http_clojure_cleanup_handler) { \
     			 octx = cln->data; \
+    			 if ( (r)->ctx[ngx_http_clojure_module.ctx_index] == NULL ) { \
+    				 (r)->ctx[ngx_http_clojure_module.ctx_index] = octx; \
+           } \
     			 break; \
     		 } \
     		 cln = cln->next; \
     	 } \
-     }
+  }
 
 
 #endif /* NGX_HTTP_CLOJURE_MEM_H_ */

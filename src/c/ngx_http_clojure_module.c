@@ -1978,7 +1978,7 @@ static ngx_int_t ngx_http_clojure_header_filter(ngx_http_request_t *r) {
 		return ngx_http_clojure_next_header_filter(r);
 	}
 
-	if ((ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module)) == NULL) {
+	if (ctx == NULL) {
 		if (ngx_http_clojure_prepare_server_header(r) != NGX_OK) {
 			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_clojure_prepare_server_header error");
 			return NGX_HTTP_INTERNAL_SERVER_ERROR;
@@ -2022,9 +2022,11 @@ static ngx_int_t ngx_http_clojure_header_filter(ngx_http_request_t *r) {
 static ngx_int_t ngx_http_clojure_body_filter(ngx_http_request_t *r,  ngx_chain_t *chain) {
   ngx_int_t rc;
   ngx_http_clojure_loc_conf_t  *lcf;
-	ngx_http_clojure_module_ctx_t *ctx  = ngx_http_get_module_ctx(r, ngx_http_clojure_module);
+	ngx_http_clojure_module_ctx_t *ctx;
 	ngx_int_t  src_phase;
 	ngx_chain_t **ppchain;
+
+	ngx_http_clojure_get_ctx(r, ctx);
 
 	if (ctx && ctx->ignore_next_response) {
 		return NGX_OK;
@@ -2046,7 +2048,7 @@ static ngx_int_t ngx_http_clojure_body_filter(ngx_http_request_t *r,  ngx_chain_
     return ngx_http_clojure_filter_continue_next_body_filter(r, chain);
   }
 
-  if ((ctx = ngx_http_get_module_ctx(r, ngx_http_clojure_module)) == NULL) {
+  if (ctx == NULL) {
     ctx = ngx_palloc(r->pool, sizeof(ngx_http_clojure_module_ctx_t));
     if (ctx == NULL) {
       ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "OutOfMemory of create ngx_http_clojure_module_ctx_t");
