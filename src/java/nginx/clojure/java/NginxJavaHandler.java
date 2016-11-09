@@ -108,7 +108,7 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 				break;
 			case NGX_HTTP_BODY_FILTER_PHASE:
 				NginxJavaFilterRequest breq = (NginxJavaFilterRequest)r;
-				NginxChainWrappedInputStream chunk = new NginxChainWrappedInputStream(r, breq.c);
+				NginxChainWrappedInputStream chunk = breq.body;
 				try {
 					Object[] chunkedResp = bodyFilter.doFilter(breq, chunk, chunk.isLast());
 					if (!breq.isHijacked()) {

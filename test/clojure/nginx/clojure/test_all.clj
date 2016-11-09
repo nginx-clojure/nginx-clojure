@@ -915,7 +915,7 @@
              (debug-println r)
              (debug-println "=================/javabodyfilter/small.html=============================")
              (is (= 200 (:status r)))
-             (is  (= "680" (h  "content-length")) )
+;             (is  (= "680" (h  "content-length")) )
              (is (= 680 (.length b)))
              )
 
@@ -1059,7 +1059,7 @@
              (debug-println r)
              (debug-println "=================/cljbodyfilter/small.html=============================")
              (is (= 200 (:status r)))
-             (is  (= "680" (h  "content-length")) )
+;             (is  (= "680" (h  "content-length")) )
              (is (= 680 (.length b)))
              )
 

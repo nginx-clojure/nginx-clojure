@@ -127,7 +127,7 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 				break;
 			case NGX_HTTP_BODY_FILTER_PHASE:
 				LazyFilterRequestMap breq = (LazyFilterRequestMap) r;
-				NginxChainWrappedInputStream chunk = new NginxChainWrappedInputStream(r, breq.c);
+				NginxChainWrappedInputStream chunk = breq.body;
 				try{
 					Map chunkedResp = bodyFilter.invoke(breq, chunk, chunk.isLast());
 					if (!breq.isHijacked()) {

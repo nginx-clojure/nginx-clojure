@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import nginx.clojure.ChannelCloseAdapter;
+import nginx.clojure.NginxChainWrappedInputStream;
 import nginx.clojure.NginxFilterRequest;
 import nginx.clojure.NginxHandler;
 
@@ -19,6 +20,8 @@ public class LazyFilterRequestMap extends LazyRequestMap implements NginxFilterR
 	 * native ngx_chain_t
 	 */
 	protected long c;
+	
+	protected NginxChainWrappedInputStream body;
 	
 	/**
 	 * native headers_out
@@ -44,8 +47,15 @@ public class LazyFilterRequestMap extends LazyRequestMap implements NginxFilterR
 			try {
 				creq = (LazyFilterRequestMap) req.clone();
 				creq.c = c;
+				if (c > 0) {
+					creq.body = new NginxChainWrappedInputStream(creq, c);
+				} else {
+					creq.body = null;
+				}
 			} catch (CloneNotSupportedException e) {
-				e.printStackTrace();
+				e.printStackTrace();//should never happen
+			} catch (IOException e) {
+				e.printStackTrace();//should never happen
 			}
 		}
 		return creq;
@@ -57,6 +67,11 @@ public class LazyFilterRequestMap extends LazyRequestMap implements NginxFilterR
 		this.ho =  r + NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
 		responseHeaders = new LazyHeaderMap(r,  true);
 		if (c > 0) { //body filter request
+			try {
+				body = new NginxChainWrappedInputStream(this, c);
+			} catch (IOException e) {
+				throw new RuntimeException("can not build body r:" + r +", c=" + c, e);
+			}
 			bodyFilterRequests.put(r, this);
 			this.addListener(r, bodyFilterRequestsCleaner);
 		}
@@ -76,5 +91,20 @@ public class LazyFilterRequestMap extends LazyRequestMap implements NginxFilterR
 	@Override
 	public Map<String, Object> responseHeaders() {
 		return responseHeaders;
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.clj.LazyRequestMap#prefetchAll()
+	 */
+	@Override
+	public void prefetchAll() {
+		super.prefetchAll();
+		if (body != null) {
+			try {
+				body.prefetchNativeData();
+			} catch (IOException e) {
+				throw new RuntimeException("can not prefetch native data", e);
+			}			
+		}
 	}
 }

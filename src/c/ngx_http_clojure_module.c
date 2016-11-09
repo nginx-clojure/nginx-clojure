@@ -1982,6 +1982,10 @@ static ngx_int_t ngx_http_clojure_header_filter(ngx_http_request_t *r) {
 
     ngx_http_clojure_init_handler_script(lcf, NGX_HTTP_HEADER_FILTER_PHASE, header_filter);
 
+    if (lcf->enable_body_filter) {
+      ngx_http_clear_content_length(r);
+    }
+
 	if (!lcf->enable_header_filter || (lcf->header_filter_code.len == 0 && lcf->header_filter_name.len == 0)) {
 		if (ctx != NULL && ctx->phase == ~NGX_HTTP_HEADER_FILTER_PHASE) {
 			ctx->phase = -1;
@@ -2082,12 +2086,15 @@ static ngx_int_t ngx_http_clojure_body_filter(ngx_http_request_t *r,  ngx_chain_
   src_phase = ctx->phase;
   ctx->phase = NGX_HTTP_BODY_FILTER_PHASE;
 
-  ppchain = ngx_pcalloc(r->pool, sizeof(ngx_chain_t *));
-  ngx_chain_add_copy(r->pool, ppchain, chain);
-
   /*if under thread pool mode ctx->phase must be copied in java*/
-  rc = ngx_http_clojure_eval(lcf->body_filter_id, r, *ppchain);
+  rc = ngx_http_clojure_eval(lcf->body_filter_id, r, chain);
   ctx->phase = src_phase;
+
+  while (chain) {
+    chain->buf->pos = chain->buf->last;
+    chain = chain->next;
+  }
+
 
   if (rc == NGX_DONE && (ngx_http_clojure_reload_delay_event.data = (char*)ngx_http_clojure_reload_delay_event.data + 1) == (void*)1) {
     ngx_add_timer(&ngx_http_clojure_reload_delay_event, ngx_current_msec >> 1);

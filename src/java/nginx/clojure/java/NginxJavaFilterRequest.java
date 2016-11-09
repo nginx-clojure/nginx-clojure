@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import nginx.clojure.ChannelCloseAdapter;
+import nginx.clojure.NginxChainWrappedInputStream;
 import nginx.clojure.NginxFilterRequest;
 import nginx.clojure.NginxHandler;
 
@@ -21,6 +22,8 @@ public class NginxJavaFilterRequest extends NginxJavaRequest implements NginxFil
 	 * native ngx_chain_t
 	 */
 	protected long c;
+	
+	protected NginxChainWrappedInputStream body;
 	
 	/**
 	 * native headers_out
@@ -46,7 +49,14 @@ public class NginxJavaFilterRequest extends NginxJavaRequest implements NginxFil
 			try {
 				creq = (NginxJavaFilterRequest) req.clone();
 				creq.c = c;
+				if (c > 0) {
+					creq.body = new NginxChainWrappedInputStream(creq, c);
+				} else {
+					creq.body = null;
+				}
 			} catch (CloneNotSupportedException e) {
+			} catch (IOException e) {
+				throw new RuntimeException("can not build body r:" + r +", c=" + c, e);
 			}
 		}
 		return creq;
@@ -60,6 +70,11 @@ public class NginxJavaFilterRequest extends NginxJavaRequest implements NginxFil
 		responseHeaders = new JavaLazyHeaderMap(r, true);
 		
 		if (c > 0) { //body filter request
+			try {
+				body = new NginxChainWrappedInputStream(this, c);
+			} catch (IOException e) {
+				throw new RuntimeException("can not build body r:" + r +", c=" + c, e);
+			}
 			bodyFilterRequests.put(r, this);
 			this.addListener(r, bodyFilterRequestsCleaner);
 		}
@@ -88,6 +103,21 @@ public class NginxJavaFilterRequest extends NginxJavaRequest implements NginxFil
 	@Override
 	protected Object clone() throws CloneNotSupportedException {
 		return super.clone();
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.java.NginxJavaRequest#prefetchAll()
+	 */
+	@Override
+	public void prefetchAll() {
+		super.prefetchAll();
+		if (body != null) {
+			try {
+				body.prefetchNativeData();
+			} catch (IOException e) {
+				throw new RuntimeException("can not prefetch native data", e);
+			}
+		}
 	}
 
 }

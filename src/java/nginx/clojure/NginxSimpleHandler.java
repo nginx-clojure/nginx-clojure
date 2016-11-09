@@ -495,8 +495,8 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 			bb.clear();
 		}
 
+		bb.flip();
 		if (bb.hasRemaining()) {
-			bb.flip();
 			chain = ngx_http_clojure_mem_build_temp_chain(r, chain, bb.array(), BYTE_ARRAY_OFFSET, bb.remaining());
 			if (chain <= 0) {
 				return chain;
