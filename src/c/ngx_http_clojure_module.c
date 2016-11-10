@@ -2041,7 +2041,6 @@ static ngx_int_t ngx_http_clojure_body_filter(ngx_http_request_t *r,  ngx_chain_
   ngx_http_clojure_loc_conf_t  *lcf;
 	ngx_http_clojure_module_ctx_t *ctx;
 	ngx_int_t  src_phase;
-	ngx_chain_t **ppchain;
 
 	ngx_http_clojure_get_ctx(r, ctx);
 
