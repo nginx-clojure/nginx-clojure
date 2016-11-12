@@ -1662,10 +1662,8 @@ static ngx_int_t ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 		*h = ngx_http_clojure_access_handler;
 	}
 
-	if (mcf->enable_header_filter) {
-	    ngx_http_clojure_next_header_filter = ngx_http_top_header_filter;
-	    ngx_http_top_header_filter = ngx_http_clojure_header_filter;
-	}
+	ngx_http_clojure_next_header_filter = ngx_http_top_header_filter;
+	ngx_http_top_header_filter = ngx_http_clojure_header_filter;
 
 	if (mcf->enable_body_filter || mcf->enable_header_filter) {
 		ngx_http_clojure_next_body_filter = ngx_http_top_body_filter;
@@ -1970,69 +1968,71 @@ static ngx_int_t ngx_http_clojure_access_handler(ngx_http_request_t * r) {
 	}
 }
 
-static ngx_int_t ngx_http_clojure_header_filter(ngx_http_request_t *r) {
+    static ngx_int_t ngx_http_clojure_header_filter(ngx_http_request_t *r) {
 
-    ngx_int_t rc;
-    ngx_http_clojure_loc_conf_t  *lcf;
-    ngx_http_clojure_module_ctx_t *ctx;
-    ngx_int_t  src_phase;
+      ngx_int_t rc;
+      ngx_http_clojure_loc_conf_t *lcf;
+      ngx_http_clojure_module_ctx_t *ctx;
+      ngx_int_t src_phase;
 
-    ngx_http_clojure_get_ctx(r, ctx);
-    lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
+      ngx_http_clojure_get_ctx(r, ctx);
+      lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
 
-    ngx_http_clojure_init_handler_script(lcf, NGX_HTTP_HEADER_FILTER_PHASE, header_filter);
+      ngx_http_clojure_init_handler_script(lcf, NGX_HTTP_HEADER_FILTER_PHASE, header_filter);
 
-    if (lcf->enable_body_filter) {
-      ngx_http_clear_content_length(r);
-    }
+      if (lcf->enable_body_filter) {
+        ngx_http_clear_content_length(r);
+      }
 
-	if (!lcf->enable_header_filter || (lcf->header_filter_code.len == 0 && lcf->header_filter_name.len == 0)) {
-		if (ctx != NULL && ctx->phase == ~NGX_HTTP_HEADER_FILTER_PHASE) {
-			ctx->phase = -1;
-			ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0,
-							"ngx clojure header filter (enter again but without real nginx-clojure  header filter) request: %" PRIu64 ", rc: %d", (jlong )(uintptr_t )r,  NGX_OK);
-		}
-		return ngx_http_clojure_next_header_filter(r);
-	}
+      if (!lcf->enable_header_filter || (lcf->header_filter_code.len == 0 && lcf->header_filter_name.len == 0)) {
+        if (ctx != NULL && ctx->phase == ~NGX_HTTP_HEADER_FILTER_PHASE) {
+          ctx->phase = -1;
+          ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0,
+              "ngx clojure header filter (enter again but without real nginx-clojure  header filter) request: %" PRIu64 ", rc: %d",
+              (jlong )(uintptr_t )r, NGX_OK);
+        }
+        return ngx_http_clojure_next_header_filter(r);
+      }
 
-	if (ctx == NULL) {
-		if (ngx_http_clojure_prepare_server_header(r) != NGX_OK) {
-			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_clojure_prepare_server_header error");
-			return NGX_HTTP_INTERNAL_SERVER_ERROR;
-		}
-		ctx = ngx_palloc(r->pool, sizeof(ngx_http_clojure_module_ctx_t));
-		if (ctx == NULL) {
-			ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "OutOfMemory of create ngx_http_clojure_module_ctx_t");
-			return NGX_HTTP_INTERNAL_SERVER_ERROR;
-		}
+      if (ctx == NULL) {
+        if (ngx_http_clojure_prepare_server_header(r) != NGX_OK) {
+          ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_clojure_prepare_server_header error");
+          return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
+        ctx = ngx_palloc(r->pool, sizeof(ngx_http_clojure_module_ctx_t));
+        if (ctx == NULL) {
+          ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "OutOfMemory of create ngx_http_clojure_module_ctx_t");
+          return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
 
-		ngx_http_clojure_init_ctx(ctx, -1, r);
-		ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
-	}
+        ngx_http_clojure_init_ctx(ctx, -1, r);
+        ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
+      }
 
-	if (ctx->phase == ~NGX_HTTP_HEADER_FILTER_PHASE) {
-		ctx->phase = -1;
-		 /*this case was  issued  by itself to send  user defined error response to client
-		  * so we just turn to next filter*/
-		return ngx_http_clojure_next_header_filter(r);
-	}
+      if (ctx->phase == ~NGX_HTTP_HEADER_FILTER_PHASE) {
+        ctx->phase = -1;
+        /*this case was  issued  by itself to send  user defined error response to client
+         * so we just turn to next filter*/
+        return ngx_http_clojure_next_header_filter(r);
+      }
 
-	src_phase = ctx->phase;
-	ctx->phase = NGX_HTTP_HEADER_FILTER_PHASE;
-	/*if under thread pool mode ctx->phase must be copied in java*/
-    rc = ngx_http_clojure_eval(lcf->header_filter_id, r, 0);
-    ctx->phase = src_phase;
+      src_phase = ctx->phase;
+      ctx->phase = NGX_HTTP_HEADER_FILTER_PHASE;
+      /*if under thread pool mode ctx->phase must be copied in java*/
+      rc = ngx_http_clojure_eval(lcf->header_filter_id, r, 0);
+      ctx->phase = src_phase;
 
-    if (rc == NGX_DONE && (ngx_http_clojure_reload_delay_event.data = (char*)ngx_http_clojure_reload_delay_event.data + 1) == (void*)1) {
-      ngx_add_timer(&ngx_http_clojure_reload_delay_event, ngx_current_msec >> 1);
-    }
+      if (rc == NGX_DONE
+          && (ngx_http_clojure_reload_delay_event.data = (char*) ngx_http_clojure_reload_delay_event.data + 1) == (void*) 1) {
+        ngx_add_timer(&ngx_http_clojure_reload_delay_event, ngx_current_msec >> 1);
+      }
 
-    if (rc == NGX_DONE && !r->header_sent) {
-    	ctx->wait_for_header_filter = 1;
-    	rc = NGX_OK;
-    }
+      if (rc == NGX_DONE && !r->header_sent) {
+        ctx->wait_for_header_filter = 1;
+        rc = NGX_OK;
+      }
 
-    return rc;
+      return rc;
 
 }
 
