@@ -7,7 +7,7 @@
 
 #include <nginx.h>
 #include <ngx_http.h>
-#if (NGX_HAVE_SHA1)
+#if (NGX_HAVE_SHA1 || nginx_version >= 1011002)
 #include <ngx_sha1.h>
 #endif
 

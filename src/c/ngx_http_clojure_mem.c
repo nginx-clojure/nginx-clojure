@@ -2253,7 +2253,7 @@ static void nji_ngx_http_clojure_hijack_write_handler(ngx_http_request_t *r) {
 	}
 }
 
-#if (NGX_HAVE_SHA1 && NGX_ZLIB)
+#if ((NGX_HAVE_SHA1 || nginx_version >= 1011002) && NGX_ZLIB)
 
 static void *ngx_http_clojure_websocket_alloc(void *opaque, u_int items, u_int size) {
 	ngx_http_clojure_module_ctx_t *ctx = (ngx_http_clojure_module_ctx_t *)opaque;
@@ -2268,7 +2268,7 @@ static void ngx_http_clojure_websocket_free(void *opaque, void *address) {
 
 ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
 	ngx_http_clojure_module_ctx_t *ctx;
-#if (NGX_HAVE_SHA1)
+#if (NGX_HAVE_SHA1 || nginx_version >= 1011002)
     ngx_http_clojure_websocket_ctx_t *wsctx = NULL;
 	ngx_int_t rc = NGX_OK;
 	ngx_table_elt_t *key = NULL;
