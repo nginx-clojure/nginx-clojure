@@ -276,7 +276,7 @@ public class SuspendMethodTracer {
 			}
 			ArrayList<MethodInfo> stack = fetchStack();
 			MethodInfo mi = stack.get(stack.size() - 1);
-			if (!mi.owner.equals(owner) || !mi.method.equals(method)) {
+			if ( !(mi.owner == owner || mi.owner.equals(owner) ) || !mi.method.equals(method)) {
 				quiteFlags.set(true);
 				db.error("Thread #%d, leave != enter %s.%s != %s.%s", Thread
 						.currentThread().getId(), owner, method, mi.owner,
