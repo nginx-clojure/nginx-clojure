@@ -543,5 +543,7 @@ public class MiniConstants {
 	public static final int MODE_DEFAULT = 0;
 	public static final int MODE_THREAD = 1;
 	public static final int MODE_COROUTINE = 2;
+	
+	public static final String REQUEST_FORECE_PREFETCH_ALL_PROPERTIES = "fore-prefetch-all-properties";
 
 }

@@ -70,9 +70,11 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 
 	public abstract NginxRequest makeRequest(long r, long c);
 	
+	protected boolean forcePrefetchAllProperties = false;
+	
 	@Override
 	public void config(Map<String, String> properties) {
-		
+		forcePrefetchAllProperties = "true".equalsIgnoreCase(properties.get(MiniConstants.REQUEST_FORECE_PREFETCH_ALL_PROPERTIES));
 	}
 	
 	@Override
@@ -90,6 +92,12 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		final NginxRequest req = makeRequest(r, c);
 		final int phase = req.phase();
 		boolean isWebSocket = req.isWebSocket();
+		
+		if (forcePrefetchAllProperties) {
+			//for safe access with another thread
+			req.prefetchAll();
+		}
+		
 		if (workers == null || (isWebSocket && phase == -1)) {
 			if (isWebSocket) {
 				req.uri();
@@ -112,8 +120,10 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 			return handleResponse(req, resp);
 		}
 		
-		//for safe access with another thread
-		req.prefetchAll();
+		//with thread pool mode we need make it safe
+		if (!forcePrefetchAllProperties) {
+			req.prefetchAll();			
+		}
 		
 		if (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE 
 				|| phase == NGX_HTTP_BODY_FILTER_PHASE
