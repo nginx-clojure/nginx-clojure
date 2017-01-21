@@ -2814,7 +2814,7 @@ static void JNICALL jni_ngx_http_hijack_set_async_timeout(JNIEnv *env, jclass cl
 
 void ngx_http_clojure_cleanup_handler(void *data) {
   if (((ngx_http_clojure_module_ctx_t *)data)->hijacked_or_async
-      && (ngx_http_clojure_reload_delay_event.data = ((char *)ngx_http_clojure_reload_delay_event.data)-1) == 0) {
+      && ( --((ngx_connection_t*)ngx_http_clojure_reload_delay_event.data)->requests == 0) ) {
     ngx_del_timer(&ngx_http_clojure_reload_delay_event);
   }
 	nji_ngx_http_clojure_hijack_fire_channel_event(NGX_HTTP_CLOJURE_CHANNEL_EVENT_CLOSE, 0, data);
@@ -3040,7 +3040,7 @@ static jlong JNICALL jni_ngx_http_filter_continue_next(JNIEnv *env, jclass cls, 
 
 	ngx_http_clojure_get_ctx(r, ctx);
 
-  if ((ngx_http_clojure_reload_delay_event.data = ((char *)ngx_http_clojure_reload_delay_event.data)-1) == 0) {
+  if  ( --((ngx_connection_t*)ngx_http_clojure_reload_delay_event.data)->requests == 0) {
     ngx_del_timer(&ngx_http_clojure_reload_delay_event);
   }
 
@@ -3673,7 +3673,7 @@ static void JNICALL jni_ngx_http_clojure_mem_continue_current_phase(JNIEnv *env,
 		return;
 	}
 
-  if ((ngx_http_clojure_reload_delay_event.data = ((char *)ngx_http_clojure_reload_delay_event.data)-1) == 0) {
+  if  ( --((ngx_connection_t*)ngx_http_clojure_reload_delay_event.data)->requests == 0) {
     ngx_del_timer(&ngx_http_clojure_reload_delay_event);
   }
 
