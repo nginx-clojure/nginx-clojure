@@ -13,6 +13,7 @@ import nginx.clojure.ChannelCloseAdapter;
 import nginx.clojure.NginxChainWrappedInputStream;
 import nginx.clojure.NginxFilterRequest;
 import nginx.clojure.NginxHandler;
+import nginx.clojure.Stack;
 
 public class LazyFilterRequestMap extends LazyRequestMap implements NginxFilterRequest, Cloneable {
 
@@ -106,5 +107,20 @@ public class LazyFilterRequestMap extends LazyRequestMap implements NginxFilterR
 				throw new RuntimeException("can not prefetch native data", e);
 			}			
 		}
+	}
+	
+	@Override
+	public void tagReleased() {
+		this.released = true;
+		this.channel = null;
+		System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
+		validLen = default_request_array.length;
+		if (array.length > validLen) {
+			Stack.fillNull(array, validLen, array.length - validLen);
+		}
+		if (listeners != null) {
+			listeners.clear();
+		}
+//		((NginxClojureHandler)handler).returnToRequestPool(this);
 	}
 }

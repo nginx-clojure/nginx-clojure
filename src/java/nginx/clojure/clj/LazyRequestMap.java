@@ -66,7 +66,7 @@ import clojure.lang.Util;
 public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentMap {
 	
 	
-	private final static Object[] default_request_array = new Object[] {
+	protected final static Object[] default_request_array = new Object[] {
 		URI, URI_FETCHER,
 		BODY, BODY_FETCHER,
 		HEADERS, HEADER_FETCHER,
@@ -113,6 +113,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	protected byte[] hijackTag;
 	protected int phase = -1;
 	protected int evalCount = 0;
+	protected int nativeCount = -1;
 	protected volatile boolean released = false;
 	protected List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners;
 	
@@ -162,6 +163,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		this.handler = handler;
 		if (r != 0) {
 			NginxClojureRT.addListener(r, requestListener, this, 1);
+			nativeCount = -1;
 		}
 	}
 	
@@ -505,7 +507,17 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	}
 	
 	public long nativeCount() {
-		return NginxClojureRT.ngx_http_clojure_mem_inc_req_count(r, 0);
+		return nativeCount;
+	}
+	
+	public long nativeCount(long c) {
+		int old = nativeCount;
+		nativeCount = (int)c;
+		return old;
+	}
+	
+	public int refreshNativeCount() {
+		return nativeCount = (int)NginxClojureRT.ngx_http_clojure_mem_inc_req_count(r, 0);
 	}
 	
 	@Override

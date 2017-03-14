@@ -52,7 +52,7 @@ import nginx.clojure.net.NginxClojureAsynSocket;
 public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 
 	//TODO: SSL_CLIENT_CERT
-	private final static Object[] default_request_array = new Object[] { 
+	protected final static Object[] default_request_array = new Object[] { 
 		    URI, URI_FETCHER, 
 		    BODY, BODY_FETCHER, 
 		    HEADERS, HEADER_FETCHER,
@@ -90,24 +90,26 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	protected NginxHttpServerChannel channel;
 	protected int phase = -1;
 	protected int evalCount = 0;
+	protected int nativeCount = -1;
 	protected volatile boolean released = false;
 	protected List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners;
 	
 	
 	public final  static ChannelListener<NginxRequest> requestListener  = new RequestRawMessageAdapter();
 	
-	public NginxJavaRequest(NginxHandler handler, long r, Object[] array) {
+	public NginxJavaRequest(int phase, NginxHandler handler, long r, Object[] array) {
 		this.r = r;
 		this.handler = handler;
 		this.array = array;
+		this.phase = phase;
 		if (r != 0) {
-			NginxClojureRT.addListener(r, requestListener, this, 1);
+			NginxClojureRT.addListener(r, requestListener, this, phase == -1 ? 1 : 0);
 		}
 	}
 	
 	@SuppressWarnings("unchecked")
-	public NginxJavaRequest(NginxHandler handler, long r) {
-		this(handler, r, new Object[default_request_array.length]);
+	public NginxJavaRequest(int phase, NginxHandler handler, long r) {
+		this(phase, handler, r, new Object[default_request_array.length]);
 		System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
 		if (NginxClojureRT.log.isDebugEnabled()) {
 			get(URI);
@@ -122,7 +124,18 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		phase = -1;
 		if (r != 0) {
 			NginxClojureRT.addListener(r, requestListener, this, 1);
+			nativeCount = -1;
 		}
+	}
+	
+	public long nativeCount(long c) {
+		int old = nativeCount;
+		nativeCount = (int)c;
+		return old;
+	}
+	
+	public int refreshNativeCount() {
+		return nativeCount = (int)NginxClojureRT.ngx_http_clojure_mem_inc_req_count(r, 0);
 	}
 	
 	public void prefetchAll() {
@@ -152,6 +165,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		Object o = array[i];
 		if (o instanceof RequestVarFetcher) {
 			if (released) {
+				NginxClojureRT.getLog().warn("val at released request %s, idx %d", r, i);
 				return null;
 			}
 			if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
@@ -384,7 +398,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	}
 	
 	public long nativeCount() {
-		return NginxClojureRT.ngx_http_clojure_mem_inc_req_count(r, 0);
+		return nativeCount;
 	}
 	
 	@Override

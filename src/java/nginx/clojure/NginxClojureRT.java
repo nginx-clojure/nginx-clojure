@@ -1420,6 +1420,8 @@ public class NginxClojureRT extends MiniConstants {
 			rc = ngx_http_filter_continue_next(r, ctx.chain);
 			if (resp.isLast()) {
 				ngx_http_finalize_request(r, rc);
+			} else {
+				ngx_http_clojure_mem_inc_req_count(r, -1);
 			}
 			return NGX_OK;
 		}

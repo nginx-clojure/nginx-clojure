@@ -70,7 +70,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 		}
 		
 		if (NginxClojureRT.log.isDebugEnabled()) {
-			NginxClojureRT.log.debug("#%d: request %s onClose!", req.nativeRequest(), req.uri());
+			NginxClojureRT.log.debug("#%d: request %s, phase %s onClose!", req.nativeRequest(), req.phase(),  req.uri());
 		}
 		final List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
 		if (listeners != null && !listeners.isEmpty()) {
@@ -131,7 +131,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 					| (0xff & NginxClojureRT.UNSAFE.getByte(NginxClojureRT.UNSAFE.getAddress(address)+1))) : 1000;
 		
 		if (NginxClojureRT.log.isDebugEnabled()) {
-			NginxClojureRT.log.debug("#%d: request %s onClose2, status=%d", req.nativeRequest(), req.uri(), status);
+			NginxClojureRT.log.debug("#%d: request %s, phase %s onClose2, status=%d", req.nativeRequest(), req.phase(), req.uri(), status);
 		}
 		final List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
 		if (listeners != null && listeners.size() > 1) {

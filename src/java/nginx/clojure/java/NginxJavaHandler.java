@@ -66,7 +66,7 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 	@Override
 	public NginxRequest makeRequest(long r, long c) {
 		if (r == 0) {
-			return new NginxJavaRequest(this, r, new Object[0]) {
+			return new NginxJavaRequest(-1, this, r, new Object[0]) {
 				@Override
 				public long nativeCount() {
 					return 0;
@@ -77,18 +77,18 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 		NginxJavaRequest req;
 		switch (phase) {
 		case NGX_HTTP_HEADER_FILTER_PHASE : 
-			req = new NginxJavaFilterRequest(this, r, c);
+			req = new NginxJavaFilterRequest(phase, this, r, c);
 			break;
 		case NGX_HTTP_BODY_FILTER_PHASE:
 			req = NginxJavaFilterRequest.cloneExisted(r, c);
 			if (req == null) {
-				req = new NginxJavaFilterRequest(this, r, c);
+				req = new NginxJavaFilterRequest(phase, this, r, c);
 			}
 			break;
 		default :
 			req = pooledRequests.poll();
 			if (req == null) {
-				req =  new NginxJavaRequest(this, r);
+				req =  new NginxJavaRequest(phase, this, r);
 			}else {
 				req.reset(r, this);
 			}
@@ -99,6 +99,7 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 	@Override
 	public NginxResponse process(NginxRequest req) throws IOException {
 		NginxJavaRequest r = (NginxJavaRequest)req;
+		long nr = r.nativeRequest();
 		try{
 			Object resp;
 			switch (req.phase()) {
@@ -133,7 +134,7 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 						((Closeable)body).close();
 					}
 				} catch (Throwable e) {
-					NginxClojureRT.log.error("can not close Closeable object such as FileInputStream!", e);
+					NginxClojureRT.log.error("%s:%s can not close Closeable object such as FileInputStream!",nr, r.nativeRequest() , e);
 				}
 			}
 		}
@@ -218,6 +219,7 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 	}
 
 	protected void returnToRequestPool(NginxJavaRequest r) {
+		NginxClojureRT.log.debug("returnToRequestPool %s, c %s, phase %s", r.r, r.nativeCount, r.phase);;
 		pooledRequests.add(r);
 	}
 }

@@ -3652,7 +3652,7 @@ static jlong JNICALL jni_ngx_http_clojure_mem_inc_req_count(JNIEnv *env, jclass 
 	ngx_http_clojure_module_ctx_t *ctx;
 	int n = 0;
 	ngx_http_clojure_get_ctx(r, ctx);
-	if (r->pool) {
+	if (ctx && r->pool) {
 		jlong old = n = r->main->count;
 		n += (int)detal;
 		if (detal == 1) {

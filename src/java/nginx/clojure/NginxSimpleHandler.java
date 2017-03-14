@@ -113,7 +113,12 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 				if (!req.isReleased() && !req.isHijacked() 
 						&& (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE
 						                || phase == NGX_HTTP_BODY_FILTER_PHASE)) {
-					ngx_http_clojure_mem_inc_req_count(r, 1);
+					long oldCount = ngx_http_clojure_mem_inc_req_count(r, 1);
+					if (oldCount < 0) {
+						return (int)oldCount;
+					} else {
+						req.nativeCount(oldCount + 1);
+					}
 				}
 				return NGX_DONE;
 			}
@@ -128,13 +133,19 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		if (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE 
 				|| phase == NGX_HTTP_BODY_FILTER_PHASE
 				) { // -1 means from content handler invoking 
-			ngx_http_clojure_mem_inc_req_count(r, 1);
+			long oldCount = ngx_http_clojure_mem_inc_req_count(r, 1);
+			if (oldCount < 0) {
+				return (int)oldCount;
+			} else {
+				req.nativeCount(oldCount + 1);
+			}
 		}
 		
 		final Future<WorkerResponseContext> lastFuture = lastRequestEvalFutures.get(req.nativeRequest());
 		Future<WorkerResponseContext> future = workers.submit(new Callable<NginxClojureRT.WorkerResponseContext>() {
 			@Override
 			public WorkerResponseContext call() throws Exception {
+				NginxClojureRT.getLog().debug("req %s, c %s, phase %s", req.nativeRequest(), req.nativeCount(), req.phase());
 				if (lastFuture != null) {
 					lastFuture.get();
 				}

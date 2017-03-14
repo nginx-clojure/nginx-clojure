@@ -62,8 +62,8 @@ public class NginxJavaFilterRequest extends NginxJavaRequest implements NginxFil
 		return creq;
 	}
 	
-	public NginxJavaFilterRequest(NginxHandler handler, long r, long c)  {
-		super(handler, r);
+	public NginxJavaFilterRequest(int phase, NginxHandler handler, long r, long c)  {
+		super(phase, handler, r);
 		this.c = c;
 //		long pool = NginxClojureRT.UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
 		ho = r + NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
@@ -118,6 +118,17 @@ public class NginxJavaFilterRequest extends NginxJavaRequest implements NginxFil
 				throw new RuntimeException("can not prefetch native data", e);
 			}
 		}
+	}
+	
+	@Override
+	public void tagReleased() {
+		this.released = true;
+		this.channel = null;
+		System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
+		if (listeners != null) {
+			listeners.clear();
+		}
+		((NginxJavaHandler)handler).returnToRequestPool(this);
 	}
 
 }
