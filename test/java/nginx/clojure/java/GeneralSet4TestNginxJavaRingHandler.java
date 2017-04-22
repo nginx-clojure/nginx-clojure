@@ -107,6 +107,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 			Map headers = ArrayMap.create("content-type", "text/plain",
 					                      "my-header", requestHeaders == null ? null : requestHeaders.get("my-header"),
 					                      "etag","e29b7ffb8a5325de60aed2d46a9d150b",
+					                      "set-cookie", new String[] {"cookie1", "cookie2"},
 					                      "cache-control", new String[]{"no-store", "no-cache"});
 			Map bmap = new HashMap(request);
 			bmap.putAll(requestHeaders);

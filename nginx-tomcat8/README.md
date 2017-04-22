@@ -69,6 +69,7 @@ in nginx.conf
 
 If `worker_processes` > 1 there will be more than one jvm instances viz. more tomcat instances so to get synchronized session information we can not use the default tomcat session manger.
 Instead we may consider to use either of 
+
 1. Cookied based Session Store  viz. storing all session attribute information into cookies.
 1. Shared HashMap among processes in the same machine ,e.g. nginx-clojure built-in [Shared Map][], OpenHFT [Chronicle Map][]
 1. External Session Store,  e.g.  Redis / MySQL / Memcached Session Store
