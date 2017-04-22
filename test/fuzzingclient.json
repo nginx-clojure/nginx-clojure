@@ -3,9 +3,9 @@
    "outdir": "./target/reports/clients",
 
    "servers": [
-               {"agent": "nc-embed", "url": "ws://localhost:8081/websocket-echo", "options": {"version": 18}}
+               {"agent": "nc-premsg", "url": "ws://localhost:8080/java-ws/echo", "options": {"version": 18}}
               ],
-   "cases": ["1.1.1"],
+   "cases": ["6.*", "7.*"],
    "exclude-cases": ["12.*", "13.*"],
    "exclude-agent-cases": {}
 }

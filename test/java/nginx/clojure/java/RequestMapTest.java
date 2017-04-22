@@ -26,7 +26,7 @@ public class RequestMapTest {
 
 	@Test
 	public void testJavaRequest() throws Throwable  {
-		NginxJavaRequest kk = new NginxJavaRequest(null, 0);
+		NginxJavaRequest kk = new NginxJavaRequest(-1, null, 0);
 		assertNotNull(kk);
 		Field f = NginxJavaRequest.class.getDeclaredField("default_request_array");
 		long off = HackUtils.UNSAFE.staticFieldOffset(f);
@@ -35,7 +35,7 @@ public class RequestMapTest {
 		for (int i = 0; i < array.length; i += 2) {
 			array[i+1] = array[i].toString() + "--v";
 		}
-		NginxJavaRequest r = new NginxJavaRequest(null, 0, array);
+		NginxJavaRequest r = new NginxJavaRequest(-1, null, 0, array);
 		assertEquals(array.length/2, r.size());
 		for (int i = 0; i < array.length; i += 2) {
 			assertEquals(array[i]+"--v", r.get(array[i]));

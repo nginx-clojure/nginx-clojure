@@ -2,6 +2,9 @@
 *** DO NOT execute this script to test nginx-clojure,
 *** please read https://github.com/nginx-clojure/nginx-clojure/issues/33
 *********************************************************************
+echo "DO NOT execute this script to test nginx-clojure"
+echo "please read https://github.com/nginx-clojure/nginx-clojure/issues/33"
+exit 0
 
 curl -v "http://${testhost}:8080/clojure"
 
@@ -162,6 +165,16 @@ line 139 :
  typedef int                 intptr_t;
  typedef u_int               uintptr_t;
     #endif
+#endif
+
+line 199??
+
+#ifndef __MINGW64_VERSION_MAJOR
+#ifdef _WIN64
+typedef long long           ssize_t;
+#else
+typedef int                 ssize_t;
+#endif
 #endif
 
 
@@ -392,7 +405,7 @@ then modify objs/Makefile
 mkdir objs
 cd objs
 mkdir lib
-cd objs
+cd lib
 tar -xjf ../../../pcre-8.32.tar.bz2
 cd ../../
 auto/configure --with-debug --prefix= \
