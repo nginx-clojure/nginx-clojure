@@ -2813,11 +2813,8 @@ static void JNICALL jni_ngx_http_hijack_set_async_timeout(JNIEnv *env, jclass cl
 }
 
 void ngx_http_clojure_cleanup_handler(void *data) {
-  if (((ngx_http_clojure_module_ctx_t *)data)->hijacked_or_async
-      && ( --((ngx_connection_t*)ngx_http_clojure_reload_delay_event.data)->requests == 0) ) {
-    ngx_del_timer(&ngx_http_clojure_reload_delay_event);
-  }
-	nji_ngx_http_clojure_hijack_fire_channel_event(NGX_HTTP_CLOJURE_CHANNEL_EVENT_CLOSE, 0, data);
+  ngx_http_clojure_try_unset_reload_delay_timer((ngx_http_clojure_module_ctx_t *)data, "ngx_http_clojure_cleanup_handler");
+  nji_ngx_http_clojure_hijack_fire_channel_event(NGX_HTTP_CLOJURE_CHANNEL_EVENT_CLOSE, 0, data);
 }
 
 static ngx_int_t ngx_http_clojure_check_broken_connection(ngx_http_request_t *r, ngx_event_t *ev) {
@@ -3040,9 +3037,7 @@ static jlong JNICALL jni_ngx_http_filter_continue_next(JNIEnv *env, jclass cls, 
 
 	ngx_http_clojure_get_ctx(r, ctx);
 
-  if  ( --((ngx_connection_t*)ngx_http_clojure_reload_delay_event.data)->requests == 0) {
-    ngx_del_timer(&ngx_http_clojure_reload_delay_event);
-  }
+    ngx_http_clojure_try_unset_reload_delay_timer(ctx, "jni_ngx_http_filter_continue_next");
 
 	if (chain < 0) { /*header filter*/
 		rc = ngx_http_clojure_next_header_filter( r);
@@ -3673,9 +3668,7 @@ static void JNICALL jni_ngx_http_clojure_mem_continue_current_phase(JNIEnv *env,
 		return;
 	}
 
-  if  ( --((ngx_connection_t*)ngx_http_clojure_reload_delay_event.data)->requests == 0) {
-    ngx_del_timer(&ngx_http_clojure_reload_delay_event);
-  }
+	ngx_http_clojure_try_unset_reload_delay_timer(ctx, "jni_ngx_http_clojure_mem_continue_current_phase");
 
 	ngx_log_debug4(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
 	                   "[jni_ngx_http_clojure_mem_continue_current_phase] uri:%s count:%d brd:%d rc:%d", r->uri.data, r->count, r->buffered, rc);
@@ -4466,4 +4459,26 @@ int ngx_http_clojure_eval(int cid, ngx_http_request_t *r, ngx_chain_t *c) {
 	log_debug2(ngx_http_clojure_global_cycle->log, "ngx clojure eval request to jlong: %" PRIu64 ", rc: %d", (jlong)(uintptr_t)r, rc);
 	exception_handle(1, env, return 500);
 	return rc;
+}
+
+void ngx_http_clojure_try_set_reload_delay_timer(ngx_http_clojure_module_ctx_t *ctx, char  *func_name) {
+  if (!ctx->set_reload_delay) {
+    ctx->set_reload_delay = 1;
+    if (( ++((ngx_connection_t*)ngx_http_clojure_reload_delay_event.data)->requests == 1) ) {
+      ngx_log_debug3(NGX_LOG_DEBUG_EVENT, ngx_http_clojure_reload_delay_event.log,  0,  "%s nc event timer add: %d: %M", func_name, ngx_event_ident(ngx_http_clojure_reload_delay_event.data), ngx_http_clojure_reload_delay_event.timer.key);
+      ngx_add_timer(&ngx_http_clojure_reload_delay_event, NGX_HTTP_CLOJURE_RELOAD_DELAY_MAX_TIME);
+    }
+  }
+}
+
+void ngx_http_clojure_try_unset_reload_delay_timer(ngx_http_clojure_module_ctx_t *ctx, char *func_name) {
+  if (ctx->set_reload_delay) {
+    ctx->set_reload_delay = 0;
+    if (( --((ngx_connection_t*)ngx_http_clojure_reload_delay_event.data)->requests == 0) ) {
+          ngx_log_debug3(NGX_LOG_DEBUG_EVENT, ngx_http_clojure_reload_delay_event.log,  0,  "%s nc event timer del: %d: %M", func_name, ngx_event_ident(ngx_http_clojure_reload_delay_event.data), ngx_http_clojure_reload_delay_event.timer.key);
+          if (ngx_http_clojure_reload_delay_event.timer_set) { /*need skip timer who was deleted and expired*/
+            ngx_del_timer(&ngx_http_clojure_reload_delay_event);
+          }
+        }
+  }
 }

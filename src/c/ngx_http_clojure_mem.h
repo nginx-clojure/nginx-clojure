@@ -195,6 +195,7 @@ typedef struct {
 	unsigned pending_body_filter : 1;
 	unsigned ignore_next_response : 1;
 	unsigned hijacked_or_async : 1;
+	unsigned set_reload_delay : 1;
 #define NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_READ 1
 #define NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_WRITE 2
 #define NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_NOKEEPALIVE 4
@@ -219,11 +220,13 @@ typedef struct {
 		ctx->wait_for_header_filter = 0 ;\
 		ctx->pending_body_filter = 0 ; \
 		ctx->ignore_next_response = 0; \
+		ctx->set_reload_delay = 0; \
 		ctx->hijacked_or_async = 0; \
 		ctx->event_handler_flag = 0; \
 		ctx->wsctx = 0; \
 		ctx->listeners = 0; \
 		ctx->r = r;
+
 
 
 #define NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT 1
@@ -575,6 +578,12 @@ ngx_int_t ngx_http_clojure_set_content_type_header(ngx_http_request_t *r, ngx_ta
 ngx_int_t ngx_http_clojure_set_content_len_header(ngx_http_request_t *r, ngx_table_elt_t *h, ngx_uint_t offset);
 
 void ngx_http_clojure_cleanup_handler(void *data);
+
+#define NGX_HTTP_CLOJURE_RELOAD_DELAY_MAX_TIME 30000 /*30 seconds*/
+
+void ngx_http_clojure_try_set_reload_delay_timer(ngx_http_clojure_module_ctx_t *ctx, char  *func_name);
+
+void ngx_http_clojure_try_unset_reload_delay_timer(ngx_http_clojure_module_ctx_t *ctx, char *func_name);
 
 extern ngx_module_t  ngx_http_clojure_module;
 

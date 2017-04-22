@@ -393,6 +393,8 @@
              (let [p (future (client/get (str "http://" *host* ":" *port* "/ringCompojure/sub") {:throw-exceptions false :socket-timeout 20000}))]
                (Thread/sleep 5000) ;;let sub succeed
                (client/get (str "http://" *host* ":" *port* "/ringCompojure/pub?good") {:throw-exceptions false :socket-timeout 10000})
+               (debug-println @p)
+               (debug-println "=================test-sub/pub (by long polling & broadcast)=============================")
                (is (= "good" (:body @p)))))
     (testing "sse-sub/sse-pub (by sever sent envets & broadcast)"
          (let [p (future (client/get (str "http://" *host* ":" *port* "/ringCompojure/sse-sub") {:throw-exceptions false :socket-timeout 20000}))]
@@ -400,6 +402,8 @@
            (client/get (str "http://" *host* ":" *port* "/ringCompojure/sse-pub?good!") {:throw-exceptions false :socket-timeout 10000})
            (client/get (str "http://" *host* ":" *port* "/ringCompojure/sse-pub?bad!") {:throw-exceptions false :socket-timeout 10000})
            (client/get (str "http://" *host* ":" *port* "/ringCompojure/sse-pub?finish!") {:throw-exceptions false :socket-timeout 10000})
+           (debug-println @p)
+           (debug-println "=================test-sse-sub/sse-pub (by sever sent envets & broadcast)=============================")
            (is (= "retry: 4500\r\ndata: good!\r\n\r\ndata: bad!\r\n\r\ndata: finish!\r\n\r\n" (:body @p)))))
   )
 

@@ -459,7 +459,6 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     ngx_null_command
 };
 
-#define NGX_HTTP_CLOJURE_RELOAD_DELAY_MAX_TIME 30000 //30 seconds
 ngx_event_t ngx_http_clojure_reload_delay_event;
 ngx_connection_t ngx_http_clojure_fake_conn;
 
@@ -1787,8 +1786,8 @@ static ngx_int_t ngx_http_clojure_content_handler(ngx_http_request_t * r) {
 
     rc = ngx_http_clojure_eval(lcf->content_handler_id, r, 0);
 
-    if (ctx->hijacked_or_async &&  ( ++((ngx_connection_t*)ngx_http_clojure_reload_delay_event.data)->requests == 1)) {
-      ngx_add_timer(&ngx_http_clojure_reload_delay_event, NGX_HTTP_CLOJURE_RELOAD_DELAY_MAX_TIME);
+    if (ctx->hijacked_or_async) {
+      ngx_http_clojure_try_set_reload_delay_timer(ctx, "ngx_http_clojure_content_handler");
     }
 
     return rc;
@@ -1860,8 +1859,8 @@ static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t *r) {
 		ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
 		rc = ngx_http_clojure_eval(lcf->rewrite_handler_id, r, 0);
 
-    if (rc == NGX_DONE && ( ++((ngx_connection_t*)ngx_http_clojure_reload_delay_event.data)->requests == 1) ) {
-      ngx_add_timer(&ngx_http_clojure_reload_delay_event, NGX_HTTP_CLOJURE_RELOAD_DELAY_MAX_TIME);
+    if (rc == NGX_DECLINED) {
+      ngx_http_clojure_try_set_reload_delay_timer(ctx, "ngx_http_clojure_rewrite_handler");
     }
 
 		if (rc != NGX_DONE) {
@@ -1889,8 +1888,8 @@ static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t *r) {
 		ctx->phase = NGX_HTTP_REWRITE_PHASE;
 		rc = ngx_http_clojure_eval(lcf->rewrite_handler_id, r, 0);
 
-    if (rc == NGX_DONE && ( ++((ngx_connection_t*)ngx_http_clojure_reload_delay_event.data)->requests == 1)) {
-      ngx_add_timer(&ngx_http_clojure_reload_delay_event, NGX_HTTP_CLOJURE_RELOAD_DELAY_MAX_TIME);
+    if (rc == NGX_DECLINED) {
+      ngx_http_clojure_try_set_reload_delay_timer(ctx, "ngx_http_clojure_rewrite_handler");
     }
 
 		if (rc != NGX_DONE) {
@@ -1933,8 +1932,8 @@ static ngx_int_t ngx_http_clojure_access_handler(ngx_http_request_t * r) {
 		ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
 		rc = ngx_http_clojure_eval(lcf->access_handler_id, r, 0);
 
-    if (rc == NGX_DONE && ( ++((ngx_connection_t*)ngx_http_clojure_reload_delay_event.data)->requests == 1)) {
-      ngx_add_timer(&ngx_http_clojure_reload_delay_event, NGX_HTTP_CLOJURE_RELOAD_DELAY_MAX_TIME);
+    if (rc == NGX_DECLINED) {
+      ngx_http_clojure_try_set_reload_delay_timer(ctx, "ngx_http_clojure_access_handler");
     }
 
 		if (rc != NGX_DONE) {
@@ -1962,8 +1961,8 @@ static ngx_int_t ngx_http_clojure_access_handler(ngx_http_request_t * r) {
 		ctx->phase = NGX_HTTP_ACCESS_PHASE;
 		rc = ngx_http_clojure_eval(lcf->access_handler_id, r, 0);
 
-    if (rc == NGX_DONE && ( ++((ngx_connection_t*)ngx_http_clojure_reload_delay_event.data)->requests == 1)) {
-      ngx_add_timer(&ngx_http_clojure_reload_delay_event, NGX_HTTP_CLOJURE_RELOAD_DELAY_MAX_TIME);
+    if (rc == NGX_DECLINED) {
+      ngx_http_clojure_try_set_reload_delay_timer(ctx, "ngx_http_clojure_access_handler");
     }
 
 		if (rc != NGX_DONE) {
@@ -2028,9 +2027,8 @@ static ngx_int_t ngx_http_clojure_access_handler(ngx_http_request_t * r) {
       rc = ngx_http_clojure_eval(lcf->header_filter_id, r, 0);
       ctx->phase = src_phase;
 
-      if (rc == NGX_DONE
-          &&( ++((ngx_connection_t*)ngx_http_clojure_reload_delay_event.data)->requests == 1)) {
-        ngx_add_timer(&ngx_http_clojure_reload_delay_event, NGX_HTTP_CLOJURE_RELOAD_DELAY_MAX_TIME);
+      if (rc == NGX_DONE) {
+        ngx_http_clojure_try_set_reload_delay_timer(ctx, "ngx_http_clojure_header_filter");
       }
 
       if (rc == NGX_DONE && !r->header_sent) {
@@ -2101,8 +2099,8 @@ static ngx_int_t ngx_http_clojure_body_filter(ngx_http_request_t *r,  ngx_chain_
   }
 
 
-  if (rc == NGX_DONE && ( ++((ngx_connection_t*)ngx_http_clojure_reload_delay_event.data)->requests == 1)) {
-    ngx_add_timer(&ngx_http_clojure_reload_delay_event, NGX_HTTP_CLOJURE_RELOAD_DELAY_MAX_TIME);
+  if (rc == NGX_DONE) {
+    ngx_http_clojure_try_set_reload_delay_timer(ctx, "ngx_http_clojure_body_filter");
   }
 
 	return rc;
