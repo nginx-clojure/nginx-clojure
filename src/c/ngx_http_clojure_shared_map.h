@@ -19,6 +19,7 @@
 #define NGX_CLOJURE_SHARED_MAP_NOT_FOUND 2
 #define NGX_CLOJURE_SHARED_MAP_INVLAID_KEY_TYPE 3
 #define NGX_CLOJURE_SHARED_MAP_INVLAID_VALUE_TYPE 4
+#define NGX_CLOJURE_SHARED_MAP_JVM_ERROR 5
 
 
 extern ngx_cycle_t *ngx_http_clojure_global_cycle;
@@ -38,10 +39,17 @@ typedef struct ngx_http_clojure_shared_map_ctx_s ngx_http_clojure_shared_map_ctx
 typedef void (*ngx_http_clojure_shared_map_val_handler)(uint8_t /*vtype*/, const void * /*val*/, size_t /*vsize*/,
 		void* /*handler_data*/);
 
+typedef ngx_int_t (*ngx_http_clojure_shared_map_visit_handler)(uint8_t /*ktype*/, const void * /*key*/, size_t /*ksize*/, uint8_t /*vtype*/, const void * /*val*/, size_t /*vsize*/,
+    void* /*handler_data*/);
+
 typedef ngx_int_t (*ngx_http_clojure_shared_map_init_f)(ngx_conf_t * /*cf*/, ngx_http_clojure_shared_map_ctx_t * /*ctx*/);
 
 typedef ngx_int_t (*ngx_http_clojure_shared_map_get_entry_f)(ngx_http_clojure_shared_map_ctx_t * /*ctx*/, uint8_t /*ktype*/,
 		const u_char * /*key*/, size_t /*klen*/, ngx_http_clojure_shared_map_val_handler /*val_handler*/, void * /*handler_data*/);
+
+typedef ngx_int_t (*ngx_http_clojure_shared_map_visit_f)(ngx_http_clojure_shared_map_ctx_t * /*ctx*/,
+    ngx_http_clojure_shared_map_visit_handler /*visit_handler*/, void * /*handler_data*/);
+
 
 /**
  * returns :
@@ -70,6 +78,7 @@ typedef struct {
 	ngx_http_clojure_shared_map_remove_entry_f remove;
 	ngx_http_clojure_shared_map_size_f size;
 	ngx_http_clojure_shared_map_clear_f clear;
+	ngx_http_clojure_shared_map_visit_f visit;
 } ngx_http_clojure_shared_map_impl_t;
 
 

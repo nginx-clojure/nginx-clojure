@@ -6,7 +6,11 @@ package nginx.clojure.util;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
@@ -63,6 +67,7 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 
 	private native static long natomicAddNumber(long ctx, int ktype, Object keyBuf, long offset, long len, int vtype, long delta);
 	
+	private native static long nvisit(long ctx, SharedMapSimpleVisitor visitor);
 
 	private NginxSharedHashMap() {
 	}
@@ -94,6 +99,14 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 			//TODO: POJO deserialization
 			throw new RuntimeException("unsupported type:" + type);
 		}
+	}
+	
+	public interface SharedMapSimpleVisitor {
+		public int visit(Object key, Object val);
+	}
+	
+	private final static int visit(int ktype, long kaddr, long ksize, int vtype, long vaddr, long vsize, SharedMapSimpleVisitor visitor) {
+		return visitor.visit(native2JavaObject(ktype, kaddr, ksize), native2JavaObject(vtype, vaddr, vsize));
 	}
 	
 	public static <KT, VT> NginxSharedHashMap<KT, VT> build(String name) {
@@ -315,20 +328,47 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 
 	@Override
 	public Set<K> keySet() {
-		throw new UnsupportedOperationException("keySet");
+		NginxClojureRT.getLog().warn("NginxSharedHashMap.keySet is quite expensive operation DO NOT use it at non-debug case!!!");
+		final Set sets = new HashSet();
+		nvisit(ctx, new SharedMapSimpleVisitor() {
+			@Override
+			public int visit(Object key, Object val) {
+				sets.add(key);
+				return 0;
+			}
+		});
+		return sets;
 	}
 
 
 	@Override
 	public Collection<V> values() {
-		throw new UnsupportedOperationException("values");
+		NginxClojureRT.getLog().warn("NginxSharedHashMap.values is quite expensive operation DO NOT use it at non-debug case!!!");
+		final List vals = new ArrayList();
+		nvisit(ctx, new SharedMapSimpleVisitor() {
+			@Override
+			public int visit(Object key, Object val) {
+				vals.add(val);
+				return 0;
+			}
+		});
+		return vals;		
 	}
 
 
 	@Override
 	public Set<java.util.Map.Entry<K, V>> entrySet() {
 		NginxClojureRT.getLog().warn("NginxSharedHashMap.entrySet is quite expensive operation DO NOT use it at non-debug case!!!");
-		throw new UnsupportedOperationException("entrySet");
+		final Set<java.util.Map.Entry<K, V>> sets = new HashSet<Map.Entry<K,V>>();
+		nvisit(ctx, new SharedMapSimpleVisitor() {
+			@Override
+			public int visit(Object key, Object val) {
+				SimpleEntry en = new SimpleEntry(key, val);
+				sets.add(en);
+				return 0;
+			}
+		});
+		return sets;
 	}
 
 	/* (non-Javadoc)

@@ -323,7 +323,7 @@ When a message comes the callback function will be invoked. e.g.
 
 (extend-type nginx.clojure.util.NginxPubSubTopic PubSubTopic
   (pub! [topic message]
-    (.pubish topic message))
+    (.publish topic message))
   (sub! [topic att callback]
     (let [pd (.subscribe topic att 
                (proxy [nginx.clojure.util.NginxPubSubListener] []

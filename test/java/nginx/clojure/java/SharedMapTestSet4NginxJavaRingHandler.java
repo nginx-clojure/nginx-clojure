@@ -8,9 +8,11 @@ import java.io.IOException;
 import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
+import nginx.clojure.util.NginxPubSubTopic;
 import nginx.clojure.util.NginxSharedHashMap;
 
 public class SharedMapTestSet4NginxJavaRingHandler implements NginxJavaRingHandler {
@@ -36,6 +38,7 @@ public class SharedMapTestSet4NginxJavaRingHandler implements NginxJavaRingHandl
 			}
 			
 			String op = (String) params.get("op");
+			
 			NginxClojureRT.getLog().info("qs:"+qs+", op:"+op);
 			
 			String key = params.get("key");
@@ -141,6 +144,14 @@ public class SharedMapTestSet4NginxJavaRingHandler implements NginxJavaRingHandl
 					map.delete(i);
 				}
 				rt += c + " del cost:"+ (System.currentTimeMillis() - s) + "ms, size=" + map.size() + "\n";
+			} else if (op.equals("visit")) {
+				StringBuilder sb = new StringBuilder("{\n");
+				for (Object en : map.entrySet()) {
+					Entry<Object, Object> oen = (Entry<Object, Object>)en;
+					sb.append("\"").append(oen.getKey()).append("\":").append("\"").append(oen.getValue()).append("\",\n");
+				}
+				sb.append("}\n");
+				rt = sb.toString();
 			}
 			
 			return new Object[] {200, null, rt};
@@ -164,6 +175,12 @@ public class SharedMapTestSet4NginxJavaRingHandler implements NginxJavaRingHandl
 	public SharedMapTestSet4NginxJavaRingHandler() {
 		routing.put("/tinyMap", new TinyMapHandler());
 		routing.put("/hashMap", new HashMapHandler());
+		routing.put("/subpubTopicMap", new SharedMapBaseHandler(){
+			@Override
+			protected String name() {
+				return NginxPubSubTopic.PUBSUB_SHARED_MAP_NAME;
+			}
+		});
 	}
 
 	@Override

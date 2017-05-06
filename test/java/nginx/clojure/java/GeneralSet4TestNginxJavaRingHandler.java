@@ -216,7 +216,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
-			Sub.longPollPubSub.pubish(request.get(QUERY_STRING).toString());
+			Sub.longPollPubSub.publish(request.get(QUERY_STRING).toString());
 			return new Object[] { NGX_HTTP_OK, null, "OK" };
 		}
 		
@@ -261,7 +261,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
-			SSESub.ssePubSub.pubish(request.get(QUERY_STRING).toString());
+			SSESub.ssePubSub.publish(request.get(QUERY_STRING).toString());
 			return new Object[] { NGX_HTTP_OK, null, "OK" };
 		}
 		

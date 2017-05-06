@@ -13,6 +13,7 @@ import nginx.clojure.AppEventListenerManager.Listener;
 import nginx.clojure.AppEventListenerManager.PostedEvent;
 import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
+import nginx.clojure.logger.LoggerService;
 
 public class NginxPubSubTopic {
 
@@ -43,6 +44,7 @@ public class NginxPubSubTopic {
 	
 	protected static NginxSharedHashMap<Object, Object> sharedBox;
 	
+	static final LoggerService logger = NginxClojureRT.getLog();
 	
 	private static void initSharedBox() {
 		do {
@@ -52,6 +54,7 @@ public class NginxPubSubTopic {
 				break;
 			}
 			sharedBox.putIntIfAbsent(PUBSUB_EVENT_ID_COUNTER, 1);
+			
 			NginxClojureRT.getAppEventListenerManager().addListener(new Listener() {
 				@Override
 				public void onEvent(PostedEvent event) throws IOException {
@@ -60,8 +63,13 @@ public class NginxPubSubTopic {
 						long rid = id | 0x0100000000L;
 						String message = (String) sharedBox.get(id);
 						long topicId = sharedBox.getLong(rid) >> 10;
+						long counter = sharedBox.atomicAddLong(rid, -1);
 						
-						if ((sharedBox.atomicAddLong(rid, -1) & 0x3ff) == 1) {
+						if (logger.isDebugEnabled()) {
+							logger.debug("handle pub post event, id=%x, rid=%x, message=%s, topicId=%x, counter=%x,%x",  id, rid, message, topicId, counter, counter & 0x3ff);
+						}
+
+						if ((counter & 0x3ff) == 1) {
 							// the message has been post to all nginx worker processes
 							// so we can remove it from shared map now.
 							sharedBox.delete(rid);
@@ -99,7 +107,7 @@ public class NginxPubSubTopic {
 		Object topicIdObj = sharedBox.get(topic);
 		if (topicIdObj == null) {
 			if (sharedBox.putIfAbsent(PUBSUB_TOPIC_ID_COUNTER, 2L) == null) {
-				topicId = 2L;
+				topicId = 1L;
 			}else {
 				topicId = sharedBox.atomicAddLong(PUBSUB_TOPIC_ID_COUNTER, 1);
 				if (topicId > PUBSUB_MAX_TOPIC_ID) {
@@ -115,11 +123,15 @@ public class NginxPubSubTopic {
 		}
 	}
 	
-	public void pubish(String message) {
+	public void publish(String message) {
 		long id = sharedBox.atomicAddInt(PUBSUB_EVENT_ID_COUNTER, 1) & 0xffffffffL;
 		//message related keys are always long
 		sharedBox.put(id, message);
-		sharedBox.putLong(id | 0x0100000000L, MiniConstants.NGX_WORKER_PROCESSORS_NUM | topicId << 10);
+		sharedBox.putLong(id | 0x0100000000L, MiniConstants.NGX_WORKER_PROCESSORS_NUM | (topicId << 10));
+		if (logger.isDebugEnabled()) {
+			long counter = MiniConstants.NGX_WORKER_PROCESSORS_NUM | (topicId << 10);
+			logger.debug("pub id=%x, rid=%x, counter=%x, %x", id,  id | 0x0100000000L,  counter,  counter & 0x3ff);
+		}
 		NginxClojureRT.broadcastEvent(MiniConstants.POST_EVENT_TYPE_PUB, id);
 	}
 	
