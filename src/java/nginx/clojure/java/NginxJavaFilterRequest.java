@@ -8,7 +8,9 @@ import static nginx.clojure.NginxClojureRT.pushNGXInt;
 import static nginx.clojure.NginxClojureRT.pushNGXString;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import nginx.clojure.ChannelCloseAdapter;
@@ -31,6 +33,8 @@ public class NginxJavaFilterRequest extends NginxJavaRequest implements NginxFil
 	protected long ho;
 	
 	protected Map<String, Object> responseHeaders;
+	
+	protected NginxJavaFilterRequest origin;
 	
 	protected final static Map<Long, NginxJavaFilterRequest> bodyFilterRequests = new ConcurrentHashMap<Long, NginxJavaFilterRequest>();
 	
@@ -96,13 +100,61 @@ public class NginxJavaFilterRequest extends NginxJavaRequest implements NginxFil
 		return responseHeaders;
 	}
 	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.java.NginxJavaRequest#reset(long, nginx.clojure.NginxHandler)
+	 */
+	@Override
+	public void reset(long r, NginxHandler handler) {
+		if (origin == null) {
+			super.reset(r, handler);
+		} else {
+			throw new UnsupportedOperationException("cloned filter request should not be reset!");
+		}
+	}
+	
 	public long nativeChain() {
 		return c;
 	}
 	
 	@Override
 	protected Object clone() throws CloneNotSupportedException {
-		return super.clone();
+		NginxJavaFilterRequest req = (NginxJavaFilterRequest) super.clone();
+		req.origin = this;
+		req.array = null;
+		return req;
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.java.NginxJavaRequest#key(int)
+	 */
+	@Override
+	public String key(int i) {
+		if (origin == null) {
+			return super.key(i);	
+		}
+		return origin.key(i);
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.java.NginxJavaRequest#val(int)
+	 */
+	@Override
+	public Object val(int i) {
+		if (origin == null) {
+			return super.val(i);	
+		}
+		return origin.val(i);
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.java.NginxJavaRequest#index(java.lang.Object)
+	 */
+	@Override
+	protected int index(Object key) {
+		if (origin == null) {
+			return super.index(key);
+		}
+		return origin.index(key);
 	}
 	
 	/* (non-Javadoc)
@@ -110,7 +162,10 @@ public class NginxJavaFilterRequest extends NginxJavaRequest implements NginxFil
 	 */
 	@Override
 	public void prefetchAll() {
-		super.prefetchAll();
+		if (origin == null) {
+			super.prefetchAll();	
+		}
+		
 		if (body != null) {
 			try {
 				body.prefetchNativeData();
@@ -124,11 +179,113 @@ public class NginxJavaFilterRequest extends NginxJavaRequest implements NginxFil
 	public void tagReleased() {
 		this.released = true;
 		this.channel = null;
-		System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
 		if (listeners != null) {
 			listeners.clear();
 		}
-		((NginxJavaHandler)handler).returnToRequestPool(this);
+		
+//		if (origin == null) {
+//			System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);			
+//		}
+//		((NginxJavaHandler)handler).returnToRequestPool(this);
 	}
+	
+	@Override
+	public int size() {
+		if (origin != null) {
+			return origin.size();
+		}
+		return super.size();
+	}
+
+	@Override
+	public boolean isEmpty() {
+		if (origin != null) {
+			return origin.isEmpty();
+		}
+		return super.isEmpty();		
+	}
+
+	@Override
+	public boolean containsKey(Object key) {
+		if (origin != null) {
+			return origin.containsKey(key);
+		}
+		return super.containsKey(key);		
+	}
+
+	@Override
+	public boolean containsValue(Object value) {
+		if (origin != null) {
+			return origin.containsValue(value);
+		}
+		return super.containsValue(value);
+	}
+
+	@Override
+	public Object get(Object key) {
+		if (origin != null) {
+			return origin.get(key);
+		}
+		return super.get(key);	
+	}
+
+	@Override
+	public Object put(String key, Object value) {
+		if (origin != null) {
+			return origin.put(key, value);
+		}
+		return super.put(key, value);
+	}
+
+	@Override
+	public Object remove(Object key) {
+		if (origin != null) {
+			return origin.remove(key);
+		}
+		return super.remove(key);
+	}
+
+	@Override
+	public void putAll(Map<? extends String, ? extends Object> m) {
+		if (origin != null) {
+			origin.putAll(m);
+			return;
+		}
+		super.putAll(m);
+	}
+
+	@Override
+	public void clear() {
+		if (origin != null) {
+			origin.clear();
+			return;
+		}
+		super.clear();
+	}
+
+	@Override
+	public Set<String> keySet() {
+		if (origin != null) {
+			return origin.keySet();
+		}
+		return super.keySet();
+	}
+
+	@Override
+	public Collection<Object> values() {
+		if (origin != null) {
+			return origin.values();
+		}
+		return super.values();
+	}
+
+	@Override
+	public Set<java.util.Map.Entry<String, Object>> entrySet() {
+		if (origin != null) {
+			return origin.entrySet();
+		}
+		return super.entrySet();
+	}
+	
 
 }

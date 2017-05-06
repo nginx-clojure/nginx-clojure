@@ -226,7 +226,7 @@ public class JavaHandlersTest {
 	
 	public static void main(String[] args) {
 		NginxEmbedServer server = NginxEmbedServer.getServer();
-		server.setWorkDir("test/work-dir");
+//		server.setWorkDir("test/work-dir");
 		Map<String, String> opts = ArrayMap.create("port", "8084",
 				"http-user-defined", "shared_map mycounters hashmap?space=32k&entries=400;");
 		int port = server.start(SimpleRouting.class.getName(), opts);

@@ -20,6 +20,7 @@ import nginx.clojure.Coroutine;
 import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxChainWrappedInputStream;
 import nginx.clojure.NginxClojureRT;
+import nginx.clojure.NginxRequest;
 import nginx.clojure.anno.Suspendable;
 
 public class FilterTestSet4NginxJavaBodyFilter {
@@ -101,7 +102,7 @@ public class FilterTestSet4NginxJavaBodyFilter {
 			
 			String rt = sb.toString();
 			
-			NginxClojureRT.getLog().info("UppercaseBodyFilter.doFilter returns: %s, isLast=%s", rt, isLast);
+			NginxClojureRT.getLog().info("[%d] UppercaseBodyFilter.doFilter returns: %s, isLast=%s", ((NginxRequest)request).nativeRequest(), rt , isLast);
 			
 			if (isLast) {
 				return new Object[] {200, null, rt};

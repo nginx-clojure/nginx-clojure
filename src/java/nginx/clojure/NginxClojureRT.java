@@ -296,7 +296,7 @@ public class NginxClojureRT extends MiniConstants {
 	public static final class WorkerResponseContext {
 		public final NginxResponse response;
 		public final NginxRequest request;
-		public final long chain;
+		public long chain;
 		
 		public WorkerResponseContext(NginxResponse resp, NginxRequest req) {
 			super();
@@ -310,7 +310,8 @@ public class NginxClojureRT extends MiniConstants {
 				}
 			}else {
 				if (resp.type() == NginxResponse.TYPE_FAKE_BODY_FILTER_TAG) {
-					chain = req.handler().buildOutputChain(resp);
+//					chain = req.handler().buildOutputChain(resp);
+					chain = 0;
 				}else {
 					chain = 0;
 				}
@@ -1408,6 +1409,7 @@ public class NginxClojureRT extends MiniConstants {
 				ngx_http_finalize_request(r, rc);
 				return NGX_OK;
 			}else if (ctx.request.phase() == NGX_HTTP_BODY_FILTER_PHASE) {
+				ctx.chain = req.handler().buildOutputChain(resp);
 				rc = ngx_http_filter_continue_next(r, ctx.chain);
 				if (resp.isLast()) {
 					ngx_http_finalize_request(r, rc);
@@ -1417,6 +1419,7 @@ public class NginxClojureRT extends MiniConstants {
 			ngx_http_clojure_mem_continue_current_phase(r, NGX_DECLINED);
 			return NGX_OK;
 		}else if (ctx.request.phase() == NGX_HTTP_BODY_FILTER_PHASE) {
+			ctx.chain = req.handler().buildOutputChain(resp);
 			rc = ngx_http_filter_continue_next(r, ctx.chain);
 			if (resp.isLast()) {
 				ngx_http_finalize_request(r, rc);

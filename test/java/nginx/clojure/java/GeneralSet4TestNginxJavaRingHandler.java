@@ -60,17 +60,30 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 	
 	public static class MultipleChainHandler implements NginxJavaRingHandler {
 
+		private void sleep(int second) {
+			try {
+				Thread.sleep(second * 1000L);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
 		@Override
 		public Object[] invoke(Map<String, Object> request) throws IOException {
 			NginxJavaRequest r = (NginxJavaRequest)request;
-			NginxClojureRT.log.info("before hijack" + r.nativeCount());
+//			NginxClojureRT.log.info("before hijack" + r.nativeCount());
 			NginxHttpServerChannel channel = r.hijack(false);
-			NginxClojureRT.log.info("after hijack" + r.nativeCount());
+//			NginxClojureRT.log.info("after hijack" + r.nativeCount());
 			channel.sendHeader(200, null, true, false);
 			channel.send("first part.\r\n", true, false);
+//			sleep(10);
 			channel.send("second part.\r\n", true, false);
+//			sleep(10);
 			channel.send("third part.\r\n", true, false);
+//			sleep(10);
 			channel.send("last part.\r\n", true, true);
+//			sleep(10);
 			NginxClojureRT.log.info("after send all" + r.nativeCount());
 			return null;
 		}
@@ -81,10 +94,10 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		@Override
 		public Object[] invoke(Map<String, Object> request) throws IOException {
 			NginxJavaRequest r = (NginxJavaRequest)request;
-			System.out.println("before hijack" + r.nativeCount());
+//			System.out.println("before hijack" + r.nativeCount());
 			NginxHttpServerChannel channel = r.hijack(false);
-			System.out.println("after hijack" + r.nativeCount());
-			channel.sendHeader(200, null, true, false);
+//			System.out.println("after hijack" + r.nativeCount());
+			channel.sendHeader(200, ArrayMap.create("Content-Type", "text/plain").entrySet(), true, false);
 			String s = "来1点中文，在utf8分隔下，中文字符会被截到不同的chain中";
 			byte[] all = s.getBytes(Charset.forName("utf8"));
 			int len = all.length;

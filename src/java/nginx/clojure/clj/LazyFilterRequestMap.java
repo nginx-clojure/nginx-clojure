@@ -6,14 +6,18 @@ import static nginx.clojure.NginxClojureRT.fetchNGXInt;
 import static nginx.clojure.NginxClojureRT.pushNGXInt;
 
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import clojure.lang.IMapEntry;
+import clojure.lang.IPersistentCollection;
+import clojure.lang.IPersistentMap;
+import clojure.lang.ISeq;
 import nginx.clojure.ChannelCloseAdapter;
 import nginx.clojure.NginxChainWrappedInputStream;
 import nginx.clojure.NginxFilterRequest;
 import nginx.clojure.NginxHandler;
-import nginx.clojure.Stack;
 
 public class LazyFilterRequestMap extends LazyRequestMap implements NginxFilterRequest, Cloneable {
 
@@ -31,6 +35,8 @@ public class LazyFilterRequestMap extends LazyRequestMap implements NginxFilterR
 	
 	protected LazyHeaderMap responseHeaders;
 	
+	protected LazyFilterRequestMap origin;
+	
     protected final static Map<Long, LazyFilterRequestMap> bodyFilterRequests = new ConcurrentHashMap<Long, LazyFilterRequestMap>();
 	
 	protected final static ChannelCloseAdapter<Long> bodyFilterRequestsCleaner = new ChannelCloseAdapter<Long>() {
@@ -47,6 +53,8 @@ public class LazyFilterRequestMap extends LazyRequestMap implements NginxFilterR
 		if (req != null) {
 			try {
 				creq = (LazyFilterRequestMap) req.clone();
+				creq.array = null;
+				creq.origin = req;
 				creq.c = c;
 				if (c > 0) {
 					creq.body = new NginxChainWrappedInputStream(creq, c);
@@ -78,6 +86,17 @@ public class LazyFilterRequestMap extends LazyRequestMap implements NginxFilterR
 		}
 	}
 	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.clj.LazyRequestMap#reset(long, nginx.clojure.clj.NginxClojureHandler)
+	 */
+	@Override
+	public void reset(long r, NginxClojureHandler handler) {
+		if (origin == null) {
+			super.reset(r, handler);			
+		} else {
+			throw new UnsupportedOperationException("cloned filter request should not be reset!");
+		}
+	}
 
 	@Override
 	public int responseStatus() {
@@ -99,7 +118,10 @@ public class LazyFilterRequestMap extends LazyRequestMap implements NginxFilterR
 	 */
 	@Override
 	public void prefetchAll() {
-		super.prefetchAll();
+		if (origin == null) {
+			super.prefetchAll();	
+		}
+		
 		if (body != null) {
 			try {
 				body.prefetchNativeData();
@@ -109,18 +131,148 @@ public class LazyFilterRequestMap extends LazyRequestMap implements NginxFilterR
 		}
 	}
 	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.clj.LazyRequestMap#index(java.lang.Object)
+	 */
+	@Override
+	protected int index(Object key) {
+		if (origin == null) {
+			return super.index(key);	
+		}
+		return origin.index(key);
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.clj.LazyRequestMap#iterator()
+	 */
+	@Override
+	public Iterator iterator() {
+		if (origin == null) {
+			return super.iterator();			
+		}
+		return origin.iterator();
+	}
+	
+	@Override
+	public IMapEntry entryAt(Object key) {
+		if (origin == null) {
+			return super.entryAt(key);
+		}
+		return origin.entryAt(key);
+	}
+
+	@Override
+	public int count() {
+		if (origin == null) {
+			return super.count();
+		}
+		return origin.count();
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.clj.LazyRequestMap#cons(java.lang.Object)
+	 */
+	@Override
+	public IPersistentCollection cons(Object o) {
+		if (origin == null) {
+			return super.cons(o);			
+		}
+		return origin.cons(o);
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.clj.LazyRequestMap#seq()
+	 */
+	@Override
+	public ISeq seq() {
+		if (origin == null) {
+			return super.seq();			
+		}
+		return origin.seq();
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.clj.LazyRequestMap#element(int)
+	 */
+	@Override
+	protected Object element(int i) {
+		if (origin == null) {
+			return super.element(i);
+		}
+		return origin.element(i);
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.clj.LazyRequestMap#valAt(java.lang.Object)
+	 */
+	@Override
+	public Object valAt(Object key) {
+		if (origin == null) {
+			return super.valAt(key);			
+		}
+		return origin.valAt(key);
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.clj.LazyRequestMap#valAt(java.lang.Object, java.lang.Object)
+	 */
+	@Override
+	public Object valAt(Object key, Object notFound) {
+		if (origin == null) {
+			return super.valAt(key, notFound);
+		}
+		return origin.valAt(key, notFound);
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.clj.LazyRequestMap#assoc(java.lang.Object, java.lang.Object)
+	 */
+	@Override
+	public IPersistentMap assoc(Object key, Object val) {
+		if (origin == null) {
+			return super.assoc(key, val);
+		}
+		return origin.assoc(key, val);
+	}
+	
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.clj.LazyRequestMap#assocEx(java.lang.Object, java.lang.Object)
+	 */
+	@Override
+	public IPersistentMap assocEx(Object key, Object val) {
+		if (origin == null) {
+			return super.assocEx(key, val);	
+		}
+		return origin.assocEx(key, val);
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.clj.LazyRequestMap#without(java.lang.Object)
+	 */
+	@Override
+	public IPersistentMap without(Object key) {
+		if (origin == null) {
+			return super.without(key);
+		}
+		return origin.without(key);
+	}
+	
 	@Override
 	public void tagReleased() {
 		this.released = true;
 		this.channel = null;
-		System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
-		validLen = default_request_array.length;
-		if (array.length > validLen) {
-			Stack.fillNull(array, validLen, array.length - validLen);
-		}
 		if (listeners != null) {
 			listeners.clear();
 		}
+		
+//		if (origin == null) {
+//			System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
+//			validLen = default_request_array.length;
+//			if (array.length > validLen) {
+//				Stack.fillNull(array, validLen, array.length - validLen);
+//			}
+//		}
 //		((NginxClojureHandler)handler).returnToRequestPool(this);
 	}
 }

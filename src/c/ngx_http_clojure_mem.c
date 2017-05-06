@@ -1536,6 +1536,13 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *me
 		return NGX_OK;
 	}
 
+	if (r->connection->log->log_level & NGX_LOG_DEBUG_HTTP) {
+	  ngx_str_t msg;
+	  msg.data = message;
+	  msg.len = len;
+	  ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "[%" PRIu64  "] hijack send : {%V}, len %d, flag : %d", (uintptr_t)r , &msg, len, flag);
+	}
+
 	page_size = ((ngx_http_clojure_loc_conf_t *)ngx_http_get_module_loc_conf(r, ngx_http_clojure_module))->write_page_size;
 
 	if (flag & NGX_CLOJURE_BUF_IGNORE_FILTER_FLAG) {
@@ -2786,7 +2793,7 @@ static jlong JNICALL jni_ngx_http_hijack_send(JNIEnv *env, jclass cls, jlong req
 
 	ngx_int_t rc = ngx_http_clojure_hijack_send((ngx_http_request_t *) (uintptr_t) req,
 			ngx_http_clojure_abs_off_addr(obj, offset), len, flag);
-	if (rc != NGX_OK) {
+	if (rc != NGX_OK && rc != NGX_DONE) {
 		ngx_http_finalize_request((ngx_http_request_t *)(uintptr_t)req, rc);
 	}
 	return rc;
@@ -2794,7 +2801,7 @@ static jlong JNICALL jni_ngx_http_hijack_send(JNIEnv *env, jclass cls, jlong req
 
 static jlong JNICALL jni_ngx_http_hijack_send_chain(JNIEnv *env, jclass cls, jlong req, jlong chain,  jint flag) {
 	ngx_int_t rc = ngx_http_clojure_hijack_send_chain((ngx_http_request_t *)(uintptr_t)req, (ngx_chain_t *)(uintptr_t)chain, flag);
-	if (rc != NGX_OK) {
+	if (rc != NGX_OK && rc != NGX_DONE) {
 		ngx_http_finalize_request((ngx_http_request_t *)(uintptr_t)req, rc);
 	}
 	return rc;
@@ -3006,6 +3013,14 @@ static jlong JNICALL jni_ngx_http_clojure_add_listener(JNIEnv *env, jclass cls, 
 
 static void JNICALL jni_ngx_http_finalize_request (JNIEnv *env, jclass cls, jlong req , jlong rc) {
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t)req;
+	ngx_http_clojure_module_ctx_t *ctx;
+	ngx_http_clojure_get_ctx(r, ctx);
+
+	if (!r || !ctx || !r->pool) {
+	  ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "nginx-clojure ctx is cleaned, r=%" PRIu64, (uintptr_t)r);
+	  return;
+	}
+
 	if (!r->header_sent) {
 		(void)ngx_http_clojure_prepare_server_header(r);
 	}
@@ -3029,26 +3044,26 @@ ngx_int_t ngx_http_clojure_filter_continue_next_body_filter(ngx_http_request_t *
 	return ngx_http_clojure_next_body_filter(r, in);
 }
 
-static jlong JNICALL jni_ngx_http_filter_continue_next(JNIEnv *env, jclass cls, jlong req , jlong chain) {
-	ngx_http_request_t *r = (ngx_http_request_t*)(uintptr_t)req;
-	ngx_http_clojure_module_ctx_t *ctx;
-	ngx_chain_t *in = (ngx_chain_t *)(uintptr_t)chain;
-	ngx_int_t rc ;
+static jlong JNICALL jni_ngx_http_filter_continue_next(JNIEnv *env, jclass cls, jlong req, jlong chain) {
+  ngx_http_request_t *r = (ngx_http_request_t*) (uintptr_t) req;
+  ngx_http_clojure_module_ctx_t *ctx;
+  ngx_chain_t *in = (ngx_chain_t *) (uintptr_t) chain;
+  ngx_int_t rc;
 
-	ngx_http_clojure_get_ctx(r, ctx);
+  ngx_http_clojure_get_ctx(r, ctx);
 
-    ngx_http_clojure_try_unset_reload_delay_timer(ctx, "jni_ngx_http_filter_continue_next");
+  ngx_http_clojure_try_unset_reload_delay_timer(ctx, "jni_ngx_http_filter_continue_next");
 
-	if (chain < 0) { /*header filter*/
-		rc = ngx_http_clojure_next_header_filter( r);
-		ctx->wait_for_header_filter = 0;
-		if (ctx->pending_body_filter) {
-			rc = ngx_http_clojure_next_body_filter(r, ctx->pending);
-		}
-		return rc;
-	}else {
-		return ngx_http_clojure_filter_continue_next_body_filter(r, in);
-	}
+  if (chain < 0) { /*header filter*/
+    rc = ngx_http_clojure_next_header_filter(r);
+    ctx->wait_for_header_filter = 0;
+    if (ctx->pending_body_filter) {
+      rc = ngx_http_clojure_next_body_filter(r, ctx->pending);
+    }
+    return rc;
+  } else {
+    return ngx_http_clojure_filter_continue_next_body_filter(r, in);
+  }
 }
 
 static jlong JNICALL jni_ngx_http_clojure_mem_init_ngx_buf(JNIEnv *env, jclass cls, jlong buf, jobject obj, jlong offset, jlong len, jint last_buf) {
@@ -3654,6 +3669,7 @@ static jlong JNICALL jni_ngx_http_clojure_mem_inc_req_count(JNIEnv *env, jclass 
 			ctx->hijacked_or_async = 1;
 		}
 		r->main->count = n;
+		ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "jni_ngx_http_clojure_mem_inc_req_count, old : %d, new : %d", old, n);
 		return old;
 	}
 	return -1;
