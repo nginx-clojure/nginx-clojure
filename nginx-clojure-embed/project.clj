@@ -1,11 +1,11 @@
-(defproject nginx-clojure/nginx-clojure-embed "0.4.4"
+(defproject nginx-clojure/nginx-clojure-embed "0.4.5"
   :description "Embeding Nginx-Clojure into a standard clojure/java/groovy app without additional Nginx process"
   :url "https://github.com/nginx-clojure/nginx-clojure/tree/master/nginx-clojure-embed"
   :license {:name "BSD 3-Clause license"
             :url "http://opensource.org/licenses/BSD-3-Clause"}
   :plugins []
   :dependencies [
-                 [nginx-clojure/nginx-clojure "0.4.4"]
+                 [nginx-clojure/nginx-clojure "0.4.5"]
                  ]
   :source-paths ["src/clojure"]
   :java-source-paths ["src/java"]
@@ -24,5 +24,6 @@
                                   [compojure "1.1.6"]
                                   [clj-http "0.7.8"]
                                   [stylefruits/gniazdo "0.4.0"]
+                                  [junit/junit "4.11"]
                                   ]}} 
   )
