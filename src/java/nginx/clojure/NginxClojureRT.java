@@ -536,6 +536,13 @@ public class NginxClojureRT extends MiniConstants {
 		return new UnknownHeaderHolder(name, headersOffset);
 	}
 	
+	private static NginxHeaderHolder safeBuildKnownArrayHeaderHolder(String name, long offset, long headersOffset) {
+		if (offset >= 0) {
+			return new ArrayHeaderHolder(name, offset, headersOffset);
+		}
+		return new UnknownHeaderHolder(name, headersOffset);
+	}
+	
 	public static void initStringAddrMapsByNativeAddr(Map<String, Long> map, long addr) {
 			while (true)  {
 				String var = fetchNGXString(addr, DEFAULT_ENCODING);
@@ -736,7 +743,7 @@ public class NginxClojureRT extends MiniConstants {
 		KNOWN_REQ_HEADERS.put("Via",  safeBuildKnownTableEltHeaderHolder("Via", NGX_HTTP_CLOJURE_HEADERSI_VIA_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 		KNOWN_REQ_HEADERS.put("Authorization", safeBuildKnownTableEltHeaderHolder("Authorization", NGX_HTTP_CLOJURE_HEADERSI_AUTHORIZATION_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 		KNOWN_REQ_HEADERS.put("Keep-Alive", safeBuildKnownTableEltHeaderHolder("Keep-Alive", NGX_HTTP_CLOJURE_HEADERSI_KEEP_ALIVE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
-		KNOWN_REQ_HEADERS.put("X-Forwarded-For", new ArrayHeaderHolder("X-Forwarded-For", NGX_HTTP_CLOJURE_HEADERSI_X_FORWARDED_FOR_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("X-Forwarded-For", safeBuildKnownArrayHeaderHolder("X-Forwarded-For", NGX_HTTP_CLOJURE_HEADERSI_X_FORWARDED_FOR_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 		KNOWN_REQ_HEADERS.put("X-Real-Ip", safeBuildKnownTableEltHeaderHolder("X-Real-Ip", NGX_HTTP_CLOJURE_HEADERSI_X_REAL_IP_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 		KNOWN_REQ_HEADERS.put("Accept", safeBuildKnownTableEltHeaderHolder("Accept", NGX_HTTP_CLOJURE_HEADERSI_ACCEPT_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 
@@ -746,7 +753,7 @@ public class NginxClojureRT extends MiniConstants {
 		KNOWN_REQ_HEADERS.put("Overwrite", safeBuildKnownTableEltHeaderHolder("Overwrite", NGX_HTTP_CLOJURE_HEADERSI_OVERWRITE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 		KNOWN_REQ_HEADERS.put("Date", safeBuildKnownTableEltHeaderHolder("Date", NGX_HTTP_CLOJURE_HEADERSI_DATE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 
-		KNOWN_REQ_HEADERS.put("Cookie", new ArrayHeaderHolder("Cookie", NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("Cookie", safeBuildKnownArrayHeaderHolder("Cookie", NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 		
 		/*temp setting only for CORE_VARS initialization*/
 //		defaultByteBuffer = ByteBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);

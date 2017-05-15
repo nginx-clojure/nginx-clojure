@@ -376,7 +376,7 @@ extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 #define NGX_HTTP_CLOJURE_HEADERSI_KEEP_ALIVE_IDX  80
 #define NGX_HTTP_CLOJURE_HEADERSI_KEEP_ALIVE_OFFSET offsetof(ngx_http_headers_in_t, keep_alive)
 
-#if (NGX_HTTP_PROXY || NGX_HTTP_REALIP || NGX_HTTP_GEO)
+#if (NGX_HTTP_X_FORWARDED_FOR)
 #define NGX_HTTP_CLOJURE_HEADERSI_X_FORWARDED_FOR_IDX  81
 #define NGX_HTTP_CLOJURE_HEADERSI_X_FORWARDED_FOR_OFFSET offsetof(ngx_http_headers_in_t, x_forwarded_for)
 #endif
