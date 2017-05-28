@@ -4,6 +4,21 @@ Downloads & Release History
 1. [Binaries of Releases](http://sourceforge.net/projects/nginx-clojure/files/)
 1. [Sources of Releases](https://github.com/nginx-clojure/nginx-clojure/releases)
 
+## 0.4.5 (2017-05-28)
+
+1. New Feature: Support to be compiled as Nginx dynamic module, thanks to [Andrew Hutchings](https://github.com/LinuxJedi)
+1. Bug Fix: Cannot add multiple Cookies in a response
+1. Bug Fix: Too many empty chunks are passed to Body filter & some body data lost
+1. Enhancement: [Nginx-Jersey] Support jersey application sub class
+1. Enhancement: Try to use enviroment variable JAVA_HOME to detect jvm when jvm_path is auto
+1. Bug Fix: NullPointerExecption will happen when multiple rewrite handlers are invoked for one request
+1. Bug Fix: Can't access ring request data in Sente handler. (content_handler_property fore-prefetch-all-properties true;)
+1. Enhancement: Compile against Nginx 1.11 & Nginx 1.12
+1. Bug Fix: Nginx reload will cause connection reset without response
+1. Bug Fix: Header filter can not change response status from upstream
+1. Bug Fix: body filters sometimes crash under thread pool mode
+1. Binaries Distribution:  built with the latest stable Nginx v1.12.0 & openssl v1.1.0e
+
 ## 0.4.4 (2016-03-04)
 
 1. New Feature: experimental nginx body filter by Java/Clojure/Groovy (issue #107)

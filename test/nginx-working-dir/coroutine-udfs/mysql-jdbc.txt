@@ -269,4 +269,18 @@ lazyclass:java/sql/Statement
   executeBatch()[I:just_mark
 #mark from sub com/mysql/jdbc/Statement
   executeQuery(Ljava/lang/String;)Ljava/sql/ResultSet;:just_mark
+  
+lazyclass:com/mysql/jdbc/ConnectionImpl
+  isReadOnly()Z:normal
+  isReadOnly(Z)Z:normal
+
+lazyclass:com/mysql/jdbc/MySQLConnection
+#mark from sub com/mysql/jdbc/ConnectionImpl
+  isReadOnly()Z:just_mark
+#mark from sub com/mysql/jdbc/ConnectionImpl
+  isReadOnly(Z)Z:just_mark
+
+lazyclass:java/sql/Connection
+#mark from sub com/mysql/jdbc/Connection
+  isReadOnly()Z:just_mark
 
