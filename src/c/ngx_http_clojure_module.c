@@ -956,7 +956,7 @@ static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
 	ngx_memzero(&ngx_http_clojure_reload_delay_event, sizeof(ngx_event_t));
 	ngx_memzero(&ngx_http_clojure_fake_conn, sizeof(ngx_connection_t));
 	ngx_http_clojure_reload_delay_event.handler = ngx_http_clojure_reload_delay_event_handler;
-	ngx_http_clojure_fake_conn.fd = -1;
+	ngx_http_clojure_fake_conn.fd = (ngx_socket_t)~0;
 	ngx_http_clojure_reload_delay_event.data = &ngx_http_clojure_fake_conn;
 	ngx_http_clojure_reload_delay_event.log = cycle->log;
 
@@ -1291,6 +1291,8 @@ static ngx_int_t ngx_http_clojure_auto_detect_jvm(ngx_conf_t *cf) {
 	FILE *fd;
 	char *java_home = getenv("JAVA_HOME");
 
+	*p++ = '\"';
+
 	if (java_home) {
 	  strcpy(p, java_home);
 	  p += strlen(java_home);
@@ -1303,8 +1305,8 @@ static ngx_int_t ngx_http_clojure_auto_detect_jvm(ngx_conf_t *cf) {
 #endif
 	}
 
-	strcpy(p, "java");
-	p += sizeof("java") - 1;
+	strcpy(p, "java\"");
+	p += sizeof("java\"") - 1;
 
 	for (i = 0; i < len; i++){
 		option = (char *)ngx_http_clojure_eval_experssion(mcf, &elts[i], pool, &vlen);

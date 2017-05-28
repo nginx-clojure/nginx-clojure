@@ -328,7 +328,9 @@ static jlong jni_ngx_http_clojure_shared_map_contains(JNIEnv *env, jclass cls, j
 
 static jlong jni_ngx_http_clojure_shared_map_visit(JNIEnv *env, jclass cls, jlong jctx, jobject visitor)  {
   ngx_http_clojure_shared_map_ctx_t *ctx = (ngx_http_clojure_shared_map_ctx_t *)(uintptr_t)jctx;
-  void *pp[2] = {env, visitor};
+  void *pp[2];// = {env, visitor};
+  pp[0] = env;
+  pp[1] = visitor;
   return ctx->impl->visit(ctx, nji_ngx_http_clojure_shared_map_visit_handler, pp);
 }
 
