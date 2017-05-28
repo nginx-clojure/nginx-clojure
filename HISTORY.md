@@ -11,6 +11,8 @@ Downloads & Release History
 1. Bug Fix: Too many empty chunks are passed to Body filter & some body data lost
 1. Enhancement: [Nginx-Jersey] Support jersey application sub class
 1. Enhancement: Try to use enviroment variable JAVA_HOME to detect jvm when jvm_path is auto
+1. Enhancement: NginxSharedHashMap.keySet/values/entrySet for debug/test usage.
+1. Bug Fix: Can not use more than two shared maps.
 1. Bug Fix: NullPointerExecption will happen when multiple rewrite handlers are invoked for one request
 1. Bug Fix: Can't access ring request data in Sente handler. (content_handler_property fore-prefetch-all-properties true;)
 1. Enhancement: Compile against Nginx 1.11 & Nginx 1.12
