@@ -880,7 +880,7 @@
              (debug-println r)
              (debug-println "=================/javafilter/rc0=============================")
              (is (= 404 (:status r)))
-             (is (= "77269" (h "remote-content-length"))))
+             (is (= "77342" (h "remote-content-length"))))
            )  
       
       (testing "header filter with remote access & static file"
@@ -891,7 +891,7 @@
              (debug-println "=================/javafilter/rc1=============================")
              (is (= 200 (:status r)))
               ;;;content-type: text/html
-              (is (= "77269" (h "remote-content-length")))
+              (is (= "77342" (h "remote-content-length")))
              (is  (= "680" (h  "content-length")) )
              (is (= 680 (.length b))))
            )  
@@ -903,7 +903,7 @@
              (debug-println r)
              (debug-println "=================/javafilter/rc2=============================")
              (is (= 200 (:status r)))
-             (is (= "77269" (h "remote-content-length")))
+             (is (= "77342" (h "remote-content-length")))
               ;;;content-type: text/html
              (is (= "Hello, Java & Nginx!" b) ))
            )        
@@ -1024,7 +1024,7 @@
              (debug-println r)
              (debug-println "=================/cljfilter/rc0=============================")
              (is (= 404 (:status r)))
-             (is (= "77268" (h "remote-content-length"))))
+             (is (= "77341" (h "remote-content-length"))))
            )  
       
       (testing "header filter with remote access & static file"
@@ -1035,7 +1035,7 @@
              (debug-println "=================/cljfilter/rc1=============================")
              (is (= 200 (:status r)))
               ;;;content-type: text/html
-              (is (= "77268" (h "remote-content-length")))
+              (is (= "77341" (h "remote-content-length")))
              (is  (= "680" (h  "content-length")) )
              (is (= 680 (.length b))))
            )  
@@ -1047,7 +1047,7 @@
              (debug-println r)
              (debug-println "=================/cljfilter/rc2=============================")
              (is (= 200 (:status r)))
-             (is (= "77268" (h "remote-content-length")))
+             (is (= "77341" (h "remote-content-length")))
               ;;;content-type: text/html
              (is (= "Hello, Java & Nginx!" b) ))
            )        

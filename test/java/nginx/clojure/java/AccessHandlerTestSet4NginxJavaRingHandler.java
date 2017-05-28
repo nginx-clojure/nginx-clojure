@@ -112,7 +112,7 @@ public class AccessHandlerTestSet4NginxJavaRingHandler {
 				while ((c = in.read(buf)) > 0) {
 					total += c;
 				}
-				if (total != 77269) {
+				if (total != 77342) {
 					throw new RuntimeException("bad total bytes!");
 				}
 				return Constants.PHASE_DONE;

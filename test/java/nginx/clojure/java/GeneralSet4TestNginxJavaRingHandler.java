@@ -47,6 +47,14 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 
 	public static class Hello implements NginxJavaRingHandler {
 
+		public Hello() {
+			Runtime.getRuntime().addShutdownHook(new Thread(){
+				public void run() {
+					NginxClojureRT.log.error("JVM shutdown hook invoked!");
+				}
+			});
+		}
+		
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
 			return new Object[] { 

@@ -46,6 +46,18 @@ curl -v --data-binary @post-test-data  "http://${testhost}:8080/echoUploadfile"
 #test multipart/form-data
 curl -v --form mytoken=12345 --form  myf=@post-test-data "http://${testhost}:8080/echoUploadfile"
 
+## sub/pub
+
+curl -v http://${testhost}:8080/ringCompojure/sub
+curl -v http://${testhost}:8080/ringCompojure/pub?good
+
+curl -v http://${testhost}:8080/ringCompojure/sse-sub
+curl -v http://${testhost}:8080/ringCompojure/sse-pub?good!
+curl -v http://${testhost}:8080/ringCompojure/sse-pub?bad!
+curl -v http://${testhost}:8080/ringCompojure/sse-pub?finish!
+
+
+
 ab -n 400000 -c 16 "http://${testhost}:8080/clojure"
 ab -n 100000 -c 16 "http://172.16.111.135:8080/clojure"
 
@@ -185,8 +197,8 @@ auto/configure --with-cc=cl --builddir=objs --with-debug --prefix= \
 --http-proxy-temp-path=temp/proxy_temp \
 --http-fastcgi-temp-path=temp/fastcgi_temp \
 --http-scgi-temp-path=temp/scgi_temp --http-uwsgi-temp-path=temp/uwsgi_temp \
---with-cc-opt=-DFD_SETSIZE=4096 --with-pcre=objs/lib/pcre-8.32 \
---with-zlib=objs/lib/zlib-1.2.8 --with-openssl=objs/lib/openssl-1.0.1i \
+--with-cc-opt=-DFD_SETSIZE=4096 --with-pcre=../pcre-8.40 \
+--with-zlib=../zlib-1.2.11 --with-openssl=../openssl-1.1.0e \
 --with-select_module \
 --with-http_realip_module --with-http_addition_module \
 --with-http_sub_module --with-http_dav_module \
@@ -325,7 +337,7 @@ auto/configure --prefix= \
 --with-http_ssl_module \
 --with-pcre-jit \
 --with-debug \
---with-http_image_filter_module \
+--with-http_image_filter_module=dynamic \
 --with-http_realip_module \
 --with-http_addition_module \
 --with-http_sub_module \
@@ -341,16 +353,18 @@ auto/configure --prefix= \
 --with-mail_ssl_module \
 --with-file-aio \
 --with-ipv6 \
---with-openssl-opt=enable-tlsext \
---with-pcre=../pcre-8.32 \
---with-zlib=../zlib-1.2.8 \
---with-openssl=../openssl-1.0.1e \
+--with-pcre=../pcre-8.40 \
+--with-zlib=../zlib-1.2.11 \
+--with-openssl=../openssl-1.1.0e \
 --with-cc-opt='-O2 -g -pipe -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector --param=ssp-buffer-size=4 -m64 -mtune=generic' \
 --add-module=../nginx-clojure/src/c
 
 then modify objs/Makefile 
 
--lpthread -lcrypt -ldl ../pcre-8.32/.libs/libpcre.a ../openssl-1.0.1e/.openssl/lib/libssl.a ../openssl-1.0.1e/.openssl/lib/libcrypto.a -ldl ../zlib-1.2.8/libz.a /usr/lib64/libgd.a -lm -ljpeg -lpng12 -lfreetype -lfontconfig
+-lpthread -lcrypt -ldl ../pcre-8.32/.libs/libpcre.a ../openssl-1.0.1e/.openssl/lib/libssl.a ../openssl-1.0.1e/.openssl/lib/libcrypto.a -ldl ../zlib-1.2.8/libz.a /usr/lib64/libgd.a -lm
+
+
+## -lpthread -lcrypt -ldl ../pcre-8.32/.libs/libpcre.a ../openssl-1.0.1e/.openssl/lib/libssl.a ../openssl-1.0.1e/.openssl/lib/libcrypto.a -ldl ../zlib-1.2.8/libz.a /usr/lib64/libgd.a -lm -ljpeg -lpng12 -lfreetype -lfontconfig
 
 #32 bit centos
 -m64 --> m32
@@ -371,7 +385,7 @@ auto/configure --prefix= \
 --with-http_ssl_module \
 --with-pcre-jit \
 --with-debug \
---with-http_image_filter_module \
+--with-http_image_filter_module=dynamic \
 --with-http_realip_module \
 --with-http_addition_module \
 --with-http_sub_module \
@@ -387,10 +401,9 @@ auto/configure --prefix= \
 --with-mail_ssl_module \
 --with-file-aio \
 --with-ipv6 \
---with-openssl-opt=enable-tlsext \
---with-pcre=../pcre-8.32 \
---with-zlib=../zlib-1.2.8 \
---with-openssl=../openssl-1.0.1e \
+--with-pcre=../pcre-8.40 \
+--with-zlib=../zlib-1.2.11 \
+--with-openssl=../openssl-1.1.0e \
 --with-cc-opt='-O2 -g -pipe -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector --param=ssp-buffer-size=4 -m32 -mtune=generic' \
 --add-module=../nginx-clojure/src/c
 
@@ -415,7 +428,9 @@ auto/configure --with-debug --prefix= \
 --http-proxy-temp-path=temp/proxy_temp \
 --http-fastcgi-temp-path=temp/fastcgi_temp \
 --http-scgi-temp-path=temp/scgi_temp --http-uwsgi-temp-path=temp/uwsgi_temp \
---with-pcre=objs/lib/pcre-8.32 \
+--with-pcre=../pcre-8.40 \
+--with-zlib=../zlib-1.2.11 \
+--with-openssl=../openssl-1.1.0e \
 --with-select_module \
 --with-http_realip_module --with-http_addition_module \
 --with-http_sub_module --with-http_dav_module \
@@ -423,10 +438,14 @@ auto/configure --with-debug --prefix= \
 --with-http_mp4_module --with-http_gunzip_module \
 --with-http_gzip_static_module --with-http_random_index_module \
 --with-http_secure_link_module --with-mail  \
---with-openssl-opt=enable-tlsext --with-http_ssl_module --with-mail_ssl_module --with-ipv6 \
+--with-http_ssl_module --with-mail_ssl_module --with-ipv6 \
 --add-module=../nginx-clojure/src/c
 
 make
+
+gcc -c -DNGX_CLOJURE_BE_SILENT_WITHOUT_JVM -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include" -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include/darwin"  -pipe  -O   -g   -I src/core -I src/event -I src/event/modules -I src/os/unix -I ../pcre-8.40 -I ../openssl-1.1.0e/.openssl/include -I ../zlib-1.2.11 -I objs -I src/http -I src/http/modules -I ../nginx-clojure/src/c -I src/mail \
+		-o objs/addon/c/ngx_http_clojure_mem.o \
+		../nginx-clojure/src/c/ngx_http_clojure_mem.c
 
 
 nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx.conf -p /home/who/git/nginx-clojure/test/nginx-working-dir/
