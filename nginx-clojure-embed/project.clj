@@ -1,4 +1,4 @@
-(defproject nginx-clojure/nginx-clojure-embed "0.4.5"
+(defproject nginx-clojure/nginx-clojure-embed "0.4.5_2"
   :description "Embeding Nginx-Clojure into a standard clojure/java/groovy app without additional Nginx process"
   :url "https://github.com/nginx-clojure/nginx-clojure/tree/master/nginx-clojure-embed"
   :license {:name "BSD 3-Clause license"
