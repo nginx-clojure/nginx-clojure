@@ -85,13 +85,9 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 //			NginxClojureRT.log.info("after hijack" + r.nativeCount());
 			channel.sendHeader(200, null, true, false);
 			channel.send("first part.\r\n", true, false);
-//			sleep(10);
 			channel.send("second part.\r\n", true, false);
-//			sleep(10);
 			channel.send("third part.\r\n", true, false);
-//			sleep(10);
 			channel.send("last part.\r\n", true, true);
-//			sleep(10);
 			NginxClojureRT.log.info("after send all" + r.nativeCount());
 			return null;
 		}
@@ -288,6 +284,8 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		routing.put("/file", new FileBytesHandler());
 		routing.put("/upload", new UploadHandler());
 		routing.put("/stream", new StreamingWriteHandler());
+		routing.put("/mchain", new MultipleChainHandler());
+		routing.put("/utf8mchain", new Utf8MultipleChainHandler());
 	}
 
 	@Override

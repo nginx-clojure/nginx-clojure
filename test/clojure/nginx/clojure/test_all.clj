@@ -407,6 +407,27 @@
            (is (= "retry: 4500\r\ndata: good!\r\n\r\ndata: bad!\r\n\r\ndata: finish!\r\n\r\n" (:body @p)))))
   )
 
+
+(deftest ^{:remote true} test-hijacksend
+  (testing "hijack chunk send"
+           (let [r (client/get (str "http://" *host* ":" *port* "/java/mchain") {:coerce :unexceptional, :decompress-body false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================hijack chunk send end =============================")
+             (is (= 200 (:status r)))
+             (is (= "first part.\r\nsecond part.\r\nthird part.\r\nlast part.\r\n" (r :body)))))
+    (testing "hijack utf8 chunk send"
+           ;clj-http will auto use Accept-Encoding	gzip, deflate
+           (let [r (client/get (str "http://" *host* ":" *port* "/java/utf8mchain"))
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================hijack utf8 chunk send end=============================")
+             (is (= 200 (:status r)))
+             (is (= "来1点中文，在utf8分隔下，中文字符会被截到不同的chain中" (r :body)))))
+  )
+
 (def remote-socket-content 
   (delay (let [sf (nginx.clojure.net.SimpleHandler4TestNginxClojureSocket.)
                r1 (.invoke sf {})
