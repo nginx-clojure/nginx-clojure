@@ -1728,9 +1728,11 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *me
 			b->last += len;
 			if (flag & NGX_CLOJURE_BUF_LAST_FLAG) {
 				b->last_buf = 1;
+				b->temporary = 0;
 			}
 			if (flag & NGX_CLOJURE_BUF_FLUSH_FLAG) {
 				b->flush = 1;
+				b->temporary = 0;
 			}
 			goto TRY_SEND;
 		}
