@@ -923,19 +923,27 @@ static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
 #if defined(NGX_CLOJURE_WORKER_STAT)
 	ssize  +=  1 + NGX_MAX_PROCESSES * 3;
 #endif
-	ngx_http_clojure_shared_memory.size = cl * ssize;
+
 	ngx_http_clojure_shared_memory.name.len = sizeof("nginx_clojure_shared_zone");
 	ngx_http_clojure_shared_memory.name.data = (u_char *) "nginx_clojure_shared_zone";
 	ngx_http_clojure_shared_memory.log = cycle->log;
 
-    if (ngx_shm_alloc(&ngx_http_clojure_shared_memory) != NGX_OK) {
-        return NGX_ERROR;
+  if (ngx_http_clojure_shared_memory.size != cl * ssize) {
+    if (ngx_http_clojure_shared_memory.size) {
+      ngx_shm_free(&ngx_http_clojure_shared_memory);
     }
+
+    ngx_http_clojure_shared_memory.size = cl * ssize;
+    if (ngx_shm_alloc(&ngx_http_clojure_shared_memory) != NGX_OK) {
+            return NGX_ERROR;
+     }
 
     ngx_http_clojure_jvm_be_mad_times = (ngx_atomic_t *) ngx_http_clojure_shared_memory.addr;
     ngx_http_clojure_jvm_num = (ngx_atomic_t *) (ngx_http_clojure_shared_memory.addr+ cl);
     *ngx_http_clojure_jvm_be_mad_times = 0;
     *ngx_http_clojure_jvm_num = 1;
+  }
+
 
 #if defined(NGX_CLOJURE_WORKER_STAT)
     ngx_http_clojure_rem_accept_idx = (ngx_atomic_int_t *) (ngx_http_clojure_shared_memory.addr + cl * 2);
@@ -1390,6 +1398,7 @@ static ngx_int_t ngx_http_clojure_expand_jvm_classpath(ngx_conf_t *cf, ngx_str_t
 			err = ngx_errno;
 			if (err != NGX_ENOMOREFILES) {
 				ngx_conf_log_error(NGX_LOG_EMERG, cf, err, ngx_read_dir_n " \"%V\" failed", d);
+				ngx_close_dir(&dir);
 				return NGX_ERROR;
 			}
 			break;
@@ -1408,9 +1417,10 @@ static ngx_int_t ngx_http_clojure_expand_jvm_classpath(ngx_conf_t *cf, ngx_str_t
 			tmpd.data = ngx_de_name(&dir);
 			tmpd.len = len;
 			if (ngx_http_clojure_expand_jvm_classpath(cf, &tmpd, cps, 0) != NGX_OK) {
-				return NGX_ERROR;
+			  ngx_close_dir(&dir);
+			  return NGX_ERROR;
 			}
-		}else {
+		} else {
 			path = ngx_array_push(cps);
 			path->len = d->len + len;
 			path->data = ngx_pnalloc(cps->pool, d->len + len + 1);
@@ -1419,6 +1429,7 @@ static ngx_int_t ngx_http_clojure_expand_jvm_classpath(ngx_conf_t *cf, ngx_str_t
 		}
 	}
 
+	ngx_close_dir(&dir);
 	return NGX_OK;
 }
 
