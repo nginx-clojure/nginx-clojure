@@ -136,10 +136,15 @@ public class AnalyzerAdapter extends MethodVisitor {
      * @param mv
      *            the method visitor to which this adapter delegates calls. May
      *            be <tt>null</tt>.
+     * @throws IllegalStateException
+     *             If a subclass calls this constructor.
      */
     public AnalyzerAdapter(final String owner, final int access,
             final String name, final String desc, final MethodVisitor mv) {
-        this(Opcodes.ASM4, owner, access, name, desc, mv);
+        this(Opcodes.ASM5, owner, access, name, desc, mv);
+        if (getClass() != AnalyzerAdapter.class) {
+            throw new IllegalStateException();
+        }
     }
 
     /**
@@ -147,7 +152,7 @@ public class AnalyzerAdapter extends MethodVisitor {
      * 
      * @param api
      *            the ASM API version implemented by this visitor. Must be one
-     *            of {@link Opcodes#ASM4}.
+     *            of {@link Opcodes#ASM4} or {@link Opcodes#ASM5}.
      * @param owner
      *            the owner's class name.
      * @param access
@@ -206,6 +211,7 @@ public class AnalyzerAdapter extends MethodVisitor {
                 locals.add(types[i].getInternalName());
             }
         }
+        maxLocals = locals.size();
     }
 
     @Override
@@ -302,11 +308,32 @@ public class AnalyzerAdapter extends MethodVisitor {
         execute(opcode, 0, desc);
     }
 
+    @Deprecated
     @Override
     public void visitMethodInsn(final int opcode, final String owner,
             final String name, final String desc) {
+        if (api >= Opcodes.ASM5) {
+            super.visitMethodInsn(opcode, owner, name, desc);
+            return;
+        }
+        doVisitMethodInsn(opcode, owner, name, desc,
+                opcode == Opcodes.INVOKEINTERFACE);
+    }
+
+    @Override
+    public void visitMethodInsn(final int opcode, final String owner,
+            final String name, final String desc, final boolean itf) {
+        if (api < Opcodes.ASM5) {
+            super.visitMethodInsn(opcode, owner, name, desc, itf);
+            return;
+        }
+        doVisitMethodInsn(opcode, owner, name, desc, itf);
+    }
+
+    private void doVisitMethodInsn(int opcode, final String owner,
+            final String name, final String desc, final boolean itf) {
         if (mv != null) {
-            mv.visitMethodInsn(opcode, owner, name, desc);
+            mv.visitMethodInsn(opcode, owner, name, desc, itf);
         }
         if (this.locals == null) {
             labels = null;
@@ -464,12 +491,12 @@ public class AnalyzerAdapter extends MethodVisitor {
     // ------------------------------------------------------------------------
 
     private Object get(final int local) {
-        maxLocals = Math.max(maxLocals, local);
+        maxLocals = Math.max(maxLocals, local + 1);
         return local < locals.size() ? locals.get(local) : Opcodes.TOP;
     }
 
     private void set(final int local, final Object type) {
-        maxLocals = Math.max(maxLocals, local);
+        maxLocals = Math.max(maxLocals, local + 1);
         while (local >= locals.size()) {
             locals.add(Opcodes.TOP);
         }

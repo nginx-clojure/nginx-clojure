@@ -40,11 +40,13 @@ import nginx.clojure.asm.Handle;
 import nginx.clojure.asm.Label;
 import nginx.clojure.asm.Opcodes;
 import nginx.clojure.asm.Type;
+import nginx.clojure.asm.TypePath;
+import nginx.clojure.asm.TypeReference;
 import nginx.clojure.asm.signature.SignatureReader;
 
 /**
  * A {@link Printer} that prints a disassembled view of the classes it visits.
- * 
+ *
  * @author Eric Bruneton
  */
 public class Textifier extends Printer {
@@ -135,23 +137,34 @@ public class Textifier extends Printer {
      */
     protected Map<Label, String> labelNames;
 
+    /**
+     * Class access flags
+     */
+    private int access;
+
     private int valueNumber = 0;
 
     /**
      * Constructs a new {@link Textifier}. <i>Subclasses must not use this
      * constructor</i>. Instead, they must use the {@link #Textifier(int)}
      * version.
+     *
+     * @throws IllegalStateException
+     *             If a subclass calls this constructor.
      */
     public Textifier() {
-        this(Opcodes.ASM4);
+        this(Opcodes.ASM5);
+        if (getClass() != Textifier.class) {
+            throw new IllegalStateException();
+        }
     }
 
     /**
      * Constructs a new {@link Textifier}.
-     * 
+     *
      * @param api
      *            the ASM API version implemented by this visitor. Must be one
-     *            of {@link Opcodes#ASM4}.
+     *            of {@link Opcodes#ASM4} or {@link Opcodes#ASM5}.
      */
     protected Textifier(final int api) {
         super(api);
@@ -161,10 +174,10 @@ public class Textifier extends Printer {
      * Prints a disassembled view of the given class to the standard output.
      * <p>
      * Usage: Textifier [-debug] &lt;binary class name or class file name &gt;
-     * 
+     *
      * @param args
      *            the command line arguments.
-     * 
+     *
      * @throws Exception
      *             if the class cannot be found, or if an IO exception occurs.
      */
@@ -208,6 +221,7 @@ public class Textifier extends Printer {
     public void visit(final int version, final int access, final String name,
             final String signature, final String superName,
             final String[] interfaces) {
+        this.access = access;
         int major = version & 0xFFFF;
         int minor = version >>> 16;
         buf.setLength(0);
@@ -291,6 +305,13 @@ public class Textifier extends Printer {
             final boolean visible) {
         text.add("\n");
         return visitAnnotation(desc, visible);
+    }
+
+    @Override
+    public Printer visitClassTypeAnnotation(int typeRef, TypePath typePath,
+            String desc, boolean visible) {
+        text.add("\n");
+        return visitTypeAnnotation(typeRef, typePath, desc, visible);
     }
 
     @Override
@@ -393,7 +414,7 @@ public class Textifier extends Printer {
         }
 
         buf.append(tab);
-        appendAccess(access);
+        appendAccess(access & ~Opcodes.ACC_VOLATILE);
         if ((access & Opcodes.ACC_NATIVE) != 0) {
             buf.append("native ");
         }
@@ -402,6 +423,11 @@ public class Textifier extends Printer {
         }
         if ((access & Opcodes.ACC_BRIDGE) != 0) {
             buf.append("bridge ");
+        }
+        if ((this.access & Opcodes.ACC_INTERFACE) != 0
+                && (access & Opcodes.ACC_ABSTRACT) == 0
+                && (access & Opcodes.ACC_STATIC) == 0) {
+            buf.append("default ");
         }
 
         buf.append(name);
@@ -617,6 +643,12 @@ public class Textifier extends Printer {
     }
 
     @Override
+    public Printer visitFieldTypeAnnotation(int typeRef, TypePath typePath,
+            String desc, boolean visible) {
+        return visitTypeAnnotation(typeRef, typePath, desc, visible);
+    }
+
+    @Override
     public void visitFieldAttribute(final Attribute attr) {
         visitAttribute(attr);
     }
@@ -628,6 +660,16 @@ public class Textifier extends Printer {
     // ------------------------------------------------------------------------
     // Methods
     // ------------------------------------------------------------------------
+
+    @Override
+    public void visitParameter(final String name, final int access) {
+        buf.setLength(0);
+        buf.append(tab2).append("// parameter ");
+        appendAccess(access);
+        buf.append(' ').append((name == null) ? "<no name>" : name)
+                .append('\n');
+        text.add(buf.toString());
+    }
 
     @Override
     public Textifier visitAnnotationDefault() {
@@ -645,6 +687,12 @@ public class Textifier extends Printer {
     }
 
     @Override
+    public Printer visitMethodTypeAnnotation(int typeRef, TypePath typePath,
+            String desc, boolean visible) {
+        return visitTypeAnnotation(typeRef, typePath, desc, visible);
+    }
+
+    @Override
     public Textifier visitParameterAnnotation(final int parameter,
             final String desc, final boolean visible) {
         buf.setLength(0);
@@ -655,7 +703,7 @@ public class Textifier extends Printer {
         Textifier t = createTextifier();
         text.add(t.getText());
         text.add(visible ? ") // parameter " : ") // invisible, parameter ");
-        text.add(new Integer(parameter));
+        text.add(parameter);
         text.add("\n");
         return t;
     }
@@ -761,9 +809,30 @@ public class Textifier extends Printer {
         text.add(buf.toString());
     }
 
+    @Deprecated
     @Override
     public void visitMethodInsn(final int opcode, final String owner,
             final String name, final String desc) {
+        if (api >= Opcodes.ASM5) {
+            super.visitMethodInsn(opcode, owner, name, desc);
+            return;
+        }
+        doVisitMethodInsn(opcode, owner, name, desc,
+                opcode == Opcodes.INVOKEINTERFACE);
+    }
+
+    @Override
+    public void visitMethodInsn(final int opcode, final String owner,
+            final String name, final String desc, final boolean itf) {
+        if (api < Opcodes.ASM5) {
+            super.visitMethodInsn(opcode, owner, name, desc, itf);
+            return;
+        }
+        doVisitMethodInsn(opcode, owner, name, desc, itf);
+    }
+
+    private void doVisitMethodInsn(final int opcode, final String owner,
+            final String name, final String desc, final boolean itf) {
         buf.setLength(0);
         buf.append(tab2).append(OPCODES[opcode]).append(' ');
         appendDescriptor(INTERNAL_NAME, owner);
@@ -781,26 +850,35 @@ public class Textifier extends Printer {
         buf.append(name);
         appendDescriptor(METHOD_DESCRIPTOR, desc);
         buf.append(" [");
+        buf.append('\n');
+        buf.append(tab3);
         appendHandle(bsm);
+        buf.append('\n');
         buf.append(tab3).append("// arguments:");
         if (bsmArgs.length == 0) {
             buf.append(" none");
         } else {
-            buf.append('\n').append(tab3);
+            buf.append('\n');
             for (int i = 0; i < bsmArgs.length; i++) {
+                buf.append(tab3);
                 Object cst = bsmArgs[i];
                 if (cst instanceof String) {
                     Printer.appendString(buf, (String) cst);
                 } else if (cst instanceof Type) {
-                    buf.append(((Type) cst).getDescriptor()).append(".class");
+                    Type type = (Type) cst;
+                    if(type.getSort() == Type.METHOD){
+                        appendDescriptor(METHOD_DESCRIPTOR, type.getDescriptor());
+                    } else {
+                        buf.append(type.getDescriptor()).append(".class");
+                    }
                 } else if (cst instanceof Handle) {
                     appendHandle((Handle) cst);
                 } else {
                     buf.append(cst);
                 }
-                buf.append(", ");
+                buf.append(", \n");
             }
-            buf.setLength(buf.length() - 2);
+            buf.setLength(buf.length() - 3);
         }
         buf.append('\n');
         buf.append(tab2).append("]\n");
@@ -890,6 +968,12 @@ public class Textifier extends Printer {
     }
 
     @Override
+    public Printer visitInsnAnnotation(int typeRef, TypePath typePath,
+            String desc, boolean visible) {
+        return visitTypeAnnotation(typeRef, typePath, desc, visible);
+    }
+
+    @Override
     public void visitTryCatchBlock(final Label start, final Label end,
             final Label handler, final String type) {
         buf.setLength(0);
@@ -903,6 +987,25 @@ public class Textifier extends Printer {
         appendDescriptor(INTERNAL_NAME, type);
         buf.append('\n');
         text.add(buf.toString());
+    }
+
+    @Override
+    public Printer visitTryCatchAnnotation(int typeRef, TypePath typePath,
+            String desc, boolean visible) {
+        buf.setLength(0);
+        buf.append(tab2).append("TRYCATCHBLOCK @");
+        appendDescriptor(FIELD_DESCRIPTOR, desc);
+        buf.append('(');
+        text.add(buf.toString());
+        Textifier t = createTextifier();
+        text.add(t.getText());
+        buf.setLength(0);
+        buf.append(") : ");
+        appendTypeReference(typeRef);
+        buf.append(", ").append(typePath);
+        buf.append(visible ? "\n" : " // invisible\n");
+        text.add(buf.toString());
+        return t;
     }
 
     @Override
@@ -929,6 +1032,33 @@ public class Textifier extends Printer {
                     .append(sv.getDeclaration()).append('\n');
         }
         text.add(buf.toString());
+    }
+
+    @Override
+    public Printer visitLocalVariableAnnotation(int typeRef, TypePath typePath,
+            Label[] start, Label[] end, int[] index, String desc,
+            boolean visible) {
+        buf.setLength(0);
+        buf.append(tab2).append("LOCALVARIABLE @");
+        appendDescriptor(FIELD_DESCRIPTOR, desc);
+        buf.append('(');
+        text.add(buf.toString());
+        Textifier t = createTextifier();
+        text.add(t.getText());
+        buf.setLength(0);
+        buf.append(") : ");
+        appendTypeReference(typeRef);
+        buf.append(", ").append(typePath);
+        for (int i = 0; i < start.length; ++i) {
+            buf.append(" [ ");
+            appendLabel(start[i]);
+            buf.append(" - ");
+            appendLabel(end[i]);
+            buf.append(" - ").append(index[i]).append(" ]");
+        }
+        buf.append(visible ? "\n" : " // invisible\n");
+        text.add(buf.toString());
+        return t;
     }
 
     @Override
@@ -961,7 +1091,7 @@ public class Textifier extends Printer {
 
     /**
      * Prints a disassembled view of the given annotation.
-     * 
+     *
      * @param desc
      *            the class descriptor of the annotation class.
      * @param visible
@@ -981,8 +1111,41 @@ public class Textifier extends Printer {
     }
 
     /**
+     * Prints a disassembled view of the given type annotation.
+     *
+     * @param typeRef
+     *            a reference to the annotated type. See {@link TypeReference}.
+     * @param typePath
+     *            the path to the annotated type argument, wildcard bound, array
+     *            element type, or static inner type within 'typeRef'. May be
+     *            <tt>null</tt> if the annotation targets 'typeRef' as a whole.
+     * @param desc
+     *            the class descriptor of the annotation class.
+     * @param visible
+     *            <tt>true</tt> if the annotation is visible at runtime.
+     * @return a visitor to visit the annotation values.
+     */
+    public Textifier visitTypeAnnotation(final int typeRef,
+            final TypePath typePath, final String desc, final boolean visible) {
+        buf.setLength(0);
+        buf.append(tab).append('@');
+        appendDescriptor(FIELD_DESCRIPTOR, desc);
+        buf.append('(');
+        text.add(buf.toString());
+        Textifier t = createTextifier();
+        text.add(t.getText());
+        buf.setLength(0);
+        buf.append(") : ");
+        appendTypeReference(typeRef);
+        buf.append(", ").append(typePath);
+        buf.append(visible ? "\n" : " // invisible\n");
+        text.add(buf.toString());
+        return t;
+    }
+
+    /**
      * Prints a disassembled view of the given attribute.
-     * 
+     *
      * @param attr
      *            an attribute.
      */
@@ -1006,7 +1169,7 @@ public class Textifier extends Printer {
 
     /**
      * Creates a new TraceVisitor instance.
-     * 
+     *
      * @return a new TraceVisitor.
      */
     protected Textifier createTextifier() {
@@ -1016,7 +1179,7 @@ public class Textifier extends Printer {
     /**
      * Appends an internal name, a type descriptor or a type signature to
      * {@link #buf buf}.
-     * 
+     *
      * @param type
      *            indicates if desc is an internal name, a field descriptor, a
      *            method descriptor, a class signature, ...
@@ -1038,7 +1201,7 @@ public class Textifier extends Printer {
     /**
      * Appends the name of the given label to {@link #buf buf}. Creates a new
      * label name if the given label does not yet have one.
-     * 
+     *
      * @param l
      *            a label.
      */
@@ -1056,15 +1219,15 @@ public class Textifier extends Printer {
 
     /**
      * Appends the information about the given handle to {@link #buf buf}.
-     * 
+     *
      * @param h
      *            a handle, non null.
      */
     protected void appendHandle(final Handle h) {
-        buf.append('\n').append(tab3);
         int tag = h.getTag();
         buf.append("// handle kind 0x").append(Integer.toHexString(tag))
                 .append(" : ");
+        boolean isMethodHandle = false;
         switch (tag) {
         case Opcodes.H_GETFIELD:
             buf.append("GETFIELD");
@@ -1080,18 +1243,23 @@ public class Textifier extends Printer {
             break;
         case Opcodes.H_INVOKEINTERFACE:
             buf.append("INVOKEINTERFACE");
+            isMethodHandle = true;
             break;
         case Opcodes.H_INVOKESPECIAL:
             buf.append("INVOKESPECIAL");
+            isMethodHandle = true;
             break;
         case Opcodes.H_INVOKESTATIC:
             buf.append("INVOKESTATIC");
+            isMethodHandle = true;
             break;
         case Opcodes.H_INVOKEVIRTUAL:
             buf.append("INVOKEVIRTUAL");
+            isMethodHandle = true;
             break;
         case Opcodes.H_NEWINVOKESPECIAL:
             buf.append("NEWINVOKESPECIAL");
+            isMethodHandle = true;
             break;
         }
         buf.append('\n');
@@ -1099,15 +1267,19 @@ public class Textifier extends Printer {
         appendDescriptor(INTERNAL_NAME, h.getOwner());
         buf.append('.');
         buf.append(h.getName());
-        buf.append('(');
+        if(!isMethodHandle){
+            buf.append('(');
+        }
         appendDescriptor(HANDLE_DESCRIPTOR, h.getDesc());
-        buf.append(')').append('\n');
+        if(!isMethodHandle){
+            buf.append(')');
+        }
     }
 
     /**
      * Appends a string representation of the given access modifiers to
      * {@link #buf buf}.
-     * 
+     *
      * @param access
      *            some access modifiers.
      */
@@ -1145,6 +1317,9 @@ public class Textifier extends Printer {
         if ((access & Opcodes.ACC_SYNTHETIC) != 0) {
             buf.append("synthetic ");
         }
+        if ((access & Opcodes.ACC_MANDATED) != 0) {
+            buf.append("mandated ");
+        }
         if ((access & Opcodes.ACC_ENUM) != 0) {
             buf.append("enum ");
         }
@@ -1153,6 +1328,90 @@ public class Textifier extends Printer {
     private void appendComa(final int i) {
         if (i != 0) {
             buf.append(", ");
+        }
+    }
+
+    private void appendTypeReference(final int typeRef) {
+        TypeReference ref = new TypeReference(typeRef);
+        switch (ref.getSort()) {
+        case TypeReference.CLASS_TYPE_PARAMETER:
+            buf.append("CLASS_TYPE_PARAMETER ").append(
+                    ref.getTypeParameterIndex());
+            break;
+        case TypeReference.METHOD_TYPE_PARAMETER:
+            buf.append("METHOD_TYPE_PARAMETER ").append(
+                    ref.getTypeParameterIndex());
+            break;
+        case TypeReference.CLASS_EXTENDS:
+            buf.append("CLASS_EXTENDS ").append(ref.getSuperTypeIndex());
+            break;
+        case TypeReference.CLASS_TYPE_PARAMETER_BOUND:
+            buf.append("CLASS_TYPE_PARAMETER_BOUND ")
+                    .append(ref.getTypeParameterIndex()).append(", ")
+                    .append(ref.getTypeParameterBoundIndex());
+            break;
+        case TypeReference.METHOD_TYPE_PARAMETER_BOUND:
+            buf.append("METHOD_TYPE_PARAMETER_BOUND ")
+                    .append(ref.getTypeParameterIndex()).append(", ")
+                    .append(ref.getTypeParameterBoundIndex());
+            break;
+        case TypeReference.FIELD:
+            buf.append("FIELD");
+            break;
+        case TypeReference.METHOD_RETURN:
+            buf.append("METHOD_RETURN");
+            break;
+        case TypeReference.METHOD_RECEIVER:
+            buf.append("METHOD_RECEIVER");
+            break;
+        case TypeReference.METHOD_FORMAL_PARAMETER:
+            buf.append("METHOD_FORMAL_PARAMETER ").append(
+                    ref.getFormalParameterIndex());
+            break;
+        case TypeReference.THROWS:
+            buf.append("THROWS ").append(ref.getExceptionIndex());
+            break;
+        case TypeReference.LOCAL_VARIABLE:
+            buf.append("LOCAL_VARIABLE");
+            break;
+        case TypeReference.RESOURCE_VARIABLE:
+            buf.append("RESOURCE_VARIABLE");
+            break;
+        case TypeReference.EXCEPTION_PARAMETER:
+            buf.append("EXCEPTION_PARAMETER ").append(
+                    ref.getTryCatchBlockIndex());
+            break;
+        case TypeReference.INSTANCEOF:
+            buf.append("INSTANCEOF");
+            break;
+        case TypeReference.NEW:
+            buf.append("NEW");
+            break;
+        case TypeReference.CONSTRUCTOR_REFERENCE:
+            buf.append("CONSTRUCTOR_REFERENCE");
+            break;
+        case TypeReference.METHOD_REFERENCE:
+            buf.append("METHOD_REFERENCE");
+            break;
+        case TypeReference.CAST:
+            buf.append("CAST ").append(ref.getTypeArgumentIndex());
+            break;
+        case TypeReference.CONSTRUCTOR_INVOCATION_TYPE_ARGUMENT:
+            buf.append("CONSTRUCTOR_INVOCATION_TYPE_ARGUMENT ").append(
+                    ref.getTypeArgumentIndex());
+            break;
+        case TypeReference.METHOD_INVOCATION_TYPE_ARGUMENT:
+            buf.append("METHOD_INVOCATION_TYPE_ARGUMENT ").append(
+                    ref.getTypeArgumentIndex());
+            break;
+        case TypeReference.CONSTRUCTOR_REFERENCE_TYPE_ARGUMENT:
+            buf.append("CONSTRUCTOR_REFERENCE_TYPE_ARGUMENT ").append(
+                    ref.getTypeArgumentIndex());
+            break;
+        case TypeReference.METHOD_REFERENCE_TYPE_ARGUMENT:
+            buf.append("METHOD_REFERENCE_TYPE_ARGUMENT ").append(
+                    ref.getTypeArgumentIndex());
+            break;
         }
     }
 

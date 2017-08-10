@@ -46,6 +46,8 @@ import nginx.clojure.asm.Label;
 import nginx.clojure.asm.MethodVisitor;
 import nginx.clojure.asm.Opcodes;
 import nginx.clojure.asm.Type;
+import nginx.clojure.asm.TypePath;
+import nginx.clojure.asm.TypeReference;
 import nginx.clojure.asm.tree.ClassNode;
 import nginx.clojure.asm.tree.MethodNode;
 import nginx.clojure.asm.tree.analysis.Analyzer;
@@ -106,7 +108,7 @@ import nginx.clojure.asm.tree.analysis.SimpleVerifier;
  * 00071 LinkedBlockingQueue$Itr <b>.</b> I . . . . . .  :
  *   ILOAD 1
  * 00072 <b>?</b>
- *   INVOKESPECIAL java/lang/Integer.<init> (I)V
+ *   INVOKESPECIAL java/lang/Integer.&lt;init&gt; (I)V
  * ...
  * </pre>
  * 
@@ -215,7 +217,7 @@ public class CheckClassAdapter extends ClassVisitor {
 
         List<Type> interfaces = new ArrayList<Type>();
         for (Iterator<String> i = cn.interfaces.iterator(); i.hasNext();) {
-            interfaces.add(Type.getObjectType(i.next().toString()));
+            interfaces.add(Type.getObjectType(i.next()));
         }
 
         for (int i = 0; i < methods.size(); ++i) {
@@ -267,26 +269,26 @@ public class CheckClassAdapter extends ClassVisitor {
         for (int j = 0; j < method.instructions.size(); ++j) {
             method.instructions.get(j).accept(mv);
 
-            StringBuffer s = new StringBuffer();
+            StringBuilder sb = new StringBuilder();
             Frame<BasicValue> f = frames[j];
             if (f == null) {
-                s.append('?');
+                sb.append('?');
             } else {
                 for (int k = 0; k < f.getLocals(); ++k) {
-                    s.append(getShortName(f.getLocal(k).toString()))
+                    sb.append(getShortName(f.getLocal(k).toString()))
                             .append(' ');
                 }
-                s.append(" : ");
+                sb.append(" : ");
                 for (int k = 0; k < f.getStackSize(); ++k) {
-                    s.append(getShortName(f.getStack(k).toString()))
+                    sb.append(getShortName(f.getStack(k).toString()))
                             .append(' ');
                 }
             }
-            while (s.length() < method.maxStack + method.maxLocals + 1) {
-                s.append(' ');
+            while (sb.length() < method.maxStack + method.maxLocals + 1) {
+                sb.append(' ');
             }
             pw.print(Integer.toString(j + 100000).substring(1));
-            pw.print(" " + s + " : " + t.text.get(t.text.size() - 1));
+            pw.print(" " + sb + " : " + t.text.get(t.text.size() - 1));
         }
         for (int j = 0; j < method.tryCatchBlocks.size(); ++j) {
             method.tryCatchBlocks.get(j).accept(mv);
@@ -328,9 +330,14 @@ public class CheckClassAdapter extends ClassVisitor {
      *            <tt>false</tt> to not perform any data flow check (see
      *            {@link CheckMethodAdapter}). This option requires valid
      *            maxLocals and maxStack values.
+     * @throws IllegalStateException
+     *             If a subclass calls this constructor.
      */
     public CheckClassAdapter(final ClassVisitor cv, final boolean checkDataFlow) {
-        this(Opcodes.ASM4, cv, checkDataFlow);
+        this(Opcodes.ASM5, cv, checkDataFlow);
+        if (getClass() != CheckClassAdapter.class) {
+            throw new IllegalStateException();
+        }
     }
 
     /**
@@ -338,7 +345,7 @@ public class CheckClassAdapter extends ClassVisitor {
      * 
      * @param api
      *            the ASM API version implemented by this visitor. Must be one
-     *            of {@link Opcodes#ASM4}.
+     *            of {@link Opcodes#ASM4} or {@link Opcodes#ASM5}.
      * @param cv
      *            the class visitor to which this adapter must delegate calls.
      * @param checkDataFlow
@@ -525,6 +532,23 @@ public class CheckClassAdapter extends ClassVisitor {
     }
 
     @Override
+    public AnnotationVisitor visitTypeAnnotation(final int typeRef,
+            final TypePath typePath, final String desc, final boolean visible) {
+        checkState();
+        int sort = typeRef >>> 24;
+        if (sort != TypeReference.CLASS_TYPE_PARAMETER
+                && sort != TypeReference.CLASS_TYPE_PARAMETER_BOUND
+                && sort != TypeReference.CLASS_EXTENDS) {
+            throw new IllegalArgumentException("Invalid type reference sort 0x"
+                    + Integer.toHexString(sort));
+        }
+        checkTypeRefAndPath(typeRef, typePath);
+        CheckMethodAdapter.checkDesc(desc, false);
+        return new CheckAnnotationAdapter(super.visitTypeAnnotation(typeRef,
+                typePath, desc, visible));
+    }
+
+    @Override
     public void visitAttribute(final Attribute attr) {
         checkState();
         if (attr == null) {
@@ -665,6 +689,77 @@ public class CheckClassAdapter extends ClassVisitor {
         if (pos != signature.length()) {
             throw new IllegalArgumentException(signature + ": error at index "
                     + pos);
+        }
+    }
+
+    /**
+     * Checks the reference to a type in a type annotation.
+     * 
+     * @param typeRef
+     *            a reference to an annotated type.
+     * @param typePath
+     *            the path to the annotated type argument, wildcard bound, array
+     *            element type, or static inner type within 'typeRef'. May be
+     *            <tt>null</tt> if the annotation targets 'typeRef' as a whole.
+     */
+    static void checkTypeRefAndPath(int typeRef, TypePath typePath) {
+        int mask = 0;
+        switch (typeRef >>> 24) {
+        case TypeReference.CLASS_TYPE_PARAMETER:
+        case TypeReference.METHOD_TYPE_PARAMETER:
+        case TypeReference.METHOD_FORMAL_PARAMETER:
+            mask = 0xFFFF0000;
+            break;
+        case TypeReference.FIELD:
+        case TypeReference.METHOD_RETURN:
+        case TypeReference.METHOD_RECEIVER:
+        case TypeReference.LOCAL_VARIABLE:
+        case TypeReference.RESOURCE_VARIABLE:
+        case TypeReference.INSTANCEOF:
+        case TypeReference.NEW:
+        case TypeReference.CONSTRUCTOR_REFERENCE:
+        case TypeReference.METHOD_REFERENCE:
+            mask = 0xFF000000;
+            break;
+        case TypeReference.CLASS_EXTENDS:
+        case TypeReference.CLASS_TYPE_PARAMETER_BOUND:
+        case TypeReference.METHOD_TYPE_PARAMETER_BOUND:
+        case TypeReference.THROWS:
+        case TypeReference.EXCEPTION_PARAMETER:
+            mask = 0xFFFFFF00;
+            break;
+        case TypeReference.CAST:
+        case TypeReference.CONSTRUCTOR_INVOCATION_TYPE_ARGUMENT:
+        case TypeReference.METHOD_INVOCATION_TYPE_ARGUMENT:
+        case TypeReference.CONSTRUCTOR_REFERENCE_TYPE_ARGUMENT:
+        case TypeReference.METHOD_REFERENCE_TYPE_ARGUMENT:
+            mask = 0xFF0000FF;
+            break;
+        default:
+            throw new IllegalArgumentException("Invalid type reference sort 0x"
+                    + Integer.toHexString(typeRef >>> 24));
+        }
+        if ((typeRef & ~mask) != 0) {
+            throw new IllegalArgumentException("Invalid type reference 0x"
+                    + Integer.toHexString(typeRef));
+        }
+        if (typePath != null) {
+            for (int i = 0; i < typePath.getLength(); ++i) {
+                int step = typePath.getStep(i);
+                if (step != TypePath.ARRAY_ELEMENT
+                        && step != TypePath.INNER_TYPE
+                        && step != TypePath.TYPE_ARGUMENT
+                        && step != TypePath.WILDCARD_BOUND) {
+                    throw new IllegalArgumentException(
+                            "Invalid type path step " + i + " in " + typePath);
+                }
+                if (step != TypePath.TYPE_ARGUMENT
+                        && typePath.getStepArgument(i) != 0) {
+                    throw new IllegalArgumentException(
+                            "Invalid type path step argument for step " + i
+                                    + " in " + typePath);
+                }
+            }
         }
     }
 

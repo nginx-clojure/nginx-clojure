@@ -100,7 +100,7 @@ public class InsnList {
      *            the index of the instruction that must be returned.
      * @return the instruction whose index is given.
      * @throws IndexOutOfBoundsException
-     *             if (index < 0 || index >= size()).
+     *             if (index &lt; 0 || index &gt;= size()).
      */
     public AbstractInsnNode get(final int index) {
         if (index < 0 || index >= size) {
@@ -175,6 +175,9 @@ public class InsnList {
 
     /**
      * Returns an iterator over the instructions in this list.
+     * 
+     * @param index
+     *            index of instruction for the iterator to start at
      * 
      * @return an iterator over the instructions in this list.
      */
@@ -521,11 +524,14 @@ public class InsnList {
     }
 
     // this class is not generified because it will create bridges
+    @SuppressWarnings("rawtypes")
     private final class InsnListIterator implements ListIterator {
 
         AbstractInsnNode next;
 
         AbstractInsnNode prev;
+
+        AbstractInsnNode remove;
 
         InsnListIterator(int index) {
             if (index == size()) {
@@ -548,12 +554,22 @@ public class InsnList {
             AbstractInsnNode result = next;
             prev = result;
             next = result.next;
+            remove = result;
             return result;
         }
 
         public void remove() {
-            InsnList.this.remove(prev);
-            prev = prev.prev;
+            if (remove != null) {
+                if (remove == next) {
+                    next = next.next;
+                } else {
+                    prev = prev.prev;
+                }
+                InsnList.this.remove(remove);
+                remove = null;
+            } else {
+                throw new IllegalStateException();
+            }
         }
 
         public boolean hasPrevious() {
@@ -564,6 +580,7 @@ public class InsnList {
             AbstractInsnNode result = prev;
             next = result;
             prev = result.prev;
+            remove = result;
             return result;
         }
 
@@ -588,13 +605,28 @@ public class InsnList {
         }
 
         public void add(Object o) {
-            InsnList.this.insertBefore(next, (AbstractInsnNode) o);
+            if (next != null) {
+                InsnList.this.insertBefore(next, (AbstractInsnNode) o);
+            } else if (prev != null) {
+                InsnList.this.insert(prev, (AbstractInsnNode) o);
+            } else {
+                InsnList.this.add((AbstractInsnNode) o);
+            }
             prev = (AbstractInsnNode) o;
+            remove = null;
         }
 
         public void set(Object o) {
-            InsnList.this.set(next.prev, (AbstractInsnNode) o);
-            prev = (AbstractInsnNode) o;
+            if (remove != null) {
+                InsnList.this.set(remove, (AbstractInsnNode) o);
+                if (remove == prev) {
+                    prev = (AbstractInsnNode) o;
+                } else {
+                    next = (AbstractInsnNode) o;                    
+                }
+            } else {
+                throw new IllegalStateException();
+            }
         }
     }
 }

@@ -33,18 +33,21 @@ package nginx.clojure.asm.commons;
 import nginx.clojure.asm.AnnotationVisitor;
 import nginx.clojure.asm.FieldVisitor;
 import nginx.clojure.asm.Opcodes;
+import nginx.clojure.asm.TypePath;
 
 /**
  * A {@link FieldVisitor} adapter for type remapping.
  * 
+ * @deprecated use {@link FieldRemapper} instead.
  * @author Eugene Kuleshov
  */
+@Deprecated
 public class RemappingFieldAdapter extends FieldVisitor {
 
     private final Remapper remapper;
 
     public RemappingFieldAdapter(final FieldVisitor fv, final Remapper remapper) {
-        this(Opcodes.ASM4, fv, remapper);
+        this(Opcodes.ASM5, fv, remapper);
     }
 
     protected RemappingFieldAdapter(final int api, final FieldVisitor fv,
@@ -57,6 +60,14 @@ public class RemappingFieldAdapter extends FieldVisitor {
     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
         AnnotationVisitor av = fv.visitAnnotation(remapper.mapDesc(desc),
                 visible);
+        return av == null ? null : new RemappingAnnotationAdapter(av, remapper);
+    }
+
+    @Override
+    public AnnotationVisitor visitTypeAnnotation(int typeRef,
+            TypePath typePath, String desc, boolean visible) {
+        AnnotationVisitor av = super.visitTypeAnnotation(typeRef, typePath,
+                remapper.mapDesc(desc), visible);
         return av == null ? null : new RemappingAnnotationAdapter(av, remapper);
     }
 }

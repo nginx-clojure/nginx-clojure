@@ -40,6 +40,7 @@ import nginx.clojure.asm.Handle;
 import nginx.clojure.asm.Label;
 import nginx.clojure.asm.Opcodes;
 import nginx.clojure.asm.Type;
+import nginx.clojure.asm.TypePath;
 
 /**
  * A {@link Printer} that prints the ASM code to generate the classes if visits.
@@ -83,9 +84,15 @@ public class ASMifier extends Printer {
      * Constructs a new {@link ASMifier}. <i>Subclasses must not use this
      * constructor</i>. Instead, they must use the
      * {@link #ASMifier(int, String, int)} version.
+     * 
+     * @throws IllegalStateException
+     *             If a subclass calls this constructor.
      */
     public ASMifier() {
-        this(Opcodes.ASM4, "cw", 0);
+        this(Opcodes.ASM5, "cw", 0);
+        if (getClass() != ASMifier.class) {
+            throw new IllegalStateException();
+        }
     }
 
     /**
@@ -93,7 +100,7 @@ public class ASMifier extends Printer {
      * 
      * @param api
      *            the ASM API version implemented by this class. Must be one of
-     *            {@link Opcodes#ASM4}.
+     *            {@link Opcodes#ASM4} or {@link Opcodes#ASM5}.
      * @param name
      *            the name of the visitor variable in the produced code.
      * @param id
@@ -170,7 +177,6 @@ public class ASMifier extends Printer {
         }
         text.add("import java.util.*;\n");
         text.add("import nginx.clojure.asm.*;\n");
-        text.add("import nginx.clojure.asm.attrs.*;\n");
         text.add("public class " + simpleName + "Dump implements Opcodes {\n\n");
         text.add("public static byte[] dump () throws Exception {\n\n");
         text.add("ClassWriter cw = new ClassWriter(0);\n");
@@ -201,10 +207,7 @@ public class ASMifier extends Printer {
             break;
         case Opcodes.V1_7:
             buf.append("V1_7");
-			break;
-		case Opcodes.V1_8:
-			buf.append("V1_7");
-			break;
+            break;
         default:
             buf.append(version);
             break;
@@ -261,6 +264,12 @@ public class ASMifier extends Printer {
     public ASMifier visitClassAnnotation(final String desc,
             final boolean visible) {
         return visitAnnotation(desc, visible);
+    }
+
+    @Override
+    public ASMifier visitClassTypeAnnotation(final int typeRef,
+            final TypePath typePath, final String desc, final boolean visible) {
+        return visitTypeAnnotation(typeRef, typePath, desc, visible);
     }
 
     @Override
@@ -426,6 +435,12 @@ public class ASMifier extends Printer {
     }
 
     @Override
+    public ASMifier visitFieldTypeAnnotation(final int typeRef,
+            final TypePath typePath, final String desc, final boolean visible) {
+        return visitTypeAnnotation(typeRef, typePath, desc, visible);
+    }
+
+    @Override
     public void visitFieldAttribute(final Attribute attr) {
         visitAttribute(attr);
     }
@@ -440,6 +455,16 @@ public class ASMifier extends Printer {
     // ------------------------------------------------------------------------
     // Methods
     // ------------------------------------------------------------------------
+
+    @Override
+    public void visitParameter(String parameterName, int access) {
+        buf.setLength(0);
+        buf.append(name).append(".visitParameter(");
+        appendString(buf, parameterName);
+        buf.append(", ");
+        appendAccess(access);
+        text.add(buf.append(");\n").toString());
+    }
 
     @Override
     public ASMifier visitAnnotationDefault() {
@@ -457,6 +482,12 @@ public class ASMifier extends Printer {
     public ASMifier visitMethodAnnotation(final String desc,
             final boolean visible) {
         return visitAnnotation(desc, visible);
+    }
+
+    @Override
+    public ASMifier visitMethodTypeAnnotation(final int typeRef,
+            final TypePath typePath, final String desc, final boolean visible) {
+        return visitTypeAnnotation(typeRef, typePath, desc, visible);
     }
 
     @Override
@@ -585,9 +616,30 @@ public class ASMifier extends Printer {
         text.add(buf.toString());
     }
 
+    @Deprecated
     @Override
     public void visitMethodInsn(final int opcode, final String owner,
             final String name, final String desc) {
+        if (api >= Opcodes.ASM5) {
+            super.visitMethodInsn(opcode, owner, name, desc);
+            return;
+        }
+        doVisitMethodInsn(opcode, owner, name, desc,
+                opcode == Opcodes.INVOKEINTERFACE);
+    }
+
+    @Override
+    public void visitMethodInsn(final int opcode, final String owner,
+            final String name, final String desc, final boolean itf) {
+        if (api < Opcodes.ASM5) {
+            super.visitMethodInsn(opcode, owner, name, desc, itf);
+            return;
+        }
+        doVisitMethodInsn(opcode, owner, name, desc, itf);
+    }
+
+    private void doVisitMethodInsn(final int opcode, final String owner,
+            final String name, final String desc, final boolean itf) {
         buf.setLength(0);
         buf.append(this.name).append(".visitMethodInsn(")
                 .append(OPCODES[opcode]).append(", ");
@@ -596,6 +648,8 @@ public class ASMifier extends Printer {
         appendConstant(name);
         buf.append(", ");
         appendConstant(desc);
+        buf.append(", ");
+        buf.append(itf ? "true" : "false");
         buf.append(");\n");
         text.add(buf.toString());
     }
@@ -714,6 +768,13 @@ public class ASMifier extends Printer {
     }
 
     @Override
+    public ASMifier visitInsnAnnotation(final int typeRef,
+            final TypePath typePath, final String desc, final boolean visible) {
+        return visitTypeAnnotation("visitInsnAnnotation", typeRef, typePath,
+                desc, visible);
+    }
+
+    @Override
     public void visitTryCatchBlock(final Label start, final Label end,
             final Label handler, final String type) {
         buf.setLength(0);
@@ -733,6 +794,13 @@ public class ASMifier extends Printer {
     }
 
     @Override
+    public ASMifier visitTryCatchAnnotation(final int typeRef,
+            final TypePath typePath, final String desc, final boolean visible) {
+        return visitTypeAnnotation("visitTryCatchAnnotation", typeRef,
+                typePath, desc, visible);
+    }
+
+    @Override
     public void visitLocalVariable(final String name, final String desc,
             final String signature, final Label start, final Label end,
             final int index) {
@@ -749,6 +817,43 @@ public class ASMifier extends Printer {
         appendLabel(end);
         buf.append(", ").append(index).append(");\n");
         text.add(buf.toString());
+    }
+
+    @Override
+    public Printer visitLocalVariableAnnotation(int typeRef, TypePath typePath,
+            Label[] start, Label[] end, int[] index, String desc,
+            boolean visible) {
+        buf.setLength(0);
+        buf.append("{\n").append("av0 = ").append(name)
+                .append(".visitLocalVariableAnnotation(");
+        buf.append(typeRef);
+        if (typePath == null) {
+            buf.append(", null, ");
+        } else {
+            buf.append(", TypePath.fromString(\"").append(typePath).append("\"), ");
+        }
+        buf.append("new Label[] {");
+        for (int i = 0; i < start.length; ++i) {
+            buf.append(i == 0 ? " " : ", ");
+            appendLabel(start[i]);
+        }
+        buf.append(" }, new Label[] {");
+        for (int i = 0; i < end.length; ++i) {
+            buf.append(i == 0 ? " " : ", ");
+            appendLabel(end[i]);
+        }
+        buf.append(" }, new int[] {");
+        for (int i = 0; i < index.length; ++i) {
+            buf.append(i == 0 ? " " : ", ").append(index[i]);
+        }
+        buf.append(" }, ");
+        appendConstant(desc);
+        buf.append(", ").append(visible).append(");\n");
+        text.add(buf.toString());
+        ASMifier a = createASMifier("av", 0);
+        text.add(a.getText());
+        text.add("}\n");
+        return a;
     }
 
     @Override
@@ -792,6 +897,32 @@ public class ASMifier extends Printer {
         return a;
     }
 
+    public ASMifier visitTypeAnnotation(final int typeRef,
+            final TypePath typePath, final String desc, final boolean visible) {
+        return visitTypeAnnotation("visitTypeAnnotation", typeRef, typePath,
+                desc, visible);
+    }
+
+    public ASMifier visitTypeAnnotation(final String method, final int typeRef,
+            final TypePath typePath, final String desc, final boolean visible) {
+        buf.setLength(0);
+        buf.append("{\n").append("av0 = ").append(name).append(".")
+                .append(method).append("(");
+        buf.append(typeRef);
+        if (typePath == null) {
+            buf.append(", null, ");
+        } else {
+            buf.append(", TypePath.fromString(\"").append(typePath).append("\"), ");
+        }
+        appendConstant(desc);
+        buf.append(", ").append(visible).append(");\n");
+        text.add(buf.toString());
+        ASMifier a = createASMifier("av", 0);
+        text.add(a.getText());
+        text.add("}\n");
+        return a;
+    }
+
     public void visitAttribute(final Attribute attr) {
         buf.setLength(0);
         buf.append("// ATTRIBUTE ").append(attr.type).append('\n');
@@ -812,7 +943,7 @@ public class ASMifier extends Printer {
     // ------------------------------------------------------------------------
 
     protected ASMifier createASMifier(final String name, final int id) {
-        return new ASMifier(Opcodes.ASM4, name, id);
+        return new ASMifier(Opcodes.ASM5, name, id);
     }
 
     /**
@@ -951,6 +1082,13 @@ public class ASMifier extends Printer {
                 buf.append(" + ");
             }
             buf.append("ACC_DEPRECATED");
+            first = false;
+        }
+        if ((access & Opcodes.ACC_MANDATED) != 0) {
+            if (!first) {
+                buf.append(" + ");
+            }
+            buf.append("ACC_MANDATED");
             first = false;
         }
         if (first) {

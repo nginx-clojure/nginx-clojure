@@ -255,10 +255,15 @@ public class GeneratorAdapter extends LocalVariablesSorter {
      *            the method's name.
      * @param desc
      *            the method's descriptor (see {@link Type Type}).
+     * @throws IllegalStateException
+     *             If a subclass calls this constructor.
      */
     public GeneratorAdapter(final MethodVisitor mv, final int access,
             final String name, final String desc) {
-        this(Opcodes.ASM4, mv, access, name, desc);
+        this(Opcodes.ASM5, mv, access, name, desc);
+        if (getClass() != GeneratorAdapter.class) {
+            throw new IllegalStateException();
+        }
     }
 
     /**
@@ -266,7 +271,7 @@ public class GeneratorAdapter extends LocalVariablesSorter {
      * 
      * @param api
      *            the ASM API version implemented by this visitor. Must be one
-     *            of {@link Opcodes#ASM4}.
+     *            of {@link Opcodes#ASM4} or {@link Opcodes#ASM5}.
      * @param mv
      *            the method visitor to which this adapter delegates calls.
      * @param access
@@ -374,7 +379,7 @@ public class GeneratorAdapter extends LocalVariablesSorter {
         } else if (value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
             mv.visitIntInsn(Opcodes.SIPUSH, value);
         } else {
-            mv.visitLdcInsn(new Integer(value));
+            mv.visitLdcInsn(value);
         }
     }
 
@@ -388,7 +393,7 @@ public class GeneratorAdapter extends LocalVariablesSorter {
         if (value == 0L || value == 1L) {
             mv.visitInsn(Opcodes.LCONST_0 + (int) value);
         } else {
-            mv.visitLdcInsn(new Long(value));
+            mv.visitLdcInsn(value);
         }
     }
 
@@ -403,7 +408,7 @@ public class GeneratorAdapter extends LocalVariablesSorter {
         if (bits == 0L || bits == 0x3f800000 || bits == 0x40000000) { // 0..2
             mv.visitInsn(Opcodes.FCONST_0 + (int) value);
         } else {
-            mv.visitLdcInsn(new Float(value));
+            mv.visitLdcInsn(value);
         }
     }
 
@@ -418,7 +423,7 @@ public class GeneratorAdapter extends LocalVariablesSorter {
         if (bits == 0L || bits == 0x3ff0000000000000L) { // +0.0d and 1.0d
             mv.visitInsn(Opcodes.DCONST_0 + (int) value);
         } else {
-            mv.visitLdcInsn(new Double(value));
+            mv.visitLdcInsn(value);
         }
     }
 
@@ -1371,11 +1376,11 @@ public class GeneratorAdapter extends LocalVariablesSorter {
      *            the method to be invoked.
      */
     private void invokeInsn(final int opcode, final Type type,
-            final Method method) {
+            final Method method, final boolean itf) {
         String owner = type.getSort() == Type.ARRAY ? type.getDescriptor()
                 : type.getInternalName();
         mv.visitMethodInsn(opcode, owner, method.getName(),
-                method.getDescriptor());
+                method.getDescriptor(), itf);
     }
 
     /**
@@ -1387,7 +1392,7 @@ public class GeneratorAdapter extends LocalVariablesSorter {
      *            the method to be invoked.
      */
     public void invokeVirtual(final Type owner, final Method method) {
-        invokeInsn(Opcodes.INVOKEVIRTUAL, owner, method);
+        invokeInsn(Opcodes.INVOKEVIRTUAL, owner, method, false);
     }
 
     /**
@@ -1399,7 +1404,7 @@ public class GeneratorAdapter extends LocalVariablesSorter {
      *            the constructor to be invoked.
      */
     public void invokeConstructor(final Type type, final Method method) {
-        invokeInsn(Opcodes.INVOKESPECIAL, type, method);
+        invokeInsn(Opcodes.INVOKESPECIAL, type, method, false);
     }
 
     /**
@@ -1411,7 +1416,7 @@ public class GeneratorAdapter extends LocalVariablesSorter {
      *            the method to be invoked.
      */
     public void invokeStatic(final Type owner, final Method method) {
-        invokeInsn(Opcodes.INVOKESTATIC, owner, method);
+        invokeInsn(Opcodes.INVOKESTATIC, owner, method, false);
     }
 
     /**
@@ -1423,7 +1428,7 @@ public class GeneratorAdapter extends LocalVariablesSorter {
      *            the method to be invoked.
      */
     public void invokeInterface(final Type owner, final Method method) {
-        invokeInsn(Opcodes.INVOKEINTERFACE, owner, method);
+        invokeInsn(Opcodes.INVOKEINTERFACE, owner, method, true);
     }
 
     /**
@@ -1613,11 +1618,13 @@ public class GeneratorAdapter extends LocalVariablesSorter {
      */
     public void catchException(final Label start, final Label end,
             final Type exception) {
+        Label doCatch = new Label();
         if (exception == null) {
-            mv.visitTryCatchBlock(start, end, mark(), null);
+            mv.visitTryCatchBlock(start, end, doCatch, null);
         } else {
-            mv.visitTryCatchBlock(start, end, mark(),
+            mv.visitTryCatchBlock(start, end, doCatch,
                     exception.getInternalName());
         }
+        mark(doCatch);
     }
 }

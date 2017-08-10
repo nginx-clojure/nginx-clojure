@@ -32,6 +32,7 @@ package nginx.clojure.asm.tree;
 import java.util.Map;
 
 import nginx.clojure.asm.MethodVisitor;
+import nginx.clojure.asm.Opcodes;
 
 /**
  * A node that represents a method instruction. A method instruction is an
@@ -58,6 +59,11 @@ public class MethodInsnNode extends AbstractInsnNode {
     public String desc;
 
     /**
+     * If the method's owner class if an interface.
+     */
+    public boolean itf;
+
+    /**
      * Constructs a new {@link MethodInsnNode}.
      * 
      * @param opcode
@@ -73,12 +79,37 @@ public class MethodInsnNode extends AbstractInsnNode {
      * @param desc
      *            the method's descriptor (see {@link nginx.clojure.asm.Type}).
      */
+    @Deprecated
     public MethodInsnNode(final int opcode, final String owner,
             final String name, final String desc) {
+        this(opcode, owner, name, desc, opcode == Opcodes.INVOKEINTERFACE);
+    }
+
+    /**
+     * Constructs a new {@link MethodInsnNode}.
+     * 
+     * @param opcode
+     *            the opcode of the type instruction to be constructed. This
+     *            opcode must be INVOKEVIRTUAL, INVOKESPECIAL, INVOKESTATIC or
+     *            INVOKEINTERFACE.
+     * @param owner
+     *            the internal name of the method's owner class (see
+     *            {@link nginx.clojure.asm.Type#getInternalName()
+     *            getInternalName}).
+     * @param name
+     *            the method's name.
+     * @param desc
+     *            the method's descriptor (see {@link nginx.clojure.asm.Type}).
+     * @param itf
+     *            if the method's owner class is an interface.
+     */
+    public MethodInsnNode(final int opcode, final String owner,
+            final String name, final String desc, final boolean itf) {
         super(opcode);
         this.owner = owner;
         this.name = name;
         this.desc = desc;
+        this.itf = itf;
     }
 
     /**
@@ -99,11 +130,12 @@ public class MethodInsnNode extends AbstractInsnNode {
 
     @Override
     public void accept(final MethodVisitor mv) {
-        mv.visitMethodInsn(opcode, owner, name, desc);
+        mv.visitMethodInsn(opcode, owner, name, desc, itf);
+        acceptAnnotations(mv);
     }
 
     @Override
     public AbstractInsnNode clone(final Map<LabelNode, LabelNode> labels) {
-        return new MethodInsnNode(opcode, owner, name, desc);
+        return new MethodInsnNode(opcode, owner, name, desc, itf);
     }
 }

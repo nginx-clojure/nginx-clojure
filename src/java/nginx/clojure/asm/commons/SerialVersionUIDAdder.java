@@ -166,9 +166,14 @@ public class SerialVersionUIDAdder extends ClassVisitor {
      * @param cv
      *            a {@link ClassVisitor} to which this visitor will delegate
      *            calls.
+     * @throws IllegalStateException
+     *             If a subclass calls this constructor.
      */
     public SerialVersionUIDAdder(final ClassVisitor cv) {
-        this(Opcodes.ASM4, cv);
+        this(Opcodes.ASM5, cv);
+        if (getClass() != SerialVersionUIDAdder.class) {
+            throw new IllegalStateException();
+        }
     }
 
     /**
@@ -176,7 +181,7 @@ public class SerialVersionUIDAdder extends ClassVisitor {
      * 
      * @param api
      *            the ASM API version implemented by this visitor. Must be one
-     *            of {@link Opcodes#ASM4}.
+     *            of {@link Opcodes#ASM4} or {@link Opcodes#ASM5}.
      * @param cv
      *            a {@link ClassVisitor} to which this visitor will delegate
      *            calls.
@@ -189,7 +194,7 @@ public class SerialVersionUIDAdder extends ClassVisitor {
     }
 
     // ------------------------------------------------------------------------
-    // Overriden methods
+    // Overridden methods
     // ------------------------------------------------------------------------
 
     /*
@@ -200,12 +205,14 @@ public class SerialVersionUIDAdder extends ClassVisitor {
     public void visit(final int version, final int access, final String name,
             final String signature, final String superName,
             final String[] interfaces) {
-        computeSVUID = (access & Opcodes.ACC_INTERFACE) == 0;
+        computeSVUID = (access & Opcodes.ACC_ENUM) == 0;
 
         if (computeSVUID) {
             this.name = name;
             this.access = access;
-            this.interfaces = interfaces;
+            this.interfaces = new String[interfaces.length];
+            System.arraycopy(interfaces, 0, this.interfaces, 0,
+                    interfaces.length);
         }
 
         super.visit(version, access, name, signature, superName, interfaces);
@@ -330,8 +337,7 @@ public class SerialVersionUIDAdder extends ClassVisitor {
 
     protected void addSVUID(long svuid) {
         FieldVisitor fv = super.visitField(Opcodes.ACC_FINAL
-                + Opcodes.ACC_STATIC, "serialVersionUID", "J", null, new Long(
-                svuid));
+                + Opcodes.ACC_STATIC, "serialVersionUID", "J", null, svuid);
         if (fv != null) {
             fv.visitEnd();
         }
@@ -361,6 +367,11 @@ public class SerialVersionUIDAdder extends ClassVisitor {
             /*
              * 2. The class modifiers written as a 32-bit integer.
              */
+            int access = this.access;
+            if ((access & Opcodes.ACC_INTERFACE) != 0) {
+                access = (svuidMethods.size() > 0) ? (access | Opcodes.ACC_ABSTRACT)
+                        : (access & ~Opcodes.ACC_ABSTRACT);
+            }
             dos.writeInt(access
                     & (Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL
                             | Opcodes.ACC_INTERFACE | Opcodes.ACC_ABSTRACT));

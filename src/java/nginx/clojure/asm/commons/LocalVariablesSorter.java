@@ -29,10 +29,12 @@
  */
 package nginx.clojure.asm.commons;
 
+import nginx.clojure.asm.AnnotationVisitor;
 import nginx.clojure.asm.Label;
 import nginx.clojure.asm.MethodVisitor;
 import nginx.clojure.asm.Opcodes;
 import nginx.clojure.asm.Type;
+import nginx.clojure.asm.TypePath;
 
 /**
  * A {@link MethodVisitor} that renumbers local variables in their order of
@@ -74,11 +76,6 @@ public class LocalVariablesSorter extends MethodVisitor {
     protected int nextLocal;
 
     /**
-     * Indicates if at least one local variable has moved due to remapping.
-     */
-    private boolean changed;
-
-    /**
      * Creates a new {@link LocalVariablesSorter}. <i>Subclasses must not use
      * this constructor</i>. Instead, they must use the
      * {@link #LocalVariablesSorter(int, int, String, MethodVisitor)} version.
@@ -89,10 +86,15 @@ public class LocalVariablesSorter extends MethodVisitor {
      *            the method's descriptor (see {@link Type Type}).
      * @param mv
      *            the method visitor to which this adapter delegates calls.
+     * @throws IllegalStateException
+     *             If a subclass calls this constructor.
      */
     public LocalVariablesSorter(final int access, final String desc,
             final MethodVisitor mv) {
-        this(Opcodes.ASM4, access, desc, mv);
+        this(Opcodes.ASM5, access, desc, mv);
+        if (getClass() != LocalVariablesSorter.class) {
+            throw new IllegalStateException();
+        }
     }
 
     /**
@@ -100,7 +102,7 @@ public class LocalVariablesSorter extends MethodVisitor {
      * 
      * @param api
      *            the ASM API version implemented by this visitor. Must be one
-     *            of {@link Opcodes#ASM4}.
+     *            of {@link Opcodes#ASM4} or {@link Opcodes#ASM5}.
      * @param access
      *            access flags of the adapted method.
      * @param desc
@@ -172,16 +174,24 @@ public class LocalVariablesSorter extends MethodVisitor {
     }
 
     @Override
+    public AnnotationVisitor visitLocalVariableAnnotation(int typeRef,
+            TypePath typePath, Label[] start, Label[] end, int[] index,
+            String desc, boolean visible) {
+        Type t = Type.getType(desc);
+        int[] newIndex = new int[index.length];
+        for (int i = 0; i < newIndex.length; ++i) {
+            newIndex[i] = remap(index[i], t);
+        }
+        return mv.visitLocalVariableAnnotation(typeRef, typePath, start, end,
+                newIndex, desc, visible);
+    }
+
+    @Override
     public void visitFrame(final int type, final int nLocal,
             final Object[] local, final int nStack, final Object[] stack) {
         if (type != Opcodes.F_NEW) { // uncompressed frame
             throw new IllegalStateException(
                     "ClassReader.accept() should be called with EXPAND_FRAMES flag");
-        }
-
-        if (!changed) { // optimization for the case where mapping = identity
-            mv.visitFrame(type, nLocal, local, nStack, stack);
-            return;
         }
 
         // creates a copy of newLocals
@@ -279,7 +289,6 @@ public class LocalVariablesSorter extends MethodVisitor {
         int local = newLocalMapping(type);
         setLocalType(local, type);
         setFrameLocal(local, t);
-        changed = true;
         return local;
     }
 
@@ -304,7 +313,7 @@ public class LocalVariablesSorter extends MethodVisitor {
      */
     protected void updateNewLocals(Object[] newLocals) {
     }
-
+    
     /**
      * Notifies subclasses that a local variable has been added or remapped. The
      * default implementation of this method does nothing.
@@ -346,9 +355,6 @@ public class LocalVariablesSorter extends MethodVisitor {
             mapping[key] = value + 1;
         } else {
             value--;
-        }
-        if (value != var) {
-            changed = true;
         }
         return value;
     }
