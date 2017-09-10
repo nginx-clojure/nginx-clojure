@@ -195,7 +195,7 @@
     (.addListener ch ch (proxy [WholeMessageAdapter] [max-message-size]
                           (onOpen [c] (if on-open (on-open c)))
                           (onWholeTextMessage [c msg] (if on-message (on-message c msg)))
-                          (onWholeBiniaryMessage [c msg rem?] (if on-message (on-message c msg)))
+                          (onWholeBiniaryMessage [c msg] (if on-message (on-message c msg)))
                           (onClose ;([c] (if on-close (on-close c "0")))
                                    ([c status reason] (if on-close (on-close c (str status ":" reason)))))
                           (onError [c status] (if on-error (on-error c (NginxClojureAsynSocket/errorCodeToString status)))))))
