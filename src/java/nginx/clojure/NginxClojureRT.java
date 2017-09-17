@@ -8,7 +8,6 @@ package nginx.clojure;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
-import java.lang.reflect.Field;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -556,16 +555,7 @@ public class NginxClojureRT extends MiniConstants {
 	
 	private static synchronized void initMemIndex(long idxpt) {
 		getLog();
-		initUnsafe();
-		
-		//hack mysql jdbc driver to keep from creating connections by reflective invoking the constructor
-		try {
-			Class mysqljdbcUtilClz = Thread.currentThread().getContextClassLoader().loadClass("com.mysql.jdbc.Util");
-			Field  isJdbc4Field = mysqljdbcUtilClz.getDeclaredField("isJdbc4");
-			isJdbc4Field.setAccessible(true);
-			isJdbc4Field.set(null, false);
-		} catch (Throwable e) {
-		}
+		initUnsafe();	
 	    
 		NGINX_MAIN_THREAD = Thread.currentThread();
 		
