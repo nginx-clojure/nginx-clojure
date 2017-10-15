@@ -288,7 +288,7 @@ static jlong jni_ngx_http_clojure_shared_map_delete(JNIEnv *env, jclass cls, jlo
 	ngx_int_t rc = ctx->impl->remove(ctx, (uint8_t)ktype,
 			ngx_http_clojure_abs_off_addr(key, koff), (size_t) klen,
 			NULL, NULL);
-	return NGX_CLOJURE_SHARED_MAP_OK == rc;
+	return (jlong)rc;
 }
 
 static jobject jni_ngx_http_clojure_shared_map_remove(JNIEnv *env, jclass cls, jlong jctx,
@@ -323,7 +323,7 @@ static jlong jni_ngx_http_clojure_shared_map_contains(JNIEnv *env, jclass cls, j
 	ngx_int_t rc = ctx->impl->get(ctx, (uint8_t)ktype,
 				ngx_http_clojure_abs_off_addr(key, koff), (size_t)klen,
 				NULL, NULL);
-	return NGX_CLOJURE_SHARED_MAP_OK == rc;
+	return (jlong)rc;
 }
 
 static jlong jni_ngx_http_clojure_shared_map_visit(JNIEnv *env, jclass cls, jlong jctx, jobject visitor)  {
