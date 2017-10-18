@@ -1872,7 +1872,7 @@ static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t *r) {
 		ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
 		rc = ngx_http_clojure_eval(lcf->rewrite_handler_id, r, 0);
 
-    if (rc == NGX_DECLINED) {
+    if (rc == NGX_DECLINED || rc == NGX_DONE) {
       ngx_http_clojure_try_set_reload_delay_timer(ctx, "ngx_http_clojure_rewrite_handler");
     }
 
@@ -1901,7 +1901,7 @@ static ngx_int_t ngx_http_clojure_rewrite_handler(ngx_http_request_t *r) {
 		ctx->phase = NGX_HTTP_REWRITE_PHASE;
 		rc = ngx_http_clojure_eval(lcf->rewrite_handler_id, r, 0);
 
-    if (rc == NGX_DECLINED) {
+    if (rc == NGX_DECLINED || rc == NGX_DONE) {
       ngx_http_clojure_try_set_reload_delay_timer(ctx, "ngx_http_clojure_rewrite_handler");
     }
 
@@ -1945,7 +1945,7 @@ static ngx_int_t ngx_http_clojure_access_handler(ngx_http_request_t * r) {
 		ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
 		rc = ngx_http_clojure_eval(lcf->access_handler_id, r, 0);
 
-    if (rc == NGX_DECLINED) {
+    if (rc == NGX_DECLINED || rc == NGX_DONE) {
       ngx_http_clojure_try_set_reload_delay_timer(ctx, "ngx_http_clojure_access_handler");
     }
 
@@ -1974,7 +1974,7 @@ static ngx_int_t ngx_http_clojure_access_handler(ngx_http_request_t * r) {
 		ctx->phase = NGX_HTTP_ACCESS_PHASE;
 		rc = ngx_http_clojure_eval(lcf->access_handler_id, r, 0);
 
-    if (rc == NGX_DECLINED) {
+    if (rc == NGX_DECLINED || rc == NGX_DONE) {
       ngx_http_clojure_try_set_reload_delay_timer(ctx, "ngx_http_clojure_access_handler");
     }
 
