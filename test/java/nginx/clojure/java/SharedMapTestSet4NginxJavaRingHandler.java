@@ -58,7 +58,10 @@ public class SharedMapTestSet4NginxJavaRingHandler implements NginxJavaRingHandl
 					oval = new String((byte[])oval, "utf-8");
 				}
 				NginxClojureRT.getLog().info(rt = "get:" + key + ":" + oval + ", size=" + map.size());
-			} else if (op.equals("remove")) {
+			} else if (op.equals("containsKey")) {
+				oval = map.containsKey(key);
+				NginxClojureRT.getLog().info(rt = "containsKey:" + key + ":" + oval + ", size=" + map.size());
+			}else if (op.equals("remove")) {
 				oval = map.remove(key);
 				if (oval instanceof byte[]) {
 					oval = new String((byte[])oval, "utf-8");
