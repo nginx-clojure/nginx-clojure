@@ -33,8 +33,8 @@ public class NginxGroovyHandlerFactory extends NginxJavaHandlerFactory {
 		try {
 			Object handler;
 			if (name != null) {
-				handler = (NginxJavaRingHandler) groovyLoader.loadClass(name).newInstance();
-			}else {
+				handler = groovyLoader.loadClass(name).newInstance();
+			} else {
 				Method m = groovyLoader.getClass().getMethod("parseClass", String.class);
 				handler = ((Class)m.invoke(groovyLoader, code)).newInstance();
 			}
