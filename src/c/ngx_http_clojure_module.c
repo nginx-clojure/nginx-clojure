@@ -2106,10 +2106,11 @@ static ngx_int_t ngx_http_clojure_body_filter(ngx_http_request_t *r,  ngx_chain_
   rc = ngx_http_clojure_eval(lcf->body_filter_id, r, chain);
   ctx->phase = src_phase;
 
-  while (chain) {
-    chain->buf->pos = chain->buf->last;
-    chain = chain->next;
-  }
+/*if we copied them we need mark them consumed*/
+//  while (chain) {
+//    chain->buf->pos = chain->buf->last;
+//    chain = chain->next;
+//  }
 
 
   if (rc == NGX_DONE) {

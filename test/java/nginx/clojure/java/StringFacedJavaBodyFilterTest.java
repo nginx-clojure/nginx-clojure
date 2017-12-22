@@ -10,8 +10,8 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
+//import java.util.zip.ZipEntry;
+//import java.util.zip.ZipOutputStream;
 
 import org.junit.After;
 import org.junit.Before;
@@ -47,15 +47,15 @@ public class StringFacedJavaBodyFilterTest {
 		rem.flip();
 		String s = "權補縮短補發情報機關";
 		ByteArrayOutputStream bo = new ByteArrayOutputStream();
-		ZipOutputStream zo = new ZipOutputStream(bo);
-		zo.putNextEntry(new ZipEntry("good"));
+//		ZipOutputStream zo = new ZipOutputStream(bo);
+//		zo.putNextEntry(new ZipEntry("good"));
 		byte[] all = s.getBytes();
 		
-		zo.write(all);
-		zo.flush();
-		zo.close();
+//		zo.write(all);
+//		zo.flush();
+//		zo.close();
 		
-		all = bo.toByteArray();
+//		all = bo.toByteArray();
 		
 		StringFacedJavaBodyFilter.decodeToString(rem, new ByteArrayInputStream(all));
 		
