@@ -59,6 +59,11 @@
   [^NginxRequest req name, val]
   (NginxClojureRT/setNGXVariable (.nativeRequest req) name val))
 
+(defn discard-request-body!
+  "discard request body"
+  [^NginxRequest req]
+  (NginxClojureRT/discardRequestBody (.nativeRequest req)))
+
 (def phrase-done Constants/PHRASE_DONE)
 
 (def phase-done phrase-done)

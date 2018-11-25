@@ -123,6 +123,8 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public native static void ngx_http_filter_finalize_request(long r, long rc);
 	
+	public native static long ngx_http_discard_request_body(long r);
+	
 	/**
 	 * 
 	 * @param r nginx http request
@@ -1118,6 +1120,30 @@ public class NginxClojureRT extends MiniConstants {
 		return (int)ngx_http_clojure_mem_set_variable(r, np, strAddr, vlen);
 	}
 	
+	public static long discardRequestBody(final long r) {
+		if (r == 0) {
+			throw new RuntimeException("invalid request which address is 0!");
+		}
+		
+		if (Thread.currentThread() != NGINX_MAIN_THREAD) {
+			FutureTask<Long> task = new FutureTask<Long>(new Callable<Long>() {
+				@Override
+				public Long call() throws Exception {
+					return ngx_http_discard_request_body(r);
+				}
+			});
+			postPollTaskEvent(task);
+			try {
+				return task.get();
+			} catch (InterruptedException e) {
+				throw new RuntimeException("discardRequestBody  error", e);
+			} catch (ExecutionException e) {
+				throw new RuntimeException("discardRequestBody  error", e.getCause());
+			}
+		}else {
+			return ngx_http_discard_request_body(r);
+		}
+	}
 	
 	public static int eval(final int codeId, final long r, final long c) {
 		return HANDLERS.get(codeId).execute(r, c);

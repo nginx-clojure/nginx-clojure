@@ -193,6 +193,10 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		return NginxClojureRT.getNGXVariable(r, name);
 	}
 	
+	public long discardRequestBody() {
+		return NginxClojureRT.discardRequestBody(r);
+	}
+	
 	public long nativeRequest() {
 		return r;
 	}

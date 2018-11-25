@@ -3072,6 +3072,11 @@ static jlong JNICALL jni_ngx_http_filter_continue_next(JNIEnv *env, jclass cls, 
   }
 }
 
+static jlong JNICALL jni_ngx_http_discard_request_body(JNIEnv *env, jclass cls, jlong req) {
+  ngx_http_request_t *r = (ngx_http_request_t*) (uintptr_t) req;
+  return ngx_http_discard_request_body(r);
+}
+
 static jlong JNICALL jni_ngx_http_clojure_mem_init_ngx_buf(JNIEnv *env, jclass cls, jlong buf, jobject obj, jlong offset, jlong len, jint last_buf) {
 	ngx_buf_t *b = (ngx_buf_t *)(uintptr_t)buf;
 
@@ -4179,6 +4184,7 @@ int ngx_http_clojure_init_memory_util(ngx_core_conf_t  *ccf, ngx_http_core_srv_c
 			{"ngx_http_finalize_request", "(JJ)V", jni_ngx_http_finalize_request},
 			{"ngx_http_filter_finalize_request", "(JJ)V", jni_ngx_http_filter_finalize_request},
 			{"ngx_http_filter_continue_next", "(JJ)J",  jni_ngx_http_filter_continue_next},
+			{"ngx_http_discard_request_body", "(J)J", jni_ngx_http_discard_request_body},
 			{"ngx_http_clojure_mem_init_ngx_buf", "(JLjava/lang/Object;JJI)J", jni_ngx_http_clojure_mem_init_ngx_buf}, //jlong buf, jlong obj, jlong offset, jlong len, jint last_buf
 			{"ngx_http_clojure_mem_build_temp_chain", "(JJLjava/lang/Object;JJ)J", jni_ngx_http_clojure_mem_build_temp_chain},
 			{"ngx_http_clojure_mem_build_file_chain", "(JJLjava/lang/Object;JJZ)J", jni_ngx_http_clojure_mem_build_file_chain} ,
