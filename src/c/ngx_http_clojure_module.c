@@ -973,7 +973,9 @@ static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
 
 static void ngx_http_clojure_module_exit(ngx_cycle_t *cycle) {
 #if !(NGX_WIN32)
-	ngx_shm_free(&ngx_http_clojure_shared_memory);
+  if (ngx_http_clojure_shared_memory.size != 0) {
+    ngx_shm_free(&ngx_http_clojure_shared_memory);
+  }
 #else
 	ngx_http_clojure_jvm_be_mad_times_ins = 0;
 	ngx_http_clojure_jvm_num_ins = 1;
