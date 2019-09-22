@@ -12,6 +12,7 @@ import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFS
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_POOL_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CONTENT_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_INTERNAL_SERVER_ERROR;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NO_CONTENT;
@@ -67,6 +68,8 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 	protected static ConcurrentLinkedQueue<Coroutine> pooledCoroutines = new ConcurrentLinkedQueue<Coroutine>();
 	
 	protected static ConcurrentHashMap<Long, Future<WorkerResponseContext>> lastRequestEvalFutures = new ConcurrentHashMap<Long, Future<WorkerResponseContext>>();
+	
+	private static final boolean ONLY_CONTENT_HENADLER_SUPPORT_THREADS = Boolean.parseBoolean(System.getProperty("nc.threads.only_for_content", "false"));
 
 	public abstract NginxRequest makeRequest(long r, long c);
 	
@@ -98,7 +101,8 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 			req.prefetchAll();
 		}
 		
-		if (workers == null || (isWebSocket && phase == -1)) {
+		if (workers == null || (isWebSocket && phase == -1)
+				|| (phase != NGX_HTTP_CONTENT_PHASE && ONLY_CONTENT_HENADLER_SUPPORT_THREADS)) {
 			if (isWebSocket) {
 				req.uri();
 			}
