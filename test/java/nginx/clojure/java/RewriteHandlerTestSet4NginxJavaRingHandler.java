@@ -30,6 +30,7 @@ public class RewriteHandlerTestSet4NginxJavaRingHandler {
 			r.setVariable("myvar", "Hello");
 			r.setVariable("myName", "Xfeep");
 			System.out.println("SimpleRewriteHandler, myname" + r.getVariable("myName"));
+			System.out.println("request_id" +  r.getVariable("request_id"));
 			return Constants.PHASE_DONE;
 		}
 		
