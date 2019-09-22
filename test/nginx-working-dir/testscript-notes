@@ -316,6 +316,29 @@ auto/configure --prefix=/etc/nginx \
 --add-module=../nginx-clojure/src/c
 
 
+## ppc centos7
+
+auto/configure --prefix= --sbin-path=nginx --conf-path=conf/nginx.conf --error-log-path=logs/error.log --http-log-path=logs/access.log --pid-path=logs/nginx.pid --lock-path=logs/nginx.lock --http-client-body-temp-path=temp/client_temp --http-proxy-temp-path=temp/proxy_temp --http-fastcgi-temp-path=temp/fastcgi_temp --http-uwsgi-temp-path=temp/uwsgi_temp --http-scgi-temp-path=temp/scgi_temp --with-http_ssl_module --with-pcre-jit --with-debug --with-http_realip_module --with-http_addition_module --with-http_sub_module --with-http_dav_module  --with-http_gunzip_module --with-http_gzip_static_module --with-http_random_index_module --with-http_secure_link_module --with-http_stub_status_module --with-mail --with-mail_ssl_module --with-ipv6 --with-pcre=../pcre-8.40 --with-zlib=../zlib-1.2.11 --with-openssl=../openssl-1.1.0e --with-cc-opt='-O2 -g' --add-module=../nginx-clojure/src/c
+
+modify objs/Makefile, viz. --disable-cpp to pcre configure
+
+../pcre-8.40/Makefile:  objs/Makefile
+        cd ../pcre-8.40 \
+        && if [ -f Makefile ]; then $(MAKE) distclean; fi \
+        && CC="$(CC)" CFLAGS="-O2 -fomit-frame-pointer -pipe " \
+        ./configure --disable-shared  --enable-jit --disable-cpp
+
+## arm64 unbuntu
+
+modify objs/Makefile openssl config add no-afalgeng flag
+
+../openssl-1.1.0e/.openssl/include/openssl/ssl.h:       objs/Makefile
+        cd ../openssl-1.1.0e \
+        && if [ -f Makefile ]; then $(MAKE) clean; fi \
+        && ./config no-afalgeng  --prefix=/home/cecgw/grassland-lancher/nginx-grassland-current/../openssl-1.1.0e/.openssl no-shared  \
+        && $(MAKE) \
+        && $(MAKE) install_sw LIBDIR=lib
+
 
 #centos nginx-clojure binary
 #first 
