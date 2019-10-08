@@ -223,8 +223,7 @@ public class HackUtils {
 		CharsetEncoder ce =  ThreadLocalCoders.encoderFor(cs)
 				.onMalformedInput(CodingErrorAction.REPLACE)
 				.onUnmappableCharacter(CodingErrorAction.REPLACE);
-		CharBuffer cb = CharBuffer.wrap((char[])UNSAFE.getObject(s, STRING_CHAR_ARRAY_OFFSET),
-				STRING_OFFSET_OFFSET > 0 ? UNSAFE.getInt(s, STRING_OFFSET_OFFSET) : 0, s.length());
+		CharBuffer cb = CharBuffer.wrap(s);
 		ce.reset();
 		CoderResult rt = ce.encode(cb, bb, true);
 		if (rt == CoderResult.OVERFLOW) {

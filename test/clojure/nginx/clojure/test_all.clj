@@ -1199,7 +1199,8 @@
          (ws/send-msg ws-client msg)
          (Thread/sleep 1000)
          (let [content (:body (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.2.x.txt"))]
-           (Thread/sleep 5000)
+           ;(println @result)
+           (Thread/sleep 8000)
            (ws/close ws-client)
            (is (= content @result)))))
 )

@@ -19,7 +19,6 @@ import static nginx.clojure.MiniConstants.NGX_HTTP_NO_CONTENT;
 import static nginx.clojure.MiniConstants.NGX_HTTP_OK;
 import static nginx.clojure.MiniConstants.NGX_HTTP_SWITCHING_PROTOCOLS;
 import static nginx.clojure.MiniConstants.RESP_CONTENT_TYPE_HOLDER;
-import static nginx.clojure.MiniConstants.STRING_CHAR_ARRAY_OFFSET;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
 import static nginx.clojure.NginxClojureRT.coroutineEnabled;
 import static nginx.clojure.NginxClojureRT.handleResponse;
@@ -483,7 +482,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		CharsetEncoder charsetEncoder = ThreadLocalCoders.encoderFor(DEFAULT_ENCODING)
 				.onMalformedInput(CodingErrorAction.REPLACE).onUnmappableCharacter(CodingErrorAction.REPLACE);
 		ByteBuffer bb = pickByteBuffer();
-		CharBuffer cb = CharBuffer.wrap((char[]) UNSAFE.getObject(s, STRING_CHAR_ARRAY_OFFSET));
+		CharBuffer cb = CharBuffer.wrap(s);
 		charsetEncoder.reset();
 		CoderResult result = CoderResult.UNDERFLOW;
 		long first = 0;
