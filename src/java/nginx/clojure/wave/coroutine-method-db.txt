@@ -4,7 +4,8 @@ lazyclass:clojure/lang/IFn
 
 lazyclass:clojure/lang/AFn
   /applyToHelper.*|applyTo.*:just_mark
-  call()Ljava/lang/Object;:normal	
+  call()Ljava/lang/Object;:normal
+  run()V:normal	
 
 lazyclass:clojure/lang/RestFn
   /invoke.*:just_mark
