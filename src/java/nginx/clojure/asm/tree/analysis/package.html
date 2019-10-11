@@ -1,4 +1,5 @@
-/***
+<html>
+<!--
  * ASM: a very small and fast Java bytecode manipulation framework
  * Copyright (c) 2000-2011 INRIA, France Telecom
  * All rights reserved.
@@ -26,37 +27,39 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
- */
+-->
+<body>
 
-package nginx.clojure.asm.commons;
+<p>
+Provides a framework for static code analysis based on the asm.tree package.
+</p>
 
-import nginx.clojure.asm.AnnotationVisitor;
-import nginx.clojure.asm.FieldVisitor;
-import nginx.clojure.asm.Opcodes;
+<p>
+Basic usage:
+</p>
 
-/**
- * A {@link FieldVisitor} adapter for type remapping.
- * 
- * @author Eugene Kuleshov
- */
-public class RemappingFieldAdapter extends FieldVisitor {
+<pre>
+ClassReader classReader = new ClassReader(bytecode);
+ClassNode classNode = new ClassNode();
+classReader.accept(classNode, ClassReader.SKIP_DEBUG);
 
-    private final Remapper remapper;
-
-    public RemappingFieldAdapter(final FieldVisitor fv, final Remapper remapper) {
-        this(Opcodes.ASM4, fv, remapper);
-    }
-
-    protected RemappingFieldAdapter(final int api, final FieldVisitor fv,
-            final Remapper remapper) {
-        super(api, fv);
-        this.remapper = remapper;
-    }
-
-    @Override
-    public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
-        AnnotationVisitor av = fv.visitAnnotation(remapper.mapDesc(desc),
-                visible);
-        return av == null ? null : new RemappingAnnotationAdapter(av, remapper);
-    }
+for (MethodNode method : classNode.methods) {
+  if (method.instructions.size() > 0) {
+    Analyzer analyzer = new Analyzer(new BasicInterpreter());
+    analyzer.analyze(classNode.name, method);
+    Frame[] frames = analyzer.getFrames();
+    // Elements of the frames array now contains info for each instruction
+    // from the analyzed method. BasicInterpreter creates BasicValue, that
+    // is using simplified type system that distinguishes the UNINITIALZED,
+    // INT, FLOAT, LONG, DOUBLE, REFERENCE and RETURNADDRESS types.
+    ...
+  }
 }
+</pre>
+
+<p>
+@since ASM 1.4.3
+</p>
+
+</body>
+</html>
