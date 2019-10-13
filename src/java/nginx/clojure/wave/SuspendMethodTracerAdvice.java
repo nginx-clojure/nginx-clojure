@@ -9,7 +9,7 @@ public class SuspendMethodTracerAdvice extends AdviceAdapter {
 	protected MethodDatabase db;
 	protected String owner;
 	protected String method;
-	private final Label start = new Label();
+	private  Label start = new Label();
 	private final Label handler = new Label();
 
 	
@@ -41,6 +41,11 @@ public class SuspendMethodTracerAdvice extends AdviceAdapter {
 			super.visitMethodInsn(opcode, owner, "_resumep", desc, false);
 		}else {
 			super.visitMethodInsn(opcode, owner, name, desc, isInterface);
+		}
+		
+		if (method != null && method.startsWith("<init>") && opcode == INVOKESPECIAL) {
+			start = new Label();
+			mv.visitLabel(start);
 		}
 		
 	}
