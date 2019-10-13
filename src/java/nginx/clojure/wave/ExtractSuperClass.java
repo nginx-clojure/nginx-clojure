@@ -41,7 +41,7 @@ public class ExtractSuperClass extends ClassVisitor {
     String superClass;
 
     public ExtractSuperClass() {
-        super(Opcodes.ASM4);
+        super(Opcodes.ASM7);
     }
 
     @Override

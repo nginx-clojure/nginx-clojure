@@ -15,7 +15,7 @@ public class SuspendMethodTracerAdvice extends AdviceAdapter {
 	
 	public SuspendMethodTracerAdvice(MethodDatabase db,String owner, MethodVisitor mv, int access,
 			String name, String desc) {
-		super(ASM4, mv, access, name, desc);
+		super(ASM7, mv, access, name, desc);
 		this.db = db;
 		this.owner = owner;
 		this.method = name + desc;
@@ -28,19 +28,19 @@ public class SuspendMethodTracerAdvice extends AdviceAdapter {
 	
 	@Override
 	public void visitMethodInsn(int opcode, String owner, String name,
-			String desc) {
+			String desc, boolean isInterface) {
 		
 		if (owner == null) {
-			super.visitMethodInsn(opcode, owner, name, desc);
+			super.visitMethodInsn(opcode, owner, name, desc, isInterface);
 			return;
 		}
 		
 		if (owner.equals("nginx/clojure/Coroutine") && name.equals("yield")) {
-			super.visitMethodInsn(opcode, owner, "_yieldp", desc);
+			super.visitMethodInsn(opcode, owner, "_yieldp", desc, false);
 		}else if (owner.equals("nginx/clojure/Coroutine") && name.equals("resume")) {
-			super.visitMethodInsn(opcode, owner, "_resumep", desc);
+			super.visitMethodInsn(opcode, owner, "_resumep", desc, false);
 		}else {
-			super.visitMethodInsn(opcode, owner, name, desc);
+			super.visitMethodInsn(opcode, owner, name, desc, isInterface);
 		}
 		
 	}
@@ -54,17 +54,17 @@ public class SuspendMethodTracerAdvice extends AdviceAdapter {
 		}
 		
 		mv.visitLdcInsn(method);
-		mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodTracer", "enter", "(Ljava/lang/String;Ljava/lang/String;)V");
+		mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodTracer", "enter", "(Ljava/lang/String;Ljava/lang/String;)V", false);
 		if (method.equals("invoke(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;")) {
 			mv.visitVarInsn(ALOAD, 2);
-			mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodTracer", "downProxyInvoke", "(Ljava/lang/reflect/Method;)V");
+			mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodTracer", "downProxyInvoke", "(Ljava/lang/reflect/Method;)V", false);
 		}
 	}
 	
 	private final void doExitCode() {
 		if (method.equals("invoke(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;")) {
 			mv.visitVarInsn(ALOAD, 2);
-			mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodTracer", "upProxyInvoke", "(Ljava/lang/reflect/Method;)V");
+			mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodTracer", "upProxyInvoke", "(Ljava/lang/reflect/Method;)V", false);
 		}
 		
 		if (owner != null) {
@@ -73,7 +73,7 @@ public class SuspendMethodTracerAdvice extends AdviceAdapter {
 			mv.visitInsn(ACONST_NULL);
 		}
 		mv.visitLdcInsn(method);
-		mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodTracer", "leave", "(Ljava/lang/String;Ljava/lang/String;)V");
+		mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodTracer", "leave", "(Ljava/lang/String;Ljava/lang/String;)V", false);
 	}
 	
 	@Override

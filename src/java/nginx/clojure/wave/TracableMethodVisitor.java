@@ -16,7 +16,7 @@ public class TracableMethodVisitor extends MethodVisitor {
 	
 	public TracableMethodVisitor(String title, MethodVisitor mv, int access, String name, String desc,
 			String signature, String[] exceptions, Printer printer, PrintWriter printWriter) {
-		super(Opcodes.ASM4, mv);
+		super(Opcodes.ASM7, mv);
 		this.title = title;
 		this.printWriter = printWriter;
 		this.printer = printer;

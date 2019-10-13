@@ -75,7 +75,7 @@ public class CheckInstrumentationVisitor extends ClassVisitor {
  }
     
     public CheckInstrumentationVisitor() {
-        super(Opcodes.ASM4);
+        super(Opcodes.ASM7);
     }
 
     public boolean needsInstrumentation() {
