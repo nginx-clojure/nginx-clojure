@@ -142,7 +142,7 @@ public class InstrumentConstructorMethod {
 		if (needWaveInvokedInitInsn) {
 			mv.visitLabel(invokedInitInsnStart);
 			mv.visitVarInsn(Opcodes.ALOAD, 0);
-			mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, invokedInitInsn.owner, "inch_" + getMD5(invokedInitInsn.desc), "()V");
+			mv.visitMethodInsn(invokedInitInsn.getOpcode(), invokedInitInsn.owner, "inch_" + getMD5(invokedInitInsn.desc), "()V", invokedInitInsn.itf);
 			mv.visitLabel(invokedInitInsnEnd);
 		}
 		
@@ -174,7 +174,7 @@ public class InstrumentConstructorMethod {
 		
 		mv.visitVarInsn(Opcodes.ALOAD,lvarCStack);
 		emitConst(mv, fi.numSlots);
-		mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "release", "(I)V");
+		mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "release", "(I)V", false);
 		
 		int maxStack = mn.maxStack;
 		for (int i = splitPos; i < numIns; i++) {

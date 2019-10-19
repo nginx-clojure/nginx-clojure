@@ -2,6 +2,8 @@ package nginx.clojure;
 
 import static org.junit.Assert.*;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 
 import org.junit.After;
@@ -66,18 +68,72 @@ public class ConstructorTest {
 			System.out.println("b end");
 		}
 	}
+	
+	public static class SmRunnable implements Runnable {
+		ArrayList<Integer> result;
+		@Override
+		public void run() throws SuspendExecution {
+			A a = new A(3, result);
+		}
+	}
 
 	@Test
 	public void testSimpleConstructor() {
 		
 		final ArrayList<Integer> result = new ArrayList<Integer>();
-		Coroutine co = new Coroutine(new Runnable() {
-			
-			@Override
-			public void run() throws SuspendExecution {
-				A a = new A(3, result);
+		SmRunnable smr = new SmRunnable();
+		smr.result = result;
+		Coroutine co = new Coroutine(smr);
+		co.resume();
+		assertEquals(0, result.size());
+		co.resume();
+		assertEquals(1, result.size());
+		assertEquals((Integer)0, result.get(0));
+		co.resume();
+		assertEquals(2, result.size());
+		assertEquals((Integer)1, result.get(1));
+		co.resume();
+		assertEquals(3, result.size());
+		assertEquals((Integer)2, result.get(2));
+		assertTrue(co.getCStack().empty());
+		assertTrue(co.getStack().allObjsAreNull());
+	}
+	
+	public static class SmReflectRunnable implements Runnable {
+		ArrayList<Integer> result;
+		@Override
+		public void run() throws SuspendExecution {
+			try {
+				Constructor ctor = A.class.getConstructor(Integer.TYPE, ArrayList.class);
+				ctor.newInstance(new Object[] {3, result});
+			} catch (NoSuchMethodException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (SecurityException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (InstantiationException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (IllegalAccessException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (InvocationTargetException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
 			}
-		});
+		}
+	}
+	
+	@Test
+	public void testReflectConstructorInvoke() {
+		final ArrayList<Integer> result = new ArrayList<Integer>();
+		SmReflectRunnable smr = new SmReflectRunnable();
+		smr.result = result;
+		Coroutine co = new Coroutine(smr);
 		co.resume();
 		assertEquals(0, result.size());
 		co.resume();
@@ -289,4 +345,59 @@ public class ConstructorTest {
 		assertTrue(co.getStack().allObjsAreNull());
 	}
 
+	public static class CA extends A {
+		public CA(int n, ArrayList<Integer> result) throws SuspendExecution {
+			super(n, result);
+		}
+	}
+	
+	public static class SmSuperReflectRunnable implements Runnable {
+		ArrayList<Integer> result;
+		@Override
+		public void run() throws SuspendExecution {
+			try {
+				Constructor ctor = CA.class.getConstructor(Integer.TYPE, ArrayList.class);
+				ctor.newInstance(new Object[] {3, result});
+			} catch (NoSuchMethodException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (SecurityException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (InstantiationException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (IllegalAccessException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (InvocationTargetException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			}
+		}
+	}
+	
+	@Test
+	public void testReflectSuperConstructorInvoke() {
+		final ArrayList<Integer> result = new ArrayList<Integer>();
+		SmSuperReflectRunnable smr = new SmSuperReflectRunnable();
+		smr.result = result;
+		Coroutine co = new Coroutine(smr);
+		co.resume();
+		assertEquals(0, result.size());
+		co.resume();
+		assertEquals(1, result.size());
+		assertEquals((Integer)0, result.get(0));
+		co.resume();
+		assertEquals(2, result.size());
+		assertEquals((Integer)1, result.get(1));
+		co.resume();
+		assertEquals(3, result.size());
+		assertEquals((Integer)2, result.get(2));
+		assertTrue(co.getCStack().empty());
+		assertTrue(co.getStack().allObjsAreNull());
+	}
 } 

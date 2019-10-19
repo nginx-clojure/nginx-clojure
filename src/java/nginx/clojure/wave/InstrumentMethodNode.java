@@ -48,7 +48,10 @@ public class InstrumentMethodNode extends MethodNode {
 			super.visitMethodInsn(opcode, owner, name, InstrumentConstructorMethod.buildShrinkedInitMethodDesc(desc), isInterface);
 			super.visitInsn(Opcodes.DUP);
 			super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, owner, InstrumentConstructorMethod.buildInitHelpMethodName(desc), "()V", isInterface);
-		}else {
+		} else if (!this.name.equals("__nc_new_instance") && name.equals("newInstance") && owner.equals("java/lang/reflect/Constructor")) {
+			super.visitMethodInsn(Opcodes.INVOKESTATIC, "nginx/clojure/ReflectConstructorUtil", "__nc_new_instance", 
+					"(Ljava/lang/reflect/Constructor;[Ljava/lang/Object;)Ljava/lang/Object;", false);
+		} else {
 			super.visitMethodInsn(opcode, owner, name, desc, isInterface);
 		}
 	}
