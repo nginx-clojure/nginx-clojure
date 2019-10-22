@@ -6,7 +6,7 @@
             :url "http://opensource.org/licenses/BSD-3-Clause"}
   :dependencies [
                  [javax.ws.rs/javax.ws.rs-api "2.0.1"]
-                 [nginx-clojure/nginx-clojure "0.4.5"]
+                 [nginx-clojure/nginx-clojure "0.5.0"]
                  ]
   :source-paths ["src/clojure"]
   :java-source-paths ["src/java"]

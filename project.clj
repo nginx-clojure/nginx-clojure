@@ -1,4 +1,4 @@
-(defproject nginx-clojure/nginx-clojure "0.4.5"
+(defproject nginx-clojure/nginx-clojure "0.5.0"
   :description "Nginx module for clojure or groovy or java programming"
   :url "https://github.com/nginx-clojure/nginx-clojure"
   :license {:name "BSD 3-Clause license"
@@ -16,7 +16,7 @@
   :global-vars {*warn-on-reflection* true
                 *assert* false}
   :java-source-paths ["src/java"]
-  :javac-options ["-target" "1.6" "-source" "1.6" "-g" "-nowarn"]
+  :javac-options ["-target" "1.8" "-source" "1.8" "-g" "-nowarn"]
   ;; Directory in which to place AOT-compiled files. Including %s will
   ;; splice the :target-path into this value.
   :compile-path "target/classes"
@@ -35,7 +35,7 @@
              }
   :codox {:source-paths ["src/clojure"
                          "nginx-clojure-embed/src/clojure"]
-          :project {:name "nginx-clojure", :version "0.4.3", :description "N/A"}
+          :project {:name "nginx-clojure", :version "0.5.0", :description "N/A"}
           :output-path "../nginx-clojure.github.io/api"
           ;:metadata {:doc/format :markdown}
           :namespaces ["nginx.clojure.core" "nginx.clojure.session" "nginx.clojure.embed"]
@@ -43,12 +43,12 @@
   :profiles {
              :provided {
                         :dependencies [
-                                  [org.clojure/clojure "1.5.1"]
+                                  [org.clojure/clojure "1.9.0"]
                                   [org.clojure/tools.reader "0.8.1"]]
                         }
              :dev  {:dependencies [;only for test / compile usage
-                                  [org.clojure/clojure "1.5.1"]
-                                  [ring/ring-core "1.2.1"]
+                                  [org.clojure/clojure "1.9.0"]
+                                  [ring/ring-core "1.7.1"]
                                   [compojure "1.1.6"]
                                   [clj-http "0.7.8"]
                                   [junit/junit "4.11"]
@@ -59,12 +59,13 @@
                                   [org.clojure/data.json "0.2.5"]
                                   [org.codehaus.jackson/jackson-mapper-asl "1.9.13"]
                                   [org.codehaus.groovy/groovy "2.3.4"]
-                                  [stylefruits/gniazdo "0.4.0"]
+                                  [stylefruits/gniazdo "1.1.2"]
+                                  [javax.xml.bind/jaxb-api "2.3.1"]
                                   ]}
              :unittest {
-                    :jvm-opts ["-javaagent:target/nginx-clojure-0.4.4.jar=mb"
-                               "-Dnginx.clojure.wave.udfs=pure-clj.txt,compojure.txt,compojure-http-clj.txt"
-                               "-Xbootclasspath/a:target/nginx-clojure-0.4.4.jar"]
+                    :jvm-opts ["-javaagent:target/nginx-clojure-0.5.0.jar=mb"
+                               "-Dnginx.clojure.wave.udfs=pure-clj.txt,mysql-jdbc.txt,compojure.txt,compojure-http-clj.txt"
+                               "-Xbootclasspath/a:target/nginx-clojure-0.5.0.jar"]
                     :junit-options {:fork "on"}
                     :java-source-paths ["test/java" "test/clojure"]
                     :test-paths ["src/test/clojure"]
@@ -72,13 +73,14 @@
                     :junit ["test/java"]
                     :compile-path "target/testclasses"
                     :dependencies [
-                                  [org.clojure/clojure "1.5.1"]
-                                  [ring/ring-core "1.2.1"]
+                                  [org.clojure/clojure "1.9.0"]
+                                  [ring/ring-core "1.7.1"]
                                   [compojure "1.1.6"]
                                   [clj-http "0.7.8"]
                                   [junit/junit "4.11"]
                                   [org.clojure/java.jdbc "0.3.3"]
                                   [org.codehaus.jackson/jackson-mapper-asl "1.9.13"]
+                                  [javax.xml.bind/jaxb-api "2.3.1"]
                                   ;[mysql/mysql-connector-java "5.1.30"]
                                   ]
                         }
@@ -97,8 +99,8 @@
                                                  :keepalive :keepalive
                                                  :all :remote}
                                 :dependencies [
-                                              [org.clojure/clojure "1.5.1"]
-                                              [ring/ring-core "1.2.1"]
+                                              [org.clojure/clojure "1.9.0"]
+                                              [ring/ring-core "1.7.1"]
                                               [compojure "1.1.6"]
                                               [clj-http "0.7.8"]
                                               [junit/junit "4.11"]
@@ -108,7 +110,8 @@
                                               [javax.servlet/servlet-api "2.5"]
                                               [org.codehaus.jackson/jackson-mapper-asl "1.9.13"]
                                               [org.clojure/data.json "0.2.5"]
-                                              [stylefruits/gniazdo "0.4.0"]
+                                              [stylefruits/gniazdo "1.1.2"]
+                                              [javax.xml.bind/jaxb-api "2.3.1"]
                                               ;[mysql/mysql-connector-java "5.1.30"]
                                               ]
                                     }             
