@@ -504,5 +504,7 @@ ab -n 10000 -c 200 http://localhost:8080/proxytest/medium.html
 #nginx clojure coroutine socket + http client
 
 
-
+lein with-profile cljremotetest test :jdbc
+lein with-profile cljremotetest test :all
+lein with-profile unittest junit
 

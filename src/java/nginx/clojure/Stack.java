@@ -81,6 +81,11 @@ public final class Stack implements Serializable {
         this.method = new int[8];
         this.dataLong = new long[stackSize];
         this.dataObject = new Object[stackSize];
+        
+        if (db == null) {
+        	throw new IllegalArgumentException("corutine model was configured wrongly!");
+        }
+        
         if (db.isVerify()) {
         	verifyInfo = new VerifyInfo();
         	verifyInfo.vid = vidCounter++;

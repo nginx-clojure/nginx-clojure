@@ -9,7 +9,7 @@ public class SuspendMethodVerifyAdvice extends AdviceAdapter {
 	protected MethodDatabase db;
 	protected String owner;
 	protected String method;
-	private final Label start = new Label();
+	private Label start = new Label();
 	private final Label handler = new Label();
 
 	
@@ -26,6 +26,17 @@ public class SuspendMethodVerifyAdvice extends AdviceAdapter {
 		mv.visitLabel(start);
 	};
 
+	@Override
+	public void visitMethodInsn(int opcode, String owner, String name,
+			String desc, boolean isInterface) {
+		super.visitMethodInsn(opcode, owner, name, desc, isInterface);
+		
+		if (method != null && method.startsWith("<init>") && opcode == INVOKESPECIAL) {
+			start = new Label();
+			mv.visitLabel(start);
+		}
+		
+	}
 	
 	@Override
 	protected void onMethodEnter() {

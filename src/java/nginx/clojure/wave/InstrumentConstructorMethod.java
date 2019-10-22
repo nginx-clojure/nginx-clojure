@@ -227,21 +227,9 @@ public class InstrumentConstructorMethod {
 		String[] exps = MethodDatabase.toStringArray(mn.exceptions);
 		MethodVisitor cmv = cv.makeOutMV(mn.access, "<init>", desc, null, exps);
 		cmv.visitCode();
+		
 		for (int i = 0; i < splitPos -1; i++) {
 			mn.instructions.get(i).accept(cmv);
-		}
-		
-		if (invokedInitInsn != null) {
-			if (db.checkMethodSuspendType(invokedInitInsn.owner, ClassEntry.key(invokedInitInsn.name, invokedInitInsn.desc), false, false) == MethodDatabase.SUSPEND_NORMAL) {
-				Type[] tps = Type.getArgumentTypes(invokedInitInsn.desc);
-				Type[] ntps = new Type[tps.length + 1];
-				System.arraycopy(tps, 0, ntps, 0, tps.length);
-				ntps[tps.length] = Type.getType(CheckInstrumentationVisitor.EXCEPTION_DESC);
-				cmv.visitInsn(Opcodes.ACONST_NULL);
-				cmv.visitMethodInsn(invokedInitInsn.getOpcode(), invokedInitInsn.owner,invokedInitInsn.name, Type.getMethodDescriptor(Type.VOID_TYPE, ntps));
-			}else {
-				invokedInitInsn.accept(cmv);
-			}
 		}
 		
 		cmv.visitMethodInsn(Opcodes.INVOKESTATIC, CSTACK_NAME, "getStack", "()L"+CSTACK_NAME+";");
@@ -273,6 +261,20 @@ public class InstrumentConstructorMethod {
 		        emitStoreValue(cmv, v, lvarCStack, slotIdx);
 		    }
 		}
+		
+		if (invokedInitInsn != null) {
+			if (db.checkMethodSuspendType(invokedInitInsn.owner, ClassEntry.key(invokedInitInsn.name, invokedInitInsn.desc), false, false) == MethodDatabase.SUSPEND_NORMAL) {
+				Type[] tps = Type.getArgumentTypes(invokedInitInsn.desc);
+				Type[] ntps = new Type[tps.length + 1];
+				System.arraycopy(tps, 0, ntps, 0, tps.length);
+				ntps[tps.length] = Type.getType(CheckInstrumentationVisitor.EXCEPTION_DESC);
+				cmv.visitInsn(Opcodes.ACONST_NULL);
+				cmv.visitMethodInsn(invokedInitInsn.getOpcode(), invokedInitInsn.owner,invokedInitInsn.name, Type.getMethodDescriptor(Type.VOID_TYPE, ntps));
+			}else {
+				invokedInitInsn.accept(cmv);
+			}
+		}
+		
         if(mn.localVariables != null) {
             for(LocalVariableNode var : mn.localVariables) {
             	if (invokedInitInsn != null) {

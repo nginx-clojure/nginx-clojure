@@ -6,6 +6,7 @@ lazyclass:clojure/lang/AFn
   /applyToHelper.*|applyTo.*:just_mark
   call()Ljava/lang/Object;:normal
   run()V:normal	
+  /invokeStatic.*:family
 
 lazyclass:clojure/lang/RestFn
   /invoke.*:just_mark
@@ -211,8 +212,8 @@ lazyclass:nginx/clojure/NginxHandler
 #mark from sub nginx/clojure/NginxSimpleHandler
   execute(JJ)I:just_mark
 
-
 filter:clojure/asm
+filter:clojure/core$generate_class
 filter:com/sun/crypto/provider/
 #filter:java/lang
 filter:java/util/LinkedHashMap
