@@ -15,9 +15,11 @@ import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_POOL_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CONTENT_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_INTERNAL_SERVER_ERROR;
+import static nginx.clojure.MiniConstants.NGX_HTTP_LOG_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NO_CONTENT;
 import static nginx.clojure.MiniConstants.NGX_HTTP_OK;
 import static nginx.clojure.MiniConstants.NGX_HTTP_SWITCHING_PROTOCOLS;
+import static nginx.clojure.MiniConstants.NGX_OK;
 import static nginx.clojure.MiniConstants.RESP_CONTENT_TYPE_HOLDER;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
 import static nginx.clojure.NginxClojureRT.coroutineEnabled;
@@ -106,6 +108,11 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 				req.uri();
 			}
 			NginxResponse resp = handleRequest(req);
+			
+			if (phase == NGX_HTTP_LOG_PHASE) {
+				return NGX_OK;
+			}
+			
 			if (resp.type() == NginxResponse.TYPE_FAKE_ASYNC_TAG) {
 /*				
  *          the equivalent complete check is :
@@ -166,30 +173,29 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 
 	
 	public static NginxResponse handleRequest(final NginxRequest req) {
-		try{
-			
+		try {
 			if (coroutineEnabled) {
 				Coroutine coroutine = pooledCoroutines.poll();
 				CoroutineRunner coroutineRunner;
 				if (coroutine == null) {
 					coroutineRunner = new CoroutineRunner(req);
 					coroutine = new Coroutine(coroutineRunner);
-				}else {
+				} else {
 					coroutine.reset();
 					coroutineRunner = (CoroutineRunner) coroutine.getProto();
 					coroutineRunner.request = req;
 				}
-				
+
 				coroutine.resume();
 				if (coroutine.getState() == Coroutine.State.FINISHED) {
 					return coroutineRunner.response;
-				}else {
+				} else {
 					return new NginxJavaResponse(req, Constants.ASYNC_TAG);
 				}
-			}else {
+			} else {
 				return req.handler().process(req);
 			}
-		}catch(Throwable e){
+		} catch (Throwable e) {
 			log.error("server unhandled exception!", e);
 			return buildUnhandledExceptionResponse(req, e);
 		}

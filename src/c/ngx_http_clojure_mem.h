@@ -81,6 +81,7 @@ typedef struct {
 	unsigned enable_header_filter :1;
 	unsigned enable_body_filter :1;
 	unsigned enable_access_handler : 1;
+	unsigned enable_log_handler : 1;
 	ngx_str_t jvm_handler_type;
 	ngx_str_t jvm_init_handler_code;
 	ngx_int_t jvm_init_handler_id;
@@ -103,6 +104,7 @@ typedef struct {
 #define NGX_HTTP_CLOJURE_BEFORE_CONTENT_HANDLER 3
 #define NGX_HTTP_CLOJURE_BEFORE_NONE 4
 	unsigned always_read_body : 3;
+	unsigned enable_log_handler : 1;
 	ngx_flag_t auto_upgrade_ws;
 	ngx_flag_t handlers_lazy_init;
 	ngx_str_t content_handler_type;
@@ -125,11 +127,16 @@ typedef struct {
 	ngx_str_t access_handler_code;
 	ngx_int_t access_handler_id;
 	ngx_str_t access_handler_name;
+  ngx_str_t log_handler_type;
+  ngx_str_t log_handler_code;
+  ngx_int_t log_handler_id;
+  ngx_str_t log_handler_name;
 	ngx_array_t *content_handler_properties;
 	ngx_array_t *rewrite_handler_properties;
 	ngx_array_t *access_handler_properties;
 	ngx_array_t *header_filter_properties;
 	ngx_array_t *body_filter_properties;
+	ngx_array_t *log_handler_properties;
 	size_t write_page_size;
 } ngx_http_clojure_loc_conf_t;
 

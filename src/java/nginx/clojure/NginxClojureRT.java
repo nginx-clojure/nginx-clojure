@@ -390,7 +390,8 @@ public class NginxClojureRT extends MiniConstants {
 				try {
 					Future<WorkerResponseContext> respFuture =  workers.take();
 					WorkerResponseContext ctx = respFuture.get();
-					if (ctx.response.type() == NginxResponse.TYPE_FAKE_ASYNC_TAG) {
+					if (ctx.response.type() == NginxResponse.TYPE_FAKE_ASYNC_TAG
+							|| ctx.request.phase() == NGX_HTTP_LOG_PHASE) {
 						continue;
 					}
 					long r = ctx.response.request().nativeRequest();
@@ -1617,10 +1618,10 @@ public class NginxClojureRT extends MiniConstants {
 			int rc = handleResponse(req, resp);
 			if (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE) {
 				ngx_http_finalize_request(req.nativeRequest(), rc);
-			}else if (rc != MiniConstants.NGX_DONE){
+			} else if (rc != MiniConstants.NGX_DONE) {
 				ngx_http_clojure_mem_continue_current_phase(req.nativeRequest(), rc);
 			}
-		}else {
+		} else {
 			long r = req.nativeRequest();
 			WorkerResponseContext ctx = new WorkerResponseContext(resp, req);
 			savePostEventData(r, ctx);
@@ -1647,15 +1648,15 @@ public class NginxClojureRT extends MiniConstants {
 		}
 		id |= (tag << 56);
 		if (Thread.currentThread() == NGINX_MAIN_THREAD) {
-			int rt = (int)ngx_http_clojure_mem_broadcast_event(id, null, 0, 0);
+			int rt = (int) ngx_http_clojure_mem_broadcast_event(id, null, 0, 0);
 			if (rt == 0) {
 				return handlePostEvent(id, null, 0);
-			}else {
+			} else {
 				rt = handlePostEvent(id, null, 0);
 			}
 			return rt;
-		}else {
-			return (int)ngx_http_clojure_mem_broadcast_event(id, null, 0, 1);
+		} else {
+			return (int) ngx_http_clojure_mem_broadcast_event(id, null, 0, 1);
 		}
 	}
 	
@@ -1684,11 +1685,11 @@ public class NginxClojureRT extends MiniConstants {
 			int rt = (int)ngx_http_clojure_mem_broadcast_event(event, body, BYTE_ARRAY_OFFSET + offset, 0);
 			if (rt == 0) {
 				rt = (int)handlePostEvent(event, body, offset);
-			}else {
+			} else {
 				handlePostEvent(event, body, offset);
 			}
 			return rt;
-		}else {
+		} else {
 			return (int)ngx_http_clojure_mem_broadcast_event(event, body, BYTE_ARRAY_OFFSET + offset, 1);
 		}
 	}
@@ -1756,7 +1757,7 @@ public class NginxClojureRT extends MiniConstants {
 		public void run() throws SuspendExecution {
 			try {
 				results[order] = handler.call();
-			}catch(Throwable e) {
+			} catch(Throwable e) {
 				log.error("error in sub coroutine", e);
 			}
 			
@@ -1816,7 +1817,7 @@ public class NginxClojureRT extends MiniConstants {
 		ByteBuffer bb = threadLocalByteBuffers.get();
 		if (bb == null) {
 			threadLocalByteBuffers.set(bb = ByteBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE));
-		}else {
+		} else {
 			bb.clear();
 		}
 		return bb;
@@ -1831,7 +1832,7 @@ public class NginxClojureRT extends MiniConstants {
 		CharBuffer cb = threadLocalCharBuffers.get();
 		if (cb == null) {
 			threadLocalCharBuffers.set(cb = CharBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE));
-		}else {
+		} else {
 			cb.clear();
 		}
 		return cb;
