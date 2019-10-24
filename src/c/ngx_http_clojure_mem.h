@@ -41,12 +41,12 @@ typedef unsigned __int64 uint64_t;
 #define JVM_CP_SEP_S ":"
 #endif
 
-#define nginx_clojure_ver  4005 /*0.4.5*/
+#define nginx_clojure_ver  5000 /*0.5.0*/
 
 /*the least jar version required*/
-#define nginx_clojure_required_rt_lver 4005
+#define nginx_clojure_required_rt_lver 5000
 
-#define NGINX_CLOJURE_VER_NUM_STR "0.4.5"
+#define NGINX_CLOJURE_VER_NUM_STR "0.5.0"
 
 #define NGINX_CLOJURE_VER "nginx-clojure/" NGINX_CLOJURE_VER_NUM_STR
 
