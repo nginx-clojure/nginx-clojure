@@ -4,6 +4,22 @@ Downloads & Release History
 1. [Binaries of Releases](http://sourceforge.net/projects/nginx-clojure/files/)
 1. [Sources of Releases](https://github.com/nginx-clojure/nginx-clojure/releases)
 
+
+## 0.5.0 (2019-10-26)
+
+1. New Feature: Java 9, 10, 11, 12 support. But Java 6 and Java7 are deprecated now.
+1. New Feature: Log handler
+1. New Feature: HTTP V2 support (thanks to Nginx v1.14.2)
+1. Bug Fix: Memory leak with file handler #180
+1. Bug Fix: Zero buffer error when hijack_send empty string #181
+1. Bug Fix: Mysql driver issue about jdbc4 flag
+1. Bug Fix: ContainsKey of nginx shared map
+1. Bug Fix: NginxRequest.setVariable in a rewrite handler will hang
+1. Bug Fix: Segmentation fault on shutdown
+1. Enhancement: API for discarding request body (request.discardRequestBody())
+1. Enhancement: Coroutine support for cascade constructor invoking
+1. Binaries Distribution: built with Nginx v1.14.2
+
 ## 0.4.5 (2017-05-28)
 
 1. New Feature: Support to be compiled as Nginx dynamic module, thanks to [Andrew Hutchings](https://github.com/LinuxJedi)

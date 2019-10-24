@@ -492,6 +492,10 @@ auto/configure --with-debug --prefix= \
 
 make
 
+for ncs in ngx_http_clojure_mem ngx_http_clojure_socket ngx_http_clojure_shared_map_tinymap ngx_http_clojure_shared_map_hashmap; do \
+gcc -c -DNGX_CLOJURE_BE_SILENT_WITHOUT_JVM -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include" -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include/darwin"  -pipe  -O   -g   -I src/core -I src/event -I src/event/modules  -I src/http/v2 -I src/os/unix -I ../pcre-8.40 -I ../openssl-1.1.0e/.openssl/include -I ../zlib-1.2.11 -I objs -I src/http -I src/http/modules -I ../nginx-clojure/src/c -I src/mail -o objs/addon/c/${ncs}.o ../nginx-clojure/src/c/${ncs}.c; \
+done
+
 
 gcc -c -DNGX_CLOJURE_BE_SILENT_WITHOUT_JVM -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include" -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include/darwin"  -pipe  -O   -g   -I src/core -I src/event -I src/event/modules  -I src/http/v2 -I src/os/unix -I ../pcre-8.40 -I ../openssl-1.1.0e/.openssl/include -I ../zlib-1.2.11 -I objs -I src/http -I src/http/modules -I ../nginx-clojure/src/c -I src/mail -o objs/addon/c/ngx_http_clojure_mem.o ../nginx-clojure/src/c/ngx_http_clojure_mem.c
 
@@ -551,5 +555,20 @@ lein with-profile cljremotetest test :jdbc
 lein with-profile cljremotetest test :all
 lein with-profile unittest junit
 
+## release check list
+1. version in NginxClojureRT 
+   
+   NGINX_CLOJURE_RT_REQUIRED_LVER = 5000;
+	 NGINX_CLOJURE_RT_VER = 5000;
 
+2. version in ngx_http_clojure_mem.h
+
+    nginx_clojure_ver  5000 /*0.5.0*/
+    nginx_clojure_required_rt_lver 5000
+    NGINX_CLOJURE_VER_NUM_STR "0.5.0"	 
+
+2. versions in project.clj
+
+3. doc
+ 
 
