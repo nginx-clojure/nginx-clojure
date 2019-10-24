@@ -1926,6 +1926,7 @@ TOP_WHILE :
 				buf->pos += 2;
 				wsctx->pstate = NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_LEN;
 				/* no break */
+				/*fallthrough*/
 			case NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_LEN:
 				if (wsctx->opcode & 0x8) {
 					if (wsctx->len > 125) { /*control frame payload length < 126 */
@@ -1943,6 +1944,7 @@ TOP_WHILE :
 				}
 				wsctx->pstate = NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_MASK;
 				/* no break */
+				/*fallthrough*/
 			case NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_MASK:
 				if (wsctx->mask) {
 					check_buf_data_enough(buf, 4, TOP_WHILE);
@@ -1951,6 +1953,7 @@ TOP_WHILE :
 				}
 				wsctx->pstate = NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_DATA;
 				/* no break */
+				/*fallthrough*/
 			case NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_DATA:
 
 				/*when buf->end == buf->last we need handle data at once because there's no free space to read more,

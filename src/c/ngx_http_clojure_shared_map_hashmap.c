@@ -35,9 +35,11 @@ uint32_t murmur3_32(uint32_t seed, const u_char *data, uint32_t offset, uint32_t
 		case 3:
 			k1 ^= data[--i] << 16;
 			/* no break */
+			/*fallthrough*/
 		case 2:
 			k1 ^= data[--i] << 8;
 			/* no break */
+			/*fallthrough*/
 		case 1:
 			k1 ^= data[--i];
 			k1 *= 0xcc9e2d51;
@@ -45,6 +47,7 @@ uint32_t murmur3_32(uint32_t seed, const u_char *data, uint32_t offset, uint32_t
 			k1 *= 0x1b873593;
 			h1 ^= k1;
 			/* no break */
+			/*fallthrough*/
 	}
 
 	h1 ^= len;
