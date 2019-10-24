@@ -144,10 +144,32 @@ remove objs/ngx_config.pch
 (or for vc 2010 express call "c:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\SetEnv.Cmd" /Release /x64)
 #run C:\MinGW\msys\1.0\msys.bat
 
-#modify auto/lib/openssl/makefile.msvc, two line
+#modify auto/lib/openssl/makefile.msvc to
 
-perl Configure VC-WIN64A no-shared --prefix=openssl $(OPENSSL_OPT)
-ms\do_win64a
+##########################
+
+all:
+	cd $(OPENSSL)
+
+	perl Configure VC-WIN64A no-shared				\
+		--prefix="%cd%/openssl" 				\
+		--openssldir="%cd%/openssl/ssl" 			\
+		$(OPENSSL_OPT)
+
+	if exist ms\do_ms.bat (						\
+		ms\do_win64a						\
+		&& $(MAKE) -f ms\nt.mak					\
+		&& $(MAKE) -f ms\nt.mak install				\
+	) else (							\
+		$(MAKE)							\
+		&& $(MAKE) install_sw					\
+	)
+
+##########################
+
+
+
+
 
 nginx_win32_config.h
 
@@ -200,6 +222,7 @@ auto/configure --with-cc=cl --builddir=objs --with-debug --prefix= \
 --with-cc-opt=-DFD_SETSIZE=4096 --with-pcre=../pcre-8.40 \
 --with-zlib=../zlib-1.2.11 --with-openssl=../openssl-1.1.0e \
 --with-select_module \
+--with-http_v2_module \
 --with-http_realip_module --with-http_addition_module \
 --with-http_sub_module --with-http_dav_module \
 --with-http_stub_status_module --with-http_flv_module \
@@ -297,6 +320,7 @@ auto/configure --prefix=/etc/nginx \
 --user=nginx \
 --group=nginx \
 --with-http_ssl_module \
+--with-http_v2_module \
 --with-http_realip_module \
 --with-http_addition_module \
 --with-http_sub_module \
@@ -358,6 +382,7 @@ auto/configure --prefix= \
 --http-uwsgi-temp-path=temp/uwsgi_temp \
 --http-scgi-temp-path=temp/scgi_temp \
 --with-http_ssl_module \
+--with-http_v2_module \
 --with-pcre-jit \
 --with-debug \
 --with-http_image_filter_module=dynamic \
@@ -382,7 +407,7 @@ auto/configure --prefix= \
 --with-cc-opt='-O2 -g -pipe -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector --param=ssp-buffer-size=4 -m64 -mtune=generic' \
 --add-module=../nginx-clojure/src/c
 
-then modify objs/Makefile 
+<use filter_module=dynamic need not modify>then modify objs/Makefile 
 
 -lpthread -lcrypt -ldl ../pcre-8.32/.libs/libpcre.a ../openssl-1.0.1e/.openssl/lib/libssl.a ../openssl-1.0.1e/.openssl/lib/libcrypto.a -ldl ../zlib-1.2.8/libz.a /usr/lib64/libgd.a -lm
 
@@ -454,6 +479,7 @@ auto/configure --with-debug --prefix= \
 --with-pcre=../pcre-8.40 \
 --with-zlib=../zlib-1.2.11 \
 --with-openssl=../openssl-1.1.0e \
+--with-http_v2_module \
 --with-select_module \
 --with-http_realip_module --with-http_addition_module \
 --with-http_sub_module --with-http_dav_module \
@@ -466,9 +492,24 @@ auto/configure --with-debug --prefix= \
 
 make
 
-gcc -c -DNGX_CLOJURE_BE_SILENT_WITHOUT_JVM -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include" -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include/darwin"  -pipe  -O   -g   -I src/core -I src/event -I src/event/modules -I src/os/unix -I ../pcre-8.40 -I ../openssl-1.1.0e/.openssl/include -I ../zlib-1.2.11 -I objs -I src/http -I src/http/modules -I ../nginx-clojure/src/c -I src/mail \
-		-o objs/addon/c/ngx_http_clojure_mem.o \
-		../nginx-clojure/src/c/ngx_http_clojure_mem.c
+
+gcc -c -DNGX_CLOJURE_BE_SILENT_WITHOUT_JVM -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include" -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include/darwin"  -pipe  -O   -g   -I src/core -I src/event -I src/event/modules  -I src/http/v2 -I src/os/unix -I ../pcre-8.40 -I ../openssl-1.1.0e/.openssl/include -I ../zlib-1.2.11 -I objs -I src/http -I src/http/modules -I ../nginx-clojure/src/c -I src/mail -o objs/addon/c/ngx_http_clojure_mem.o ../nginx-clojure/src/c/ngx_http_clojure_mem.c
+
+gcc -c -DNGX_CLOJURE_BE_SILENT_WITHOUT_JVM -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include" -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include/darwin"  -pipe  -O   -g   -I src/core -I src/event -I src/event/modules  -I src/http/v2 -I src/os/unix -I ../pcre-8.40 -I ../openssl-1.1.0e/.openssl/include -I ../zlib-1.2.11 -I objs -I src/http -I src/http/modules -I ../nginx-clojure/src/c -I src/mail -o objs/addon/c/ngx_http_clojure_module.o ../nginx-clojure/src/c/ngx_http_clojure_module.c
+
+gcc -c -DNGX_CLOJURE_BE_SILENT_WITHOUT_JVM -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include" -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include/darwin"  -pipe  -O   -g   -I src/core -I src/event -I src/event/modules  -I src/http/v2 -I src/os/unix -I ../pcre-8.40 -I ../openssl-1.1.0e/.openssl/include -I ../zlib-1.2.11 -I objs -I src/http -I src/http/modules -I ../nginx-clojure/src/c -I src/mail -o objs/addon/c/ngx_http_clojure_shared_map.o ../nginx-clojure/src/c/ngx_http_clojure_shared_map.c
+
+
+gcc -c -DNGX_CLOJURE_BE_SILENT_WITHOUT_JVM -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include" -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include/darwin"  -pipe  -O   -g   -I src/core -I src/event -I src/event/modules  -I src/http/v2 -I src/os/unix -I ../pcre-8.40 -I ../openssl-1.1.0e/.openssl/include -I ../zlib-1.2.11 -I objs -I src/http -I src/http/modules -I ../nginx-clojure/src/c -I src/mail -o objs/addon/c/ngx_http_clojure_shared_map_hashmap.o ../nginx-clojure/src/c/ngx_http_clojure_shared_map_hashmap.c
+
+
+gcc -c -DNGX_CLOJURE_BE_SILENT_WITHOUT_JVM -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include" -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include/darwin"  -pipe  -O   -g   -I src/core -I src/event -I src/event/modules  -I src/http/v2 -I src/os/unix -I ../pcre-8.40 -I ../openssl-1.1.0e/.openssl/include -I ../zlib-1.2.11 -I objs -I src/http -I src/http/modules -I ../nginx-clojure/src/c -I src/mail -o objs/addon/c/ngx_http_clojure_shared_map_tinymap.o ../nginx-clojure/src/c/ngx_http_clojure_shared_map_tinymap.c
+
+
+## for embedded nginx-clojure so file
+for ncs in ngx_http_clojure_mem ngx_http_clojure_socket ngx_http_clojure_shared_map_tinymap ngx_http_clojure_shared_map_hashmap; do gcc -c -fpic         -fvisibility=hidden         -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include" -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include/darwin"         -I "/Users/whomac/Dev/build-for-embed/nginx-clojure/nginx-clojure-embed/../src/c"          -DNGX_CLOJURE_BE_SILENT_WITHOUT_JVM -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include" -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include/darwin"  -pipe  -O -Wall -g   -I src/core -I src/event -I src/event/modules -I src/os/unix -I ../pcre-8.40 -I objs -I src/http -I src/http/modules -I src/http/v2  -I /Users/whomac/Dev/build-for-embed/nginx-clojure/nginx-clojure-embed/../src/c -o objs/addon/c/${ncs}.o /Users/whomac/Dev/build-for-embed/nginx-clojure/nginx-clojure-embed/../src/c/${ncs}.c; done
+
+gcc -c -fpic         -fvisibility=hidden         -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include" -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include/darwin"         -I "/Users/whomac/Dev/build-for-embed/nginx-clojure/nginx-clojure-embed/../src/c"          -DNGX_CLOJURE_BE_SILENT_WITHOUT_JVM -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include" -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include/darwin"  -pipe  -O -Wall  -g   -I src/core -I src/event -I src/event/modules -I src/os/unix -I ../pcre-8.40 -I objs -I src/http -I src/http/modules -I src/http/v2   -I /Users/whomac/Dev/build-for-embed/nginx-clojure/nginx-clojure-embed/../src/c -o objs/addon/c/ngx_http_clojure_embed.o /Users/whomac/Dev/build-for-embed/nginx-clojure/nginx-clojure-embed/src/c/ngx_http_clojure_embed.c
 
 
 nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx.conf -p /home/who/git/nginx-clojure/test/nginx-working-dir/
@@ -503,8 +544,12 @@ performance testing:
 ab -n 10000 -c 200 http://localhost:8080/proxytest/medium.html
 #nginx clojure coroutine socket + http client
 
+## open repl
+lein with-profile +cljremotetest repl
 
 lein with-profile cljremotetest test :jdbc
 lein with-profile cljremotetest test :all
 lein with-profile unittest junit
+
+
 

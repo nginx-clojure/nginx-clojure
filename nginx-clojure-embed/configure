@@ -64,6 +64,7 @@ set --   --prefix= \
   --http-proxy-temp-path=temp/proxy_temp \
   --http-proxy-temp-path=temp/proxy_temp \
   --without-http_ssi_module   \
+  --with-http_v2_module \
   --without-http_userid_module \
   --without-http_geo_module   \
   --without-http_split_clients_module \

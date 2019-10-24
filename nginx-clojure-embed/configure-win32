@@ -2,7 +2,7 @@
 
 # Copyright (C) Zhang,Yuexiang (xfeep)
 
-NGINX_SRC=c:/mingw/msys/1.0/home/myadmin/build-for-embed/nginx-1.12.0
+NGINX_SRC=c:/mingw/msys/1.0/home/myadmin/build-for-embed/nginx-current
 NGINX_CLOJURE_SRC=c:/mingw/msys/1.0/home/myadmin/build-for-embed/nginx-clojure
 NGINX_CLOJURE_EMBED_SRC=c:/mingw/msys/1.0/home/myadmin/build-for-embed/nginx-clojure/nginx-clojure-embed
 
@@ -86,10 +86,13 @@ set --   --prefix= \
   --without-mail_imap_module   \
   --without-mail_smtp_module   \
   --with-debug \
-  --add-module=${NGINX_CLOJURE_SRC}/src/c \
-  --add-module=${NGINX_CLOJURE_EMBED_SRC}/src/c \
   --with-pcre=../pcre-8.40 \
   --with-zlib=../zlib-1.2.11 \
+  --with-openssl=../openssl-1.1.0e \
+  --with-http_v2_module \
+  --with-openssl-opt=enable-tlsext --with-http_ssl_module \
+  --add-module=${NGINX_CLOJURE_SRC}/src/c \
+  --add-module=${NGINX_CLOJURE_EMBED_SRC}/src/c \
 
 ##  --with-sha1=C:/MinGW/msys/1.0/home/myadmin/nginx-current/objs/lib/openssl-1.0.1e/crypto/sha \
 ##  --with-cc-opt="-I C:/MinGW/msys/1.0/home/myadmin/nginx-current/objs/lib/openssl-1.0.1e/openssl/include"
