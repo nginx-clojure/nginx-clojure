@@ -4,7 +4,7 @@
 	<classpathentry kind="src" path="test/clojure"/>
 	<classpathentry kind="src" path="src/clojure"/>
 	<classpathentry kind="src" path="test/java"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.7"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/nginx-clojure"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

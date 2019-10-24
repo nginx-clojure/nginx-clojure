@@ -58,7 +58,7 @@
                                   [javax.servlet/servlet-api "2.5"]
                                   [org.clojure/data.json "0.2.5"]
                                   [org.codehaus.jackson/jackson-mapper-asl "1.9.13"]
-                                  [org.codehaus.groovy/groovy "2.3.4"]
+                                  [org.codehaus.groovy/groovy "2.5.8"]
                                   [stylefruits/gniazdo "1.1.2"]
                                   [javax.xml.bind/jaxb-api "2.3.1"]
                                   ]}

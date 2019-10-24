@@ -517,6 +517,7 @@ public class NginxClojureRT extends MiniConstants {
 		workerExecutorService = null;
 		eventDispather = null;
 		threadPoolOnlyForTestingUsage = null;
+		workers = null;
 	}
 	
 	public static synchronized ExecutorService initThreadPoolOnlyForTestingUsage() {
