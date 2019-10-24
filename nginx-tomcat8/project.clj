@@ -1,4 +1,4 @@
-(defproject nginx-clojure/nginx-tomcat8 "0.2.4"
+(defproject nginx-clojure/nginx-tomcat8 "0.2.5"
   :description "Embed Tomcat into Nginx by Nignx-Clojure Module so that Nginx can  Support Java Standard Web Applications"
   :url "https://github.com/nginx-clojure/nginx-clojure/nginx-tomcat8"
   :license {:name "BSD 3-Clause license"
@@ -14,5 +14,5 @@
   :javac-options ["-target" "1.7" "-source" "1.7" "-g" "-nowarn"]
   :profiles {
            :dev {:dependencies [;only for test / compile usage
-                                [stylefruits/gniazdo "0.4.0"]]}}
+                                [stylefruits/gniazdo "1.1.2"]]}}
   )

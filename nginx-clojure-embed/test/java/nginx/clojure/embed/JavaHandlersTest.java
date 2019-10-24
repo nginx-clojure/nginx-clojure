@@ -244,6 +244,7 @@ public class JavaHandlersTest {
 			e.printStackTrace();
 		}
 		server.stop();
+		opts.put("max-threads", "0");
 		port = server.start(SimpleRouting.class.getName(), opts);
 		System.out.println("return port :" + port);
 	}
