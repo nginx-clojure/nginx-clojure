@@ -7,7 +7,8 @@ package nginx.clojure.java;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.HashMap;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Map;
 
 import nginx.clojure.Configurable;
@@ -20,10 +21,10 @@ public class LogHandlerTestSet4NginxJavaRingHandler {
 
 	public static class SimpleLogHandler implements NginxJavaRingHandler, Configurable {
 		
-		Map<String, String> properties;
+		String format;
 		
 		public SimpleLogHandler() {
-			properties = new HashMap<>();
+			System.out.println("ok");
 		}
 
 		/* (non-Javadoc)
@@ -33,7 +34,8 @@ public class LogHandlerTestSet4NginxJavaRingHandler {
 		public Object[] invoke(Map<String, Object> request) throws IOException {
 			File file = new File("logs/SimpleLogHandler.log");
 			try (FileOutputStream out = new FileOutputStream(file, true)) {
-				out.write((request.get(Constants.URI)+"\n").getBytes("utf8"));
+				out.write((new SimpleDateFormat(format).format(new Date()) + ":" + request.get(Constants.URI) + "\n")
+						.getBytes("utf8"));
 			}
 			return null;
 		}
@@ -43,7 +45,7 @@ public class LogHandlerTestSet4NginxJavaRingHandler {
 		 */
 		@Override
 		public void config(Map<String, String> properties) {
-			this.properties.putAll(properties);
+			format = properties.get("format");
 		}
 	}
 }
