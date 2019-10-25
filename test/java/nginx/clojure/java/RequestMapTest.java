@@ -73,6 +73,8 @@ public class RequestMapTest {
 		r = (LazyRequestMap) r.without(nginx.clojure.clj.Constants.SCHEME);
 		assertEquals(array.length/2-1, r.count());
 		
+		
+		varray = (Object[]) HackUtils.UNSAFE.getObject(r, aoff);
 		for (int i = r.count() * 2; i < varray.length; i++) {
 			assertNull(varray[i]);
 		}
