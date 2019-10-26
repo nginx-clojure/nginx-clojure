@@ -61,6 +61,7 @@
                                   [org.codehaus.groovy/groovy "2.5.8"]
                                   [stylefruits/gniazdo "1.1.2"]
                                   [javax.xml.bind/jaxb-api "2.3.1"]
+                                  [org.clojure/tools.trace "0.7.10"]
                                   ]}
              :unittest {
                     :jvm-opts ["-javaagent:target/nginx-clojure-0.5.0.jar=mb"
@@ -82,6 +83,7 @@
                                   [org.codehaus.jackson/jackson-mapper-asl "1.9.13"]
                                   [javax.xml.bind/jaxb-api "2.3.1"]
                                   ;[mysql/mysql-connector-java "5.1.30"]
+                                  [org.clojure/tools.trace "0.7.10"]
                                   ]
                         }
              :cljremotetest {
@@ -113,6 +115,7 @@
                                               [stylefruits/gniazdo "1.1.2"]
                                               [javax.xml.bind/jaxb-api "2.3.1"]
                                               ;[mysql/mysql-connector-java "5.1.30"]
+                                              [org.clojure/tools.trace "0.7.10"]
                                               ]
                                     }             
              })

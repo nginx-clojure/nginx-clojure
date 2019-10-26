@@ -6,6 +6,7 @@ import java.lang.reflect.Field;
 
 import nginx.clojure.HackUtils;
 import nginx.clojure.MiniConstants;
+import nginx.clojure.NginxRequest;
 import nginx.clojure.clj.LazyRequestMap;
 
 import org.junit.After;
@@ -50,7 +51,7 @@ public class RequestMapTest {
 	
 	@Test
 	public void testCljRequest() throws Throwable  {
-		LazyRequestMap kk = new LazyRequestMap(null, 0);
+		NginxRequest kk = new LazyRequestMap(null, 0);
 		assertNotNull(kk);
 		Field f = LazyRequestMap.class.getDeclaredField("default_request_array");
 		Field af = LazyRequestMap.class.getDeclaredField("array");

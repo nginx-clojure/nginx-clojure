@@ -9,6 +9,7 @@
         [ring.middleware.multipart-params]
         [compojure.core]
         [nginx.clojure.core]
+        [clojure.tools.trace]
         )
   (:require [compojure.route :as route]
             [clj-http.client :as client])
@@ -33,8 +34,11 @@
 (defn hello-ring [req]
   {:status 200, :headers {"content-type" "text/html"}, :body "Hello, Ring handler!"})
 
-(defn session-handler [{session :session, {user "user"} :params }]
-  (let [user   (or user (:user session "guest"))
+(defn session-handler [req]
+  
+  (let [session (:session req)
+        user ((:params req) "user")
+        user   (or user (:user session "guest"))
         ;_ (println session)
         ;_ (println my-session-store)
         session (assoc session :user user)]
@@ -165,4 +169,17 @@
                            :on-error (fn [ch error] (log "uri:%s, on-error:%s" (:uri req)  error))
                           })))))
 
+
+;(trace-ns compojure.core)
+;(trace-ns compojure.route)
+;(trace-ns ring.util.response)
+;(trace-ns ring.middleware.session)
+;(trace-ns ring.middleware.cookies)
+;(trace-ns ring.middleware.params)
+;(trace-ns ring.middleware.content-type)
+;(trace-ns ring.middleware.session.memory)
+;(trace-ns ring.middleware.session.cookie)
+;(trace-ns ring.middleware.multipart-params)
+;(trace-ns compojure.core)
+;(trace-vars nginx.clojure.ring-handlers-for-test/ring-compojure-test-handler)
 
