@@ -7,7 +7,7 @@ Downloads & Release History
 
 ## 0.5.0 (2019-10-26)
 
-1. New Feature: Java 9, 10, 11, 12 support. But Java 6 and Java7 are deprecated now.
+1. New Feature: Java 9, 10, 11, 12 support. But Java 6 and Java 7 are deprecated now.
 1. New Feature: Log handler
 1. New Feature: HTTP V2 support (thanks to Nginx v1.14.2)
 1. Bug Fix: Memory leak with file handler #180
@@ -16,8 +16,10 @@ Downloads & Release History
 1. Bug Fix: ContainsKey of nginx shared map
 1. Bug Fix: NginxRequest.setVariable in a rewrite handler will hang
 1. Bug Fix: Segmentation fault on shutdown
+1. Bug Fix: Make clojure request map immutable for compojure
 1. Enhancement: API for discarding request body (request.discardRequestBody())
 1. Enhancement: Coroutine support for cascade constructor invoking
+1. Enhancement: Configurable headers/variables prefetch for more safety in multithreaded mode 
 1. Binaries Distribution: built with Nginx v1.14.2
 
 ## 0.4.5 (2017-05-28)
