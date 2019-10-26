@@ -11,8 +11,12 @@ public interface NginxRequest {
 	
 	public void tagReleased();
 	
+	public void markReqeased();
+	
 	 //for safe access with another thread
 	public void	prefetchAll();
+	
+	public void	prefetchAll(String[] headers, String[] variables);
 	
 	public NginxHandler handler();
 	
@@ -37,5 +41,13 @@ public interface NginxRequest {
 	public int getAndIncEvalCount();
 	
 	public NginxHttpServerChannel hijack(boolean ignoreFilter);
+
+	public long discardRequestBody();
+
+	public String getVariable(String name);
+	
+	public String getVariable(String name, String defaultVal);
+
+	public int setVariable(String name, String value);
 	
 }

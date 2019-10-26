@@ -34,23 +34,14 @@ import static nginx.clojure.clj.Constants.WEBSOCKET;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 
-import nginx.clojure.ChannelListener;
-import nginx.clojure.Coroutine;
-import nginx.clojure.NginxClojureRT;
-import nginx.clojure.NginxHandler;
-import nginx.clojure.NginxHttpServerChannel;
-import nginx.clojure.NginxRequest;
-import nginx.clojure.RequestVarFetcher;
-import nginx.clojure.Stack;
-import nginx.clojure.UnknownHeaderHolder;
-import nginx.clojure.java.NginxJavaRequest;
-import nginx.clojure.java.RequestRawMessageAdapter;
-import nginx.clojure.java.RequestRawMessageAdapter.RequestOrderedRunnable;
-import nginx.clojure.net.NginxClojureAsynSocket;
 import clojure.lang.AFn;
 import clojure.lang.ASeq;
 import clojure.lang.Counted;
@@ -61,10 +52,27 @@ import clojure.lang.IPersistentVector;
 import clojure.lang.ISeq;
 import clojure.lang.MapEntry;
 import clojure.lang.Obj;
+import clojure.lang.PersistentArrayMap;
 import clojure.lang.RT;
 import clojure.lang.Util;
+import nginx.clojure.ChannelListener;
+import nginx.clojure.Coroutine;
+import nginx.clojure.MiniConstants;
+import nginx.clojure.NginxClojureRT;
+import nginx.clojure.NginxHandler;
+import nginx.clojure.NginxHttpServerChannel;
+import nginx.clojure.NginxRequest;
+import nginx.clojure.RequestVarFetcher;
+import nginx.clojure.Stack;
+import nginx.clojure.UnknownHeaderHolder;
+import nginx.clojure.java.DefinedPrefetch;
+import nginx.clojure.java.JavaLazyHeaderMap;
+import nginx.clojure.java.NginxJavaRequest;
+import nginx.clojure.java.RequestRawMessageAdapter;
+import nginx.clojure.java.RequestRawMessageAdapter.RequestOrderedRunnable;
+import nginx.clojure.net.NginxClojureAsynSocket;
 
-public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentMap {
+public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMap {
 	
 	
 	protected final static Object[] default_request_array = new Object[] {
@@ -119,6 +127,8 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	protected List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners;
 	protected LazyRequestMap rawRequestMap; // it is make by nginx-clojure inner handler not from assoc()
 	
+	protected Map<String, String> prefetchedVariables;
+	
 	public final static LazyRequestMap EMPTY_MAP = new LazyRequestMap(null, 0, null, new Object[0]);
 	
 	private final  static ChannelListener<NginxRequest> requestListener  = NginxJavaRequest.requestListener;
@@ -153,6 +163,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		this.hijackTag = or.hijackTag;
 		this.rawRequestMap = or.rawRequestMap;
 		this.evalCount = or.evalCount;
+		this.prefetchedVariables = or.prefetchedVariables;
 		validLen = a.length;
 	}
 	
@@ -164,6 +175,11 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		phase = -1;
 		this.handler = handler;
 		this.rawRequestMap = this;
+		
+		//move to tag released
+//		if (this.prefetchedVariables != null) {
+//			this.prefetchedVariables.clear();
+//		}
 		if (r != 0) {
 			NginxClojureRT.addListener(r, requestListener, this.rawRequestMap, 1);
 			nativeCount = -1;
@@ -171,9 +187,43 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	}
 	
 	public void prefetchAll() {
-		int len = count();
-		for (int i = 0; i < len; i++) {
-			element(i*2);
+		prefetchAll(DefinedPrefetch.ALL_HEADERS, DefinedPrefetch.NO_VARS);
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxRequest#prefetchAll(java.lang.String[], java.lang.String[])
+	 */
+	@Override
+	public void prefetchAll(String[] headers, String[] variables) {
+		for (int i = 0; i < validLen; i += 2) {
+			Object v = element(i);
+			if (headers != DefinedPrefetch.NO_HEADERS && v instanceof JavaLazyHeaderMap) {
+				JavaLazyHeaderMap lazyHeaderMap = (JavaLazyHeaderMap)v;
+				if (headers == DefinedPrefetch.ALL_HEADERS) {
+					headers = lazyHeaderMap.keySet().toArray(new String[lazyHeaderMap.size()]);
+				}
+				
+				Object[] headersArray = new Object[headers.length * 2];
+				
+				for (int hi = 0; hi < headers.length; hi++) {
+					String h = headers[hi];
+					headersArray[hi << 1] = h.toLowerCase();
+					headersArray[(hi << 1) + 1] = lazyHeaderMap.get(h);
+				}
+				array[i + 1] = new PersistentArrayMap(headersArray);
+			}
+		}
+		
+		if (variables != DefinedPrefetch.NO_VARS) {
+			if (variables == DefinedPrefetch.CORE_VARS) {
+				variables = MiniConstants.CORE_VARS.keySet().toArray(new String[MiniConstants.CORE_VARS.size()]);
+			}
+			
+			prefetchedVariables = new HashMap<>(variables.length);
+			
+			for (String variable : variables) {
+				prefetchedVariables.put(variable, getVariable(variable));
+			}
 		}
 	}
 	
@@ -332,7 +382,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		return val == null ? notFound : val;
 	}
 
-	public LazyRequestMap upsert(Object key, Object val) {
+	public NginxRequest upsert(Object key, Object val) {
 		int i = index(key);
 		if (i != -1) {
 			array[i+1] = val;
@@ -458,7 +508,7 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 		return (Boolean) valAt(WEBSOCKET);
 	}
 	
-	protected LazyRequestMap phase(int phase) {
+	protected NginxRequest phase(int phase) {
 		this.phase = phase;
 		return this;
 	}
@@ -513,18 +563,33 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	public void tagReleased() {
 		this.released = true;
 		this.channel = null;
-		System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
-		validLen = default_request_array.length;
-		if (array.length > validLen) {
-			Stack.fillNull(array, validLen, array.length - validLen);
-		}
-		if (listeners != null) {
-			listeners.clear();
-		}
 		
 		if (this == this.rawRequestMap) {
+			System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
+			validLen = default_request_array.length;
+			
+			if (array.length > validLen) {
+				Stack.fillNull(array, validLen, array.length - validLen);
+			}
+			
+			if (listeners != null) {
+				listeners.clear();
+			}
+			
+			if (this.prefetchedVariables != null) {
+				this.prefetchedVariables.clear();
+			}
+			
 			((NginxClojureHandler)handler).returnToRequestPool(this);
 		}
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxRequest#markReqeased()
+	 */
+	@Override
+	public void markReqeased() {
+		this.released = true;
 	}
 
 	@Override
@@ -559,5 +624,55 @@ public   class LazyRequestMap extends AFn  implements NginxRequest, IPersistentM
 	@Override
 	public int getAndIncEvalCount() {
 		return evalCount++;
+	}
+
+	@Override
+	public int setVariable(String name, String value) {
+		return NginxClojureRT.setNGXVariable(r, name, value);
+	}
+	
+	@Override
+	public String getVariable(String name) {
+		
+		if (prefetchedVariables != null && prefetchedVariables.containsKey(name)) {
+			return prefetchedVariables.get(name);
+		}
+		
+		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
+			FutureTask<String> task = new FutureTask<String>(new Callable<String>() {
+				@Override
+				public String call() throws Exception {
+					if (released) {
+						throw new IllegalAccessException("request was released when fetch variable " + name);
+					}
+					return NginxClojureRT.unsafeGetNGXVariable(r, name);
+				}
+			});
+			NginxClojureRT.postPollTaskEvent(task);
+			try {
+				return task.get();
+			} catch (InterruptedException e) {
+				throw new RuntimeException("getNGXVariable " + name + " error", e);
+			} catch (ExecutionException e) {
+				throw new RuntimeException("getNGXVariable " + name + " error", e.getCause());
+			}
+		} else {
+			
+			return NginxClojureRT.unsafeGetNGXVariable(r, name);
+		}
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxRequest#getVariable(java.lang.String, java.lang.String)
+	 */
+	@Override
+	public String getVariable(String name, String defaultVal) {
+		String v = getVariable(name);
+		return (v == null || v.isEmpty()) ? defaultVal : v;
+	}
+	
+	@Override
+	public long discardRequestBody() {
+		return NginxClojureRT.discardRequestBody(r);
 	}
 }

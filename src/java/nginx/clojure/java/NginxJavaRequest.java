@@ -31,13 +31,19 @@ import static nginx.clojure.java.Constants.HEADER_FETCHER;
 import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 
+import nginx.clojure.CaseInsensitiveMap;
 import nginx.clojure.ChannelListener;
 import nginx.clojure.Coroutine;
+import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHandler;
 import nginx.clojure.NginxHttpServerChannel;
@@ -93,7 +99,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	protected int nativeCount = -1;
 	protected volatile boolean released = false;
 	protected List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners;
-	
+	protected Map<String, String> prefetchedVariables;
 	
 	public final  static ChannelListener<NginxRequest> requestListener  = new RequestRawMessageAdapter();
 	
@@ -139,9 +145,41 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	}
 	
 	public void prefetchAll() {
+		prefetchAll(DefinedPrefetch.ALL_HEADERS, DefinedPrefetch.NO_VARS);
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxRequest#prefetchAll(java.lang.String[], java.lang.String[])
+	 */
+	@Override
+	public void prefetchAll(String[] headers, String[] variables) {
 		int len = array.length >> 1;
 		for (int i = 0; i < len; i++) {
-			val(i);
+			Object v = val(i);
+			if (headers != DefinedPrefetch.NO_HEADERS && v instanceof JavaLazyHeaderMap) {
+				Map<String, Object> lazyHeaderMap = (Map)v;
+				if (headers == DefinedPrefetch.ALL_HEADERS) {
+					array[(i<<1) + 1] = new CaseInsensitiveMap<Object>(lazyHeaderMap);
+				} else {
+					Map<String, Object> headersMap = new CaseInsensitiveMap<Object>();
+					for (String h : headers) {
+						headersMap.put(h, lazyHeaderMap.get(h));
+					}
+					array[(i<<1) + 1] = headersMap;
+				}
+			}
+		}
+		
+		if (variables != DefinedPrefetch.NO_VARS) {
+			if (variables == DefinedPrefetch.CORE_VARS) {
+				variables = MiniConstants.CORE_VARS.keySet().toArray(new String[MiniConstants.CORE_VARS.size()]);
+			}
+			
+			prefetchedVariables = new HashMap<>(variables.length);
+			
+			for (String variable : variables) {
+				prefetchedVariables.put(variable, getVariable(variable));
+			}
 		}
 	}
 	
@@ -190,7 +228,42 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	}
 	
 	public String getVariable(String name) {
-		return NginxClojureRT.getNGXVariable(r, name);
+		
+		if (prefetchedVariables != null && prefetchedVariables.containsKey(name)) {
+			return prefetchedVariables.get(name);
+		}
+		
+		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
+			FutureTask<String> task = new FutureTask<String>(new Callable<String>() {
+				@Override
+				public String call() throws Exception {
+					if (released) {
+						throw new IllegalAccessException("request was released when fetch variable " + name);
+					}
+					return NginxClojureRT.unsafeGetNGXVariable(r, name);
+				}
+			});
+			NginxClojureRT.postPollTaskEvent(task);
+			try {
+				return task.get();
+			} catch (InterruptedException e) {
+				throw new RuntimeException("getNGXVariable " + name + " error", e);
+			} catch (ExecutionException e) {
+				throw new RuntimeException("getNGXVariable " + name + " error", e.getCause());
+			}
+		} else {
+			
+			return NginxClojureRT.unsafeGetNGXVariable(r, name);
+		}
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxRequest#getVariable(java.lang.String, java.lang.String)
+	 */
+	@Override
+	public String getVariable(String name, String defaultVal) {
+		String v = getVariable(name);
+		return (v == null || v.isEmpty()) ? defaultVal : v;
 	}
 	
 	public long discardRequestBody() {
@@ -453,10 +526,20 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		this.released = true;
 		this.channel = null;
 		System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
+		
 		if (listeners != null) {
 			listeners.clear();
 		}
+		
+		if (prefetchedVariables != null) {
+			prefetchedVariables.clear();
+		}
+		
 		((NginxJavaHandler)handler).returnToRequestPool(this);
+	}
+	
+	public void markReqeased() {
+		this.released = true;
 	}
 
 	@Override

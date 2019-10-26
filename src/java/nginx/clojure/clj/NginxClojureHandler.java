@@ -16,10 +16,13 @@ import static nginx.clojure.clj.Constants.STATUS;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import clojure.lang.IFn;
+import clojure.lang.IMeta;
+import clojure.lang.IPersistentMap;
 import clojure.lang.ISeq;
 import clojure.lang.Keyword;
 import clojure.lang.RT;
@@ -33,6 +36,7 @@ import nginx.clojure.NginxRequest;
 import nginx.clojure.NginxResponse;
 import nginx.clojure.NginxSimpleHandler;
 import nginx.clojure.java.ArrayMap;
+import nginx.clojure.java.DefinedPrefetch;
 
 public class NginxClojureHandler extends NginxSimpleHandler {
 
@@ -241,6 +245,49 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 
 	protected void returnToRequestPool(LazyRequestMap lazyRequestMap) {
 		pooledRequests.add(lazyRequestMap);
+	}
+	
+	private String[] getPrefetchMeta(IFn f, String key, String[] defaultVal) {
+		if (f instanceof IMeta) {
+			IMeta m = (IMeta) f;
+			IPersistentMap map = m.meta();
+			if (map == null) {
+				return defaultVal;
+			}
+			
+			List<String> val = (List<String>)map.valAt(key);
+			return val == null ? defaultVal : val.toArray(new String[val.size()]);
+		}
+		
+		return defaultVal;
+	}
+
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxSimpleHandler#headersNeedPrefetch()
+	 */
+	@Override
+	public String[] headersNeedPrefetch() {
+		if (ringHandler != null) {
+			return getPrefetchMeta(ringHandler, "headersNeedPrefetch", DefinedPrefetch.ALL_HEADERS);
+		} else if (headerFilter != null) {
+			return getPrefetchMeta(headerFilter, "headersNeedPrefetch", DefinedPrefetch.ALL_HEADERS);
+		} else {
+			return getPrefetchMeta(bodyFilter.bodyFilter, "headersNeedPrefetch", DefinedPrefetch.ALL_HEADERS);
+		}
+	}
+
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxSimpleHandler#variablesNeedPrefetch()
+	 */
+	@Override
+	public String[] variablesNeedPrefetch() {
+		if (ringHandler != null) {
+			return getPrefetchMeta(ringHandler, "variablesNeedPrefetch", DefinedPrefetch.NO_VARS);
+		} else if (headerFilter != null) {
+			return getPrefetchMeta(headerFilter, "variablesNeedPrefetch", DefinedPrefetch.NO_VARS);
+		} else {
+			return getPrefetchMeta(bodyFilter.bodyFilter, "variablesNeedPrefetch", DefinedPrefetch.NO_VARS);
+		}
 	}
 
 }

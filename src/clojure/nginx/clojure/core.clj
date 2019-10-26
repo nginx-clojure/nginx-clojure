@@ -51,18 +51,21 @@
 
 (defn get-ngx-var 
   "get nginx variable"
-  [^NginxRequest req name]
-  (NginxClojureRT/getNGXVariable (.nativeRequest req) name))
+  ([^NginxRequest req name]
+    (.getVariable req name))
+  ([^NginxRequest req name defaultVal]
+    (.getVariable req name defaultVal)) 
+  )
 
 (defn set-ngx-var! 
   "set nginx variable"
   [^NginxRequest req name, val]
-  (NginxClojureRT/setNGXVariable (.nativeRequest req) name val))
+  (.setVariable req name val))
 
 (defn discard-request-body!
   "discard request body"
   [^NginxRequest req]
-  (NginxClojureRT/discardRequestBody (.nativeRequest req)))
+  (.discardRequestBody  req))
 
 (def phrase-done Constants/PHRASE_DONE)
 

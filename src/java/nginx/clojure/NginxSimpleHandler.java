@@ -74,6 +74,10 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 
 	public abstract NginxRequest makeRequest(long r, long c);
 	
+	public abstract String[] headersNeedPrefetch();
+	
+	public abstract String[] variablesNeedPrefetch();
+	
 	protected boolean forcePrefetchAllProperties = false;
 	
 	@Override
@@ -99,7 +103,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		
 		if (forcePrefetchAllProperties) {
 			//for safe access with another thread
-			req.prefetchAll();
+			req.prefetchAll(headersNeedPrefetch(), variablesNeedPrefetch());
 		}
 		
 		if (workers == null || (isWebSocket && phase == -1)
@@ -120,16 +124,29 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
  *				&& !( req.isHijacked() && (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE))  //skips those increased hijacked requests 
  *				&& (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE)  //must be content handler
  */				
-				if (!req.isReleased() && !req.isHijacked() 
-						&& (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE
-						                || phase == NGX_HTTP_BODY_FILTER_PHASE)) {
-					long oldCount = ngx_http_clojure_mem_inc_req_count(r, 1);
-					if (oldCount < 0) {
-						return (int)oldCount;
-					} else {
-						req.nativeCount(oldCount + 1);
+				if (!req.isReleased()) {
+					if (!req.isHijacked() 
+							&& (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE
+							                || phase == NGX_HTTP_BODY_FILTER_PHASE)) {
+						long oldCount = ngx_http_clojure_mem_inc_req_count(r, 1);
+						if (oldCount < 0) {
+							return (int)oldCount;
+						} else {
+							req.nativeCount(oldCount + 1);
+						}
 					}
+					
+					if (!forcePrefetchAllProperties) {
+						//for safe access with another thread
+						req.prefetchAll(headersNeedPrefetch(), variablesNeedPrefetch());		
+					}
+					
+					if (phase == NGX_HTTP_LOG_PHASE) {
+						req.markReqeased();
+					}
+					
 				}
+				
 				return NGX_DONE;
 			}
 			return handleResponse(req, resp);
@@ -137,7 +154,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		
 		//with thread pool mode we need make it safe
 		if (!forcePrefetchAllProperties) {
-			req.prefetchAll();			
+			req.prefetchAll(headersNeedPrefetch(), variablesNeedPrefetch());		
 		}
 		
 		if (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE 
@@ -166,6 +183,9 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		});
 		lastRequestEvalFutures.put(req.nativeRequest(), future);
 
+		if (phase == NGX_HTTP_LOG_PHASE) {
+			req.markReqeased();
+		}
 		
 		return NGX_DONE;
 	}

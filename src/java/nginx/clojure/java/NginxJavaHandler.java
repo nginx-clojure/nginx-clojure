@@ -194,24 +194,24 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 			if (ringHandler instanceof Configurable) {
 				Configurable cr = (Configurable) ringHandler;
 				cr.config(properties);
-			}else {
-				NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!", 
+			} else {
+				NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!",
 						ringHandler.getClass());
 			}
-		}else if (headerFilter != null){
+		} else if (headerFilter != null) {
 			if (headerFilter instanceof Configurable) {
 				Configurable cr = (Configurable) headerFilter;
 				cr.config(properties);
-			}else {
-				NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!", 
+			} else {
+				NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!",
 						headerFilter.getClass());
 			}
-		}else {
+		} else {
 			if (bodyFilter instanceof Configurable) {
 				Configurable cr = (Configurable) bodyFilter;
 				cr.config(properties);
-			}else {
-				NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!", 
+			} else {
+				NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!",
 						bodyFilter.getClass());
 			}
 		}
@@ -221,5 +221,33 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 	protected void returnToRequestPool(NginxJavaRequest r) {
 		NginxClojureRT.log.debug("returnToRequestPool %s, c %s, phase %s", r.r, r.nativeCount, r.phase);;
 		pooledRequests.add(r);
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxSimpleHandler#headersNeedPrefetch()
+	 */
+	@Override
+	public String[] headersNeedPrefetch() {
+		if (ringHandler != null) {
+			return ringHandler.headersNeedPrefetch();
+		} else if (headerFilter != null) {
+			return headerFilter.headersNeedPrefetch();
+		} else {
+			return bodyFilter.headersNeedPrefetch();
+		}
+	}
+
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxSimpleHandler#variablesNeedPrefetch()
+	 */
+	@Override
+	public String[] variablesNeedPrefetch() {
+		if (ringHandler != null) {
+			return ringHandler.variablesNeedPrefetch();
+		} else if (headerFilter != null) {
+			return headerFilter.variablesNeedPrefetch();
+		} else {
+			return bodyFilter.variablesNeedPrefetch();
+		}
 	}
 }

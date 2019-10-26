@@ -114,12 +114,12 @@ public class LazyFilterRequestMap extends LazyRequestMap implements NginxFilterR
 	}
 	
 	/* (non-Javadoc)
-	 * @see nginx.clojure.clj.LazyRequestMap#prefetchAll()
+	 * @see nginx.clojure.clj.LazyRequestMap#prefetchAll(java.lang.String[], java.lang.String[])
 	 */
 	@Override
-	public void prefetchAll() {
+	public void prefetchAll(String[] headers, String[] variables) {
 		if (origin == null) {
-			super.prefetchAll();	
+			super.prefetchAll(headers, variables);	
 		}
 		
 		if (body != null) {

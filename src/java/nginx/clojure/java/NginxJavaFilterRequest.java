@@ -175,6 +175,25 @@ public class NginxJavaFilterRequest extends NginxJavaRequest implements NginxFil
 		}
 	}
 	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.java.NginxJavaRequest#prefetchAll(java.lang.String[], java.lang.String[])
+	 */
+	@Override
+	public void prefetchAll(String[] headers, String[] variables) {
+		if (origin == null) {
+			super.prefetchAll(headers, variables);
+		}
+
+		if (body != null) {
+			try {
+				body.prefetchNativeData();
+			} catch (IOException e) {
+				throw new RuntimeException("can not prefetch native data", e);
+			}
+		}
+		
+	}
+	
 	@Override
 	public void tagReleased() {
 		this.released = true;

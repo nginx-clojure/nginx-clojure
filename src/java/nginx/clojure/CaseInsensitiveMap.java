@@ -47,6 +47,11 @@ public class CaseInsensitiveMap<V> extends TreeMap<String, V> {
 		super(IGNORE_CASE_COMPARATOR);
 	}
 	
+	public CaseInsensitiveMap(Map<String, V> map) {
+		super(IGNORE_CASE_COMPARATOR);
+		this.putAll(map);
+	}
+	
 	@Override
 	public V get(Object key) {
 		V v = fastMap.get(key);
