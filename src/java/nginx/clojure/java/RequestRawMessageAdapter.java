@@ -49,9 +49,9 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 				if (last != null) {
 					last.get();
 				}
-				if (request.isReleased()) {
-					return;
-				}
+//				if (request.isReleased()) {
+//					return;
+//				}
 				super.run();
 			} catch (Throwable e) {
 				super.cancel(false);
@@ -114,6 +114,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 				action.run();
 			}else {
 				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable("onClose", action, req));
+				req.markReqeased();
 			}
 		}else {
 			req.tagReleased();
@@ -191,6 +192,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 				action.run();
 			}else {
 				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable("onClose2", action, req));
+				req.markReqeased();
 			}
 		}else {
 			req.tagReleased();

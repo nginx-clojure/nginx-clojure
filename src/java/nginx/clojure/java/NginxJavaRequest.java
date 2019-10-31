@@ -523,6 +523,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	
 	@Override
 	public void tagReleased() {
+		NginxClojureRT.log.debug("[%d] tag released!", r);
 		this.released = true;
 		this.channel = null;
 		System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
@@ -539,6 +540,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	}
 	
 	public void markReqeased() {
+		NginxClojureRT.log.debug("[%d] mark request!", r);
 		this.released = true;
 	}
 

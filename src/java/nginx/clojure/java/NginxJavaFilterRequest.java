@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import nginx.clojure.ChannelCloseAdapter;
 import nginx.clojure.NginxChainWrappedInputStream;
+import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxFilterRequest;
 import nginx.clojure.NginxHandler;
 
@@ -51,6 +52,7 @@ public class NginxJavaFilterRequest extends NginxJavaRequest implements NginxFil
 		NginxJavaFilterRequest creq = null;
 		if (req != null) {
 			try {
+				NginxClojureRT.log.debug("clone existed filter request %d, c=%d", r, c);
 				creq = (NginxJavaFilterRequest) req.clone();
 				creq.c = c;
 				if (c > 0) {
@@ -196,6 +198,7 @@ public class NginxJavaFilterRequest extends NginxJavaRequest implements NginxFil
 	
 	@Override
 	public void tagReleased() {
+		NginxClojureRT.log.debug("tag filter request! %d", r);
 		this.released = true;
 		this.channel = null;
 		if (listeners != null) {
