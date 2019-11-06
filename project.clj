@@ -16,7 +16,7 @@
   :global-vars {*warn-on-reflection* true
                 *assert* false}
   :java-source-paths ["src/java"]
-  :javac-options ["-target" "1.8" "-source" "1.8" "-g" "-nowarn"]
+  :javac-options ["-target" "1.8" "-source" "1.8" "-g" "-Xlint:unchecked"]
   ;; Directory in which to place AOT-compiled files. Including %s will
   ;; splice the :target-path into this value.
   :compile-path "target/classes"
