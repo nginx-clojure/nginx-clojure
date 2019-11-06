@@ -144,7 +144,7 @@ public class NginxPubSubTopic {
 				pds = old;
 			}
 		}
-		PubSubListenerData<T> pd = new PubSubListenerData(listener, data);
+		PubSubListenerData<T> pd = new PubSubListenerData<>(listener, data);
 		pds.add(pd);
 		return pd;
 	}

@@ -221,8 +221,8 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		}
 	}
 	
-	public static interface SimpleEntrySetter {
-		public  Object setValue(Object value);
+	public static interface SimpleEntrySetter<T> {
+		T setValue(T value);
 	}
 	
 	public final static SimpleEntrySetter readOnlyEntrySetter = new SimpleEntrySetter() {
@@ -235,7 +235,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 
 		public K key;
 		public V value;
-		public SimpleEntrySetter setter;
+		public SimpleEntrySetter<V> setter;
 		
 		public SimpleEntry(K key, V value, SimpleEntrySetter simpleEntrySetter) {
 			this.key = key;
@@ -255,7 +255,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 
 		@Override
 		public V setValue(V value) {
-			return (V)setter.setValue(value);
+			return setter.setValue(value);
 		}
 	}
 	
