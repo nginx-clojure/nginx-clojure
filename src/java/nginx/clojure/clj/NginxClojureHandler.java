@@ -225,15 +225,22 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 				channel.setIgnoreFilter(ignoreFilter);
 				return channel;
 			}
-			
-			((LazyRequestMap)req).hijackTag[0] = 1;
+		
+			LazyRequestMap cljReq = ((LazyRequestMap)req);
+			cljReq.hijackTag[0] = 1;
 			if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD 
 					&& (req.phase() == -1 || req.phase() == NGX_HTTP_HEADER_FILTER_PHASE
 							              || req.phase() == NGX_HTTP_BODY_FILTER_PHASE)) {
 				NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest(), 1);
 			}
 			
-			return ((LazyRequestMap)req).channel = new NginxHttpServerChannel(req, ignoreFilter);
+			NginxHttpServerChannel channel = cljReq.channel = new NginxHttpServerChannel(req, ignoreFilter);
+			
+			if (cljReq != cljReq.rawRequestMap) {
+				cljReq.rawRequestMap.channel = channel;
+			}
+			
+			return channel;
 		}finally {
 			if (log.isDebugEnabled()) {
 				log.debug("#%s: hijacked at %s, lns:%s", req.nativeRequest(), req.uri(), req.listeners() == null ? 0 : req.listeners().size());

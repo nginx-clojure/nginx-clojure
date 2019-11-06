@@ -162,8 +162,10 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 		this.array = a;
 		this.hijackTag = or.hijackTag;
 		this.rawRequestMap = or.rawRequestMap;
+		this.channel = or.channel;
 		this.evalCount = or.evalCount;
 		this.prefetchedVariables = or.prefetchedVariables;
+		this.nativeCount = or.nativeCount;
 		validLen = a.length;
 	}
 	
@@ -561,9 +563,14 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 
 	@Override
 	public void tagReleased() {
-		this.released = true;
-		this.channel = null;
 		
+		if (NginxClojureRT.log.isDebugEnabled()) {
+			NginxClojureRT.log.debug("[%d] tag released!", r);	
+		}
+		
+		this.released =  true;
+		this.channel = null;
+				
 		if (this == this.rawRequestMap) {
 			System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
 			validLen = default_request_array.length;
@@ -581,6 +588,8 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 			}
 			
 			((NginxClojureHandler)handler).returnToRequestPool(this);
+		} else {
+			this.rawRequestMap.tagReleased();
 		}
 	}
 	
@@ -589,7 +598,15 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 	 */
 	@Override
 	public void markReqeased() {
+		if (NginxClojureRT.log.isDebugEnabled()) {
+			NginxClojureRT.log.debug("[%d] mark request!", r);	
+		}
+		
 		this.released = true;
+		
+		if (this != this.rawRequestMap) {
+			this.rawRequestMap.markReqeased();
+		}
 	}
 
 	@Override
