@@ -72,7 +72,7 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 		});
 	}
 	
-	public SimpleEntry entry(int i) {
+	public SimpleEntry<String, Object> entry(int i) {
 		if (i >= size) {
 			return null;
 		}
@@ -104,7 +104,7 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 		
 		//TODO: support setter of entry
 		bb.clear();
-		return new SimpleEntry<String, Object>(fetchNGXString(tp + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET, DEFAULT_ENCODING, bb ,  pickCharBuffer()), v,  NginxSimpleHandler.readOnlyEntrySetter);
+		return new SimpleEntry<>(fetchNGXString(tp + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET, DEFAULT_ENCODING, bb ,  pickCharBuffer()), v,  NginxSimpleHandler.readOnlyEntrySetter);
 	}
 	
 	public String key(int i) {
@@ -334,7 +334,7 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 	}
 
 	@Override
-	public Collection values() {
+	public Collection<Object> values() {
 		return new ValueSet();
 	}
 

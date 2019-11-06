@@ -84,7 +84,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 							ChannelListener<Object> l = en.getValue();
 							if (l instanceof MessageListener) {
 								if (!req.channel().isClosed()) {
-									((MessageListener) l).onClose(en.getKey(), 1006, null);
+									((MessageListener<Object>) l).onClose(en.getKey(), 1006, null);
 								}
 							}else {
 								l.onClose(en.getKey());
@@ -157,7 +157,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 						try {
 							ChannelListener<Object> l = en.getValue();
 							if (l instanceof MessageListener) {
-								((MessageListener) l).onClose(en.getKey(), status, txt);
+								((MessageListener<Object>) l).onClose(en.getKey(), status, txt);
 							}
 						}catch(Throwable e) {
 							NginxClojureRT.log.error(String.format("#%d: request %s onClose Error!", req.nativeRequest(), req.uri()), e);
@@ -361,7 +361,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 						try {
 							ChannelListener<Object> l = en.getValue();
 							if (l instanceof MessageListener) {
-								((MessageListener) l).onBinaryMessage(en.getKey(), bb, remining);
+								((MessageListener<Object>) l).onBinaryMessage(en.getKey(), bb, remining);
 							}
 						}catch(Throwable e) {
 							NginxClojureRT.log.error(String.format("#%d: request %s  onBinaryMessage Error!", req.nativeRequest(), req.uri()), e);
@@ -429,7 +429,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 							try {
 								ChannelListener<Object> l = en.getValue();
 								if (l instanceof MessageListener) {
-									((MessageListener) l).onTextMessage(en.getKey(), txt, remining);
+									((MessageListener<Object>) l).onTextMessage(en.getKey(), txt, remining);
 								}
 							}catch(Throwable e) {
 								NginxClojureRT.log.error(String.format("#%d: request %s onTextMessage Error!", req.nativeRequest(), req.uri()), e);

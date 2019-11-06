@@ -101,8 +101,8 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 		}
 	}
 	
-	public interface SharedMapSimpleVisitor {
-		public int visit(Object key, Object val);
+	public interface SharedMapSimpleVisitor<K, V> {
+		int visit(K key, V val);
 	}
 	
 	private final static int visit(int ktype, long kaddr, long ksize, int vtype, long vaddr, long vsize, SharedMapSimpleVisitor visitor) {
@@ -110,7 +110,7 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 	}
 	
 	public static <KT, VT> NginxSharedHashMap<KT, VT> build(String name) {
-		return new NginxSharedHashMap(name);
+		return new NginxSharedHashMap<>(name);
 	}
 	
 	public void setNullVal(long nullVal) {
@@ -329,13 +329,10 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 	@Override
 	public Set<K> keySet() {
 		NginxClojureRT.getLog().warn("NginxSharedHashMap.keySet is quite expensive operation DO NOT use it at non-debug case!!!");
-		final Set sets = new HashSet();
-		nvisit(ctx, new SharedMapSimpleVisitor() {
-			@Override
-			public int visit(Object key, Object val) {
-				sets.add(key);
-				return 0;
-			}
+		final Set<K> sets = new HashSet<>();
+		nvisit(ctx, (SharedMapSimpleVisitor<K, V>) (key, val) -> {
+			sets.add(key);
+			return 0;
 		});
 		return sets;
 	}
@@ -344,13 +341,10 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 	@Override
 	public Collection<V> values() {
 		NginxClojureRT.getLog().warn("NginxSharedHashMap.values is quite expensive operation DO NOT use it at non-debug case!!!");
-		final List vals = new ArrayList();
-		nvisit(ctx, new SharedMapSimpleVisitor() {
-			@Override
-			public int visit(Object key, Object val) {
-				vals.add(val);
-				return 0;
-			}
+		final List<V> vals = new ArrayList<>();
+		nvisit(ctx, (SharedMapSimpleVisitor<K, V>) (key, val) -> {
+			vals.add(val);
+			return 0;
 		});
 		return vals;		
 	}

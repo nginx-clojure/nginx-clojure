@@ -195,7 +195,7 @@ public class NginxClojureRT extends MiniConstants {
 	/**
 	 * @deprecated
 	 */
-	public  static long ngx_http_cleanup_add(long r, final ChannelListener listener, Object data) {
+	public  static long ngx_http_cleanup_add(long r, final ChannelListener<Object> listener, Object data) {
 		return ngx_http_clojure_add_listener(r, new ChannelCloseAdapter<Object>() {
 			@Override
 			public void onClose(Object data) throws IOException {
@@ -1397,7 +1397,7 @@ public class NginxClojureRT extends MiniConstants {
 				break;
 			default:
 				if (listener instanceof RawMessageListener) {
-					RawMessageListener rawListener = (RawMessageListener) listener;
+					RawMessageListener<Object> rawListener = (RawMessageListener<Object>) listener;
 					if ( (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGTEXT) != 0) {
 						rawListener.onTextMessage(data, status, (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGREMAIN) != 0, (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGFIRST) != 0);
 					}else if ( (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGBIN) != 0) {

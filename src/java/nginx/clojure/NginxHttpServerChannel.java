@@ -495,7 +495,7 @@ public class NginxHttpServerChannel implements Closeable {
 			
 			@Override
 			public <K, V> Collection<Entry<K, V>> fetchHeaders() {
-				return Collections.EMPTY_LIST;
+				return Collections.emptyList();
 			}
 			
 			@Override
