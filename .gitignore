@@ -32,3 +32,8 @@
 /.cproject
 /.project
 /.settings/
+
+
+#intellij idea files
+.idea
+*.iml
