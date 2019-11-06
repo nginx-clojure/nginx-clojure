@@ -1,4 +1,4 @@
-/**
+/*
  *  Copyright (C) Zhang,Yuexiang (xfeep)
  *
  */
@@ -166,13 +166,13 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 		case NGX_CLOJURE_SHARED_MAP_JINT:
 			Integer ik = (Integer) key;
 			kb.order(ByteOrder.nativeOrder());
-			kb.putInt(ik.intValue());
+			kb.putInt(ik);
 			kb.flip();
 			break;
 		case NGX_CLOJURE_SHARED_MAP_JLONG:
 			Long lk = (Long)key;
 			kb.order(ByteOrder.nativeOrder());
-			kb.putLong(lk.longValue());
+			kb.putLong(lk);
 			kb.flip();
 			break;
 		case NGX_CLOJURE_SHARED_MAP_JSTRING:
@@ -215,7 +215,7 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 		} else if (val instanceof Long) {
 			vtype = NGX_CLOJURE_SHARED_MAP_JLONG;
 			long rt =  nputNumber(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), vtype,
-					((Long) val).longValue(), nullVal);
+					(Long) val, nullVal);
 			if (rt == nullVal) {
 				return null;
 			}
@@ -394,7 +394,7 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 		} else if (val instanceof Long) {
 			vtype = NGX_CLOJURE_SHARED_MAP_JLONG;
 			long rt =  nputNumberIfAbsent(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), vtype,
-					((Long) val).longValue(), nullVal);
+					(Long) val, nullVal);
 			if (rt == nullVal) {
 				return null;
 			}
