@@ -66,9 +66,9 @@ import sun.nio.cs.ThreadLocalCoders;
 
 public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 	
-	protected static ConcurrentLinkedQueue<Coroutine> pooledCoroutines = new ConcurrentLinkedQueue<Coroutine>();
+	protected static ConcurrentLinkedQueue<Coroutine> pooledCoroutines = new ConcurrentLinkedQueue<>();
 	
-	protected static ConcurrentHashMap<Long, Future<WorkerResponseContext>> lastRequestEvalFutures = new ConcurrentHashMap<Long, Future<WorkerResponseContext>>();
+	protected static ConcurrentHashMap<Long, Future<WorkerResponseContext>> lastRequestEvalFutures = new ConcurrentHashMap<>();
 	
 	private static final boolean ONLY_CONTENT_HENADLER_SUPPORT_THREADS = Boolean.parseBoolean(System.getProperty("nc.threads.only_for_content", "false"));
 
@@ -169,17 +169,14 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		}
 		
 		final Future<WorkerResponseContext> lastFuture = lastRequestEvalFutures.get(req.nativeRequest());
-		Future<WorkerResponseContext> future = workers.submit(new Callable<NginxClojureRT.WorkerResponseContext>() {
-			@Override
-			public WorkerResponseContext call() throws Exception {
-				NginxClojureRT.getLog().debug("req %s, c %s, phase %s", req.nativeRequest(), req.nativeCount(), req.phase());
-				if (lastFuture != null) {
-					lastFuture.get();
-				}
-				NginxResponse resp = handleRequest(req);
-				//let output chain built before entering the main thread
-				return new WorkerResponseContext(resp, req);
+		Future<WorkerResponseContext> future = workers.submit(() -> {
+			NginxClojureRT.getLog().debug("req %s, c %s, phase %s", req.nativeRequest(), req.nativeCount(), req.phase());
+			if (lastFuture != null) {
+				lastFuture.get();
 			}
+			NginxResponse resp = handleRequest(req);
+			//let output chain built before entering the main thread
+			return new WorkerResponseContext(resp, req);
 		});
 		lastRequestEvalFutures.put(req.nativeRequest(), future);
 
@@ -221,14 +218,12 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		}
 	}
 	
-	public static interface SimpleEntrySetter<T> {
+	public interface SimpleEntrySetter<T> {
 		T setValue(T value);
 	}
 	
-	public final static SimpleEntrySetter readOnlyEntrySetter = new SimpleEntrySetter() {
-		public Object setValue(Object value) {
-			throw new UnsupportedOperationException("read only entry can not set!");
-		}
+	public final static SimpleEntrySetter readOnlyEntrySetter = value -> {
+		throw new UnsupportedOperationException("read only entry can not set!");
 	};
 	
 	public static class SimpleEntry<K, V> implements Entry<K, V> {
@@ -314,7 +309,6 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 			this.request = request;
 		}
 
-		@SuppressWarnings("rawtypes")
 		@Override
 		public void run() throws SuspendExecution {
 			try {
@@ -569,13 +563,10 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 			return -NGX_HTTP_NO_CONTENT;
 		}
 		
-		long chain = preChain;
-		
-		if (b.isDirect()) {
-			chain = ngx_http_clojure_mem_build_temp_chain(r, preChain, null, ((DirectBuffer)b).address()+b.position(), b.remaining());
-		}else {
-			chain = ngx_http_clojure_mem_build_temp_chain(r, preChain, b.array(), BYTE_ARRAY_OFFSET, b.remaining());
-		}
+		long chain = b.isDirect() ?
+				ngx_http_clojure_mem_build_temp_chain(r, preChain, null, ((DirectBuffer)b).address()+b.position(), b.remaining()) :
+				ngx_http_clojure_mem_build_temp_chain(r, preChain, b.array(), BYTE_ARRAY_OFFSET, b.remaining());
+
 		
 		b.position(b.limit());
 		
