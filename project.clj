@@ -1,4 +1,4 @@
-(defproject nginx-clojure/nginx-clojure "0.5.0"
+(defproject nginx-clojure/nginx-clojure "0.5.1"
   :description "Nginx module for clojure or groovy or java programming"
   :url "https://github.com/nginx-clojure/nginx-clojure"
   :license {:name "BSD 3-Clause license"
@@ -16,7 +16,12 @@
   :global-vars {*warn-on-reflection* true
                 *assert* false}
   :java-source-paths ["src/java"]
-  :javac-options ["-target" "1.8" "-source" "1.8" "-g" "-Xlint:unchecked"]
+  :javac-options ["-target" "1.8" 
+                  "-source" "1.8" 
+                  "-g" 
+                  "-Xlint:unchecked"
+                  ;;"-nowarn"
+                  ]
   ;; Directory in which to place AOT-compiled files. Including %s will
   ;; splice the :target-path into this value.
   :compile-path "target/classes"
@@ -64,10 +69,10 @@
                                   [org.clojure/tools.trace "0.7.10"]
                                   ]}
              :unittest {
-                    :jvm-opts ["-javaagent:target/nginx-clojure-0.5.0.jar=mb"
+                    :jvm-opts ["-javaagent:target/nginx-clojure-0.5.1.jar=mb"
                                "-Dfile.encoding=UTF-8"
-                               "-Dnginx.clojure.wave.udfs=pure-clj.txt,mysql-jdbc.txt,compojure.txt,compojure-http-clj.txt"
-                               "-Xbootclasspath/a:target/nginx-clojure-0.5.0.jar"]
+                               "-Dnginx.clojure.wave.udfs=pure-clj.txt,compojure.txt,compojure-http-clj.txt,mysql-jdbc.txt,test-groovy.txt"
+                               "-Xbootclasspath/a:target/nginx-clojure-0.5.1.jar"]
                     :junit-options {:fork "on"}
                     :java-source-paths ["test/java" "test/clojure"]
                     :test-paths ["src/test/clojure"]
