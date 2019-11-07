@@ -25,9 +25,9 @@ import nginx.clojure.SuspendExecution;
 
 public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest> {
 
-	public final static ConcurrentLinkedQueue<Coroutine> pooledCoroutines = new ConcurrentLinkedQueue<Coroutine>();
+	public final static ConcurrentLinkedQueue<Coroutine> pooledCoroutines = new ConcurrentLinkedQueue<>();
 	
-	private final static ConcurrentHashMap<NginxRequest, RequestOrderedRunnable> lastFutureTasks = new ConcurrentHashMap<NginxRequest, RequestOrderedRunnable>();
+	private final static ConcurrentHashMap<NginxRequest, RequestOrderedRunnable> lastFutureTasks = new ConcurrentHashMap<>();
 	
 	public final static class RequestOrderedRunnable extends FutureTask<String> {
 		protected String type;
@@ -472,8 +472,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 		//so we need copy listeners for safe usage. When not at main thread all close operation will be post to 
 		//FIFO queue and listeners won't be changed immediate so we need not copy them.
 		if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD) {
-			localListeners = new ArrayList<java.util.AbstractMap.SimpleEntry<Object,ChannelListener<Object>>>();
-			localListeners.addAll(listeners);
+			localListeners = new ArrayList<>(listeners);
 		}
 		return localListeners;
 	}
