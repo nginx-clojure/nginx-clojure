@@ -60,7 +60,7 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 	
 	@Override
 	public Iterator iterator() {
-		return new PickerPoweredIterator<Map.Entry<String,Object>>(new Picker<Entry<String, Object>>() {
+		return new PickerPoweredIterator<>(new Picker<Entry<String, Object>>() {
 			@Override
 			public java.util.Map.Entry<String, Object> pick(int i) {
 				return entry(i);
@@ -92,7 +92,6 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 			v =  fetchNGXString(tp + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING,  bb ,  pickCharBuffer());
 		}else {
 			String[] vals = new String[c];
-			valuesOffset = 0;
 			tp = lbb.get(0);
 			for (int j = 0; j < c; j++) {
 				bb.clear();
@@ -142,7 +141,6 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 			v =  fetchNGXString( lbb.get(0)+ NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING,  bb ,  pickCharBuffer());
 		}else {
 			String[] vals = new String[c];
-			valuesOffset = 0;
 			for (int j = 0; j < c; j++) {
 				bb.clear();
 				bb.limit(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE);
@@ -160,19 +158,17 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 			return false;
 		}
 		
-		NginxHeaderHolder holder = null;
-		if ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0) {
-			holder = KNOWN_RESP_HEADERS.get( keyObj);
-		}else {
-			holder = KNOWN_REQ_HEADERS.get( keyObj);
-		}
-		
+		NginxHeaderHolder holder = ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0 ?
+				KNOWN_RESP_HEADERS : KNOWN_REQ_HEADERS)
+				.get(keyObj);
+
 		if (holder == null) {
 			holder = new UnknownHeaderHolder((String) keyObj,
-					(NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0 ? NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET
-							: NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET);
+					(NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0 ?
+							NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET :
+							NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET);
 		}
-		
+
 		return holder.exists(headers);
 	}
 
@@ -203,13 +199,10 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 			return false;
 		}
 		
-		NginxHeaderHolder holder = null;
-		if ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0) {
-			holder = KNOWN_RESP_HEADERS.get( keyObj);
-		}else {
-			holder = KNOWN_REQ_HEADERS.get( keyObj);
-		}
-		
+		NginxHeaderHolder holder = ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0 ?
+				KNOWN_RESP_HEADERS : KNOWN_REQ_HEADERS)
+				.get(keyObj);
+
 		if (holder == null) {
 			holder = new UnknownHeaderHolder((String) keyObj,
 					(NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0 ? NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET
@@ -263,7 +256,7 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 	}
 
 	@Override
-	public void putAll(Map<? extends String, ? extends Object> m) {
+	public void putAll(Map<? extends String, ?> m) {
 		if ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) == 0) {
 			throw new UnsupportedOperationException("putAll request header  not supported now!");
 		}
@@ -286,7 +279,7 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 
 		@Override
 		public Iterator<String> iterator() {
-			return new PickerPoweredIterator<String>(new Picker<String>() {
+			return new PickerPoweredIterator<>(new Picker<String>() {
 				@Override
 				public String pick(int i) {
 					return key(i);
@@ -309,7 +302,7 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 
 		@Override
 		public Iterator<Object> iterator() {
-			return new PickerPoweredIterator<Object>(new Picker<Object>() {
+			return new PickerPoweredIterator<>(new Picker<Object>() {
 				@Override
 				public Object pick(int i) {
 					return val(i);
@@ -342,7 +335,7 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 
 		@Override
 		public Iterator<Entry<String, Object>> iterator() {
-			return new PickerPoweredIterator<Entry<String, Object>>(new Picker<Entry<String, Object>>() {
+			return new PickerPoweredIterator<>(new Picker<Entry<String, Object>>() {
 				@Override
 				public Entry<String, Object> pick(int i) {
 					return entry(i);
