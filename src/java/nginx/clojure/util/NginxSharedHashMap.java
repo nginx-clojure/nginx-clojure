@@ -105,7 +105,7 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 		int visit(K key, V val);
 	}
 	
-	private final static int visit(int ktype, long kaddr, long ksize, int vtype, long vaddr, long vsize, SharedMapSimpleVisitor visitor) {
+	private final static int visit(int ktype, long kaddr, long ksize, int vtype, long vaddr, long vsize, SharedMapSimpleVisitor<Object, Object> visitor) {
 		return visitor.visit(native2JavaObject(ktype, kaddr, ksize), native2JavaObject(vtype, vaddr, vsize));
 	}
 	
@@ -353,14 +353,11 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 	@Override
 	public Set<java.util.Map.Entry<K, V>> entrySet() {
 		NginxClojureRT.getLog().warn("NginxSharedHashMap.entrySet is quite expensive operation DO NOT use it at non-debug case!!!");
-		final Set<java.util.Map.Entry<K, V>> sets = new HashSet<Map.Entry<K,V>>();
-		nvisit(ctx, new SharedMapSimpleVisitor() {
-			@Override
-			public int visit(Object key, Object val) {
-				SimpleEntry en = new SimpleEntry(key, val);
-				sets.add(en);
-				return 0;
-			}
+		final Set<java.util.Map.Entry<K, V>> sets = new HashSet<>();
+		nvisit(ctx, (SharedMapSimpleVisitor<K, V>) (key, val) -> {
+			SimpleEntry<K, V> en = new SimpleEntry<>(key, val);
+			sets.add(en);
+			return 0;
 		});
 		return sets;
 	}
