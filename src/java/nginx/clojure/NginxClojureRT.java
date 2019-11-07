@@ -204,12 +204,13 @@ public class NginxClojureRT extends MiniConstants {
 		}, data, 0);
 	}
 	
-	private native static long ngx_http_clojure_add_listener(long r, ChannelListener listener, Object data, int replace);
+	private native static long ngx_http_clojure_add_listener(long r, @SuppressWarnings("rawtypes") ChannelListener listener, Object data, int replace);
 	
-	public static void addListener(NginxRequest r, ChannelListener listener, Object data, int replace) {
+	public static void addListener(NginxRequest r, @SuppressWarnings("rawtypes") ChannelListener listener, Object data, int replace) {
 		addListener(r.nativeRequest(), listener, data, replace);
 	}
 	
+	@SuppressWarnings("rawtypes")
 	public static void addListener(long r, ChannelListener listener, Object data, int replace) {
 		if ( ngx_http_clojure_add_listener(r, listener, data, replace) != 0) {
 			throw new IllegalStateException("invalid request which is cleaned!");
@@ -1740,10 +1741,12 @@ public class NginxClojureRT extends MiniConstants {
 	public static final class BatchCallRunner implements Runnable {
 		Coroutine parent;
 		int[] counter;
+		@SuppressWarnings("rawtypes")
 		Callable handler;
 		int order;
 		Object[] results;
 
+		@SuppressWarnings("rawtypes")
 		public BatchCallRunner(Coroutine parent, int[] counter, Callable handler,
 				int order, Object[] results) {
 			super();
@@ -1768,7 +1771,7 @@ public class NginxClojureRT extends MiniConstants {
 		}
 	}
 	
-	public static final Object[] coBatchCall(Callable<Object> ...calls) {
+	public static final Object[] coBatchCall(@SuppressWarnings("unchecked") Callable<Object> ...calls) {
 
 		int c = calls.length;
 		int[] counter = new int[] {c};
@@ -1777,6 +1780,7 @@ public class NginxClojureRT extends MiniConstants {
 		
 		if (parent == null && (JavaAgent.db == null || !JavaAgent.db.isRunTool())) {
 			log.warn("we are not in coroutine enabled context, so we turn to use thread for only testing usage!");
+			@SuppressWarnings("rawtypes")
 			Future[] futures = new Future[c];
 			for (int i = 0; i < c ; i++) {
 				BatchCallRunner bcr = new BatchCallRunner(parent, counter, calls[i], i, results);
@@ -1785,7 +1789,7 @@ public class NginxClojureRT extends MiniConstants {
 				}
 				futures[i] = threadPoolOnlyForTestingUsage.submit(bcr);
 			}
-			for (Future f : futures) {
+			for (@SuppressWarnings("rawtypes") Future f : futures) {
 				try {
 					f.get();
 				} catch (Throwable e) {

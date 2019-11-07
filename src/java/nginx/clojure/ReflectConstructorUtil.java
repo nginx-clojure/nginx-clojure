@@ -14,6 +14,7 @@ import nginx.clojure.wave.InstrumentConstructorMethod;
 
 public class ReflectConstructorUtil {
 
+	@SuppressWarnings("rawtypes")
 	static Constructor findConstructor(Class clz, Class[] parameterTypes) {
 		for (Constructor ctor : clz.getConstructors()) {
 			boolean found = true;
@@ -35,6 +36,7 @@ public class ReflectConstructorUtil {
 		return null;
 	}
 	
+	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static Object __nc_new_instance(Constructor c, Object[] args) throws InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException, SuspendExecution {
 		Class[] classTypes = Arrays.copyOf(c.getParameterTypes(), c.getParameterCount() + 1);
 		classTypes[c.getParameterCount()] = SuspendExecution.class;

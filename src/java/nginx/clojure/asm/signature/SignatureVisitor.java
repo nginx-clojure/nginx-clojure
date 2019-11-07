@@ -71,6 +71,7 @@ public abstract class SignatureVisitor {
    * @param api the ASM API version implemented by this visitor. Must be one of {@link
    *     Opcodes#ASM4}, {@link Opcodes#ASM5}, {@link Opcodes#ASM6} or {@link Opcodes#ASM7}.
    */
+  @SuppressWarnings("deprecation")
   public SignatureVisitor(final int api) {
     if (api != Opcodes.ASM7
         && api != Opcodes.ASM6

@@ -320,6 +320,7 @@ public class CheckClassAdapter extends ClassVisitor {
     super.visitNestMember(nestMember);
   }
 
+  @SuppressWarnings("deprecation")
   @Override
   public void visitPermittedSubtypeExperimental(final String permittedSubtype) {
     checkState();
@@ -1010,6 +1011,7 @@ public class CheckClassAdapter extends ClassVisitor {
    * @param printResults whether to print the results of the bytecode verification.
    * @param printWriter where the results (or the stack trace in case of error) must be printed.
    */
+  @SuppressWarnings("deprecation")
   public static void verify(
       final ClassReader classReader,
       final ClassLoader loader,

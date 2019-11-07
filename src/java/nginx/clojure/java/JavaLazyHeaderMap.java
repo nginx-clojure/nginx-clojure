@@ -42,6 +42,7 @@ import nginx.clojure.UnknownHeaderHolder;
 import nginx.clojure.java.PickerPoweredIterator.Picker;
 
 
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 	
 	protected long headers;

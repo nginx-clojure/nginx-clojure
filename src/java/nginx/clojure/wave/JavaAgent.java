@@ -340,6 +340,7 @@ public class JavaAgent {
 					}
 				};
 				
+				@SuppressWarnings("unused")
 				ClassEntry ce = MethodDatabaseUtil.buildClassEntryFamily(db, cr);
 //				if (className.startsWith("sun/launcher/")
 //						|| className.startsWith("clojure/asm")

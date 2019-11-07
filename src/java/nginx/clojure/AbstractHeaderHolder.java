@@ -40,6 +40,7 @@ public  abstract class AbstractHeaderHolder  implements NginxHeaderHolder  {
 		return headersOffset;
 	}
 	
+	@SuppressWarnings("rawtypes")
 	public final String pickString(Object v) {
 		if (v == null) {
 			return null;

@@ -27,6 +27,7 @@ public class NginxGroovyHandlerFactory extends NginxJavaHandlerFactory {
 		}
 	}
 	
+	@SuppressWarnings("rawtypes")
 	@Override
 	public NginxHandler newInstance(int phase, String name, String code) {
 		

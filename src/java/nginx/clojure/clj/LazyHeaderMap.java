@@ -35,6 +35,7 @@ public class LazyHeaderMap extends JavaLazyHeaderMap implements IPersistentMap, 
 		super(r, headersOut);
 	}
 	
+	@SuppressWarnings("rawtypes")
 	@Override
 	public Iterator iterator() {
 		return new Iterator<MapEntry>() {
@@ -58,6 +59,7 @@ public class LazyHeaderMap extends JavaLazyHeaderMap implements IPersistentMap, 
 	}
 	
 	public MapEntry element(int i) {
+		@SuppressWarnings("rawtypes")
 		SimpleEntry se = entry(i);
 		if (se.value != null && se.value.getClass().isArray()) {
 			se.value = RT.seq(se.value);
@@ -68,7 +70,7 @@ public class LazyHeaderMap extends JavaLazyHeaderMap implements IPersistentMap, 
 	@Override
 	public boolean containsKey(Object keyObj) {
 		String key = NginxClojureHandler.normalizeHeaderNameHelper(keyObj);
-		return super.containsKey(keyObj);
+		return super.containsKey(key);
 	}
 
 	@Override
@@ -100,6 +102,9 @@ public class LazyHeaderMap extends JavaLazyHeaderMap implements IPersistentMap, 
 
 	static class LazyHeaderSeq extends ASeq implements Counted{
 		
+
+		private static final long serialVersionUID = 1L;
+
 		LazyHeaderMap h;
 		int i;
 		

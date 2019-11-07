@@ -145,6 +145,7 @@ public class LazyFilterRequestMap extends LazyRequestMap implements NginxFilterR
 	/* (non-Javadoc)
 	 * @see nginx.clojure.clj.LazyRequestMap#iterator()
 	 */
+	@SuppressWarnings("rawtypes")
 	@Override
 	public Iterator iterator() {
 		if (origin == null) {

@@ -119,6 +119,7 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 		return super.defaultChainFlag(response);
 	}
 	
+	@SuppressWarnings("rawtypes")
 	@Override
 	public NginxResponse process(NginxRequest req) throws IOException {
 		LazyRequestMap r = (LazyRequestMap)req;
@@ -161,6 +162,7 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 		}
 	}
 	
+	@SuppressWarnings("rawtypes")
 	public  NginxResponse toNginxResponse(NginxRequest req, Object resp) {
 		if (resp == null) {
 			return new NginxClojureResponse(req, NOT_FOUND_RESPONSE );
@@ -262,6 +264,7 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 				return defaultVal;
 			}
 			
+			@SuppressWarnings("unchecked")
 			List<String> val = (List<String>)map.valAt(key);
 			return val == null ? defaultVal : val.toArray(new String[val.size()]);
 		}

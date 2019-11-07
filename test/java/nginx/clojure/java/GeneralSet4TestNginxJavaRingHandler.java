@@ -68,6 +68,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 	
 	public static class MultipleChainHandler implements NginxJavaRingHandler {
 
+		@SuppressWarnings("unused")
 		private void sleep(int second) {
 			try {
 				Thread.sleep(second * 1000L);
@@ -116,7 +117,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 	
 	public static class Headers implements NginxJavaRingHandler {
 
-		@SuppressWarnings("rawtypes")
+		@SuppressWarnings({"rawtypes", "unchecked"})
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
 			Map requestHeaders = (Map) request.get(HEADERS);
@@ -202,7 +203,8 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		public Object[] invoke(Map<String, Object> request) {
 			NginxJavaRequest r = ((NginxJavaRequest)request);
 			NginxHttpServerChannel channel = r.hijack(false);
-			PubSubListenerData pd = longPollPubSub.subscribe(channel, new NginxPubSubListener<NginxHttpServerChannel>() {
+			PubSubListenerData<NginxHttpServerChannel> pd = longPollPubSub.subscribe(channel, new NginxPubSubListener<NginxHttpServerChannel>() {
+				@SuppressWarnings("rawtypes")
 				@Override
 				public void onMessage(String msg, NginxHttpServerChannel ch) throws IOException {
 					ch.sendResponse(new Object[] { NGX_HTTP_OK,
@@ -234,7 +236,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		public Object[] invoke(Map<String, Object> request) throws IOException {
 			NginxJavaRequest r = (NginxJavaRequest) request;
 			NginxHttpServerChannel channel = r.hijack(true);
-			PubSubListenerData pd = ssePubSub.subscribe(channel, new NginxPubSubListener<NginxHttpServerChannel>() {
+			PubSubListenerData<NginxHttpServerChannel> pd = ssePubSub.subscribe(channel, new NginxPubSubListener<NginxHttpServerChannel>() {
 				@Override
 				public void onMessage(String message, NginxHttpServerChannel ch) throws IOException {
 					if ("shutdown!".equals(message)) {
@@ -248,6 +250,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 			});
 			channel.setContext(pd);
 			channel.addListener(channel, new ChannelCloseAdapter<NginxHttpServerChannel>() {
+				@SuppressWarnings("rawtypes")
 				@Override
 				public void onClose(NginxHttpServerChannel ch) {
 					ssePubSub.unsubscribe((PubSubListenerData) ch.getContext());

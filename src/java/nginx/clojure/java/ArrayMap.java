@@ -41,14 +41,17 @@ public class ArrayMap<K, V> implements Map<K, V> {
 	}
 	
 	
+	@SuppressWarnings("unchecked")
 	public K key(int i) {
 		return (K) array[i << 1];
 	}
 	
+	@SuppressWarnings("unchecked")
 	public V val(int i) {
 		return (V)array[(i << 1) + 1];
 	}
 
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public SimpleEntry<K, V> entry(final int i) {
 		final SimpleEntry se = new SimpleEntry(key(i), val(i), null);
 		se.setter = new SimpleEntrySetter() {
@@ -94,6 +97,7 @@ public class ArrayMap<K, V> implements Map<K, V> {
 		return i == -1 ? null : val(i);
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public V put(K key, V val) {
 		int i = index(key);

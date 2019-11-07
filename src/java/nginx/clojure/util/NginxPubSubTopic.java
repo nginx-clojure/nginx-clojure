@@ -34,6 +34,7 @@ public class NginxPubSubTopic {
 		}
 	}
 	
+	@SuppressWarnings({"rawtypes"})
 	protected static ConcurrentHashMap<Long, Set<PubSubListenerData>> topicSubs = new ConcurrentHashMap<Long, Set<PubSubListenerData>>();
 	
 	public static final String PUBSUB_SHARED_MAP_NAME = "PubSubTopic";
@@ -46,6 +47,7 @@ public class NginxPubSubTopic {
 	
 	static final LoggerService logger = NginxClojureRT.getLog();
 	
+	@SuppressWarnings({"rawtypes"})
 	private static void initSharedBox() {
 		do {
 			sharedBox = NginxSharedHashMap.build(PUBSUB_SHARED_MAP_NAME);
@@ -56,6 +58,7 @@ public class NginxPubSubTopic {
 			sharedBox.putIntIfAbsent(PUBSUB_EVENT_ID_COUNTER, 1);
 			
 			NginxClojureRT.getAppEventListenerManager().addListener(new Listener() {
+				@SuppressWarnings("unchecked")
 				@Override
 				public void onEvent(PostedEvent event) throws IOException {
 					if (event.tag == MiniConstants.POST_EVENT_TYPE_PUB) {
@@ -135,6 +138,7 @@ public class NginxPubSubTopic {
 		NginxClojureRT.broadcastEvent(MiniConstants.POST_EVENT_TYPE_PUB, id);
 	}
 	
+	@SuppressWarnings({"rawtypes", "unchecked"})
 	public <T> PubSubListenerData<T> subscribe(T data, NginxPubSubListener<T> listener) {
 		Set<PubSubListenerData> pds = topicSubs.get(topicId);
 		if (pds == null) {
@@ -149,6 +153,7 @@ public class NginxPubSubTopic {
 		return pd;
 	}
 	
+	@SuppressWarnings({"rawtypes"})
 	public void unsubscribe(PubSubListenerData pd) {
 		Set<PubSubListenerData> pds = topicSubs.get(topicId);
 		if (pds != null) {

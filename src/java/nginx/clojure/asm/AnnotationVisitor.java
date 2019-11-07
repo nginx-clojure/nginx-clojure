@@ -67,7 +67,8 @@ public abstract class AnnotationVisitor {
    * @param annotationVisitor the annotation visitor to which this visitor must delegate method
    *     calls. May be {@literal null}.
    */
-  public AnnotationVisitor(final int api, final AnnotationVisitor annotationVisitor) {
+@SuppressWarnings("deprecation")
+public AnnotationVisitor(final int api, final AnnotationVisitor annotationVisitor) {
     if (api != Opcodes.ASM7
         && api != Opcodes.ASM6
         && api != Opcodes.ASM5

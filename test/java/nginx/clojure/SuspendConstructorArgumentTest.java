@@ -42,7 +42,8 @@ public class SuspendConstructorArgumentTest extends TestCase {
 
     @Test
     public void testCalls() throws IOException {
-        Iterator<String> iter = new CoIterator<String>() {
+        @SuppressWarnings("serial")
+		Iterator<String> iter = new CoIterator<String>() {
             @Override
             public void run() throws SuspendExecution {
                 m1();

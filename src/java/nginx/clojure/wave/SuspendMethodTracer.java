@@ -404,6 +404,7 @@ public class SuspendMethodTracer {
 		dump(file, false);
 	}
 	
+	@SuppressWarnings("unchecked")
 	public static void dump(String path, boolean append) throws IOException {
 		quiteFlags.set(true);
 		Map<String, TreeMap<String, String>> upperMarks = new TreeMap<String, TreeMap<String, String>>();

@@ -47,6 +47,7 @@ public class UnknownHeaderHolder implements NginxHeaderHolder {
 		return -1;
 	}
 
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public void push(long h, long pool, Object v) {
 		

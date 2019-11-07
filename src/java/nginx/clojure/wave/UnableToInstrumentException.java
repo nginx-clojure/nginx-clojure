@@ -39,7 +39,9 @@ package nginx.clojure.wave;
  */
 public class UnableToInstrumentException extends RuntimeException {
 
-    private final String reason;
+	private static final long serialVersionUID = 1L;
+	
+	private final String reason;
     private final String className;
     private final String methodName;
     private final String methodDesc;

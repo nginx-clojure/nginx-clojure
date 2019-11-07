@@ -4,7 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Map;
-import java.util.UUID;
+//import java.util.UUID;
 
 import nginx.clojure.ChannelCloseAdapter;
 import nginx.clojure.NginxClojureRT;
@@ -25,8 +25,8 @@ public class MyBodyReadEventHandler implements NginxJavaRingHandler {
         NginxRequest req = (NginxRequest) request;
         NginxHttpServerChannel downstream = req.hijack(true);
         downstream.turnOnEventHandler(true, false, true);
-        UUID uuid = UUID.randomUUID();
-        String guid = uuid.toString();
+//        UUID uuid = UUID.randomUUID();
+//        String guid = uuid.toString();
         MyContext context = new MyContext();
         downstream.setContext(context);
         downstream.addListener(downstream, new ChannelCloseAdapter<NginxHttpServerChannel>() {

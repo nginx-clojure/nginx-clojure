@@ -24,6 +24,7 @@ public class NginxBridgeStarter {
 	public NginxBridgeStarter() {
 	}
 	
+	@SuppressWarnings("rawtypes")
 	public NginxBridge start(Map<String, String> properties) {
 		
 		String libDirs = properties.get(BRIDGE_LIB_DIRS);

@@ -38,6 +38,7 @@ public class MethodDatabaseUtilTest {
 		ce = db.getClasses().get("clojure/lang/IFn");
 		assertEquals(MethodDatabase.SUSPEND_FAMILY, ce.check("invoke", "()Ljava/lang/Object;"));
 		
+		@SuppressWarnings("unused")
 		ClassEntry mce = MethodDatabaseUtil.buildClassEntryFamily(db, Type.getInternalName(MyAF.class));
 		assertEquals(MethodDatabase.SUSPEND_FAMILY, db.checkMethodSuspendType(Type.getInternalName(MyAF.class), "invoke()Ljava/lang/Object;", true));
 		
@@ -51,6 +52,7 @@ public class MethodDatabaseUtilTest {
 		assertEquals(MethodDatabase.SUSPEND_NORMAL, sce.check("invoke(Ljava/lang/Object;)Ljava/lang/Object;"));
 	}
 	
+	@SuppressWarnings("serial")
 	public static class MyAF extends AFunction {
 		@Override
 		public Object invoke() {
@@ -68,6 +70,7 @@ public class MethodDatabaseUtilTest {
 		
 		
 		
+		@SuppressWarnings("unused")
 		ClassEntry ifnce = MethodDatabaseUtil.buildClassEntryFamily(db, Type.getInternalName(MyAF.class));
 		assertEquals(MethodDatabase.SUSPEND_FAMILY, db.checkMethodSuspendType(Type.getInternalName(MyAF.class),"invoke()Ljava/lang/Object;", true));
 	}

@@ -117,6 +117,7 @@ public final class TraceClassVisitor extends ClassVisitor {
    * @param printer the printer to convert the visited class into text.
    * @param printWriter the print writer to be used to print the class. May be {@literal null}.
    */
+  @SuppressWarnings("deprecation")
   public TraceClassVisitor(
       final ClassVisitor classVisitor, final Printer printer, final PrintWriter printWriter) {
     super(/* latest api = */ Opcodes.ASM8_EXPERIMENTAL, classVisitor);
@@ -187,6 +188,7 @@ public final class TraceClassVisitor extends ClassVisitor {
     super.visitNestMember(nestMember);
   }
 
+  @SuppressWarnings("deprecation")
   @Override
   public void visitPermittedSubtypeExperimental(final String permittedSubtype) {
     p.visitPermittedSubtypeExperimental(permittedSubtype);

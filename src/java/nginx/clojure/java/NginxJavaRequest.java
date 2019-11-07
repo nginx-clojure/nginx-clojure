@@ -55,6 +55,7 @@ import nginx.clojure.java.PickerPoweredIterator.Picker;
 import nginx.clojure.java.RequestRawMessageAdapter.RequestOrderedRunnable;
 import nginx.clojure.net.NginxClojureAsynSocket;
 
+
 public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 
 	//TODO: SSL_CLIENT_CERT
@@ -113,7 +114,6 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		}
 	}
 	
-	@SuppressWarnings("unchecked")
 	public NginxJavaRequest(int phase, NginxHandler handler, long r) {
 		this(phase, handler, r, new Object[default_request_array.length]);
 		System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
@@ -157,6 +157,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		for (int i = 0; i < len; i++) {
 			Object v = val(i);
 			if (headers != DefinedPrefetch.NO_HEADERS && v instanceof JavaLazyHeaderMap) {
+				@SuppressWarnings({ "unchecked", "rawtypes" })
 				Map<String, Object> lazyHeaderMap = (Map)v;
 				if (headers == DefinedPrefetch.ALL_HEADERS) {
 					array[(i<<1) + 1] = new CaseInsensitiveMap<Object>(lazyHeaderMap);
@@ -483,6 +484,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		return String.format("request {id : %d,  uri: %s}", r, val(0));
 	}
 
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public <T> void addListener(final T data, final ChannelListener<T> listener) {
 		if (listeners == null) {
@@ -523,7 +525,10 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	
 	@Override
 	public void tagReleased() {
-		NginxClojureRT.log.debug("[%d] tag released!", r);
+		if (NginxClojureRT.log.isDebugEnabled()) {
+			NginxClojureRT.log.debug("[%d] tag released!", r);	
+		}
+		
 		this.released = true;
 		this.channel = null;
 		System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
@@ -540,7 +545,9 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	}
 	
 	public void markReqeased() {
-		NginxClojureRT.log.debug("[%d] mark request!", r);
+		if (NginxClojureRT.log.isDebugEnabled()) {
+			NginxClojureRT.log.debug("[%d] mark request!", r);	
+		}
 		this.released = true;
 	}
 

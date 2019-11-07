@@ -65,6 +65,7 @@ public abstract class ModuleVisitor {
    * @param moduleVisitor the module visitor to which this visitor must delegate method calls. May
    *     be null.
    */
+  @SuppressWarnings("deprecation")
   public ModuleVisitor(final int api, final ModuleVisitor moduleVisitor) {
     if (api != Opcodes.ASM7
         && api != Opcodes.ASM6

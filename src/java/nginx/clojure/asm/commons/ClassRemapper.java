@@ -205,6 +205,7 @@ public class ClassRemapper extends ClassVisitor {
     super.visitNestMember(remapper.mapType(nestMember));
   }
 
+  @SuppressWarnings("deprecation")
   @Override
   public void visitPermittedSubtypeExperimental(final String permittedSubtype) {
     super.visitPermittedSubtypeExperimental(remapper.mapType(permittedSubtype));

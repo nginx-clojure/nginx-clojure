@@ -44,6 +44,7 @@ import nginx.clojure.asm.tree.analysis.Value;
  *
  * @author matthias
  */
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class TypeAnalyzer extends Analyzer {
 
     public TypeAnalyzer(Interpreter interpreter) {

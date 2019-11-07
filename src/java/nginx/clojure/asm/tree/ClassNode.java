@@ -299,6 +299,7 @@ public class ClassNode extends ClassVisitor {
    * @param api an ASM API version. Must be one of {@link Opcodes#ASM4}, {@link Opcodes#ASM5},
    *     {@link Opcodes#ASM6} or {@link Opcodes#ASM7}.
    */
+  @SuppressWarnings("deprecation")
   public void check(final int api) {
     if (api != Opcodes.ASM8_EXPERIMENTAL && permittedSubtypesExperimental != null) {
       throw new UnsupportedClassVersionException();
@@ -351,6 +352,7 @@ public class ClassNode extends ClassVisitor {
    *
    * @param classVisitor a class visitor.
    */
+  @SuppressWarnings("deprecation")
   public void accept(final ClassVisitor classVisitor) {
     // Visit the header.
     String[] interfacesArray = new String[this.interfaces.size()];

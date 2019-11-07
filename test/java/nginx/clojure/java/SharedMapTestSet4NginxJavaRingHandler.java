@@ -21,12 +21,14 @@ public class SharedMapTestSet4NginxJavaRingHandler implements NginxJavaRingHandl
 	
 	public static abstract class SharedMapBaseHandler implements NginxJavaRingHandler {
 		protected abstract String name();
+		@SuppressWarnings("rawtypes")
 		protected NginxSharedHashMap map; 
 		
 		public SharedMapBaseHandler() {
 			map = NginxSharedHashMap.build(name());
 		}
 		
+		@SuppressWarnings("unchecked")
 		public Object[] invoke(Map<String, Object> request) throws IOException{
 			String qs = (String) request.get(MiniConstants.QUERY_STRING);
 			Map<String, String> params = new HashMap<String, String>();

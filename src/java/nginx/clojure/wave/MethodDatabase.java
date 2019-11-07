@@ -707,7 +707,7 @@ public class MethodDatabase implements LoggerService {
 		return userDefinedWaveConfigFiles;
 	}
     
-    private static final ClassEntry CLASS_NOT_FOUND = new ClassEntry("<class not found>", new String[0], false);
+//    private static final ClassEntry CLASS_NOT_FOUND = new ClassEntry("<class not found>", new String[0], false);
 
     
     public static final class LazyClassEntry {

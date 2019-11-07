@@ -65,6 +65,7 @@ public abstract class ClassVisitor {
    * @param classVisitor the class visitor to which this visitor must delegate method calls. May be
    *     null.
    */
+  @SuppressWarnings("deprecation")
   public ClassVisitor(final int api, final ClassVisitor classVisitor) {
     if (api != Opcodes.ASM7
         && api != Opcodes.ASM6

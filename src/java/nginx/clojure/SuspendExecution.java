@@ -45,7 +45,9 @@ package nginx.clojure;
  */
 public final class SuspendExecution extends RuntimeException {
 
-    static final SuspendExecution instance = new SuspendExecution();
+	private static final long serialVersionUID = 1L;
+
+	static final SuspendExecution instance = new SuspendExecution();
     
     private SuspendExecution() {
     }

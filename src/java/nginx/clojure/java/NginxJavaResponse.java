@@ -42,6 +42,7 @@ public class NginxJavaResponse extends NginxSimpleResponse {
 		return status;
 	}
 
+	@SuppressWarnings({"rawtypes", "unchecked"})
 	@Override
 	public Collection<Entry<?,?>> fetchHeaders() {
 		Map headers = (Map)response[1];

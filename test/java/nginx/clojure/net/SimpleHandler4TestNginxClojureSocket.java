@@ -96,6 +96,7 @@ public class SimpleHandler4TestNginxClojureSocket implements NginxJavaRingHandle
 	
 	public static void main(String[] args) throws IOException {
 		SimpleHandler4TestNginxClojureSocket ss = new SimpleHandler4TestNginxClojureSocket();
+		@SuppressWarnings("unchecked")
 		Object[] resp =  ss.invoke(Collections.EMPTY_MAP);
 		ByteArrayInputStream bi = (ByteArrayInputStream)resp[2];
 		byte[] ba = new byte[bi.available()];

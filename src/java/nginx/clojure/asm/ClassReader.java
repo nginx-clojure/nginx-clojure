@@ -414,7 +414,8 @@ public class ClassReader {
    * @param parsingOptions the options to use to parse this class. One or more of {@link
    *     #SKIP_CODE}, {@link #SKIP_DEBUG}, {@link #SKIP_FRAMES} or {@link #EXPAND_FRAMES}.
    */
-  public void accept(
+@SuppressWarnings("deprecation")
+public void accept(
       final ClassVisitor classVisitor,
       final Attribute[] attributePrototypes,
       final int parsingOptions) {

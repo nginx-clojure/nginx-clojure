@@ -248,6 +248,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 			return value;
 		}
 
+		@SuppressWarnings("unchecked")
 		@Override
 		public V setValue(V value) {
 			return setter.setValue(value);
@@ -275,6 +276,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 			return 500;
 		}
 		
+		@SuppressWarnings({ "unchecked", "rawtypes" })
 		@Override
 		public <K, V> Collection<Entry<K, V>> fetchHeaders() {
 			return (List)Arrays.asList(new SimpleEntry(CONTENT_TYPE, "text/plain", readOnlyEntrySetter));
@@ -345,7 +347,6 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		long headers_out = r + NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
 		
 		String contentType = null;
-		String server = null;
 		if (headers != null) {
 			for (Map.Entry<?, ?> hen : headers) {
 				Object nameObj = hen.getKey();
@@ -389,7 +390,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 	public long buildOutputChain(NginxResponse response) {
 		long r = response.request().nativeRequest();
 		try {
-			long pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
+//			long pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
 			int status = response.fetchStatus(NGX_HTTP_OK);
 
 			
@@ -585,11 +586,12 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		return ngx_http_clojure_mem_build_temp_chain(r, preChain, b, BYTE_ARRAY_OFFSET, b.length);
 	}
 	
-	protected  long buildResponseIterableBuf(Iterable iterable, long r,  long preChain) {
+	protected  long buildResponseIterableBuf(@SuppressWarnings("rawtypes") Iterable iterable, long r,  long preChain) {
 		if (iterable == null) {
 			return 0;
 		}
 		
+		@SuppressWarnings("rawtypes")
 		Iterator i = iterable.iterator();
 		if (!i.hasNext()) {
 			return -204;
@@ -639,6 +641,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		return item.chain;
 	}
 	
+	@SuppressWarnings("rawtypes")
 	protected long buildResponseComplexItemBuf(long r, Object item, long chain) {
 		if (item == null) {
 			return 0;

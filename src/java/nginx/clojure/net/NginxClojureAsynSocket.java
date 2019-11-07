@@ -292,6 +292,7 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler, Clo
 		close(-s);
 	}
 
+	@SuppressWarnings({"unchecked"})
 	public <T> T getContext() {
 		return (T)context;
 	}

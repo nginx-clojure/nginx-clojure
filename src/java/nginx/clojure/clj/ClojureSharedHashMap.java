@@ -57,6 +57,7 @@ public class ClojureSharedHashMap extends NginxSharedHashMap implements ITransie
 		return this;
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public ClojureSharedHashMap assoc(Object key, Object val) {
 		super.put(key, val);

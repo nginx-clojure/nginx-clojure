@@ -13,7 +13,7 @@ public class NginxClojureBodyFilterChunkResponse extends NginxClojureResponse {
 	public NginxClojureBodyFilterChunkResponse() {
 	}
 
-	public NginxClojureBodyFilterChunkResponse(NginxRequest req, Map response) {
+	public NginxClojureBodyFilterChunkResponse(NginxRequest req, @SuppressWarnings("rawtypes") Map response) {
 		super(req, response);
 		type = TYPE_FAKE_BODY_FILTER_TAG;
 	}

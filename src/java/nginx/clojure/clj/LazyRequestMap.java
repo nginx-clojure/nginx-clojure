@@ -146,7 +146,6 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 		validLen = array.length;
 	}
 	
-	@SuppressWarnings("unchecked")
 	public LazyRequestMap(NginxHandler handler, long r) {
 		//TODO: SSL_CLIENT_CERT
 		this(handler, r, new byte[]{0}, default_request_array.clone());
@@ -240,6 +239,7 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 	}
 	
 
+	@SuppressWarnings("rawtypes")
 	@Override
 	public Iterator iterator() {
 		return new Iterator<MapEntry>() {
@@ -277,6 +277,7 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 		return validLen >> 1;
 	}
 
+	@SuppressWarnings("rawtypes")
 	@Override
 	public IPersistentCollection cons(Object o) {
 		if (o instanceof Map.Entry) {
@@ -310,6 +311,7 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 	}
 
 	
+	@SuppressWarnings("serial")
 	static class ArrayMapSeq extends ASeq implements Counted{
 		final int i;
 		final LazyRequestMap reqMap;
@@ -520,6 +522,7 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 		return String.format("request {id : %d,  uri: %s}", r, element(0));
 	}
 
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public <T> void addListener(final T data, final ChannelListener<T> listener) {
 		if (listeners == null) {

@@ -77,6 +77,7 @@ public class ConstructorTest {
 		@Override
 		public void run() throws SuspendExecution {
 			A a = new A(3, result);
+			System.out.println(a);
 		}
 	}
 
@@ -107,7 +108,7 @@ public class ConstructorTest {
 		@Override
 		public void run() throws SuspendExecution {
 			try {
-				Constructor ctor = A.class.getConstructor(Integer.TYPE, ArrayList.class);
+				Constructor<A> ctor = A.class.getConstructor(Integer.TYPE, ArrayList.class);
 				ctor.newInstance(new Object[] {3, result});
 			} catch (NoSuchMethodException e) {
 				e.printStackTrace();
@@ -361,7 +362,7 @@ public class ConstructorTest {
 		@Override
 		public void run() throws SuspendExecution {
 			try {
-				Constructor ctor = CA.class.getConstructor(Integer.TYPE, String.class, ArrayList.class);
+				Constructor<CA> ctor = CA.class.getConstructor(Integer.TYPE, String.class, ArrayList.class);
 				ctor.newInstance(new Object[] {3, "CA001", result});
 			} catch (NoSuchMethodException e) {
 				e.printStackTrace();

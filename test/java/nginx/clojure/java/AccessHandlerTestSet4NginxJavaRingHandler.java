@@ -48,6 +48,7 @@ public class AccessHandlerTestSet4NginxJavaRingHandler {
 	 */
 	public static class BasicAuthHandler implements NginxJavaRingHandler {
 
+		@SuppressWarnings("rawtypes")
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
 			String auth = (String) ((Map)request.get(HEADERS)).get("authorization");
@@ -69,6 +70,7 @@ public class AccessHandlerTestSet4NginxJavaRingHandler {
 		String user;
 		String password;
 		
+		@SuppressWarnings("rawtypes")
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
 			String auth = (String) ((Map)request.get(HEADERS)).get("authorization");
@@ -142,6 +144,7 @@ public class AccessHandlerTestSet4NginxJavaRingHandler {
 			ignoreFilter = Boolean.getBoolean(properties.get("ignoreFilter"));
 		}
 
+		@SuppressWarnings("rawtypes")
 		@Override
 		public Object[] invoke(Map<String, Object> request) throws IOException {
 			NginxJavaRequest r = (NginxJavaRequest)request;

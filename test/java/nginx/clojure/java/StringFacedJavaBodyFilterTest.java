@@ -7,7 +7,7 @@ package nginx.clojure.java;
 import static org.junit.Assert.assertEquals;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
+//import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 //import java.util.zip.ZipEntry;
@@ -46,7 +46,7 @@ public class StringFacedJavaBodyFilterTest {
 		ByteBuffer rem = ByteBuffer.allocate(3);
 		rem.flip();
 		String s = "權補縮短補發情報機關";
-		ByteArrayOutputStream bo = new ByteArrayOutputStream();
+//		ByteArrayOutputStream bo = new ByteArrayOutputStream();
 //		ZipOutputStream zo = new ZipOutputStream(bo);
 //		zo.putNextEntry(new ZipEntry("good"));
 		byte[] all = s.getBytes();
