@@ -65,6 +65,7 @@
                                   ]}
              :unittest {
                     :jvm-opts ["-javaagent:target/nginx-clojure-0.5.0.jar=mb"
+                               "-Dfile.encoding=UTF-8"
                                "-Dnginx.clojure.wave.udfs=pure-clj.txt,mysql-jdbc.txt,compojure.txt,compojure-http-clj.txt"
                                "-Xbootclasspath/a:target/nginx-clojure-0.5.0.jar"]
                     :junit-options {:fork "on"}
