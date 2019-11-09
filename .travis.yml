@@ -43,7 +43,7 @@ install:
   - export NC_PJ_HOME=$(pwd)
   - sudo ln -s /home/travis /home/who
   - sudo chown travis /home/who
-  - sudo apt install -y libgd-dev libssl-dev libgeoip-dev
+#  - sudo apt install -y libgd-dev libssl-dev libgeoip-dev
   - mkdir -p /home/travis/git
   - ln -s ${NC_PJ_HOME} /home/travis/git
 before_script:
@@ -61,6 +61,7 @@ script:
   - lein install
   - lein with-profile unittest junit
   - cd /home/who/git/nginx-clojure/test/nginx-working-dir
+  - mkdir logs temp temp/client_temp temp/fastcgi_temp temp/proxy_temp temp/scgi_temp temp/uwsgi_temp
   - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-plain.conf -p /home/who/git/nginx-clojure/test/nginx-working-dir/
   - cd /home/who/git/nginx-clojure/
   - lein with-profile cljremotetest test :all
