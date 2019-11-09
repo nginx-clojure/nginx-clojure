@@ -51,7 +51,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Future;
@@ -222,7 +221,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		T setValue(T value);
 	}
 	
-	public final static SimpleEntrySetter readOnlyEntrySetter = value -> {
+	public final static SimpleEntrySetter<Object> readOnlyEntrySetter = value -> {
 		throw new UnsupportedOperationException("read only entry can not set!");
 	};
 	
@@ -232,7 +231,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		public V value;
 		public SimpleEntrySetter<V> setter;
 		
-		public SimpleEntry(K key, V value, SimpleEntrySetter simpleEntrySetter) {
+		public SimpleEntry(K key, V value, SimpleEntrySetter<V> simpleEntrySetter) {
 			this.key = key;
 			this.value = value;
 			this.setter = simpleEntrySetter;
@@ -248,7 +247,6 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 			return value;
 		}
 
-		@SuppressWarnings("unchecked")
 		@Override
 		public V setValue(V value) {
 			return setter.setValue(value);

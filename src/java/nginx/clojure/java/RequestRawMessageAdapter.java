@@ -63,7 +63,6 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 		}
 	}
 	
-	@SuppressWarnings({"rawtypes", "unchecked"})
 	@Override
 	public void onClose(final NginxRequest req) {
 		if (req.isReleased()) {
@@ -122,7 +121,6 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 		}
 	}
 	
-	@SuppressWarnings({"rawtypes", "unchecked"})
 	public void onClose(final NginxRequest req, long message) {
 		if (req.isReleased()) {
 			return;
@@ -339,7 +337,6 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 		}
 	}
 	
-	@SuppressWarnings({"rawtypes", "unchecked"})
 	@Override
 	public void onBinaryMessage(final NginxRequest req, long message, final boolean remining, boolean first) {
 		int size = (int) (( message >> 48 ) & 0xffff);
@@ -400,7 +397,6 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 	
 	}
 	
-	@SuppressWarnings({"rawtypes", "unchecked"})
 	@Override
 	public void onTextMessage(final NginxRequest req, long message, final boolean remining, boolean first) {
 		int size = (int) (( message >> 48 ) & 0xffff);

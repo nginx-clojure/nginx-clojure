@@ -61,7 +61,7 @@ public class NginxClojureResponse extends NginxSimpleResponse {
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public Collection<Entry<?, ?>> fetchHeaders() {
+	public <K, V> Collection<Entry<K, V>> fetchHeaders() {
 		Map headers = ((Map)response.get(HEADERS));
 		return headers == null ? null : headers.entrySet();
 	}
