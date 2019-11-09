@@ -17,6 +17,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import nginx.clojure.MiniConstants;
+
 /**
  * @author who
  *
@@ -49,7 +51,7 @@ public class StringFacedJavaBodyFilterTest {
 //		ByteArrayOutputStream bo = new ByteArrayOutputStream();
 //		ZipOutputStream zo = new ZipOutputStream(bo);
 //		zo.putNextEntry(new ZipEntry("good"));
-		byte[] all = s.getBytes();
+		byte[] all = s.getBytes(MiniConstants.DEFAULT_ENCODING);
 		
 //		zo.write(all);
 //		zo.flush();
