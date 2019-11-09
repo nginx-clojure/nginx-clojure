@@ -79,9 +79,9 @@ script:
   - curl -v http://localhost:8080/clojure
   - cd /home/who/git/nginx-clojure/
   - lein with-profile cljremotetest test :all
-  - cat logs/error.log
   - cd /home/who/git/nginx-clojure/test/nginx-working-dir
-  - ./nginx -s stop
+  - cat logs/error.log
+  - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-plain.conf -s stop
 
 notifications:
   email: false
