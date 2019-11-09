@@ -61,12 +61,16 @@ before_script:
 script:
   - cd /home/who/git/nginx-clojure/
   - mkdir bin
+  - lein with-profile cljremotetest classpath  
   - lein install
   - lein with-profile unittest junit
   - cd /home/who/git/nginx-clojure/test/nginx-working-dir
   - mkdir logs temp temp/client_temp temp/fastcgi_temp temp/proxy_temp temp/scgi_temp temp/uwsgi_temp
   - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-plain.conf -p /home/who/git/nginx-clojure/test/nginx-working-dir/
+  - sudo iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
+  - sudo iptables --list
   - sleep 5
+  - cat logs/error.log
   - curl -v http://localhost:8080/clojure
   - cd /home/who/git/nginx-clojure/
   - lein with-profile cljremotetest test :all
