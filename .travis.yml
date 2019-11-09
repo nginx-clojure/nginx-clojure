@@ -15,6 +15,7 @@ compiler:
 addons:
   hosts:
     - mysql-0
+    - localhost
   apt:
     packages:
     - libgd-dev
@@ -35,7 +36,7 @@ services:
   - mysql
 
 before_install:
-  - cat /etc/hosts | grep 'mysql-0'    
+  - cat /etc/hosts 
 
 install:
 #  - if [ ! -f local-caches/pcre-$PCRE_VER.tar.gz ]; then wget -P local-caches http://ftp.cs.stanford.edu/pub/exim/pcre/pcre-$PCRE_VER.tar.gz; fi
@@ -46,6 +47,7 @@ install:
 #  - sudo apt install -y libgd-dev libssl-dev libgeoip-dev
   - mkdir -p /home/travis/git
   - ln -s ${NC_PJ_HOME} /home/travis/git
+  
 before_script:
   - export NC_PJ_HOME=$(pwd)
   - export NGX_SRC=${NC_PJ_HOME}/nginx-$NGINX_VER
@@ -64,6 +66,8 @@ script:
   - cd /home/who/git/nginx-clojure/test/nginx-working-dir
   - mkdir logs temp temp/client_temp temp/fastcgi_temp temp/proxy_temp temp/scgi_temp temp/uwsgi_temp
   - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-plain.conf -p /home/who/git/nginx-clojure/test/nginx-working-dir/
+  - sleep 5
+  - curl -v http://localhost:8080/clojure
   - cd /home/who/git/nginx-clojure/
   - lein with-profile cljremotetest test :all
   - cd /home/who/git/nginx-clojure/test/nginx-working-dir
