@@ -73,10 +73,13 @@ script:
   - sudo iptables -A INPUT -p tcp --dport 8181 -j ACCEPT
   - sudo iptables -A INPUT -p tcp --dport 8999 -j ACCEPT  
   - sudo iptables --list
-  - tail -f  logs/error.log
+#  - tail -f  logs/error.log
+  - sleep 30
+  - tail logs/error.log
   - curl -v http://localhost:8080/clojure
   - cd /home/who/git/nginx-clojure/
   - lein with-profile cljremotetest test :all
+  - cat logs/error.log
   - cd /home/who/git/nginx-clojure/test/nginx-working-dir
   - ./nginx -s stop
 
