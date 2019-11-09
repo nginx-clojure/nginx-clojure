@@ -21,6 +21,7 @@ addons:
     packages:
     - libgd-dev
     - libssl-dev
+    - libgeoip-dev
 
 cache:
   directories:
