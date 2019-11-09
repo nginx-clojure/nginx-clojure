@@ -1,4 +1,4 @@
-[Nginx-Clojure](http://nginx-clojure.github.io)
+[Nginx-Clojure](http://nginx-clojure.github.io) [![Build Status](https://travis-ci.com/nginx-clojure/nginx-clojure.svg?branch=master)](https://travis-ci.com/nginx-clojure/nginx-clojure)
 =============
 
 ![Alt text](logo.png) [Nginx-Clojure](http://nginx-clojure.github.io) is a [Nginx](http://nginx.org/) module for embedding Clojure or Java or Groovy programs, typically those [Ring](https://github.com/ring-clojure/ring/blob/master/SPEC) based handlers.
