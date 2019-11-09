@@ -68,6 +68,10 @@ script:
   - mkdir logs temp temp/client_temp temp/fastcgi_temp temp/proxy_temp temp/scgi_temp temp/uwsgi_temp
   - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-plain.conf -p /home/who/git/nginx-clojure/test/nginx-working-dir/
   - sudo iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
+  - sudo iptables -A INPUT -p tcp --dport 8081 -j ACCEPT
+  - sudo iptables -A INPUT -p tcp --dport 8082 -j ACCEPT
+  - sudo iptables -A INPUT -p tcp --dport 8181 -j ACCEPT
+  - sudo iptables -A INPUT -p tcp --dport 8999 -j ACCEPT  
   - sudo iptables --list
   - sleep 5
   - cat logs/error.log
