@@ -61,7 +61,7 @@ before_script:
 script:
   - cd /home/who/git/nginx-clojure/
   - mkdir bin
-  - lein with-profile cljremotetest classpath  
+  - lein with-profile +cljremotetest classpath  
   - lein install
   - lein with-profile unittest junit
   - cd /home/who/git/nginx-clojure/test/nginx-working-dir
