@@ -42,7 +42,7 @@
 (def db-spec 
   {:classname "com.mysql.jdbc.Driver"
    :subprotocol "mysql"
-   :subname "//mysql-0:3306/nginx-clojure"
+   :subname "//mysql-0:3306/nctest"
    :user "nginxclojure"
    :password "111111"})
 

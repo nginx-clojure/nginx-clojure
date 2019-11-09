@@ -33,7 +33,7 @@ public class MySQLJdbcConroutineTestSet4JavaHandler implements NginxJavaRingHand
 	private Connection createConnection() throws SQLException, SuspendExecution {
 		try {
 		    Connection conn =
-		       DriverManager.getConnection("jdbc:mysql://mysql-0:3306/nginx-clojure", "nginxclojure", "111111");
+		       DriverManager.getConnection("jdbc:mysql://mysql-0:3306/nctest", "nginxclojure", "111111");
 
 		    // Do something with the Connection
 
