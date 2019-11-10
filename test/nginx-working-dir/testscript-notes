@@ -553,6 +553,7 @@ lein with-profile +cljremotetest repl
 
 lein with-profile cljremotetest test :jdbc
 lein with-profile cljremotetest test :all
+lein with-profile cljremotetest test :no-async
 lein with-profile cljremotetest test :only nginx.clojure.test-all/test-ring-compojure
 lein with-profile unittest junit
 
