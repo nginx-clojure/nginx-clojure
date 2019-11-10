@@ -91,7 +91,8 @@ script:
   - cd /home/who/git/nginx-clojure/  
   - lein with-profile cljremotetest test :no-async
   - cd /home/who/git/nginx-clojure/test/nginx-working-dir
-  - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-threadpool.conf -s stop         
+  - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-threadpool.conf -s stop
+  - sleep 10         
   - echo "******************************* Start Intergration Test (Coroutine Mode ) ************" 
   - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-coroutine.conf &
   - sleep 30
@@ -100,7 +101,7 @@ script:
   - cd /home/who/git/nginx-clojure/  
   - lein with-profile cljremotetest test :all
   - cd /home/who/git/nginx-clojure/test/nginx-working-dir
-  - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-threadpool.conf -s stop    
+  - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-coroutine.conf -s stop    
   
 after_failure:
   - echo "******************************** Test Failed (Start of Nginx error.log)*****************"
