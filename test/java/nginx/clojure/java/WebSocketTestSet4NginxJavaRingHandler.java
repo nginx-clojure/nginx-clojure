@@ -96,7 +96,7 @@ public class WebSocketTestSet4NginxJavaRingHandler {
 			super.invoke(request);
 			//If we use nginx directive `auto_upgrade_ws on;`, these three lines can be omitted.
 			//we call this after super.invoke to let listener added first
-			if (!r.channel.webSocketUpgrade(true)) {
+			if (!r.channel().webSocketUpgrade(true)) {
 				return null;
 			}
 			if (NginxClojureRT.log.isDebugEnabled()) {
