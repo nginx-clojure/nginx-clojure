@@ -93,12 +93,16 @@ public class WebSocketTestSet4NginxJavaRingHandler {
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
 			NginxJavaRequest r = (NginxJavaRequest)request;
-			NginxHttpServerChannel sc = r.hijack(true);
+			super.invoke(request);
 			//If we use nginx directive `auto_upgrade_ws on;`, these three lines can be omitted.
-			if (!sc.webSocketUpgrade(true)) {
+			//we call this after super.invoke to let listener added first
+			if (!r.channel.webSocketUpgrade(true)) {
 				return null;
 			}
-			return super.invoke(request);
+			if (NginxClojureRT.log.isDebugEnabled()) {
+				NginxClojureRT.log.debug("NonAutoUpgradeWSEcho upgrade ws success!");
+			}
+			return null;
 		}
 	}
 	

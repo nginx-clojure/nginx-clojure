@@ -217,38 +217,36 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 
 	@Override
 	public NginxHttpServerChannel hijack(NginxRequest req, boolean ignoreFilter) {
+
+		if (req.isHijacked()) {
+			NginxHttpServerChannel channel = req.channel();
+			channel.setIgnoreFilter(ignoreFilter);
+			return channel;
+		}
+
 		if (log.isDebugEnabled()) {
 			log.debug("#%s: hijack at %s", req.nativeRequest(), req.uri());
 		}
-		
-		try {
-			if (req.isHijacked()) {
-				NginxHttpServerChannel channel =  req.channel();
-				channel.setIgnoreFilter(ignoreFilter);
-				return channel;
-			}
-		
-			LazyRequestMap cljReq = ((LazyRequestMap)req);
-			cljReq.hijackTag[0] = 1;
-			if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD 
-					&& (req.phase() == -1 || req.phase() == NGX_HTTP_HEADER_FILTER_PHASE
-							              || req.phase() == NGX_HTTP_BODY_FILTER_PHASE)) {
-				NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest(), 1);
-			}
-			
-			NginxHttpServerChannel channel = cljReq.channel = new NginxHttpServerChannel(req, ignoreFilter);
-			
-			if (cljReq != cljReq.rawRequestMap) {
-				cljReq.rawRequestMap.channel = channel;
-			}
-			
-			return channel;
-		}finally {
-			if (log.isDebugEnabled()) {
-				log.debug("#%s: hijacked at %s, lns:%s", req.nativeRequest(), req.uri(), req.listeners() == null ? 0 : req.listeners().size());
-			}
+
+		LazyRequestMap cljReq = ((LazyRequestMap) req);
+		cljReq.hijackTag[0] = 1;
+		if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD && (req.phase() == -1
+				|| req.phase() == NGX_HTTP_HEADER_FILTER_PHASE || req.phase() == NGX_HTTP_BODY_FILTER_PHASE)) {
+			NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest(), 1);
 		}
-		
+
+		NginxHttpServerChannel channel = cljReq.channel = new NginxHttpServerChannel(req, ignoreFilter);
+
+		if (cljReq != cljReq.rawRequestMap) {
+			cljReq.rawRequestMap.channel = channel;
+		}
+
+		if (log.isDebugEnabled()) {
+			log.debug("#%s: hijacked at %s, lns:%s", req.nativeRequest(), req.uri(),
+					req.listeners() == null ? 0 : req.listeners().size());
+		}
+
+		return channel;
 
 	}
 

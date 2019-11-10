@@ -161,29 +161,31 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 
 	@Override
 	public NginxHttpServerChannel hijack(NginxRequest req, boolean ignoreFilter) {
+
+		if (req.isHijacked()) {
+			NginxHttpServerChannel channel = req.channel();
+			channel.setIgnoreFilter(ignoreFilter);
+			return channel;
+		}
+
 		if (log.isDebugEnabled()) {
 			log.debug("#%s: hijack at %s", req.nativeRequest(), req.uri());
 		}
-		
-		try {
-			if (req.isHijacked()) {
-				NginxHttpServerChannel channel =  req.channel();
-				channel.setIgnoreFilter(ignoreFilter);
-				return channel;
-			}
-			((NginxJavaRequest)req).hijacked = true;
-			//content phase we need increase r->count to make request not to be released in current event cycle.
-			if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD && 
-					(req.phase() == -1 || req.phase() == NGX_HTTP_HEADER_FILTER_PHASE
-					                   || req.phase() == NGX_HTTP_BODY_FILTER_PHASE)) {
-				NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest(), 1);
-			}
-			return ((NginxJavaRequest)req).channel = new NginxHttpServerChannel(req, ignoreFilter);
-		}finally{
-			if (log.isDebugEnabled()) {
-				log.debug("#%s: hijacked at %s, lns:%s", req.nativeRequest(), req.uri(), req.listeners() == null ? 0 : req.listeners().size());
-			}
+
+		((NginxJavaRequest) req).hijacked = true;
+		// content phase we need increase r->count to make request not to be
+		// released in current event cycle.
+		if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD && (req.phase() == -1
+				|| req.phase() == NGX_HTTP_HEADER_FILTER_PHASE || req.phase() == NGX_HTTP_BODY_FILTER_PHASE)) {
+			NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest(), 1);
 		}
+
+		if (log.isDebugEnabled()) {
+			log.debug("#%s: hijacked at %s, lns:%s", req.nativeRequest(), req.uri(),
+					req.listeners() == null ? 0 : req.listeners().size());
+		}
+
+		return ((NginxJavaRequest) req).channel = new NginxHttpServerChannel(req, ignoreFilter);
 	}
 
 
