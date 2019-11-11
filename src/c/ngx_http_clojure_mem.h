@@ -41,12 +41,12 @@ typedef unsigned __int64 uint64_t;
 #define JVM_CP_SEP_S ":"
 #endif
 
-#define nginx_clojure_ver  5000 /*0.5.0*/
+#define nginx_clojure_ver  5001 /*0.5.1*/
 
 /*the least jar version required*/
-#define nginx_clojure_required_rt_lver 5000
+#define nginx_clojure_required_rt_lver 5001
 
-#define NGINX_CLOJURE_VER_NUM_STR "0.5.0"
+#define NGINX_CLOJURE_VER_NUM_STR "0.5.1"
 
 #define NGINX_CLOJURE_VER "nginx-clojure/" NGINX_CLOJURE_VER_NUM_STR
 
@@ -55,6 +55,10 @@ typedef unsigned __int64 uint64_t;
 #define NGX_HTTP_HEADER_FILTER_PHASE  18
 #define NGX_HTTP_BODY_FILTER_PHASE  19
 #define NGX_HTTP_EXIT_PROCESS_PHASE  20
+
+/*fake chain for header filter*/
+#define NGX_HTTP_HEADER_FILTER -1
+#define NGX_HTTP_HEADER_FILTER_IN_THREADPOOL -2
 
 typedef struct {
 	ngx_str_t name;

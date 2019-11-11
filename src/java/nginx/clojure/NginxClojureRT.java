@@ -1431,7 +1431,7 @@ public class NginxClojureRT extends MiniConstants {
 		
 		if (resp.type() == NginxResponse.TYPE_FAKE_PHASE_DONE) {
 			if (ctx.request.phase() == NGX_HTTP_HEADER_FILTER_PHASE) {
-				rc = ngx_http_filter_continue_next(r, -1);
+				rc = ngx_http_filter_continue_next(r, NGX_HTTP_HEADER_FILTER_IN_THREADPOOL);
 				ngx_http_finalize_request(r, rc);
 				return NGX_OK;
 			}else if (ctx.request.phase() == NGX_HTTP_BODY_FILTER_PHASE) {
@@ -1526,7 +1526,7 @@ public class NginxClojureRT extends MiniConstants {
 				return NGX_DECLINED;
 			}
 			//header filter
-			return  (int)ngx_http_filter_continue_next(r.nativeRequest(), -1);
+			return  (int)ngx_http_filter_continue_next(r.nativeRequest(), NGX_HTTP_HEADER_FILTER);
 		}
 		
 		NginxHandler handler = r.handler();
@@ -1579,7 +1579,7 @@ public class NginxClojureRT extends MiniConstants {
 		int phase = req.phase();
 		if (resp.type() == NginxResponse.TYPE_FAKE_PHASE_DONE) {
 			if (phase == NGX_HTTP_HEADER_FILTER_PHASE) {
-				rc = ngx_http_filter_continue_next(r, -1);
+				rc = ngx_http_filter_continue_next(r, NGX_HTTP_HEADER_FILTER);
 				ngx_http_finalize_request(r, rc);
 				return;
 			}

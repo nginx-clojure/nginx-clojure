@@ -927,7 +927,28 @@
              (is (= "77342" (h "remote-content-length")))
               ;;;content-type: text/html
              (is (= "Hello, Java & Nginx!" b) ))
-           )        
+           )
+     ;;proxybufferonheaderfilter
+     
+  )
+
+(deftest ^{:remote true} test-proxy-pass-with-header-filter
+  (testing "proxy buffer on with header filter"
+           (let [r (client/get (str "http://" *host* ":" *port* "/proxybufferonheaderfilter") {:coerce :unexceptional, :decompress-body false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/proxybufferonheaderfilter =============================")
+             (is (= 200 (:status r)))
+             (is (= "first part.\r\nsecond part.\r\nthird part.\r\nlast part.\r\n" (r :body)))))
+  (testing "proxy buffer off with header filter"
+           (let [r (client/get (str "http://" *host* ":" *port* "/proxybufferoffheaderfilter") {:coerce :unexceptional, :decompress-body false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/proxybufferoffheaderfilter =============================")
+             (is (= 200 (:status r)))
+             (is (= "first part.\r\nsecond part.\r\nthird part.\r\nlast part.\r\n" (r :body)))))
   )
 
 (deftest ^{:remote true}  test-java-body-filter

@@ -274,11 +274,22 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		
 	}
 	
+	public static class HijackHello implements NginxJavaRingHandler {
+		
+		@Override
+		public Object[] invoke(Map<String, Object> request) throws IOException {
+			NginxHttpServerChannel channel = ((NginxJavaRequest)request).hijack(false);
+			channel.sendResponse(new Object[] {NGX_HTTP_OK, null, "Hijack hello!"});
+			return null;
+		}
+	}
+	
 	
 	private Map<String, NginxJavaRingHandler> routing = new HashMap<String, NginxJavaRingHandler>();
 	
 	public GeneralSet4TestNginxJavaRingHandler() {
 		routing.put("/hello", new Hello());
+		routing.put("/hijackhello", new HijackHello());
 		routing.put("/headers", new Headers());
 		routing.put("/sub", new Sub());
 		routing.put("/pub", new Pub());

@@ -97,6 +97,14 @@ public class FilterTestSet4NginxJavaHeaderFilter {
 		}
 	}
 	
+	public static class ProxyBufferOffHeaderFilter implements NginxJavaHeaderFilter {
+		@Override
+		public Object[] doFilter(int status, Map<String, Object> request, Map<String, Object> responseHeaders)
+				throws IOException {
+			return Constants.PHASE_DONE;
+		}
+	}
+	
 	public static void main(String[] args) {
 		AccessRemoteHeaderFilter arh = new AccessRemoteHeaderFilter();
 		arh.doFilter(200, new HashMap<String, Object>(), new HashMap<String, Object>());

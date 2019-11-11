@@ -3065,12 +3065,31 @@ static jlong JNICALL jni_ngx_http_filter_continue_next(JNIEnv *env, jclass cls, 
 
   if (chain < 0) { /*header filter*/
     rc = ngx_http_clojure_next_header_filter(r);
+
+    if (rc != NGX_OK) {
+      return rc;
+    }
+
     ctx->wait_for_header_filter = 0;
     if (ctx->pending_body_filter) {
       rc = ngx_http_clojure_next_body_filter(r, ctx->pending);
     }
+
+
+    if (r->upstream && (chain == NGX_HTTP_HEADER_FILTER_IN_THREADPOOL) && r->upstream->peer.connection) {
+      r->upstream->read_event_handler(r, r->upstream);
+      r->write_event_handler(r);
+    }
+
     return rc;
   } else {
+    if (!ctx->wait_for_header_filter) {
+      if (r->upstream && r->count > 1 && r->upstream->peer.connection) {
+        r->upstream->read_event_handler(r, r->upstream);
+        r->write_event_handler(r);
+      }
+    }
+
     return ngx_http_clojure_filter_continue_next_body_filter(r, in);
   }
 }
@@ -3686,6 +3705,7 @@ static jlong JNICALL jni_ngx_http_clojure_mem_inc_req_count(JNIEnv *env, jclass 
 		ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "jni_ngx_http_clojure_mem_inc_req_count, old : %d, new : %d", old, n);
 		return old;
 	}
+	ngx_log_error(NGX_LOG_ALERT, ngx_http_clojure_global_cycle->log, 0, "jni_ngx_http_clojure_mem_inc_req_count invoke on a released request!");
 	return -1;
 }
 
