@@ -217,12 +217,20 @@ public class NginxChainWrappedInputStream extends InputStream {
 			return 0;
 		}
 		
-		int c = streams[index].read(b, off, len);
+		int total = 0;
+		int c = 0;
 		
-		while (c <= 0 && ++index < streams.length) {
-			c = streams[index].read(b, off, len);
+		//now it is more eager than 0.5.0 and read more bytes as possible.
+		while (index < streams.length && total < len) {
+			c = streams[index].read(b, off + total, len - total);
+			if (c <= 0) {
+				index ++;
+			} else {
+				total += c;
+			}
 		}
-		return c;
+
+		return total;
 	}
 
 	public long nativeChain() {

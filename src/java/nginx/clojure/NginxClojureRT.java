@@ -131,7 +131,7 @@ public class NginxClojureRT extends MiniConstants {
 	 * @param chain  -1 means continue next header filter  otherwise continue next body filter
 	 * @return
 	 */
-	public native static long ngx_http_filter_continue_next(long r, long chain);
+	public native static long ngx_http_filter_continue_next(long r, long chain, long oldChain);
 
 	/**
 	 * last_buf can be either of {@link MiniConstants#NGX_CLOJURE_BUF_LAST_OF_NONE} {@link MiniConstants#NGX_CLOJURE_BUF_LAST_OF_CHAIN}, {@link MiniConstants#NGX_CLOJURE_BUF_LAST_OF_RESPONSE}
@@ -1431,12 +1431,13 @@ public class NginxClojureRT extends MiniConstants {
 		
 		if (resp.type() == NginxResponse.TYPE_FAKE_PHASE_DONE) {
 			if (ctx.request.phase() == NGX_HTTP_HEADER_FILTER_PHASE) {
-				rc = ngx_http_filter_continue_next(r, NGX_HTTP_HEADER_FILTER_IN_THREADPOOL);
+				rc = ngx_http_filter_continue_next(r, NGX_HTTP_HEADER_FILTER_IN_THREADPOOL, 0);
 				ngx_http_finalize_request(r, rc);
 				return NGX_OK;
-			}else if (ctx.request.phase() == NGX_HTTP_BODY_FILTER_PHASE) {
+			} else if (ctx.request.phase() == NGX_HTTP_BODY_FILTER_PHASE) {
 				ctx.chain = req.handler().buildOutputChain(resp);
-				rc = ngx_http_filter_continue_next(r, ctx.chain);
+				NginxFilterRequest fr = (NginxFilterRequest)req;
+				rc = ngx_http_filter_continue_next(r, ctx.chain, fr.isLast() ? 0 : fr.chunkChain());
 				if (resp.isLast()) {
 					ngx_http_finalize_request(r, rc);
 				}
@@ -1444,9 +1445,10 @@ public class NginxClojureRT extends MiniConstants {
 			}
 			ngx_http_clojure_mem_continue_current_phase(r, NGX_DECLINED);
 			return NGX_OK;
-		}else if (ctx.request.phase() == NGX_HTTP_BODY_FILTER_PHASE) {
+		} else if (ctx.request.phase() == NGX_HTTP_BODY_FILTER_PHASE) {
 			ctx.chain = req.handler().buildOutputChain(resp);
-			rc = ngx_http_filter_continue_next(r, ctx.chain);
+			NginxFilterRequest fr = (NginxFilterRequest)req;
+			rc = ngx_http_filter_continue_next(r, ctx.chain, fr.isLast() ? 0 : fr.chunkChain());
 			if (resp.isLast()) {
 				ngx_http_finalize_request(r, rc);
 			} else {
@@ -1526,7 +1528,7 @@ public class NginxClojureRT extends MiniConstants {
 				return NGX_DECLINED;
 			}
 			//header filter
-			return  (int)ngx_http_filter_continue_next(r.nativeRequest(), NGX_HTTP_HEADER_FILTER);
+			return  (int)ngx_http_filter_continue_next(r.nativeRequest(), NGX_HTTP_HEADER_FILTER, 0);
 		}
 		
 		NginxHandler handler = r.handler();
@@ -1541,8 +1543,9 @@ public class NginxClojureRT extends MiniConstants {
 		if (phase == NGX_HTTP_HEADER_FILTER_PHASE) {
 			ngx_http_clear_header_and_reset_ctx_phase(nr, ~phase);
 		}else if (phase == NGX_HTTP_BODY_FILTER_PHASE) {
+			NginxFilterRequest fr = (NginxFilterRequest)r;
 			ngx_http_clear_header_and_reset_ctx_phase(nr, ~phase, false);
-			return (int)ngx_http_filter_continue_next(r.nativeRequest(), chain);
+			return (int)ngx_http_filter_continue_next(r.nativeRequest(), chain, fr.isLast() ? 0 : fr.chunkChain());
 		}
 		handler.prepareHeaders(r, status, resp.fetchHeaders());
 		long rc = ngx_http_send_header(r.nativeRequest());
@@ -1579,7 +1582,7 @@ public class NginxClojureRT extends MiniConstants {
 		int phase = req.phase();
 		if (resp.type() == NginxResponse.TYPE_FAKE_PHASE_DONE) {
 			if (phase == NGX_HTTP_HEADER_FILTER_PHASE) {
-				rc = ngx_http_filter_continue_next(r, NGX_HTTP_HEADER_FILTER);
+				rc = ngx_http_filter_continue_next(r, NGX_HTTP_HEADER_FILTER, 0);
 				ngx_http_finalize_request(r, rc);
 				return;
 			}

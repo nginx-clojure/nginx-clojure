@@ -1544,7 +1544,7 @@ static ngx_int_t ngx_http_clojure_check_access_jvm_cp(ngx_http_clojure_main_conf
 		char *username = ccf->username;
 		struct passwd *pw;
 
-		/*TODO: remove this check nwhen we merge -Djava.class.path with jvm_classpath.*/
+		/*TODO: remove this check when we merge -Djava.class.path with jvm_classpath.*/
 		if (!mcf->jvm_cp) {
 			return rc;
 		}
@@ -2163,15 +2163,16 @@ static ngx_int_t ngx_http_clojure_body_filter(ngx_http_request_t *r,  ngx_chain_
   rc = ngx_http_clojure_eval(lcf->body_filter_id, r, chain);
   ctx->phase = src_phase;
 
-/*if we copied them we need mark them consumed*/
-//  while (chain) {
-//    chain->buf->pos = chain->buf->last;
-//    chain = chain->next;
-//  }
-
-
   if (rc == NGX_DONE) {
     ngx_http_clojure_try_set_reload_delay_timer(ctx, "ngx_http_clojure_body_filter");
+  } else {
+    /***  Mark them as consumed*/
+    /**** moved to jni_ngx_http_filter_continue_next*/
+   /* while (chain && chain->buf->recycled) {
+        chain->buf->pos = chain->buf->last;
+        chain->buf->file_pos = chain->buf->file_last;
+        chain = chain->next;
+      }*/
   }
 
 	return rc;

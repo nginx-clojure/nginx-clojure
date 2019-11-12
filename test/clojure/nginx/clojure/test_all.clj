@@ -951,6 +951,27 @@
              (is (= "first part.\r\nsecond part.\r\nthird part.\r\nlast part.\r\n" (r :body)))))
   )
 
+(deftest ^{:remote true} test-proxy-pass-with-body-filter
+  (testing "proxy buffer on with body filter"
+           (let [r (client/get (str "http://" *host* ":" *port* "/proxybufferonlargebodyfilter") {:coerce :unexceptional, :decompress-body false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/proxybufferonlargebodyfilter =============================")
+             (is (= 200 (:status r)))
+             (is (= 1024000 (.length (r :body))))
+             (is (= "123456789\n" (.substring (r :body) 1023990) ))))
+  (testing "proxy buffer off with body filter"
+           (let [r (client/get (str "http://" *host* ":" *port* "/proxybufferofflargebodyfilter") {:coerce :unexceptional, :decompress-body false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/proxybufferofflargebodyfilter =============================")
+             (is (= 200 (:status r)))
+             (is (= 1024000 (.length (r :body))))
+             (is (= "123456789\n" (.substring (r :body) 1023990) ))))
+  )
+
 (deftest ^{:remote true}  test-java-body-filter
   (testing "body filter with static file"
            (let [r (client/get (str "http://" *host* ":" *port* "/javabodyfilter/small.html") {:coerce :unexceptional :follow-redirects false :throw-exceptions false})

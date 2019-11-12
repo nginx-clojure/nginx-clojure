@@ -410,7 +410,7 @@ public class NginxHttpServerChannel implements Closeable {
 
 		if (resp.type() == NginxResponse.TYPE_FAKE_PHASE_DONE) {
 			if (req.phase() == MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE) {
-				rc = NginxClojureRT.ngx_http_filter_continue_next(r, -1);
+				rc = NginxClojureRT.ngx_http_filter_continue_next(r, -1, 0);
 				NginxClojureRT.ngx_http_finalize_request(r, rc);
 				return NGX_OK;
 			}

@@ -3053,15 +3053,19 @@ ngx_int_t ngx_http_clojure_filter_continue_next_body_filter(ngx_http_request_t *
 	return ngx_http_clojure_next_body_filter(r, in);
 }
 
-static jlong JNICALL jni_ngx_http_filter_continue_next(JNIEnv *env, jclass cls, jlong req, jlong chain) {
+static jlong JNICALL jni_ngx_http_filter_continue_next(JNIEnv *env, jclass cls, jlong req, jlong chain, jlong old_chain) {
   ngx_http_request_t *r = (ngx_http_request_t*) (uintptr_t) req;
   ngx_http_clojure_module_ctx_t *ctx;
   ngx_chain_t *in = (ngx_chain_t *) (uintptr_t) chain;
+  ngx_chain_t *old_in = (ngx_chain_t*)(uintptr_t) old_chain;
   ngx_int_t rc;
 
   ngx_http_clojure_get_ctx(r, ctx);
 
   ngx_http_clojure_try_unset_reload_delay_timer(ctx, "jni_ngx_http_filter_continue_next");
+
+  ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                             "jni_ngx_http_filter_continue_next, chain=%" PRIu64 ", old_chain=%" PRIu64, chain, old_chain);
 
   if (chain < 0) { /*header filter*/
     rc = ngx_http_clojure_next_header_filter(r);
@@ -3083,14 +3087,39 @@ static jlong JNICALL jni_ngx_http_filter_continue_next(JNIEnv *env, jclass cls, 
 
     return rc;
   } else {
-    if (!ctx->wait_for_header_filter) {
-      if (r->upstream && r->count > 1 && r->upstream->peer.connection) {
-        r->upstream->read_event_handler(r, r->upstream);
-        r->write_event_handler(r);
+    int len = 0;
+    ngx_chain_t *ci = in;
+    int is_last = 0;
+    while (ci) {
+      if (ci->buf->last_buf) {
+        is_last = 1;
       }
+      len += ngx_buf_size(ci->buf);
+      ci = ci->next;
     }
 
-    return ngx_http_clojure_filter_continue_next_body_filter(r, in);
+    ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                                 "jni_ngx_http_filter_continue_next, chain=%" PRIu64 ", size=%d, is_last=%d", chain, len, is_last);
+    rc = ngx_http_clojure_filter_continue_next_body_filter(r, in);
+
+    if (!is_last && old_in) {
+        /*Mark them as consumed*/
+        while (old_in) {
+          old_in->buf->pos = old_in->buf->last;
+          old_in->buf->file_pos = old_in->buf->file_last;
+          old_in = old_in->next;
+        }
+
+        if (!ctx->wait_for_header_filter) {
+          if (r->upstream && r->count > 1 && r->upstream->peer.connection) {
+            ngx_chain_update_chains(r->pool, &r->upstream->free_bufs, &r->upstream->busy_bufs, &r->upstream->out_bufs, r->upstream->output.tag);
+            r->upstream->read_event_handler(r, r->upstream);
+            r->write_event_handler(r);
+          }
+        }
+    }
+
+    return rc;
   }
 }
 
@@ -4206,7 +4235,7 @@ int ngx_http_clojure_init_memory_util(ngx_core_conf_t  *ccf, ngx_http_core_srv_c
 			{"ngx_http_output_filter", "(JJ)J", jni_ngx_http_output_filter},
 			{"ngx_http_finalize_request", "(JJ)V", jni_ngx_http_finalize_request},
 			{"ngx_http_filter_finalize_request", "(JJ)V", jni_ngx_http_filter_finalize_request},
-			{"ngx_http_filter_continue_next", "(JJ)J",  jni_ngx_http_filter_continue_next},
+			{"ngx_http_filter_continue_next", "(JJJ)J",  jni_ngx_http_filter_continue_next},
 			{"ngx_http_discard_request_body", "(J)J", jni_ngx_http_discard_request_body},
 			{"ngx_http_clojure_mem_init_ngx_buf", "(JLjava/lang/Object;JJI)J", jni_ngx_http_clojure_mem_init_ngx_buf}, //jlong buf, jlong obj, jlong offset, jlong len, jint last_buf
 			{"ngx_http_clojure_mem_build_temp_chain", "(JJLjava/lang/Object;JJ)J", jni_ngx_http_clojure_mem_build_temp_chain},

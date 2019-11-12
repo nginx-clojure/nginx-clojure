@@ -555,10 +555,11 @@ lein with-profile cljremotetest test :jdbc
 lein with-profile cljremotetest test :all
 lein with-profile cljremotetest test :no-async
 lein with-profile cljremotetest test :only nginx.clojure.test-all/test-ring-compojure
+lein with-profile cljremotetest test :only nginx.clojure.test-all/test-proxy-pass-with-body-filter
 lein with-profile unittest junit
 
 ## release check list
-1. version in NginxClojureRT 
+1. version in MiniConstants 
    
    NGINX_CLOJURE_RT_REQUIRED_LVER = 5000;
 	 NGINX_CLOJURE_RT_VER = 5000;

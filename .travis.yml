@@ -83,6 +83,7 @@ script:
   - lein with-profile cljremotetest test :all
   - cd /home/who/git/nginx-clojure/test/nginx-working-dir
   - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-plain.conf -s stop
+  - sleep 10
   - echo "******************************* Start Intergration Test (Thread Pool Mode ) ************" 
   - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-threadpool.conf &
   - sleep 10

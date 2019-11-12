@@ -276,4 +276,20 @@ public class LazyFilterRequestMap extends LazyRequestMap implements NginxFilterR
 //		}
 //		((NginxClojureHandler)handler).returnToRequestPool(this);
 	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxFilterRequest#chunkChain()
+	 */
+	@Override
+	public long chunkChain() {
+		return c;
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxFilterRequest#isLast()
+	 */
+	@Override
+	public boolean isLast() {
+		return body != null && body.isLast();
+	}
 }
