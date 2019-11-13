@@ -2122,8 +2122,18 @@ static ngx_int_t ngx_http_clojure_body_filter(ngx_http_request_t *r,  ngx_chain_
 		return NGX_OK;
 	}
 
-	if (chain == NULL) {
-	  return ngx_http_clojure_filter_continue_next_body_filter(r, NULL);
+	if (chain != NULL) {
+	  ngx_log_debug4(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "ngx clojure body filter, r=%" PRIu64 ", size=%d flush=%d last=%d",
+	                  (uintptr_t)r, ngx_buf_size(chain->buf), chain->buf->flush, chain->buf->last_buf);
+
+	} else {
+	  ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "ngx clojure body filter, r=%" PRIu64 ", meets NULL chain",
+	                  (uintptr_t)r);
+	}
+
+
+	if (chain == NULL || (ngx_buf_size(chain->buf) == 0 && chain->next == NULL && !chain->buf->last_buf)) {
+	  return ngx_http_clojure_filter_continue_next_body_filter(r, chain);
 	}
 
 	lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);

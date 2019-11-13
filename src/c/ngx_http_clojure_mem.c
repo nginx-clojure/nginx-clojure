@@ -3105,6 +3105,8 @@ static jlong JNICALL jni_ngx_http_filter_continue_next(JNIEnv *env, jclass cls, 
     if (!is_last && old_in) {
         /*Mark them as consumed*/
         while (old_in) {
+          ngx_log_debug5(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "make consumed, r=%" PRIu64 ", size=%d flush=%d last=%d count=%d",
+              (uintptr_t)r, ngx_buf_size(old_in->buf), old_in->buf->flush, old_in->buf->last_in_chain, r->count);
           old_in->buf->pos = old_in->buf->last;
           old_in->buf->file_pos = old_in->buf->file_last;
           old_in = old_in->next;
