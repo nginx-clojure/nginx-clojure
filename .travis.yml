@@ -69,34 +69,35 @@ jobs:
     - stage: unit test
       script:
         - lein with-profile unittest junit  
-    - stage: integration test (plain mode)
+    - stage: integration test (plain mode|thread pool mode|coroutine mode)
       script:
         - cd /home/who/git/nginx-clojure/test/nginx-working-dir
         - mkdir logs temp temp/client_temp temp/fastcgi_temp temp/proxy_temp temp/scgi_temp temp/uwsgi_temp
         - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-plain.conf &
         - sleep 10
-        - tail logs/error.log
+        - tail -f logs/error.log &
         - curl -v http://localhost:8080/clojure
+        - killall tail
         - cd /home/who/git/nginx-clojure/
         - lein with-profile cljremotetest test :all
         - cd /home/who/git/nginx-clojure/test/nginx-working-dir
         - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-plain.conf -s stop        
-    - stage: integration test (thread pool mode)
       script:
         - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-threadpool.conf &
         - sleep 10
-        - tail logs/error.log
+        - tail -f logs/error.log &
         - curl -v http://localhost:8080/clojure
+        - killall tail
         - cd /home/who/git/nginx-clojure/  
         - lein with-profile cljremotetest test :no-async
         - cd /home/who/git/nginx-clojure/test/nginx-working-dir
         - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-threadpool.conf -s stop
-    - stage: integration test (coroutine mode)
       script:
         - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-coroutine.conf &
         - sleep 30
-        - tail logs/error.log
+        - tail -f logs/error.log &
         - curl -v http://localhost:8080/clojure
+        - killall tail
         - cd /home/who/git/nginx-clojure/  
         - lein with-profile cljremotetest test :all
         - cd /home/who/git/nginx-clojure/test/nginx-working-dir
@@ -109,3 +110,8 @@ after_failure:
 
 notifications:
   email: false
+  
+branches:
+  only:
+  - master
+  - stable  
