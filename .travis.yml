@@ -59,6 +59,8 @@ before_script:
   - cd ${NGX_SRC} && ./configure --with-http_v2_module --with-select_module  --with-http_ssl_module  --with-ipv6 --with-http_geoip_module --with-http_auth_request_module  --with-debug --add-module=${NC_PJ_HOME}/src/c  --with-http_stub_status_module  --prefix= --sbin-path=nginx --conf-path=conf/nginx.conf --error-log-path=logs/error.log --http-log-path=logs/access.log --pid-path=logs/nginx.pid --lock-path=logs/nginx.lock --http-client-body-temp-path=temp/client_temp --http-proxy-temp-path=temp/proxy_temp --http-fastcgi-temp-path=temp/fastcgi_temp --http-uwsgi-temp-path=temp/uwsgi_temp --http-scgi-temp-path=temp/scgi_temp
   - make
   - cp objs/nginx ${NC_PJ_HOME}/test/nginx-working-dir
+  - cd /home/who/git/nginx-clojure/test/nginx-working-dir
+  - mkdir logs temp temp/client_temp temp/fastcgi_temp temp/proxy_temp temp/scgi_temp temp/uwsgi_temp  
   - cd /home/who/git/nginx-clojure/
   - mkdir bin
   - lein with-profile +cljremotetest classpath
@@ -69,10 +71,9 @@ jobs:
     - stage: unit test
       script:
         - lein with-profile unittest junit  
-    - stage: integration test (plain mode|thread pool mode|coroutine mode)
+    - stage: integration test
       script:
         - cd /home/who/git/nginx-clojure/test/nginx-working-dir
-        - mkdir logs temp temp/client_temp temp/fastcgi_temp temp/proxy_temp temp/scgi_temp temp/uwsgi_temp
         - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-plain.conf &
         - sleep 10
         - tail -f logs/error.log &
@@ -81,8 +82,10 @@ jobs:
         - cd /home/who/git/nginx-clojure/
         - lein with-profile cljremotetest test :all
         - cd /home/who/git/nginx-clojure/test/nginx-working-dir
-        - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-plain.conf -s stop        
+        - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-plain.conf -s stop
+    - # stage name not required, will continue to use `integration test`            
       script:
+        - cd /home/who/git/nginx-clojure/test/nginx-working-dir
         - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-threadpool.conf &
         - sleep 10
         - tail -f logs/error.log &
@@ -92,7 +95,9 @@ jobs:
         - lein with-profile cljremotetest test :no-async
         - cd /home/who/git/nginx-clojure/test/nginx-working-dir
         - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-threadpool.conf -s stop
+    - # stage name not required, will continue to use `integration test`            
       script:
+        - cd /home/who/git/nginx-clojure/test/nginx-working-dir
         - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-coroutine.conf &
         - sleep 30
         - tail -f logs/error.log &
