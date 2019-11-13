@@ -64,7 +64,8 @@ before_script:
   - cd /home/who/git/nginx-clojure/
   - mkdir bin
   - lein with-profile +cljremotetest classpath
-  - lein install 
+  - lein install
+  - lein with-profile unittest junit compile 
   
 jobs:
   include:
