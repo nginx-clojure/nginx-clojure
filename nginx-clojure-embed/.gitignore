@@ -11,3 +11,4 @@
 /res
 /ngx-memoryleak
 /.lein-failures
+/pom.xml.asc
