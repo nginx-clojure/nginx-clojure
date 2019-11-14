@@ -40,7 +40,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 
-import nginx.clojure.CaseInsensitiveMap;
 import nginx.clojure.ChannelListener;
 import nginx.clojure.Coroutine;
 import nginx.clojure.MiniConstants;
@@ -145,42 +144,30 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	}
 	
 	public void prefetchAll() {
-		prefetchAll(DefinedPrefetch.ALL_HEADERS, DefinedPrefetch.NO_VARS);
+		prefetchAll(DefinedPrefetch.ALL_HEADERS, DefinedPrefetch.NO_VARS, DefinedPrefetch.NO_HEADERS);
 	}
 	
 	/* (non-Javadoc)
 	 * @see nginx.clojure.NginxRequest#prefetchAll(java.lang.String[], java.lang.String[])
 	 */
 	@Override
-	public void prefetchAll(String[] headers, String[] variables) {
+	public void prefetchAll(String[] headers, String[] variables, String[] outHeaders) {
 		int len = array.length >> 1;
 		for (int i = 0; i < len; i++) {
 			Object v = val(i);
-			if (headers != DefinedPrefetch.NO_HEADERS && v instanceof JavaLazyHeaderMap) {
-				@SuppressWarnings({ "unchecked", "rawtypes" })
-				Map<String, Object> lazyHeaderMap = (Map)v;
-				if (headers == DefinedPrefetch.ALL_HEADERS) {
-					array[(i<<1) + 1] = new CaseInsensitiveMap<Object>(lazyHeaderMap);
-				} else {
-					Map<String, Object> headersMap = new CaseInsensitiveMap<Object>();
-					for (String h : headers) {
-						headersMap.put(h, lazyHeaderMap.get(h));
-					}
-					array[(i<<1) + 1] = headersMap;
-				}
+			if (v instanceof JavaLazyHeaderMap) {
+				((JavaLazyHeaderMap)v).enableSafeCache(headers);
 			}
 		}
+
+		if (variables == DefinedPrefetch.CORE_VARS) {
+			variables = MiniConstants.CORE_VARS.keySet().toArray(new String[MiniConstants.CORE_VARS.size()]);
+		}
 		
-		if (variables != DefinedPrefetch.NO_VARS) {
-			if (variables == DefinedPrefetch.CORE_VARS) {
-				variables = MiniConstants.CORE_VARS.keySet().toArray(new String[MiniConstants.CORE_VARS.size()]);
-			}
-			
-			prefetchedVariables = new HashMap<>(variables.length);
-			
-			for (String variable : variables) {
-				prefetchedVariables.put(variable, getVariable(variable));
-			}
+		prefetchedVariables = new HashMap<>(variables.length);
+		
+		for (String variable : variables) {
+			prefetchedVariables.put(variable, getVariable(variable));
 		}
 	}
 	
@@ -569,5 +556,12 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	@Override
 	public int getAndIncEvalCount() {
 		return evalCount++;
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxRequest#applyDelayed()
+	 */
+	@Override
+	public void applyDelayed() {
 	}
 }

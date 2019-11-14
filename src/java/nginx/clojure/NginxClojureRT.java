@@ -910,6 +910,7 @@ public class NginxClojureRT extends MiniConstants {
 		if (len <= 0){
 			return null;
 		}
+		
 		return fetchString(address + NGX_HTTP_CLOJURE_STR_DATA_OFFSET, len, encoding, bb, cb);
 	}
 	
@@ -987,6 +988,11 @@ public class NginxClojureRT extends MiniConstants {
 		if (size > bb.limit()) {
 			size = bb.limit();
 		}
+		
+		if (size == 7168) {
+			System.err.println("too long value??");
+		}
+		
 		ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(paddress), bb.array(), BYTE_ARRAY_OFFSET, size);
 		bb.limit(size);
 		return HackUtils.decode(bb, encoding, cb);
@@ -1429,6 +1435,8 @@ public class NginxClojureRT extends MiniConstants {
 			return NGX_HTTP_INTERNAL_SERVER_ERROR;
 		}
 		
+		ctx.request.applyDelayed();
+		
 		if (resp.type() == NginxResponse.TYPE_FAKE_PHASE_DONE) {
 			if (ctx.request.phase() == NGX_HTTP_HEADER_FILTER_PHASE) {
 				rc = ngx_http_filter_continue_next(r, NGX_HTTP_HEADER_FILTER_IN_THREADPOOL, 0);
@@ -1457,6 +1465,7 @@ public class NginxClojureRT extends MiniConstants {
 			return NGX_OK;
 		}
 		
+		// the handler returns direct body and doesn't want to continue next phase.
 		long chain = ctx.chain;
 		int phase = req.phase();
 		long nr = req.nativeRequest();

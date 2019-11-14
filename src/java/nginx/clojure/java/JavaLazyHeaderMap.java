@@ -31,9 +31,11 @@ import java.nio.LongBuffer;
 import java.util.AbstractSet;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
+import nginx.clojure.CaseInsensitiveMap;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHeaderHolder;
 import nginx.clojure.NginxSimpleHandler;
@@ -50,6 +52,10 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 	protected int flag;
 	protected long pool;
 	
+	//for thread pool mode safe access header map and apply it later
+	protected Map<String, Object> safeCache;
+	protected Set<String> updatedHeaders;
+	
 	public JavaLazyHeaderMap(long r, boolean headersOut) {
 		this.headers = r
 				+ (headersOut ? NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET 
@@ -59,8 +65,30 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 		this.pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
 	}
 	
+	public void enableSafeCache(String[] headers) {
+		if (headers == DefinedPrefetch.ALL_HEADERS) {
+			safeCache = new CaseInsensitiveMap<Object>(this);
+		} else {
+			safeCache = new CaseInsensitiveMap<Object>();
+			for (String h : headers) {
+				safeCache.put(h, get(h));
+			}
+		}
+		
+		this.size = safeCache.size();
+		
+		if ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0) {
+			updatedHeaders = new LinkedHashSet<>();
+		}
+	}
+	
 	@Override
 	public Iterator iterator() {
+		
+		if (safeCache != null) {
+			return safeCache.entrySet().iterator();
+		}
+		
 		return new PickerPoweredIterator<>(new Picker<Entry<String, Object>>() {
 			@Override
 			public java.util.Map.Entry<String, Object> pick(int i) {
@@ -73,10 +101,11 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 		});
 	}
 	
-	public SimpleEntry<String, Object> entry(int i) {
+	protected SimpleEntry<String, Object> entry(int i) {
 		if (i >= size) {
 			return null;
 		}
+		
 		ByteBuffer bb = pickByteBuffer();
 		int valuesOffset = NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE + BYTE_ARRAY_OFFSET;
 		int c = (int)ngx_http_clojure_mem_get_headers_items(headers, i,  flag,  bb.array(),  valuesOffset,  bb.capacity());
@@ -107,7 +136,7 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 		return new SimpleEntry<>(fetchNGXString(tp + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET, DEFAULT_ENCODING, bb ,  pickCharBuffer()), v,  NginxSimpleHandler.readOnlyEntrySetter);
 	}
 	
-	public String key(int i) {
+	protected String key(int i) {
 		if (i >= size) {
 			return null;
 		}
@@ -124,7 +153,7 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 		return  fetchNGXString(lbb.get(0)+ NGX_HTTP_CLOJURE_TEL_KEY_OFFSET, DEFAULT_ENCODING,  bb ,  pickCharBuffer());
 	}
 	
-	public Object val(int i) {
+	protected Object val(int i) {
 		if (i >= size) {
 			return null;
 		}
@@ -159,6 +188,10 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 			return false;
 		}
 		
+		if (safeCache != null) {
+			return safeCache.containsKey(keyObj);
+		}
+		
 		NginxHeaderHolder holder = ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0 ?
 				KNOWN_RESP_HEADERS : KNOWN_REQ_HEADERS)
 				.get(keyObj);
@@ -186,6 +219,11 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 
 	@Override
 	public boolean containsValue(Object value) {
+		
+		if (safeCache != null) {
+			return safeCache.containsValue(value);
+		}
+		
 		for (int i = 0; i < size; i++) {
 			if (value.equals(val(i))) {
 				return true;
@@ -200,6 +238,14 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 			return false;
 		}
 		
+		if (safeCache != null) {
+			return safeCache.get(keyObj);
+		}
+		
+		return unsafeGet(keyObj);
+	}
+
+	protected Object unsafeGet(Object keyObj) {
 		NginxHeaderHolder holder = ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0 ?
 				KNOWN_RESP_HEADERS : KNOWN_REQ_HEADERS)
 				.get(keyObj);
@@ -216,21 +262,31 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 	@Override
 	public Object put(String key, Object value) {
 		if ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0) {
-			NginxHeaderHolder holder = KNOWN_RESP_HEADERS.get(key);
-			if (holder == null) {
-				holder = new UnknownHeaderHolder(key,
-						(NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0 ? NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET
-								: NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET);
+			
+			if (safeCache != null) {
+				updatedHeaders.add(key);
+				return safeCache.put(key, value);
 			}
-			Object old = holder.fetch(headers);
-			holder.push(headers, pool, value);
-			if (old == null) {
-				size ++;
-			}
-			return old;
+			
+			return unsafePut(key, value);
 		}else {
 			throw new UnsupportedOperationException("put request header  not supported now!");
 		}
+	}
+
+	protected Object unsafePut(String key, Object value) {
+		NginxHeaderHolder holder = KNOWN_RESP_HEADERS.get(key);
+		if (holder == null) {
+			holder = new UnknownHeaderHolder(key,
+					(NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0 ? NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET
+							: NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET);
+		}
+		Object old = holder.fetch(headers);
+		holder.push(headers, pool, value);
+		if (old == null) {
+			size ++;
+		}
+		return old;
 	}
 
 	@Override
@@ -241,6 +297,17 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 		if (key == null) {
 			return null;
 		}
+		
+		if (safeCache != null) {
+			updatedHeaders.add(key.toString());
+			return safeCache.remove(key);
+		}
+		
+		return unsafeRemove(key);
+	
+	}
+
+	protected Object unsafeRemove(Object key) {
 		NginxHeaderHolder holder = KNOWN_RESP_HEADERS.get(key);
 		if (holder == null) {
 			holder = new UnknownHeaderHolder((String)key,
@@ -253,7 +320,6 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 			size --;
 		}
 		return old;
-	
 	}
 
 	@Override
@@ -264,14 +330,24 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 		for (Entry en : m.entrySet()) {
 			put(en.getKey().toString(), en.getValue());
 		}
-		size = (int) ngx_http_clojure_mem_get_headers_size(headers, flag);
+		
+		if (safeCache == null) {
+			size = (int) ngx_http_clojure_mem_get_headers_size(headers, flag);
+		}
 	}
 
 	@Override
 	public void clear() {
 		if ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) == 0) {
 			throw new UnsupportedOperationException("clear request header  not supported now!");
-		}	
+		}
+		
+		if (safeCache != null) {
+			safeCache.clear();
+			size = 0;
+			return;
+		}
+		
 		NginxClojureRT.ngx_http_clear_header_and_reset_ctx_phase(headers - NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET, 0);
 		size = 0;
 	}
@@ -324,12 +400,12 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 
 	@Override
 	public Set<String> keySet() {
-		return new KeySet();
+		return safeCache != null ? safeCache.keySet() : new KeySet();
 	}
 
 	@Override
 	public Collection<Object> values() {
-		return new ValueSet();
+		return safeCache != null ? safeCache.values() : new ValueSet();
 	}
 
 	private class EntrySet extends AbstractSet<Entry<String, Object>> {
@@ -356,7 +432,20 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 	
 	@Override
 	public Set<java.util.Map.Entry<String, Object>> entrySet() {
-		return new EntrySet();
+		return safeCache != null ? safeCache.entrySet() : new EntrySet();
+	}
+
+
+	public void applyDelayed() {
+		if (safeCache != null && !updatedHeaders.isEmpty()) {
+			for (String header : updatedHeaders) {
+				if (safeCache.containsKey(header)) {
+					unsafePut(header, safeCache.get(header));
+				} else {
+					unsafeRemove(header);
+				}
+			}
+		}
 	}
 
 }

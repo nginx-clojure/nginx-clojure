@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import nginx.clojure.Configurable;
+import nginx.clojure.NginxClojureRT;
 import nginx.clojure.wave.SuspendMethodTracer;
 
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -20,6 +21,7 @@ public class FilterTestSet4NginxJavaHeaderFilter {
 	public static class AddMoreHeaders implements NginxJavaHeaderFilter {
 		@Override
 		public Object[] doFilter(int status, Map<String, Object> request, Map<String, Object> responseHeaders) {
+			NginxClojureRT.log.info("response headers " + new HashMap<>(responseHeaders));
 			responseHeaders.put("Xfeep-Header", "Hello!");
 			return Constants.PHASE_DONE;
 		}

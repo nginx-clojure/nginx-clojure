@@ -65,4 +65,13 @@ public interface NginxJavaRingHandler extends DefinedPrefetch {
 		return NO_VARS;
 	}
 	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.java.DefinedPrefetch#responseHeadersNeedPrefetch()
+	 */
+	@Override
+	default String[] responseHeadersNeedPrefetch() {
+		return NO_HEADERS;
+	}
+	
+	
 }

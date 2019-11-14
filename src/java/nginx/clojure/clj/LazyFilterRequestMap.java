@@ -2,6 +2,7 @@ package nginx.clojure.clj;
 
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE;
 import static nginx.clojure.NginxClojureRT.fetchNGXInt;
 import static nginx.clojure.NginxClojureRT.pushNGXInt;
 
@@ -117,9 +118,19 @@ public class LazyFilterRequestMap extends LazyRequestMap implements NginxFilterR
 	 * @see nginx.clojure.clj.LazyRequestMap#prefetchAll(java.lang.String[], java.lang.String[])
 	 */
 	@Override
-	public void prefetchAll(String[] headers, String[] variables) {
+	public void prefetchAll(String[] headers, String[] variables, String[] outHeaders) {
 		if (origin == null) {
-			super.prefetchAll(headers, variables);	
+			super.prefetchAll(headers, variables, outHeaders);	
+		}
+		
+		if (phase == NGX_HTTP_HEADER_FILTER_PHASE) {
+			if (responseHeaders instanceof LazyHeaderMap) {
+				((LazyHeaderMap)responseHeaders).enableSafeCache(outHeaders);
+			}
+		} else {
+			if (responseHeaders instanceof LazyHeaderMap) {
+				((LazyHeaderMap)responseHeaders).enableSafeCache(outHeaders);
+			}
 		}
 		
 		if (body != null) {
@@ -291,5 +302,15 @@ public class LazyFilterRequestMap extends LazyRequestMap implements NginxFilterR
 	@Override
 	public boolean isLast() {
 		return body != null && body.isLast();
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.clj.LazyRequestMap#applyDelayed()
+	 */
+	@Override
+	public void applyDelayed() {
+		if (responseHeaders instanceof LazyHeaderMap) {
+			((LazyHeaderMap)responseHeaders).applyDelayed();
+		}
 	}
 }

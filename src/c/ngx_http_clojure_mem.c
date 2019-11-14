@@ -3520,8 +3520,6 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_headers_items(JNIEnv *env, jcl
 			return NGX_ERROR;
 		}
 		list = &hout->headers;
-		
-		/*content-type is the first header*/
 		if (hout->content_type.len) {
 			if (i == 0) {
 				*pvalue = (uintptr_t)( pvalue + 1 );

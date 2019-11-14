@@ -1,5 +1,6 @@
 package nginx.clojure.java;
 
+import static nginx.clojure.MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_STATUS_LINE_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_STATUS_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_HEADERS_OUT_OFFSET;
@@ -9,6 +10,7 @@ import static nginx.clojure.NginxClojureRT.pushNGXString;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -160,32 +162,25 @@ public class NginxJavaFilterRequest extends NginxJavaRequest implements NginxFil
 	}
 	
 	/* (non-Javadoc)
-	 * @see nginx.clojure.java.NginxJavaRequest#prefetchAll()
-	 */
-	@Override
-	public void prefetchAll() {
-		if (origin == null) {
-			super.prefetchAll();	
-		}
-		
-		if (body != null) {
-			try {
-				body.prefetchNativeData();
-			} catch (IOException e) {
-				throw new RuntimeException("can not prefetch native data", e);
-			}
-		}
-	}
-	
-	/* (non-Javadoc)
 	 * @see nginx.clojure.java.NginxJavaRequest#prefetchAll(java.lang.String[], java.lang.String[])
 	 */
 	@Override
-	public void prefetchAll(String[] headers, String[] variables) {
+	public void prefetchAll(String[] headers, String[] variables, String[] outHeaders) {
 		if (origin == null) {
-			super.prefetchAll(headers, variables);
+			super.prefetchAll(headers, variables, outHeaders);
 		}
 
+		if (phase == NGX_HTTP_HEADER_FILTER_PHASE) {
+			if (responseHeaders instanceof JavaLazyHeaderMap) {
+				((JavaLazyHeaderMap)responseHeaders).enableSafeCache(outHeaders);
+			}
+		} else {
+			if (responseHeaders instanceof JavaLazyHeaderMap) {
+				((JavaLazyHeaderMap)responseHeaders).enableSafeCache(outHeaders);
+				responseHeaders = Collections.unmodifiableMap(responseHeaders);
+			}
+		}
+		
 		if (body != null) {
 			try {
 				body.prefetchNativeData();
@@ -323,6 +318,16 @@ public class NginxJavaFilterRequest extends NginxJavaRequest implements NginxFil
 	@Override
 	public boolean isLast() {
 		return body != null && body.isLast();
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.java.NginxJavaRequest#applyDelayed()
+	 */
+	@Override
+	public void applyDelayed() {
+		if (responseHeaders instanceof JavaLazyHeaderMap) {
+			((JavaLazyHeaderMap)responseHeaders).applyDelayed();
+		}
 	}
 
 }

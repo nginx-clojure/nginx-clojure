@@ -16,7 +16,9 @@ public interface NginxRequest {
 	 //for safe access with another thread
 	public void	prefetchAll();
 	
-	public void	prefetchAll(String[] headers, String[] variables);
+	public void	prefetchAll(String[] headers, String[] variables, String[] outHeaders);
+	
+	public void applyDelayed();
 	
 	public NginxHandler handler();
 	

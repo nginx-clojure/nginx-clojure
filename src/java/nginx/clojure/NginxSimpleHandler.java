@@ -58,6 +58,7 @@ import java.util.concurrent.Future;
 import nginx.clojure.Coroutine.FinishAwaredRunnable;
 import nginx.clojure.NginxClojureRT.WorkerResponseContext;
 import nginx.clojure.java.Constants;
+import nginx.clojure.java.DefinedPrefetch;
 import nginx.clojure.java.NginxJavaResponse;
 import sun.nio.ch.DirectBuffer;
 import sun.nio.cs.ThreadLocalCoders;
@@ -76,6 +77,8 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 	public abstract String[] headersNeedPrefetch();
 	
 	public abstract String[] variablesNeedPrefetch();
+	
+	public abstract String[] responseHeadersNeedPrefetch();
 	
 	protected boolean forcePrefetchAllProperties = false;
 	
@@ -102,7 +105,9 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		
 		if (forcePrefetchAllProperties) {
 			//for safe access with another thread
-			req.prefetchAll(headersNeedPrefetch(), variablesNeedPrefetch());
+			req.prefetchAll(DefinedPrefetch.ALL_HEADERS,
+					variablesNeedPrefetch() == DefinedPrefetch.NO_VARS ? DefinedPrefetch.CORE_VARS : variablesNeedPrefetch(),
+							responseHeadersNeedPrefetch());
 		}
 		
 		if (workers == null || (isWebSocket && phase == -1)
@@ -137,7 +142,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 					
 					if (!forcePrefetchAllProperties) {
 						//for safe access with another thread
-						req.prefetchAll(headersNeedPrefetch(), variablesNeedPrefetch());		
+						req.prefetchAll(headersNeedPrefetch(), variablesNeedPrefetch(), responseHeadersNeedPrefetch());		
 					}
 					
 					if (phase == NGX_HTTP_LOG_PHASE) {
@@ -153,7 +158,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		
 		//with thread pool mode we need make it safe
 		if (!forcePrefetchAllProperties) {
-			req.prefetchAll(headersNeedPrefetch(), variablesNeedPrefetch());		
+			req.prefetchAll(headersNeedPrefetch(), variablesNeedPrefetch(), responseHeadersNeedPrefetch());		
 		}
 		
 		if (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE 

@@ -252,4 +252,18 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 			return bodyFilter.variablesNeedPrefetch();
 		}
 	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxSimpleHandler#responseHeadersNeedPrefetch()
+	 */
+	@Override
+	public String[] responseHeadersNeedPrefetch() {
+		if (ringHandler != null) {
+			return ringHandler.responseHeadersNeedPrefetch();
+		} else if (headerFilter != null) {
+			return headerFilter.responseHeadersNeedPrefetch();
+		} else {
+			return bodyFilter.responseHeadersNeedPrefetch();
+		}
+	}
 }

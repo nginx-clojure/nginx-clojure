@@ -16,7 +16,7 @@ public interface NginxJavaHeaderFilter extends DefinedPrefetch {
 	 */
 	@Override
 	default String[] headersNeedPrefetch() {
-		return NO_HEADERS;
+		return ALL_HEADERS;
 	}
 	
 	/* (non-Javadoc)
@@ -25,6 +25,14 @@ public interface NginxJavaHeaderFilter extends DefinedPrefetch {
 	@Override
 	default String[] variablesNeedPrefetch() {
 		return NO_VARS;
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.java.DefinedPrefetch#responseHeadersNeedPrefetch()
+	 */
+	@Override
+	default String[] responseHeadersNeedPrefetch() {
+		return ALL_HEADERS;
 	}
 
 }

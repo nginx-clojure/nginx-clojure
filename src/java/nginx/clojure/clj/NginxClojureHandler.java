@@ -297,5 +297,19 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 			return getPrefetchMeta(bodyFilter.bodyFilter, "variablesNeedPrefetch", DefinedPrefetch.NO_VARS);
 		}
 	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxSimpleHandler#responseHeadersNeedPrefetch()
+	 */
+	@Override
+	public String[] responseHeadersNeedPrefetch() {
+		if (ringHandler != null) {
+			return getPrefetchMeta(ringHandler, "responseHeadersNeedPrefetch", DefinedPrefetch.NO_HEADERS);
+		} else if (headerFilter != null) {
+			return getPrefetchMeta(headerFilter, "responseHeadersNeedPrefetch", DefinedPrefetch.ALL_HEADERS);
+		} else {
+			return getPrefetchMeta(bodyFilter.bodyFilter, "responseHeadersNeedPrefetch", DefinedPrefetch.ALL_HEADERS);
+		}
+	}
 
 }

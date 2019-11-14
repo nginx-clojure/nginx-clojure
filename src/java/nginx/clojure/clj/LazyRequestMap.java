@@ -52,7 +52,6 @@ import clojure.lang.IPersistentVector;
 import clojure.lang.ISeq;
 import clojure.lang.MapEntry;
 import clojure.lang.Obj;
-import clojure.lang.PersistentArrayMap;
 import clojure.lang.RT;
 import clojure.lang.Util;
 import nginx.clojure.ChannelListener;
@@ -66,7 +65,6 @@ import nginx.clojure.RequestVarFetcher;
 import nginx.clojure.Stack;
 import nginx.clojure.UnknownHeaderHolder;
 import nginx.clojure.java.DefinedPrefetch;
-import nginx.clojure.java.JavaLazyHeaderMap;
 import nginx.clojure.java.NginxJavaRequest;
 import nginx.clojure.java.RequestRawMessageAdapter;
 import nginx.clojure.java.RequestRawMessageAdapter.RequestOrderedRunnable;
@@ -188,43 +186,30 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 	}
 	
 	public void prefetchAll() {
-		prefetchAll(DefinedPrefetch.ALL_HEADERS, DefinedPrefetch.NO_VARS);
+		prefetchAll(DefinedPrefetch.ALL_HEADERS, DefinedPrefetch.NO_VARS, DefinedPrefetch.NO_HEADERS);
 	}
 	
 	/* (non-Javadoc)
 	 * @see nginx.clojure.NginxRequest#prefetchAll(java.lang.String[], java.lang.String[])
 	 */
 	@Override
-	public void prefetchAll(String[] headers, String[] variables) {
+	public void prefetchAll(String[] headers, String[] variables, String[] outHeaders) {
 		for (int i = 0; i < validLen; i += 2) {
 			Object v = element(i);
-			if (headers != DefinedPrefetch.NO_HEADERS && v instanceof JavaLazyHeaderMap) {
-				JavaLazyHeaderMap lazyHeaderMap = (JavaLazyHeaderMap)v;
-				if (headers == DefinedPrefetch.ALL_HEADERS) {
-					headers = lazyHeaderMap.keySet().toArray(new String[lazyHeaderMap.size()]);
-				}
-				
-				Object[] headersArray = new Object[headers.length * 2];
-				
-				for (int hi = 0; hi < headers.length; hi++) {
-					String h = headers[hi];
-					headersArray[hi << 1] = h.toLowerCase();
-					headersArray[(hi << 1) + 1] = lazyHeaderMap.get(h);
-				}
-				array[i + 1] = new PersistentArrayMap(headersArray);
+			if (v instanceof LazyHeaderMap) {
+				LazyHeaderMap lazyHeaderMap = (LazyHeaderMap)v;
+				lazyHeaderMap.enableSafeCache(headers);
 			}
 		}
 		
-		if (variables != DefinedPrefetch.NO_VARS) {
-			if (variables == DefinedPrefetch.CORE_VARS) {
-				variables = MiniConstants.CORE_VARS.keySet().toArray(new String[MiniConstants.CORE_VARS.size()]);
-			}
-			
-			prefetchedVariables = new HashMap<>(variables.length);
-			
-			for (String variable : variables) {
-				prefetchedVariables.put(variable, getVariable(variable));
-			}
+		if (variables == DefinedPrefetch.CORE_VARS) {
+			variables = MiniConstants.CORE_VARS.keySet().toArray(new String[MiniConstants.CORE_VARS.size()]);
+		}
+		
+		prefetchedVariables = new HashMap<>(variables.length);
+		
+		for (String variable : variables) {
+			prefetchedVariables.put(variable, getVariable(variable));
 		}
 	}
 	
@@ -694,5 +679,12 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 	@Override
 	public long discardRequestBody() {
 		return NginxClojureRT.discardRequestBody(r);
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxRequest#applyDelayed()
+	 */
+	@Override
+	public void applyDelayed() {
 	}
 }
