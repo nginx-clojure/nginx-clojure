@@ -1587,6 +1587,8 @@ public class NginxClojureRT extends MiniConstants {
 			return;
 		}
 		
+		req.applyDelayed();
+		
 		long rc;
 		int phase = req.phase();
 		if (resp.type() == NginxResponse.TYPE_FAKE_PHASE_DONE) {

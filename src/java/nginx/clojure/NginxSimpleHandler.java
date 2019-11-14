@@ -140,7 +140,7 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 						}
 					}
 					
-					if (!forcePrefetchAllProperties) {
+					if (!forcePrefetchAllProperties && !coroutineEnabled) {
 						//for safe access with another thread
 						req.prefetchAll(headersNeedPrefetch(), variablesNeedPrefetch(), responseHeadersNeedPrefetch());		
 					}
