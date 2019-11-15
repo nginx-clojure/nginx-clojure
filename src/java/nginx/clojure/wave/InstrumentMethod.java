@@ -461,6 +461,18 @@ public class InstrumentMethod {
 					}
 				}
 				break;
+				
+			case Opcodes.INVOKEVIRTUAL:
+				min = (MethodInsnNode) ins;
+				if ("sun/security/ssl/SSLSocketImpl".equals(className) && "java/lang/Object".equals(min.owner)
+						&& ("notifyAll".equals(min.name) || "notify".equals(min.name) || "wait".equals(min.name))) {
+					if (db.isAllowMonitors()) {
+						db.warn("Method %s#%s%s contains wait/notify/notifyAll, we'll clear it", className, mn.name, mn.desc);
+						mv.visitInsn(Opcodes.POP);
+						continue;
+					}
+				}
+				break;
 			}
 			ins.accept(mv);
 		}

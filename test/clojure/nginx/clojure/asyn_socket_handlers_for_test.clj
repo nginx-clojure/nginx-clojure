@@ -123,7 +123,7 @@
 											"write" (write-handler as sc)
 											"release" (release-handler as sc))
                 )))]
-    (.setTimeout as 10000 10000 10000)
+    (.setTimeout as 10000 20000 20000)
     (.setContext as ctx)
     (.connect as "www.apache.org:80")
     ;tell nginx clojure our work isn't done.

@@ -52,6 +52,11 @@
          (println headers)
          (println (.length body))
          {:status status,  :headers (dissoc headers "transfer-encoding" "server" "content-length" "connection" "etag"), :body body}))
+  (GET "/simple-clj-https-test" [] 
+       (let [{:keys [status, headers, body]} (client/get "https://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt" {:socket-timeout 50000 :insecure? true})]
+         (println headers)
+         (println (.length body))
+         {:status status,  :headers (dissoc headers "transfer-encoding" "server" "content-length" "connection" "etag"), :body body}))  
   (GET "/" [] {:status 200, :headers {"content-type" "text/plain"}, :body "hello"})
   (GET "/simple-httpclientget" [:as req] (let [[s h b] (.invoke (SimpleHandler4TestHttpClientGetMethod.) {})] {:status s :headers h :body b}))
   (GET "/simple" [] 

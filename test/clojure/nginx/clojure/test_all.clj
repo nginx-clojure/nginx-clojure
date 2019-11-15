@@ -558,7 +558,19 @@
              (is (= 200 (:status r)))
              (is (= (.length b) (.length b1)))
              (is (= b b1)))) 
-    ;http://localhost:8080/coroutineSocketAndCompojure/fetch-two-pages
+    ;http://localhost:8080/coroutineSocketAndCompojure/simple-clj-https-test
+     (testing "coroutine based socket--compojure & clj-http get"
+            (let [r (client/get (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/simple-clj-https-test") {:throw-exceptions false})
+                  h (:headers r)
+                  b (r :body)
+;                 r1 (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
+;                 b1 (r1 :body)
+                ]
+             (debug-println "=================coroutine based socket compojure & clj-http get =============================")
+             (is (= 200 (:status r)))
+             (is (= (.length b) (.length b1)))
+             (is (= b b1))))
+     ;http://localhost:8080/coroutineSocketAndCompojure/fetch-two-pages
      (testing "coroutine based socket--co-pvalues & compojure & clj-http "
             (let [r (client/get (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/fetch-two-pages") {:throw-exceptions false})
                   h (:headers r)
