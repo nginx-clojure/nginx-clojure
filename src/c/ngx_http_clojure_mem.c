@@ -1884,6 +1884,14 @@ TOP_WHILE :
 					buf->pos += wsctx->left;
 				}
 				wsctx->opcode = buf->pos[0] & 0x0f;
+
+#if (NGX_ZLIB)
+				if (wsctx->premsg_deflate && wsctx->fin) {
+				  /*the last frame is FIN frame so we need update compressed flag*/
+				  wsctx->compressed = (buf->pos[0] & 0x40) >> 6;
+				}
+#endif
+
 				if (wsctx->fin || (buf->pos[0] & 0x0f) == NGX_HTTP_CLOJURE_WEBSOCKET_OPCODE_CLOSE) { /*last frame is FIN frame*/
 					wsctx->cont = 0;
 				}else {
@@ -2066,7 +2074,7 @@ TOP_WHILE :
 					wsctx->len -= size;
 					pc = buf->pos;
 #if (NGX_ZLIB)
-					if (wsctx->premsg_deflate && !(wsctx->opcode & 0x8)) { /*PMCEs operate only on data messages.*/
+					if (wsctx->compressed && !(wsctx->opcode & 0x8)) { /*PMCEs operate only on data messages.*/
 						u_char deflate_buf[8192];
 						u_char *deflate_buf_pos;
 						int zrc = 0;
@@ -2360,6 +2368,7 @@ ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
     	ngx_http_clojure_get_header(r->headers_in.headers, "Sec-WebSocket-Extensions", in_extensions);
     	if (in_extensions != NULL && ngx_strcasestrn(in_extensions->value.data, "permessage-deflate", 18-1)) {
     		wsctx->premsg_deflate = 1;
+    		wsctx->compressed = 0;
     		if (ngx_strcasestrn(in_extensions->value.data, "client_no_context_takeover", 26-1)) {
     			wsctx->out_no_ctx_takeover = 1;
     			sprintf(out_extensions_tmp_value+strlen(out_extensions_tmp_value), ";%s", "client_no_context_takeover");

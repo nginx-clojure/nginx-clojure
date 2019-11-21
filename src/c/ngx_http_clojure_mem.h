@@ -176,6 +176,7 @@ typedef struct {
 #if (NGX_ZLIB)
 /*for premessage-deflate --websocket compression extension*/
 	unsigned premsg_deflate   : 1;
+	unsigned compressed       : 1;
 	unsigned in_no_ctx_takeover : 1;
 	unsigned out_no_ctx_takeover : 1;
 	unsigned part_written : 1;
