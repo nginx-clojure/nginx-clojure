@@ -4,6 +4,15 @@ Downloads & Release History
 1. [Binaries of Releases](http://sourceforge.net/projects/nginx-clojure/files/)
 1. [Sources of Releases](https://github.com/nginx-clojure/nginx-clojure/releases)
 
+## 0.5.1 (2019-11-23)
+
+1. Bug Fix: Connection hangs with header filter at thread-pool mode #209 #153
+1. Bug Fix: Body filter hangs when body size is larger than the value specified in proxy_buffers #219
+1. Bug Fix: Segment fault caused by request is marked as closed too late #222
+1. Code Style: Fix generic warnings in java code code-style #223 (Thanks to Michael @mgoblin)
+1. Bug Fix: NPE caused by damaged memory because unsafe modify response headers #198 
+1. Bug Fix: Wrong response for uncompressed message with PMCE enabled
+1. CI: both auto-triggered unit test and integration test use travis-ci
 
 ## 0.5.0 (2019-10-26)
 

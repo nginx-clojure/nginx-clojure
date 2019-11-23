@@ -1,4 +1,4 @@
-(defproject nginx-clojure/nginx-jersey "0.1.5"
+(defproject nginx-clojure/nginx-jersey "0.1.6"
   :description "Intergrate Jersey into Nginx by Nignx-Clojure Module so that 
                 Nginx can Support Java standard RESTful Web Services (JAX-RS)"
   :url "https://github.com/nginx-clojure/nginx-clojure/nginx-jersey"

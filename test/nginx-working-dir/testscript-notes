@@ -573,5 +573,9 @@ lein with-profile unittest junit
 2. versions in project.clj
 
 3. doc
+
+4. sub-projects
+
+5. example projects
  
 
