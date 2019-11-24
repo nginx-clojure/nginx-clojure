@@ -191,10 +191,6 @@ public class WebSocketTestSet4NginxJavaRingHandler {
 		public Object[] invoke(Map<String, Object> request) throws IOException {
 			NginxJavaRequest r = (NginxJavaRequest)request;
 			NginxHttpServerChannel sc = r.hijack(true);
-			//If we use nginx directive `auto_upgrade_ws on;`, these three lines can be omitted.
-			if (!sc.webSocketUpgrade(true)) {
-				return null;
-			}
 			sc.addListener(sc, new WholeMessageAdapter<NginxHttpServerChannel>(9*1024) {
 				/* (non-Javadoc)
 				 * @see nginx.clojure.WholeMessageAdapter#onWholeTextMessage(java.lang.Object, java.lang.String)
@@ -204,6 +200,12 @@ public class WebSocketTestSet4NginxJavaRingHandler {
 					ch.send(message, true, false);
 				}
 			});
+			
+			//If we use nginx directive `auto_upgrade_ws on;`, these three lines can be omitted.
+			if (!sc.webSocketUpgrade(true)) {
+				return null;
+			}
+			
 			return null;
 		}
 	}
@@ -214,10 +216,7 @@ public class WebSocketTestSet4NginxJavaRingHandler {
 		public Object[] invoke(Map<String, Object> request) throws IOException {
 			NginxJavaRequest r = (NginxJavaRequest)request;
 			NginxHttpServerChannel sc = r.hijack(true);
-			//If we use nginx directive `auto_upgrade_ws on;`, these three lines can be omitted.
-			if (!sc.webSocketUpgrade(true)) {
-				return null;
-			}
+			
 			sc.addListener(sc, new WholeMessageAdapter<NginxHttpServerChannel>(64*1024) {
 				/* (non-Javadoc)
 				 * @see nginx.clojure.WholeMessageAdapter#onWholeTextMessage(java.lang.Object, java.lang.String)
@@ -235,6 +234,12 @@ public class WebSocketTestSet4NginxJavaRingHandler {
 					ch.send(message, true, false);
 				}
 			});
+			
+			//If we use nginx directive `auto_upgrade_ws on;`, these three lines can be omitted.
+			if (!sc.webSocketUpgrade(true)) {
+				return null;
+			}
+			
 			return null;
 		}
 	}
