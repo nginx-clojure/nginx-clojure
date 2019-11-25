@@ -106,6 +106,7 @@ Documents
     - [Sever Side WebSocket](http://nginx-clojure.github.io/more.html#user-content-38--sever-side-websocket)
     - [Java standard RESTful web services with Jersey](http://nginx-clojure.github.io/more.html#user-content-39--java-standard-restful-web-services-with-jersey)
     - [Embeding Tomcat](http://nginx-clojure.github.io/more.html#user-content-310-embeding-tomcat)
+    - [Use Spring Framework with Nginx-Clojure Java Handlers](https://github.com/nginx-clojure/nginx-clojure/tree/master/example-projects/spring-core-example)
     - [More about Nginx Worker Process](http://nginx-clojure.github.io/more.html#user-content-311-more-about-nginx-worker-process)
     - [More about Nginx-Clojure](http://nginx-clojure.github.io/more.html)
 - [Directives Reference](http://nginx-clojure.github.io/directives.html)
