@@ -536,8 +536,8 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		}
 		
 		if (prefetchedVariables != null) {
-			prefetchedVariables.clear();
-			updatedVariables.clear();
+			prefetchedVariables = null;
+			updatedVariables = null;
 		}
 		
 		((NginxJavaHandler)handler).returnToRequestPool(this);

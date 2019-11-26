@@ -578,8 +578,8 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 			}
 			
 			if (this.prefetchedVariables != null) {
-				this.prefetchedVariables.clear();
-				this.updatedVariables.clear();
+				this.prefetchedVariables = null;
+				this.updatedVariables = null;
 			}
 						
 			((NginxClojureHandler)handler).returnToRequestPool(this);
