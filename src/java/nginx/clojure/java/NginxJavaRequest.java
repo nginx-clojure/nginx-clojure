@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -100,6 +101,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	protected volatile boolean released = false;
 	protected List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners;
 	protected Map<String, String> prefetchedVariables;
+	protected Set<String> updatedVariables;
 	
 	public final  static ChannelListener<NginxRequest> requestListener  = new RequestRawMessageAdapter();
 	
@@ -169,6 +171,8 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		for (String variable : variables) {
 			prefetchedVariables.put(variable, getVariable(variable));
 		}
+		
+		updatedVariables = new LinkedHashSet<>();
 	}
 	
 	
@@ -212,6 +216,13 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	
 
 	public int setVariable(String name, String value) {
+		
+		if (prefetchedVariables != null) {
+			prefetchedVariables.put(name, value);
+			updatedVariables.add(name);
+			return 0;
+		}
+		
 		return NginxClojureRT.setNGXVariable(r, name, value);
 	}
 	
@@ -526,6 +537,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		
 		if (prefetchedVariables != null) {
 			prefetchedVariables.clear();
+			updatedVariables.clear();
 		}
 		
 		((NginxJavaHandler)handler).returnToRequestPool(this);
@@ -563,5 +575,10 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	 */
 	@Override
 	public void applyDelayed() {
+		if (updatedVariables != null) {
+			for (String var : updatedVariables) {
+				NginxClojureRT.unsafeSetNginxVariable(r, var, prefetchedVariables.get(var));
+			}
+		}
 	}
 }

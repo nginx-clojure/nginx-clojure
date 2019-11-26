@@ -1106,7 +1106,7 @@ public class NginxClojureRT extends MiniConstants {
 		}
 	}
 
-	protected static int unsafeSetNginxVariable(long r, String name, String val) throws OutOfMemoryError {
+	public static int unsafeSetNginxVariable(long r, String name, String val) throws OutOfMemoryError {
 		long np = CORE_VARS.containsKey(name) ? CORE_VARS.get(name) : 0;
 		long pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
 		

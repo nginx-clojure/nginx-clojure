@@ -36,8 +36,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
@@ -126,6 +128,7 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 	protected LazyRequestMap rawRequestMap; // it is make by nginx-clojure inner handler not from assoc()
 	
 	protected Map<String, String> prefetchedVariables;
+	protected Set<String> updatedVariables;
 	
 	public final static LazyRequestMap EMPTY_MAP = new LazyRequestMap(null, 0, null, new Object[0]);
 	
@@ -162,6 +165,7 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 		this.channel = or.channel;
 		this.evalCount = or.evalCount;
 		this.prefetchedVariables = or.prefetchedVariables;
+		this.updatedVariables = or.updatedVariables;
 		this.nativeCount = or.nativeCount;
 		validLen = a.length;
 	}
@@ -211,6 +215,8 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 		for (String variable : variables) {
 			prefetchedVariables.put(variable, getVariable(variable));
 		}
+		
+		updatedVariables = new LinkedHashSet<>();
 	}
 	
 	
@@ -573,8 +579,9 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 			
 			if (this.prefetchedVariables != null) {
 				this.prefetchedVariables.clear();
+				this.updatedVariables.clear();
 			}
-			
+						
 			((NginxClojureHandler)handler).returnToRequestPool(this);
 		} else {
 			this.rawRequestMap.tagReleased();
@@ -633,6 +640,12 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 
 	@Override
 	public int setVariable(String name, String value) {
+		if (prefetchedVariables != null) {
+			prefetchedVariables.put(name, value);
+			updatedVariables.add(name);
+			return 0;
+		}
+		
 		return NginxClojureRT.setNGXVariable(r, name, value);
 	}
 	
@@ -686,5 +699,10 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 	 */
 	@Override
 	public void applyDelayed() {
+		if (updatedVariables != null) {
+			for (String var : updatedVariables) {
+				NginxClojureRT.unsafeSetNginxVariable(r, var, prefetchedVariables.get(var));
+			}
+		}
 	}
 }

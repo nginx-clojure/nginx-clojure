@@ -405,6 +405,8 @@ public class NginxHttpServerChannel implements Closeable {
 			return MiniConstants.NGX_HTTP_INTERNAL_SERVER_ERROR;
 		}
 
+		req.applyDelayed();
+		
 		long rc = NGX_OK;
 		long r = req.nativeRequest();
 
