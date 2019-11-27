@@ -67,7 +67,7 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 
 	private native static long natomicAddNumber(long ctx, int ktype, Object keyBuf, long offset, long len, int vtype, long delta);
 	
-	private native static long nvisit(long ctx, SharedMapSimpleVisitor visitor);
+	private native static long nvisit(long ctx, @SuppressWarnings("rawtypes") SharedMapSimpleVisitor visitor);
 
 	private NginxSharedHashMap() {
 	}
@@ -109,7 +109,6 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 		return visitor.visit(native2JavaObject(ktype, kaddr, ksize), native2JavaObject(vtype, vaddr, vsize));
 	}
 	
-	@SuppressWarnings({"rawtypes", "unchecked"})
 	public static <KT, VT> NginxSharedHashMap<KT, VT> build(String name) {
 		return new NginxSharedHashMap<>(name);
 	}
@@ -327,7 +326,6 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 	}
 
 
-	@SuppressWarnings({"rawtypes", "unchecked"})
 	@Override
 	public Set<K> keySet() {
 		NginxClojureRT.getLog().warn("NginxSharedHashMap.keySet is quite expensive operation DO NOT use it at non-debug case!!!");
@@ -340,7 +338,6 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 	}
 
 
-	@SuppressWarnings({"rawtypes", "unchecked"})
 	@Override
 	public Collection<V> values() {
 		NginxClojureRT.getLog().warn("NginxSharedHashMap.values is quite expensive operation DO NOT use it at non-debug case!!!");
@@ -353,7 +350,6 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 	}
 
 
-	@SuppressWarnings({"rawtypes", "unchecked"})
 	@Override
 	public Set<java.util.Map.Entry<K, V>> entrySet() {
 		NginxClojureRT.getLog().warn("NginxSharedHashMap.entrySet is quite expensive operation DO NOT use it at non-debug case!!!");

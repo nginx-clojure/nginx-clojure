@@ -560,7 +560,11 @@ public class NginxClojureRT extends MiniConstants {
 	
 	private static synchronized void initMemIndex(long idxpt) {
 		getLog();
-		initUnsafe();	
+		initUnsafe();
+		
+		if (log.isDebugEnabled()) {
+			log.debug("jvm classpath:\n " + System.getProperty("java.class.path"));
+		}
 	    
 		NGINX_MAIN_THREAD = Thread.currentThread();
 		

@@ -138,7 +138,7 @@ public class NginxPubSubTopic {
 		NginxClojureRT.broadcastEvent(MiniConstants.POST_EVENT_TYPE_PUB, id);
 	}
 	
-	@SuppressWarnings({"rawtypes", "unchecked"})
+	@SuppressWarnings({"rawtypes"})
 	public <T> PubSubListenerData<T> subscribe(T data, NginxPubSubListener<T> listener) {
 		Set<PubSubListenerData> pds = topicSubs.get(topicId);
 		if (pds == null) {
