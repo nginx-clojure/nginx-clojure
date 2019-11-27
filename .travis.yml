@@ -34,6 +34,7 @@ env:
 
 services:
   - mysql
+  - redis-server
 
 
 

@@ -622,6 +622,19 @@
     )
   )
 
+(deftest ^{:remote true} test-coroutine-redis
+  (let [
+        b1 @remote-http-content]
+      (testing "coroutine based socket--redis large value example"
+           (let [r (client/get (str "http://" *host* ":" *port* "/redis") {:throw-exceptions false})
+                 h (:headers r)
+                 ]
+             (debug-println "=================coroutine based socket--redis large value example =============================")
+             (is (= 200 (:status r)))
+             (is (= "74499" (h "content-length")))))      
+    )
+  )
+
 (deftest ^{:remote true} test-nginx-var
   (testing "simple nginx var"
            (let [r (client/get (str "http://" *host* ":" *port* "/vartest") {:follow-redirects false})
