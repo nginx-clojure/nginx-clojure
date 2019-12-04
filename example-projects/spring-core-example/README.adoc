@@ -235,7 +235,7 @@ public class ProxyTargetComputeService {
 [source,bash]
 ....
 git clone https://github.com/nginx-clojure/nginx-clojure
-cd nginx-clojure/example-projects/spring-core-example/spring-core-example
+cd nginx-clojure/example-projects/spring-core-example
 
 ## use mvn pakage to get spring-core-example-0.0.1-jar-with-dependencies.jar
 mvn package
