@@ -22,38 +22,38 @@ public class StudentResource {
 
 	@Autowired
 	private StudentService studentService;
-	
+
 	public StudentResource() {
 	}
-	
+
 	@POST
-    public Student create(Student student) {
-        return studentService.save(student);
-    }
-	
-    @PUT
-    @Path("{id}")
-    public Student update(@PathParam("id") String id, Student student) {
-    	if (studentService.find(student.getId()) == null) {
-    		return null;
-    	}
-        return studentService.save(student);
-    }
-    
-    @GET
-    @Path("{id}")
-    public Student find(@PathParam("id") String id) {
-    	return studentService.find(id);
-    }
-    
-    @DELETE
-    @Path("{id}")
-    public Response delete(@PathParam("id") String id) {
-         if (studentService.remove(id) == null) {
-        	 return Response.status(302).build();
-         } else {
-        	 return Response.status(201).build();
-         }
-    }
+	public Student create(Student student) {
+		return studentService.save(student);
+	}
+
+	@PUT
+	@Path("{id}")
+	public Student update(@PathParam("id") String id, Student student) {
+		if (studentService.find(student.getId()) == null) {
+			return null;
+		}
+		return studentService.save(student);
+	}
+
+	@GET
+	@Path("{id}")
+	public Student find(@PathParam("id") String id) {
+		return studentService.find(id);
+	}
+
+	@DELETE
+	@Path("{id}")
+	public Response delete(@PathParam("id") String id) {
+		if (studentService.remove(id) == null) {
+			return Response.status(302).build();
+		} else {
+			return Response.status(201).build();
+		}
+	}
 
 }
