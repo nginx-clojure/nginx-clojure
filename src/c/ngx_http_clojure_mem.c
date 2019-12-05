@@ -164,8 +164,9 @@ static u_char WS_CLOSE_NO_EXTENSION[] = { 0x03, 0xf2 };*/
 
 /*1011 indicates that a server is terminating the connection
  * because it encountered an unexpected condition that prevented it from fulfilling the request.*/
+#if (NGX_ZLIB)
 static u_char WS_CLOSE_UNEXPECTED_CONDITION[] = { 0x03, 0xf3 };
-
+#endif
 /*1012 indicates that the service will be restarted.
 static u_char WS_CLOSE_SERVICE_RESTART[] = { 0x03, 0xf4 };*/
 
@@ -174,8 +175,9 @@ static u_char WS_CLOSE_TRY_AGAIN_LATER[] = { 0x03, 0xf5 };*/
 
 /*1015 is a reserved value and MUST NOT be set as a status code in a Close control frame by an endpoint.
 static u_char WS_CLOSE_TLS_HANDSHAKE_FAILURE[] = { 0x03, 0xf7 };*/
-
+#if (NGX_ZLIB)
 static u_char WS_PMCE_TAIL_DATA[] = {0x00, 0x00, 0xff, 0xff};
+#endif
 
 ngx_int_t ngx_http_clojure_set_elt_header(ngx_http_request_t *r, ngx_table_elt_t *h, ngx_uint_t offset) {
     ngx_table_elt_t  **ph;
@@ -1516,7 +1518,10 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *me
 	ngx_http_clojure_module_ctx_t *ctx;
 	ngx_chain_t *in;
 	size_t page_size;
+
+#if (NGX_ZLIB)
 	int need_reset_deflate_ctx = 0;
+#endif
 
 	if (r->pool == NULL) {
 		if (message) { /*message can be NULL if send a close event without additional data*/
@@ -1564,14 +1569,16 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *me
 			}
 		}
 		if (!(flag & (NGX_CLOJURE_BUF_WEBSOCKET_CLOSE_FRAME | NGX_CLOJURE_BUF_WEBSOCKET_PONG_FRAME))) {
-			if (!ctx->wsctx->ffm) {
+			if (!wsctx->ffm) {
 				flag |= NGX_CLOJURE_BUF_WEBSOCKET_CONTINUE_FRAME;
-			}else {
+			} else {
+#if (NGX_ZLIB)
 				need_reset_deflate_ctx = 1;
-				ctx->wsctx->ffm = 0;
+#endif
+				wsctx->ffm = 0;
 			}
 			if (flag & NGX_CLOJURE_BUF_FLUSH_FLAG) {
-				ctx->wsctx->ffm = 1;
+				wsctx->ffm = 1;
 			}
 #if (NGX_ZLIB)
 			if (wsctx->premsg_deflate) {
@@ -2293,9 +2300,9 @@ static void ngx_http_clojure_websocket_free(void *opaque, void *address) {
 ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
 	ngx_http_clojure_module_ctx_t *ctx;
 #if (NGX_HAVE_SHA1 || nginx_version >= 1011002)
-    ngx_http_clojure_websocket_ctx_t *wsctx = NULL;
-	ngx_int_t rc = NGX_OK;
-	ngx_table_elt_t *key = NULL;
+  ngx_http_clojure_websocket_ctx_t *wsctx = NULL;
+  ngx_int_t rc = NGX_OK;
+  ngx_table_elt_t *key = NULL;
 	ngx_table_elt_t *accept;
 	ngx_table_elt_t *cver = NULL;
 	ngx_sha1_t   sha1_ctx;
@@ -2354,17 +2361,18 @@ ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
     wsctx = ctx->wsctx;
 
     if (wsctx == NULL) {
+#if (NGX_ZLIB)
     	ngx_table_elt_t *in_extensions = NULL;
     	ngx_table_elt_t *out_extensions = NULL;
     	int in_max_window_bits = 15;
     	int out_max_window_bits = 15;
     	/*TODO: negotiate in_max_window_bits & out_max_window_bits, e.g. "permessage-deflate;server_max_window_bits=11;client_max_window_bits=11"*/
     	char out_extensions_tmp_value[1024] = "permessage-deflate";
-
+#endif
     	wsctx = ngx_pcalloc(r->pool, sizeof(ngx_http_clojure_websocket_ctx_t));
-		wsctx->ffm = 1;
-		wsctx->fin = 1;
-  #if (NGX_ZLIB)
+		  wsctx->ffm = 1;
+		  wsctx->fin = 1;
+#if (NGX_ZLIB)
     	ngx_http_clojure_get_header(r->headers_in.headers, "Sec-WebSocket-Extensions", in_extensions);
     	if (in_extensions != NULL && ngx_strcasestrn(in_extensions->value.data, "permessage-deflate", 18-1)) {
     		wsctx->premsg_deflate = 1;
@@ -2396,7 +2404,7 @@ ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
 				goto UPGRADE_DONE;
 			}
     	}
-  #endif
+#endif
 
     }
 
