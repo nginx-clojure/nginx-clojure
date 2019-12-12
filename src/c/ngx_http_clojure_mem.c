@@ -3087,7 +3087,7 @@ static jlong JNICALL jni_ngx_http_filter_continue_next(JNIEnv *env, jclass cls, 
   if (chain < 0) { /*header filter*/
     rc = ngx_http_clojure_next_header_filter(r);
 
-    if (rc != NGX_OK) {
+    if (rc == NGX_ERROR || rc > NGX_OK || r->header_only) {
       return rc;
     }
 
