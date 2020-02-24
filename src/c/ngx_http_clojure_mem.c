@@ -1914,8 +1914,8 @@ TOP_WHILE :
 
 				if ( !(wsctx->opcode & 0x8) ) { /*is not control frame*/
 					wsctx->fin = (buf->pos[0] >> 7) & 1;
-				}else {
-					if (!(buf->pos[0] >> 7) & 1) { /*control frame must be FIN*/
+				} else {
+          if ((!(buf->pos[0] >> 7)) & 1) { /*control frame must be FIN*/
 						goto_close(WS_CLOSE_PROTOCOL_ERROR);
 					}
 
