@@ -436,7 +436,7 @@
 
 (def remote-http-content
   (delay 
-    (let [r1 (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt" {:socket-timeout 10000})
+    (let [r1 (client/get "https://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt" {:socket-timeout 10000})
          b1 (r1 :body)] b1)))
 
 (deftest ^{:async true :remote true} test-asyncsocket

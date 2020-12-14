@@ -101,7 +101,7 @@ public class AccessHandlerTestSet4NginxJavaRingHandler {
 			CloseableHttpClient httpclient = HttpClients.createDefault();
 			RequestConfig requestConfig = RequestConfig.custom().setConnectionRequestTimeout(10000).setConnectTimeout(10000)
 					.setSocketTimeout(10000).build();
-			HttpGet httpget = new HttpGet("http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt");
+			HttpGet httpget = new HttpGet("https://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt");
 			httpget.setConfig(requestConfig);
 			httpget.setHeader("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2062.94 Safari/537.36");
 			CloseableHttpResponse response = null;

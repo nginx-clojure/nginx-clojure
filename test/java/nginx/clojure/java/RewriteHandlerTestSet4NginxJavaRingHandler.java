@@ -182,7 +182,7 @@ public class RewriteHandlerTestSet4NginxJavaRingHandler {
 
 			CloseableHttpClient httpclient = HttpClients.createDefault();
 //			HttpGet httpget = new HttpGet("http://cn.bing.com/");
-			HttpGet httpget = new HttpGet("http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt");
+			HttpGet httpget = new HttpGet("https://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt");
 			httpget.setConfig(RequestConfig.custom().setConnectTimeout(10000).setSocketTimeout(10000).build());
 			CloseableHttpResponse response = null;
 			try {

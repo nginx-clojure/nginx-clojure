@@ -10,3 +10,4 @@
 /nginx-ws-java-clj-tomcat.conf
 /tengine-enable-coroutine.conf
 /ws-nginx-plain.conf
+/nginx-tomcat9.conf

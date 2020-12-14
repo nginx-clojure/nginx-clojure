@@ -88,6 +88,67 @@ public class WebSocketTestSet4NginxJavaRingHandler {
 		}
 	}
 	
+	public static class WSCloseHandler implements NginxJavaRingHandler {
+
+		/* (non-Javadoc)
+		 * @see nginx.clojure.java.NginxJavaRingHandler#invoke(java.util.Map)
+		 */
+		@Override
+		public Object[] invoke(Map<String, Object> request) throws IOException {
+			NginxJavaRequest r = (NginxJavaRequest)request;
+			NginxHttpServerChannel sc = r.hijack(true);
+			sc.addListener(sc, new MessageAdapter<NginxHttpServerChannel>() {
+				int total = 0;
+				@Override
+				public void onOpen(NginxHttpServerChannel data) {
+					NginxClojureRT.log.debug("WSCloseHandler onOpen!");
+				}
+
+				@Override
+				public void onTextMessage(NginxHttpServerChannel sc, String message, boolean remaining) throws IOException {
+					if (NginxClojureRT.log.isDebugEnabled()) {
+						NginxClojureRT.log.debug("WSCloseHandler onTextMessage: msg=%s, rem=%s", HackUtils.truncateToDotAppendString(message, 10), remaining);
+					}
+					
+					if (total > 0) {
+						ByteArrayOutputStream stream = new ByteArrayOutputStream();
+						stream.write(new byte[] {0x11, 0x33}); // code = 4403
+						stream.write("User Error".getBytes("utf8"));
+						byte[] closeMessage = stream.toByteArray();
+						sc.send(closeMessage, 0, closeMessage.length, true, true);
+					} else {
+						total += message.length();
+						sc.send(message, !remaining, false);
+					}
+				}
+				
+				@Override
+				public void onClose(NginxHttpServerChannel req) {
+					if (NginxClojureRT.log.isDebugEnabled()) {
+						NginxClojureRT.log.debug("WSCloseHandler onClose: total=%d", total);
+					}
+					
+				}
+				
+				@Override
+				public void onClose(NginxHttpServerChannel req, long status, String reason) {
+					if (NginxClojureRT.log.isDebugEnabled()) {
+					  NginxClojureRT.log.info("WSCloseHandler onClose2: total=%d, status=%d, reason=%s", total, status, reason);
+					}
+				}
+				
+				@Override
+				public void onError(NginxHttpServerChannel data, long status) {
+					if (NginxClojureRT.log.isDebugEnabled()) {
+						  NginxClojureRT.log.info("WSCloseHandler onError: total=%d, status=%d", total, status);
+						}
+				}
+			});
+			return null;
+		}
+		
+	}
+	
 	public static class NonAutoUpgradeWSEcho extends WSEcho {
 
 		@Override
