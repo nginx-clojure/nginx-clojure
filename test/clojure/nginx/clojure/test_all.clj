@@ -800,7 +800,8 @@
              (debug-println r)
              (debug-println "=================/javaaccess/basic1/small2.html=============================")
              (is (= 404 (:status r)))
-             (is  (= "162" (h  "content-length")) ))) 
+             ;; 146 nginx 1.18.0, 162 ngin 1.14.2
+             (is  (= "146" (h  "content-length")) )))
          
          (testing "access basic auth-fail with 401"
            (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/basic1/small2.html") {:coerce :unexceptional :follow-redirects false, :basic-auth ["xfeep" "xxxxx!"] :throw-exceptions false})
