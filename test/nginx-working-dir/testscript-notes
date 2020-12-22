@@ -561,14 +561,14 @@ lein with-profile unittest junit
 ## release check list
 1. version in MiniConstants 
    
-   NGINX_CLOJURE_RT_REQUIRED_LVER = 5000;
-	 NGINX_CLOJURE_RT_VER = 5000;
+   NGINX_CLOJURE_RT_REQUIRED_LVER = 5002;
+	 NGINX_CLOJURE_RT_VER = 5002;
 
 2. version in ngx_http_clojure_mem.h
 
-    nginx_clojure_ver  5000 /*0.5.0*/
-    nginx_clojure_required_rt_lver 5000
-    NGINX_CLOJURE_VER_NUM_STR "0.5.0"	 
+    nginx_clojure_ver  5002 /*0.5.0*/
+    nginx_clojure_required_rt_lver 5002
+    NGINX_CLOJURE_VER_NUM_STR "0.5.2"	 
 
 2. versions in project.clj
 
