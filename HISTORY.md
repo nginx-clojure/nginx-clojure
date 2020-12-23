@@ -4,6 +4,16 @@ Downloads & Release History
 1. [Binaries of Releases](http://sourceforge.net/projects/nginx-clojure/files/)
 1. [Sources of Releases](https://github.com/nginx-clojure/nginx-clojure/releases)
 
+## 0.5.2 (2020-12-23)
+
+1. Bug Fix: #234 Try to fix no response when NGX_AGAIN return at next header filter
+1. Bug Fix: #233 Fix compiler warnings when there's no zlib found
+1. Enhancement: Delayed update to improve setVariable/set-ngx-var! performance at thread-pool mode
+1. Example Project: Add an example project for Jersey & Spring DI
+1. Example Project: Add example for integration with Spring framework
+1. Binaries Distribution: Built with Nginx v1.18.0
+
+
 ## 0.5.1 (2019-11-23)
 
 1. Bug Fix: Connection hangs with header filter at thread-pool mode #209 #153
