@@ -24,6 +24,6 @@
                                   [compojure "1.1.6"]
                                   [clj-http "0.7.8"]
                                   [stylefruits/gniazdo "1.1.2"]
-                                  [junit/junit "4.11"]
+                                  [junit/junit "4.13.1"]
                                   ]}} 
   )
