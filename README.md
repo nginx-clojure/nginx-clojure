@@ -1,7 +1,7 @@
 [Nginx-Clojure](http://nginx-clojure.github.io)
 =============
 
-[![Build Status](https://travis-ci.com/nginx-clojure/nginx-clojure.svg?branch=master)](https://travis-ci.com/nginx-clojure/nginx-clojure)
+[![Build Status](https://travis-ci.com/nginx-clojure/nginx-clojure.svg?branch=master)](https://app.travis-ci.com/github/nginx-clojure/nginx-clojure)
 [![Clojars Project](https://img.shields.io/clojars/v/nginx-clojure.svg)](https://clojars.org/nginx-clojure)
 [![BSD licensed](https://img.shields.io/badge/license-BSD-blue.svg)](./LICENSE)
 ![GitHub last commit](https://img.shields.io/github/last-commit/nginx-clojure/nginx-clojure)
