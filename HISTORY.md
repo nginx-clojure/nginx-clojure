@@ -4,6 +4,12 @@ Downloads & Release History
 1. [Binaries of Releases](http://sourceforge.net/projects/nginx-clojure/files/)
 1. [Sources of Releases](https://github.com/nginx-clojure/nginx-clojure/releases)
 
+## 0.5.3 (2022-03-10)
+
+1. Bug Fix: #256 NginxClojureAsynSocket isClosed is not return correct result
+1. Binaries Distribution: Built with Nginx v1.20.2
+
+
 ## 0.5.2 (2020-12-23)
 
 1. Bug Fix: #234 Try to fix no response when NGX_AGAIN return at next header filter
