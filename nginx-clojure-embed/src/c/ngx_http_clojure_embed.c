@@ -236,7 +236,12 @@ static ngx_int_t ngx_http_clojure_embed_start(int argc, char *const *argv){
 
     ngx_pid = ngx_getpid();
 
+#if nginx_version < 1020000
     log = ngx_log_init(NULL);
+#else
+    log = ngx_log_init(NULL, NULL);
+#endif
+
     if (log == NULL) {
     	ngx_http_clojure_embed_return_error("ngx_log_init");
     }
