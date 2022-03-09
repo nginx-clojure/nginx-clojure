@@ -1,4 +1,4 @@
-(defproject nginx-clojure/nginx-clojure "0.5.2"
+(defproject nginx-clojure/nginx-clojure "0.5.3"
   :description "Nginx module for clojure or groovy or java programming"
   :url "https://github.com/nginx-clojure/nginx-clojure"
   :license {:name "BSD 3-Clause license"
@@ -40,7 +40,7 @@
              }
   :codox {:source-paths ["src/clojure"
                          "nginx-clojure-embed/src/clojure"]
-          :project {:name "nginx-clojure", :version "0.5.0", :description "N/A"}
+          :project {:name "nginx-clojure", :version "0.5.3", :description "N/A"}
           :output-path "../nginx-clojure.github.io/api"
           ;:metadata {:doc/format :markdown}
           :namespaces ["nginx.clojure.core" "nginx.clojure.session" "nginx.clojure.embed"]
@@ -70,10 +70,10 @@
                                   [org.clojure/tools.trace "0.7.10"]
                                   ]}
              :unittest {
-                    :jvm-opts ["-javaagent:target/nginx-clojure-0.5.2.jar=mb"
+                    :jvm-opts ["-javaagent:target/nginx-clojure-0.5.3.jar=mb"
                                "-Dfile.encoding=UTF-8"
                                "-Dnginx.clojure.wave.udfs=pure-clj.txt,compojure.txt,compojure-http-clj.txt,mysql-jdbc.txt,test-groovy.txt"
-                               "-Xbootclasspath/a:target/nginx-clojure-0.5.2.jar"]
+                               "-Xbootclasspath/a:target/nginx-clojure-0.5.3.jar"]
                     :junit-options {:fork "on"}
                     :java-source-paths ["test/java" "test/clojure"]
                     :test-paths ["src/test/clojure"]
