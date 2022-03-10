@@ -3,7 +3,7 @@
   <groupId>nginx-clojure</groupId>
   <artifactId>nginx-clojure-embed</artifactId>
   <packaging>jar</packaging>
-  <version>0.5.2</version>
+  <version>0.5.3</version>
   <name>nginx-clojure-embed</name>
   <description>Embeding Nginx-Clojure into a standard clojure/java/groovy app without additional Nginx process</description>
   <url>https://github.com/nginx-clojure/nginx-clojure/tree/master/nginx-clojure-embed</url>
@@ -86,7 +86,7 @@
     <dependency>
       <groupId>nginx-clojure</groupId>
       <artifactId>nginx-clojure</artifactId>
-      <version>0.5.2</version>
+      <version>0.5.3</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
