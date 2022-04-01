@@ -14,13 +14,13 @@
 		<maven.compiler.target>1.8</maven.compiler.target>
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<jersey.version>2.29</jersey.version>
-		<spring.version>5.1.5.RELEASE</spring.version>
+		<spring.version>5.3.18</spring.version>
 	</properties>
 	<dependencies>
 		<dependency>
 			<groupId>nginx-clojure</groupId>
 			<artifactId>nginx-jersey</artifactId>
-			<version>0.1.6</version>
+			<version>0.1.8</version>
 		</dependency>
 		<dependency>
 			<groupId>org.glassfish.jersey.core</groupId>
@@ -48,6 +48,21 @@
 			<version>${spring.version}</version>
 		</dependency>
 		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-beans</artifactId>
+			<version>${spring.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-web</artifactId>
+			<version>${spring.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-aop</artifactId>
+			<version>${spring.version}</version>
+		</dependency>
+		<dependency>
 			<groupId>jakarta.servlet</groupId>
 			<artifactId>jakarta.servlet-api</artifactId>
 			<version>4.0.3</version>
@@ -61,7 +76,7 @@
 		<dependency>
 			<groupId>nginx-clojure</groupId>
 			<artifactId>nginx-clojure-embed</artifactId>
-			<version>0.5.1</version>
+			<version>0.5.3</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
