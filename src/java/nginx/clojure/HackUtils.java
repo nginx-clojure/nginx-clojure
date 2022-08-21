@@ -32,19 +32,23 @@ public class HackUtils {
     private static final long contextClassLoaderOffset;
     private static final long inheritedAccessControlContextOffset;
     private static final Method createInheritedMap;
-    private static final Class threadLocalMapClass;
+    @SuppressWarnings("rawtypes")
+	private static final Class threadLocalMapClass;
     
 	private static final long  threadLocalMapTableFieldOffset;// = UNSAFE.objectFieldOffset(threadLocalMapTableField);
 	private static final long  threadLocalMapSizeFieldOffset;// = UNSAFE.objectFieldOffset(threadLocalMapSizeField);
 	private static final long  threadLocalMapThresholdFieldOffset;// = UNSAFE.objectFieldOffset(threadLocalMapThresholdField);
     
-    private static final Class threadLocalMapEntryClass;
+    @SuppressWarnings("rawtypes")
+	private static final Class threadLocalMapEntryClass;
 	private static final long  threadLocalMapEntryValueFieldOffset;
 	private static final long  threadLocalMapEntryReferentFieldOffset;
 	private static final long threadLocalMapEntryQueueFieldOffset;
 	
+	@SuppressWarnings("rawtypes")
 	private static final Class randomAccessFileClass;
 	private static final long randomAccessFileFdFieldOffset;
+	@SuppressWarnings("rawtypes")
 	private static final Class fileDescriptorClass;
 	private static final long  fileDescriptorClassFdFieldOffset;
 	
@@ -223,8 +227,7 @@ public class HackUtils {
 		CharsetEncoder ce =  ThreadLocalCoders.encoderFor(cs)
 				.onMalformedInput(CodingErrorAction.REPLACE)
 				.onUnmappableCharacter(CodingErrorAction.REPLACE);
-		CharBuffer cb = CharBuffer.wrap((char[])UNSAFE.getObject(s, STRING_CHAR_ARRAY_OFFSET),
-				STRING_OFFSET_OFFSET > 0 ? UNSAFE.getInt(s, STRING_OFFSET_OFFSET) : 0, s.length());
+		CharBuffer cb = CharBuffer.wrap(s);
 		ce.reset();
 		CoderResult rt = ce.encode(cb, bb, true);
 		if (rt == CoderResult.OVERFLOW) {

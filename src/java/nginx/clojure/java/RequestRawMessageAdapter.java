@@ -25,9 +25,9 @@ import nginx.clojure.SuspendExecution;
 
 public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest> {
 
-	public final static ConcurrentLinkedQueue<Coroutine> pooledCoroutines = new ConcurrentLinkedQueue<Coroutine>();
+	public final static ConcurrentLinkedQueue<Coroutine> pooledCoroutines = new ConcurrentLinkedQueue<>();
 	
-	private final static ConcurrentHashMap<NginxRequest, RequestOrderedRunnable> lastFutureTasks = new ConcurrentHashMap<NginxRequest, RequestOrderedRunnable>();
+	private final static ConcurrentHashMap<NginxRequest, RequestOrderedRunnable> lastFutureTasks = new ConcurrentHashMap<>();
 	
 	public final static class RequestOrderedRunnable extends FutureTask<String> {
 		protected String type;
@@ -49,9 +49,9 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 				if (last != null) {
 					last.get();
 				}
-				if (request.isReleased()) {
-					return;
-				}
+//				if (request.isReleased()) {
+//					return;
+//				}
 				super.run();
 			} catch (Throwable e) {
 				super.cancel(false);
@@ -70,7 +70,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 		}
 		
 		if (NginxClojureRT.log.isDebugEnabled()) {
-			NginxClojureRT.log.debug("#%d: request %s onClose!", req.nativeRequest(), req.uri());
+			NginxClojureRT.log.debug("#%d: request %s, phase %s onClose!", req.nativeRequest(), req.phase(),  req.uri());
 		}
 		final List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
 		if (listeners != null && !listeners.isEmpty()) {
@@ -84,7 +84,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 							ChannelListener<Object> l = en.getValue();
 							if (l instanceof MessageListener) {
 								if (!req.channel().isClosed()) {
-									((MessageListener) l).onClose(en.getKey(), 1006, null);
+									((MessageListener<Object>) l).onClose(en.getKey(), 1006, null);
 								}
 							}else {
 								l.onClose(en.getKey());
@@ -114,6 +114,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 				action.run();
 			}else {
 				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable("onClose", action, req));
+				req.markReqeased();
 			}
 		}else {
 			req.tagReleased();
@@ -131,7 +132,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 					| (0xff & NginxClojureRT.UNSAFE.getByte(NginxClojureRT.UNSAFE.getAddress(address)+1))) : 1000;
 		
 		if (NginxClojureRT.log.isDebugEnabled()) {
-			NginxClojureRT.log.debug("#%d: request %s onClose2, status=%d", req.nativeRequest(), req.uri(), status);
+			NginxClojureRT.log.debug("#%d: request %s, phase %s onClose2, status=%d", req.nativeRequest(), req.phase(), req.uri(), status);
 		}
 		final List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners = req.listeners();
 		if (listeners != null && listeners.size() > 1) {
@@ -156,7 +157,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 						try {
 							ChannelListener<Object> l = en.getValue();
 							if (l instanceof MessageListener) {
-								((MessageListener) l).onClose(en.getKey(), status, txt);
+								((MessageListener<Object>) l).onClose(en.getKey(), status, txt);
 							}
 						}catch(Throwable e) {
 							NginxClojureRT.log.error(String.format("#%d: request %s onClose Error!", req.nativeRequest(), req.uri()), e);
@@ -191,6 +192,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 				action.run();
 			}else {
 				NginxClojureRT.workerExecutorService.submit(new RequestOrderedRunnable("onClose2", action, req));
+				req.markReqeased();
 			}
 		}else {
 			req.tagReleased();
@@ -359,7 +361,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 						try {
 							ChannelListener<Object> l = en.getValue();
 							if (l instanceof MessageListener) {
-								((MessageListener) l).onBinaryMessage(en.getKey(), bb, remining);
+								((MessageListener<Object>) l).onBinaryMessage(en.getKey(), bb, remining);
 							}
 						}catch(Throwable e) {
 							NginxClojureRT.log.error(String.format("#%d: request %s  onBinaryMessage Error!", req.nativeRequest(), req.uri()), e);
@@ -427,7 +429,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 							try {
 								ChannelListener<Object> l = en.getValue();
 								if (l instanceof MessageListener) {
-									((MessageListener) l).onTextMessage(en.getKey(), txt, remining);
+									((MessageListener<Object>) l).onTextMessage(en.getKey(), txt, remining);
 								}
 							}catch(Throwable e) {
 								NginxClojureRT.log.error(String.format("#%d: request %s onTextMessage Error!", req.nativeRequest(), req.uri()), e);
@@ -470,8 +472,7 @@ public class RequestRawMessageAdapter implements RawMessageListener<NginxRequest
 		//so we need copy listeners for safe usage. When not at main thread all close operation will be post to 
 		//FIFO queue and listeners won't be changed immediate so we need not copy them.
 		if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD) {
-			localListeners = new ArrayList<java.util.AbstractMap.SimpleEntry<Object,ChannelListener<Object>>>();
-			localListeners.addAll(listeners);
+			localListeners = new ArrayList<>(listeners);
 		}
 		return localListeners;
 	}

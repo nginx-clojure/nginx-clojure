@@ -23,8 +23,10 @@ public class NginxJavaResponse extends NginxSimpleResponse {
 		this.response = response;
 		if (response == Constants.ASYNC_TAG) {
 			this.type = TYPE_FAKE_ASYNC_TAG;
-		}else if (response == Constants.PHASE_DONE) {
+		} else if (response == Constants.PHASE_DONE) {
 			this.type = TYPE_FAKE_PHASE_DONE;
+		} else if (response == null) {
+			this.response = EMPTY_RESPONSE;
 		}
 	}
 
@@ -42,8 +44,9 @@ public class NginxJavaResponse extends NginxSimpleResponse {
 		return status;
 	}
 
+	@SuppressWarnings({"rawtypes", "unchecked"})
 	@Override
-	public Collection<Entry<?,?>> fetchHeaders() {
+	public <K, V> Collection<Entry<K,V>> fetchHeaders() {
 		Map headers = (Map)response[1];
 		return headers == null ? null : headers.entrySet();
 	}

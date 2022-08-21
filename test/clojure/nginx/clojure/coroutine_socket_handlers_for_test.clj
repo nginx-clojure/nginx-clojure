@@ -42,16 +42,21 @@
 (def db-spec 
   {:classname "com.mysql.jdbc.Driver"
    :subprotocol "mysql"
-   :subname "//mysql-0:3306/nginx-clojure"
+   :subname "//mysql-0:3306/nctest"
    :user "nginxclojure"
    :password "111111"})
 
 (defroutes coroutine-socket-test-handler
   (GET "/simple-clj-http-test" [] 
-       (let [{:keys [status, headers, body]} (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt" {:socket-timeout 50000})]
+       (let [{:keys [status, headers, body]} (client/get "https://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt" {:socket-timeout 50000})]
          (println headers)
          (println (.length body))
          {:status status,  :headers (dissoc headers "transfer-encoding" "server" "content-length" "connection" "etag"), :body body}))
+  (GET "/simple-clj-https-test" [] 
+       (let [{:keys [status, headers, body]} (client/get "https://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt" {:socket-timeout 50000 :insecure? true})]
+         (println headers)
+         (println (.length body))
+         {:status status,  :headers (dissoc headers "transfer-encoding" "server" "content-length" "connection" "etag"), :body body}))  
   (GET "/" [] {:status 200, :headers {"content-type" "text/plain"}, :body "hello"})
   (GET "/simple-httpclientget" [:as req] (let [[s h b] (.invoke (SimpleHandler4TestHttpClientGetMethod.) {})] {:status s :headers h :body b}))
   (GET "/simple" [] 
@@ -64,8 +69,8 @@
      )
   (GET "/fetch-two-pages" []
        (let [[r1 r2] (co-pvalues 
-                       (client/get "http://www.apache.org/dist/httpcomponents/httpclient/KEYS" {:socket-timeout 10000})
-                       (client/get "http://www.apache.org/dist/httpcomponents/httpcore/KEYS" {:socket-timeout 10000}))]
+                       (client/get "https://www.apache.org/dist/httpcomponents/httpclient/KEYS" {:socket-timeout 10000})
+                       (client/get "https://www.apache.org/dist/httpcomponents/httpcore/KEYS" {:socket-timeout 10000}))]
          {:status 200, 
           :headers {"content-type" "text/html"}, 
           :body (str (:body r1) "\n==========================\n" (:body r2)) }))

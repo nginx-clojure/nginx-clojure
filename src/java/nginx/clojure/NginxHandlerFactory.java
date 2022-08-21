@@ -28,6 +28,7 @@ public abstract class  NginxHandlerFactory {
 				return null;
 			}
 			try {
+				@SuppressWarnings("rawtypes")
 				Class clz = Thread.currentThread().getContextClassLoader().loadClass(factoryName);
 				factory = (NginxHandlerFactory) clz.newInstance();
 				handlerFactoryMap.put(type, factory);

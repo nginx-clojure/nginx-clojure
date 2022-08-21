@@ -11,7 +11,6 @@ import static nginx.clojure.MiniConstants.NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_L
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_HASH_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_KEY_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET;
-import static nginx.clojure.NginxClojureRT.UNSAFE;
 import static nginx.clojure.NginxClojureRT.fetchNGXString;
 import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_header;
 import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_shadow_copy_ngx_str;
@@ -48,6 +47,7 @@ public class UnknownHeaderHolder implements NginxHeaderHolder {
 		return -1;
 	}
 
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public void push(long h, long pool, Object v) {
 		
@@ -85,7 +85,7 @@ public class UnknownHeaderHolder implements NginxHeaderHolder {
 					ngx_http_clojure_mem_shadow_copy_ngx_str(lpname,  p + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET);
 				}else {
 					pushNGXString(p + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET, name, DEFAULT_ENCODING, pool);
-					lpname = UNSAFE.getAddress(p + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET);
+					lpname = p + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET;
 				}
 				pushNGXString(p + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, val.toString(), DEFAULT_ENCODING, pool);
 			}

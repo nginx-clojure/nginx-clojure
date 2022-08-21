@@ -29,6 +29,7 @@ public class NginxClojureAsynChannel implements NginxClojureSocketHandler, Close
 	public static class BufferChain {
 		public ByteBuffer buffer;
 		public BufferChain next;
+		@SuppressWarnings({"rawtypes"})
 		public CompletionListener listener;
 		public Object attachement;
 	}
@@ -248,6 +249,7 @@ public class NginxClojureAsynChannel implements NginxClojureSocketHandler, Close
 		connectFakeChain = null;
 	}
 	
+	@SuppressWarnings({"unchecked"})
 	protected void callOnEventNoThrows(BufferChain chain, long status) {
 		if (chain.listener == null) {
 			return;
@@ -360,6 +362,7 @@ public class NginxClojureAsynChannel implements NginxClojureSocketHandler, Close
 		this.as.close();
 	}
 	
+	@SuppressWarnings({"unchecked"})
 	public <T> T getContext() {
 		return (T)as.getContext();
 	}

@@ -31,13 +31,19 @@ import static nginx.clojure.java.Constants.HEADER_FETCHER;
 import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 
 import nginx.clojure.ChannelListener;
 import nginx.clojure.Coroutine;
+import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
 import nginx.clojure.NginxHandler;
 import nginx.clojure.NginxHttpServerChannel;
@@ -49,10 +55,11 @@ import nginx.clojure.java.PickerPoweredIterator.Picker;
 import nginx.clojure.java.RequestRawMessageAdapter.RequestOrderedRunnable;
 import nginx.clojure.net.NginxClojureAsynSocket;
 
+
 public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 
 	//TODO: SSL_CLIENT_CERT
-	private final static Object[] default_request_array = new Object[] { 
+	protected final static Object[] default_request_array = new Object[] { 
 		    URI, URI_FETCHER, 
 		    BODY, BODY_FETCHER, 
 		    HEADERS, HEADER_FETCHER,
@@ -90,24 +97,26 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	protected NginxHttpServerChannel channel;
 	protected int phase = -1;
 	protected int evalCount = 0;
+	protected int nativeCount = -1;
 	protected volatile boolean released = false;
 	protected List<java.util.AbstractMap.SimpleEntry<Object, ChannelListener<Object>>> listeners;
-	
+	protected Map<String, String> prefetchedVariables;
+	protected Set<String> updatedVariables;
 	
 	public final  static ChannelListener<NginxRequest> requestListener  = new RequestRawMessageAdapter();
 	
-	public NginxJavaRequest(NginxHandler handler, long r, Object[] array) {
+	public NginxJavaRequest(int phase, NginxHandler handler, long r, Object[] array) {
 		this.r = r;
 		this.handler = handler;
 		this.array = array;
+		this.phase = phase;
 		if (r != 0) {
-			NginxClojureRT.addListener(r, requestListener, this, 1);
+			NginxClojureRT.addListener(r, requestListener, this, phase == -1 ? 1 : 0);
 		}
 	}
 	
-	@SuppressWarnings("unchecked")
-	public NginxJavaRequest(NginxHandler handler, long r) {
-		this(handler, r, new Object[default_request_array.length]);
+	public NginxJavaRequest(int phase, NginxHandler handler, long r) {
+		this(phase, handler, r, new Object[default_request_array.length]);
 		System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
 		if (NginxClojureRT.log.isDebugEnabled()) {
 			get(URI);
@@ -122,14 +131,48 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		phase = -1;
 		if (r != 0) {
 			NginxClojureRT.addListener(r, requestListener, this, 1);
+			nativeCount = -1;
 		}
 	}
 	
+	public long nativeCount(long c) {
+		int old = nativeCount;
+		nativeCount = (int)c;
+		return old;
+	}
+	
+	public int refreshNativeCount() {
+		return nativeCount = (int)NginxClojureRT.ngx_http_clojure_mem_inc_req_count(r, 0);
+	}
+	
 	public void prefetchAll() {
+		prefetchAll(DefinedPrefetch.ALL_HEADERS, DefinedPrefetch.NO_VARS, DefinedPrefetch.NO_HEADERS);
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxRequest#prefetchAll(java.lang.String[], java.lang.String[])
+	 */
+	@Override
+	public void prefetchAll(String[] headers, String[] variables, String[] outHeaders) {
 		int len = array.length >> 1;
 		for (int i = 0; i < len; i++) {
-			val(i);
+			Object v = val(i);
+			if (v instanceof JavaLazyHeaderMap) {
+				((JavaLazyHeaderMap)v).enableSafeCache(headers);
+			}
 		}
+
+		if (variables == DefinedPrefetch.CORE_VARS) {
+			variables = MiniConstants.CORE_VARS.keySet().toArray(new String[MiniConstants.CORE_VARS.size()]);
+		}
+		
+		prefetchedVariables = new HashMap<>(variables.length);
+		
+		for (String variable : variables) {
+			prefetchedVariables.put(variable, getVariable(variable));
+		}
+		
+		updatedVariables = new LinkedHashSet<>();
 	}
 	
 	
@@ -152,6 +195,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		Object o = array[i];
 		if (o instanceof RequestVarFetcher) {
 			if (released) {
+				NginxClojureRT.getLog().warn("val at released request %s, idx %d", r, i);
 				return null;
 			}
 			if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
@@ -172,11 +216,57 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	
 
 	public int setVariable(String name, String value) {
+		
+		if (prefetchedVariables != null) {
+			prefetchedVariables.put(name, value);
+			updatedVariables.add(name);
+			return 0;
+		}
+		
 		return NginxClojureRT.setNGXVariable(r, name, value);
 	}
 	
 	public String getVariable(String name) {
-		return NginxClojureRT.getNGXVariable(r, name);
+		
+		if (prefetchedVariables != null && prefetchedVariables.containsKey(name)) {
+			return prefetchedVariables.get(name);
+		}
+		
+		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
+			FutureTask<String> task = new FutureTask<String>(new Callable<String>() {
+				@Override
+				public String call() throws Exception {
+					if (released) {
+						throw new IllegalAccessException("request was released when fetch variable " + name);
+					}
+					return NginxClojureRT.unsafeGetNGXVariable(r, name);
+				}
+			});
+			NginxClojureRT.postPollTaskEvent(task);
+			try {
+				return task.get();
+			} catch (InterruptedException e) {
+				throw new RuntimeException("getNGXVariable " + name + " error", e);
+			} catch (ExecutionException e) {
+				throw new RuntimeException("getNGXVariable " + name + " error", e.getCause());
+			}
+		} else {
+			
+			return NginxClojureRT.unsafeGetNGXVariable(r, name);
+		}
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxRequest#getVariable(java.lang.String, java.lang.String)
+	 */
+	@Override
+	public String getVariable(String name, String defaultVal) {
+		String v = getVariable(name);
+		return (v == null || v.isEmpty()) ? defaultVal : v;
+	}
+	
+	public long discardRequestBody() {
+		return NginxClojureRT.discardRequestBody(r);
 	}
 	
 	public long nativeRequest() {
@@ -384,7 +474,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	}
 	
 	public long nativeCount() {
-		return NginxClojureRT.ngx_http_clojure_mem_inc_req_count(r, 0);
+		return nativeCount;
 	}
 	
 	@Override
@@ -392,6 +482,7 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 		return String.format("request {id : %d,  uri: %s}", r, val(0));
 	}
 
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public <T> void addListener(final T data, final ChannelListener<T> listener) {
 		if (listeners == null) {
@@ -432,13 +523,31 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	
 	@Override
 	public void tagReleased() {
+		if (NginxClojureRT.log.isDebugEnabled()) {
+			NginxClojureRT.log.debug("[%d] tag released!", r);	
+		}
+		
 		this.released = true;
 		this.channel = null;
 		System.arraycopy(default_request_array, 0, array, 0, default_request_array.length);
+		
 		if (listeners != null) {
 			listeners.clear();
 		}
+		
+		if (prefetchedVariables != null) {
+			prefetchedVariables = null;
+			updatedVariables = null;
+		}
+		
 		((NginxJavaHandler)handler).returnToRequestPool(this);
+	}
+	
+	public void markReqeased() {
+		if (NginxClojureRT.log.isDebugEnabled()) {
+			NginxClojureRT.log.debug("[%d] mark request!", r);	
+		}
+		this.released = true;
 	}
 
 	@Override
@@ -459,5 +568,17 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	@Override
 	public int getAndIncEvalCount() {
 		return evalCount++;
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxRequest#applyDelayed()
+	 */
+	@Override
+	public void applyDelayed() {
+		if (updatedVariables != null) {
+			for (String var : updatedVariables) {
+				NginxClojureRT.unsafeSetNginxVariable(r, var, prefetchedVariables.get(var));
+			}
+		}
 	}
 }

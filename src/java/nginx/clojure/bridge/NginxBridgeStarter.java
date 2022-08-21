@@ -24,11 +24,11 @@ public class NginxBridgeStarter {
 	public NginxBridgeStarter() {
 	}
 	
+	@SuppressWarnings("rawtypes")
 	public NginxBridge start(Map<String, String> properties) {
 		
 		String libDirs = properties.get(BRIDGE_LIB_DIRS);
 		String cpDirs = properties.get(BRIDGE_LIB_CP);
-		String loaderKey = libDirs+"\n" + cpDirs;
 		ClassLoader bootstrapLoader = null;
 		
 		for (Entry<String, String> en : properties.entrySet()) {
@@ -39,11 +39,27 @@ public class NginxBridgeStarter {
 		}
 		
 		String bridgeImp = properties.get(BRIDGE_IMP);
+		
+		NginxClojureRT.getLog().info("%s.boot() with bridge.lib.dirs : [%s]",  bridgeImp, libDirs);
+		NginxClojureRT.getLog().info("%s.boot() with bridge.lib.cp : [%s]", bridgeImp, cpDirs);
 
 		List<URL> urlList = new ArrayList<URL>();
 		if (libDirs != null) {
 			for (String dir : libDirs.split(File.pathSeparator)) {
-				for (File f : new File(dir).listFiles()) {
+				File[] fileList = new File(dir).listFiles();
+				
+				if (fileList == null) {
+					NginxClojureRT.getLog().warn("%s.boot() no jar/dir in path : [%s]",  bridgeImp, dir);
+					continue;
+				}
+				
+				for (File f : fileList) {
+					
+					if (!f.canRead()) {
+						NginxClojureRT.getLog().warn("%s.boot()  [%s] is not readable or we have no read permission",  bridgeImp, f.getAbsolutePath());
+						continue;
+					}
+					
 					try {
 						if (f.isFile() && f.getName().endsWith(".jar")) {
 							urlList.add(f.toURI().toURL());
@@ -59,6 +75,12 @@ public class NginxBridgeStarter {
 		if (cpDirs != null) {
 			for (String dir : cpDirs.split(File.pathSeparator)) {
 				File f = new File(dir);
+				
+				if (!f.canRead()) {
+					NginxClojureRT.getLog().warn("%s.boot()  [%s] is not readable or we have no read permission",  bridgeImp, f.getAbsolutePath());
+					continue;
+				}
+				
 				try {
 					if (f.isFile() && f.getName().endsWith(".jar")) {
 						urlList.add(f.toURI().toURL());

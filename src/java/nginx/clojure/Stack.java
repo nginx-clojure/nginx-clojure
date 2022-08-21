@@ -81,6 +81,11 @@ public final class Stack implements Serializable {
         this.method = new int[8];
         this.dataLong = new long[stackSize];
         this.dataObject = new Object[stackSize];
+        
+        if (db == null) {
+        	throw new IllegalArgumentException("corutine model was configured wrongly!");
+        }
+        
         if (db.isVerify()) {
         	verifyInfo = new VerifyInfo();
         	verifyInfo.vid = vidCounter++;
@@ -332,7 +337,6 @@ public final class Stack implements Serializable {
     public static void pushV(Object value, Stack s, int idx, String classAndMethod) {
     	int midx = s.methodTOS >> 1;
     	if (db.meetTraceTargetClassMethod(classAndMethod)) {
-    		Object fv = value;
     		db.info(buildMessage(s, "#%d pushVObject %s, tos=%d midx=%d sp=%d idx=%d v=%s", s.verifyInfo.vid, classAndMethod, s.methodTOS, midx, s.curMethodSP, idx, takeValueWithoutRealizeIt(value)));
     	}
 	    s.checkClassAndMethod(midx, "pushV", classAndMethod);
@@ -395,12 +399,12 @@ public final class Stack implements Serializable {
     	}else if (ort instanceof Character) {
     		prt = ((Character)ort).charValue();
     	}else {
-    		printErrorMessage(this.db, this,"#%d getIntV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s",  verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx, rt, ort);
+    		printErrorMessage(db, this,"#%d getIntV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s",  verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx, rt, ort);
     		return rt;
     	}
         
         if (rt != prt) {
-        	printErrorMessage(this.db, this ,"#%d getIntV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s", verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx, rt, prt);
+        	printErrorMessage(db, this ,"#%d getIntV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s", verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx, rt, prt);
         }
     	return rt;
     }
@@ -417,11 +421,11 @@ public final class Stack implements Serializable {
     	if (ort instanceof Float) {
     		prt = (Float)ort;
     	}else {
-    		printErrorMessage(this.db, this,"#%d getFloatV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s",  verifyInfo.vid, classAndMethod, methodTOS, midx,curMethodSP, idx, rt, ort);
+    		printErrorMessage(db, this,"#%d getFloatV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s",  verifyInfo.vid, classAndMethod, methodTOS, midx,curMethodSP, idx, rt, ort);
     		return rt;
     	}
         if (rt != prt) {
-        	printErrorMessage(this.db, this ,"#%d getFloatV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s", verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx,rt, prt);
+        	printErrorMessage(db, this ,"#%d getFloatV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s", verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx,rt, prt);
         }
     	return rt;
     }
@@ -438,11 +442,11 @@ public final class Stack implements Serializable {
     	if (ort instanceof Long) {
     		prt = (Long)ort;
     	}else {
-    		printErrorMessage(this.db, this ,"#%d getLongV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s",  verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx, rt, ort);
+    		printErrorMessage(db, this ,"#%d getLongV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s",  verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx, rt, ort);
     		return rt;
     	}
         if (rt != prt) {
-        	printErrorMessage(this.db, this ,"#%d getLongV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s", verifyInfo.vid, classAndMethod, methodTOS, midx,  curMethodSP, idx,rt, prt);
+        	printErrorMessage(db, this ,"#%d getLongV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s", verifyInfo.vid, classAndMethod, methodTOS, midx,  curMethodSP, idx,rt, prt);
         }
     	return rt;
     }
@@ -459,11 +463,11 @@ public final class Stack implements Serializable {
     	if (ort instanceof Double) {
     		prt = (Double)ort;
     	}else {
-    		printErrorMessage(this.db, this ,"#%d getDoubleV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s",  verifyInfo.vid, classAndMethod, methodTOS,midx, curMethodSP, idx, rt, ort);
+    		printErrorMessage(db, this ,"#%d getDoubleV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s",  verifyInfo.vid, classAndMethod, methodTOS,midx, curMethodSP, idx, rt, ort);
     		return rt;
     	}
         if (rt != prt) {
-        	printErrorMessage(this.db, this ,"#%d getDoubleV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s", verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx,rt, prt);
+        	printErrorMessage(db, this ,"#%d getDoubleV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s", verifyInfo.vid, classAndMethod, methodTOS, midx, curMethodSP, idx,rt, prt);
         }
     	return rt;
     }
@@ -476,7 +480,7 @@ public final class Stack implements Serializable {
     	}
         Object prt = verifyInfo.methodIdxInfos[midx].vars[idx].value;
         if (rt != prt) {
-        	printErrorMessage(this.db, this ,"#%d getObjectV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s" , verifyInfo.vid, classAndMethod, methodTOS, midx,  curMethodSP, idx, takeValueWithoutRealizeIt(rt), takeValueWithoutRealizeIt(prt));
+        	printErrorMessage(db, this ,"#%d getObjectV %s tos=%d midx=%d, sp=%d idx=%d  %s != %s" , verifyInfo.vid, classAndMethod, methodTOS, midx,  curMethodSP, idx, takeValueWithoutRealizeIt(rt), takeValueWithoutRealizeIt(prt));
         }
     	return rt;
     }

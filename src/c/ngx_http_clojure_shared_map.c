@@ -9,7 +9,7 @@
 #include "ngx_http_clojure_shared_map_hashmap.h"
 #include "ngx_http_clojure_shared_map_tinymap.h"
 
-#define null_shared_map_impl {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+#define null_shared_map_impl {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 
 static ngx_http_clojure_shared_map_impl_t ngx_http_clojure_shared_map_registered_impls[] = {
 		{
@@ -20,7 +20,8 @@ static ngx_http_clojure_shared_map_impl_t ngx_http_clojure_shared_map_registered
 			ngx_http_clojure_shared_map_hashmap_put_entry_if_absent,
 			ngx_http_clojure_shared_map_hashmap_remove_entry,
 			ngx_http_clojure_shared_map_hashmap_size,
-			ngx_http_clojure_shared_map_hashmap_clear
+			ngx_http_clojure_shared_map_hashmap_clear,
+			ngx_http_clojure_shared_map_hashmap_visit
 		},
 		{
 			"tinymap",
@@ -30,7 +31,8 @@ static ngx_http_clojure_shared_map_impl_t ngx_http_clojure_shared_map_registered
 			ngx_http_clojure_shared_map_tinymap_put_entry_if_absent,
 			ngx_http_clojure_shared_map_tinymap_remove_entry,
 			ngx_http_clojure_shared_map_tinymap_size,
-			ngx_http_clojure_shared_map_tinymap_clear
+			ngx_http_clojure_shared_map_tinymap_clear,
+			ngx_http_clojure_shared_map_tinymap_visit
 		 },
 		 null_shared_map_impl
 };
@@ -38,6 +40,7 @@ static ngx_http_clojure_shared_map_impl_t ngx_http_clojure_shared_map_registered
 static int ngx_http_clojure_init_shared_map_flag = NGX_HTTP_CLOJURE_JVM_ERR;
 static ngx_array_t *ngx_http_clojure_shared_maps;
 jmethodID nc_shm_native_2_jobject_mid;
+jmethodID nc_shm_visit_mid;
 
 
 char * ngx_http_clojure_shared_map(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
@@ -188,6 +191,15 @@ static void nji_ngx_http_clojure_shared_map_num_val_add_handler(uint8_t type, co
 
 }
 
+static ngx_int_t nji_ngx_http_clojure_shared_map_visit_handler(uint8_t ktype, const void *key, size_t ksize, uint8_t vtype, const void *val, size_t vsize,
+    void *ps) {
+  void ** pp = (void **) ps;
+  JNIEnv *env = pp[0];
+  ngx_int_t rc = (*env)->CallStaticIntMethod(env, pp[1], nc_shm_visit_mid, (jint)ktype, (jlong)(uintptr_t)key, (jint)ksize, (jint)vtype, (jlong)(uintptr_t)val, (jint)vsize, (jobject)pp[1]);
+  exception_handle(1, env, return 1);
+  return rc;
+}
+
 static jobject jni_ngx_http_clojure_shared_map_get(JNIEnv *env, jclass cls, jlong jctx,
 		jint ktype, jobject key, jlong koff, jlong klen) {
 	ngx_http_clojure_shared_map_ctx_t *ctx = (ngx_http_clojure_shared_map_ctx_t *)(uintptr_t)jctx;
@@ -276,7 +288,7 @@ static jlong jni_ngx_http_clojure_shared_map_delete(JNIEnv *env, jclass cls, jlo
 	ngx_int_t rc = ctx->impl->remove(ctx, (uint8_t)ktype,
 			ngx_http_clojure_abs_off_addr(key, koff), (size_t) klen,
 			NULL, NULL);
-	return NGX_CLOJURE_SHARED_MAP_OK == rc;
+	return (jlong)rc;
 }
 
 static jobject jni_ngx_http_clojure_shared_map_remove(JNIEnv *env, jclass cls, jlong jctx,
@@ -311,7 +323,15 @@ static jlong jni_ngx_http_clojure_shared_map_contains(JNIEnv *env, jclass cls, j
 	ngx_int_t rc = ctx->impl->get(ctx, (uint8_t)ktype,
 				ngx_http_clojure_abs_off_addr(key, koff), (size_t)klen,
 				NULL, NULL);
-	return NGX_CLOJURE_SHARED_MAP_OK == rc;
+	return (jlong)rc;
+}
+
+static jlong jni_ngx_http_clojure_shared_map_visit(JNIEnv *env, jclass cls, jlong jctx, jobject visitor)  {
+  ngx_http_clojure_shared_map_ctx_t *ctx = (ngx_http_clojure_shared_map_ctx_t *)(uintptr_t)jctx;
+  void *pp[2];// = {env, visitor};
+  pp[0] = env;
+  pp[1] = visitor;
+  return ctx->impl->visit(ctx, nji_ngx_http_clojure_shared_map_visit_handler, pp);
 }
 
 /*********************************************************************
@@ -427,7 +447,7 @@ static jlong jni_ngx_http_clojure_shared_map_atomic_add_number(JNIEnv *env, jcla
 	ngx_int_t rc;
 
 	rt[0] = vtype;
-	rt[1] = 0;
+	rt[1] = delta;
 	rc = ctx->impl->get(ctx, ktype,
 			ngx_http_clojure_abs_off_addr(key, koff), (size_t)klen,
 			nji_ngx_http_clojure_shared_map_num_val_add_handler,
@@ -507,7 +527,8 @@ int ngx_http_clojure_init_shared_map_util() {
 				{"nputNumber", "(JILjava/lang/Object;JJIJJ)J", jni_ngx_http_clojure_shared_map_put_number},
 				{"nputNumberIfAbsent", "(JILjava/lang/Object;JJIJJ)J", jni_ngx_http_clojure_shared_map_put_number_if_absent},
 				{"nremoveNumber", "(JILjava/lang/Object;JJIJ)J", jni_ngx_http_clojure_shared_map_remove_number},
-				{"natomicAddNumber","(JILjava/lang/Object;JJIJ)J", jni_ngx_http_clojure_shared_map_atomic_add_number}
+				{"natomicAddNumber","(JILjava/lang/Object;JJIJ)J", jni_ngx_http_clojure_shared_map_atomic_add_number},
+				{"nvisit", "(JLnginx/clojure/util/NginxSharedHashMap$SharedMapSimpleVisitor;)J", jni_ngx_http_clojure_shared_map_visit}
 	};
 
 	if (ngx_http_clojure_init_shared_map_flag == NGX_HTTP_CLOJURE_JVM_OK) {
@@ -519,6 +540,9 @@ int ngx_http_clojure_init_shared_map_util() {
 	exception_handle(nc_shm_class == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 	nc_shm_native_2_jobject_mid = (*env)->GetStaticMethodID(env, nc_shm_class,"native2JavaObject" ,"(IJJ)Ljava/lang/Object;");
 	exception_handle(nc_shm_native_2_jobject_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
+
+	nc_shm_visit_mid = (*env)->GetStaticMethodID(env, nc_shm_class,"visit" ,"(IJJIJJLnginx/clojure/util/NginxSharedHashMap$SharedMapSimpleVisitor;)I");
+	exception_handle(nc_shm_visit_mid == NULL, env, return NGX_HTTP_CLOJURE_JVM_ERR);
 
 	(*env)->RegisterNatives(env, nc_shm_class, nms, sizeof(nms) / sizeof(JNINativeMethod));
 	exception_handle(0 == 0, env, return NGX_HTTP_CLOJURE_JVM_ERR);

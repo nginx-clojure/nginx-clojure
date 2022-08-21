@@ -11,6 +11,7 @@ public interface NginxResponse {
 	public static int TYPE_NORMAL = 0;
 	public static int TYPE_ERROR = 1;
 	public static int TYPE_FATAL = 2;
+	public static Object[] EMPTY_RESPONSE = new Object[] {null, null, null};
 	
 	public int type();
 	

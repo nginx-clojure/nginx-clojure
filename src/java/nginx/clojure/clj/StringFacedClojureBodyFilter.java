@@ -29,10 +29,11 @@ public class StringFacedClojureBodyFilter {
 		this.bodyFilter = bodyFilter;
 	}
 
+	@SuppressWarnings("rawtypes")
 	public Map invoke(LazyFilterRequestMap request, InputStream bodyChunk, boolean isLast) throws IOException {
 		ByteBuffer rem = (ByteBuffer) request.valAt(CHAR_DECODER_BUF_REM_IN_REQUEST);
 		if (rem == null) {
-			request.assoc(CHAR_DECODER_BUF_REM_IN_REQUEST, rem = ByteBuffer.allocate(3));
+			request.upsert(CHAR_DECODER_BUF_REM_IN_REQUEST, rem = ByteBuffer.allocate(3));
 			rem.flip();
 		}
 		StringBuilder sb = StringFacedJavaBodyFilter.decodeToString(rem, bodyChunk);

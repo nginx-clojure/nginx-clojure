@@ -1,4 +1,4 @@
-/**
+/*
  *  Copyright (C) Zhang,Yuexiang (xfeep)
  *
  */
@@ -6,7 +6,11 @@ package nginx.clojure.util;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
@@ -63,6 +67,7 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 
 	private native static long natomicAddNumber(long ctx, int ktype, Object keyBuf, long offset, long len, int vtype, long delta);
 	
+	private native static long nvisit(long ctx, @SuppressWarnings("rawtypes") SharedMapSimpleVisitor visitor);
 
 	private NginxSharedHashMap() {
 	}
@@ -77,7 +82,7 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 		this.ctx = ctx;
 	}
 
-	@SuppressWarnings("restriction")
+	
 	private final static Object native2JavaObject(int type, long addr, long size) {
 		switch (type) {
 		case NGX_CLOJURE_SHARED_MAP_JINT:
@@ -96,8 +101,16 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 		}
 	}
 	
+	public interface SharedMapSimpleVisitor<K, V> {
+		int visit(K key, V val);
+	}
+	
+	private final static int visit(int ktype, long kaddr, long ksize, int vtype, long vaddr, long vsize, SharedMapSimpleVisitor<Object, Object> visitor) {
+		return visitor.visit(native2JavaObject(ktype, kaddr, ksize), native2JavaObject(vtype, vaddr, vsize));
+	}
+	
 	public static <KT, VT> NginxSharedHashMap<KT, VT> build(String name) {
-		return new NginxSharedHashMap(name);
+		return new NginxSharedHashMap<>(name);
 	}
 	
 	public void setNullVal(long nullVal) {
@@ -153,13 +166,13 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 		case NGX_CLOJURE_SHARED_MAP_JINT:
 			Integer ik = (Integer) key;
 			kb.order(ByteOrder.nativeOrder());
-			kb.putInt(ik.intValue());
+			kb.putInt(ik);
 			kb.flip();
 			break;
 		case NGX_CLOJURE_SHARED_MAP_JLONG:
 			Long lk = (Long)key;
 			kb.order(ByteOrder.nativeOrder());
-			kb.putLong(lk.longValue());
+			kb.putLong(lk);
 			kb.flip();
 			break;
 		case NGX_CLOJURE_SHARED_MAP_JSTRING:
@@ -202,7 +215,7 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 		} else if (val instanceof Long) {
 			vtype = NGX_CLOJURE_SHARED_MAP_JLONG;
 			long rt =  nputNumber(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), vtype,
-					((Long) val).longValue(), nullVal);
+					(Long) val, nullVal);
 			if (rt == nullVal) {
 				return null;
 			}
@@ -315,20 +328,38 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 
 	@Override
 	public Set<K> keySet() {
-		throw new UnsupportedOperationException("keySet");
+		NginxClojureRT.getLog().warn("NginxSharedHashMap.keySet is quite expensive operation DO NOT use it at non-debug case!!!");
+		final Set<K> sets = new HashSet<>();
+		nvisit(ctx, (SharedMapSimpleVisitor<K, V>) (key, val) -> {
+			sets.add(key);
+			return 0;
+		});
+		return sets;
 	}
 
 
 	@Override
 	public Collection<V> values() {
-		throw new UnsupportedOperationException("values");
+		NginxClojureRT.getLog().warn("NginxSharedHashMap.values is quite expensive operation DO NOT use it at non-debug case!!!");
+		final List<V> vals = new ArrayList<>();
+		nvisit(ctx, (SharedMapSimpleVisitor<K, V>) (key, val) -> {
+			vals.add(val);
+			return 0;
+		});
+		return vals;		
 	}
 
 
 	@Override
 	public Set<java.util.Map.Entry<K, V>> entrySet() {
 		NginxClojureRT.getLog().warn("NginxSharedHashMap.entrySet is quite expensive operation DO NOT use it at non-debug case!!!");
-		throw new UnsupportedOperationException("entrySet");
+		final Set<java.util.Map.Entry<K, V>> sets = new HashSet<>();
+		nvisit(ctx, (SharedMapSimpleVisitor<K, V>) (key, val) -> {
+			SimpleEntry<K, V> en = new SimpleEntry<>(key, val);
+			sets.add(en);
+			return 0;
+		});
+		return sets;
 	}
 
 	/* (non-Javadoc)
@@ -360,7 +391,7 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 		} else if (val instanceof Long) {
 			vtype = NGX_CLOJURE_SHARED_MAP_JLONG;
 			long rt =  nputNumberIfAbsent(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), vtype,
-					((Long) val).longValue(), nullVal);
+					(Long) val, nullVal);
 			if (rt == nullVal) {
 				return null;
 			}

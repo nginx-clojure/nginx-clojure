@@ -51,13 +51,21 @@
 
 (defn get-ngx-var 
   "get nginx variable"
-  [^NginxRequest req name]
-  (NginxClojureRT/getNGXVariable (.nativeRequest req) name))
+  ([^NginxRequest req name]
+    (.getVariable req name))
+  ([^NginxRequest req name defaultVal]
+    (.getVariable req name defaultVal)) 
+  )
 
 (defn set-ngx-var! 
   "set nginx variable"
   [^NginxRequest req name, val]
-  (NginxClojureRT/setNGXVariable (.nativeRequest req) name val))
+  (.setVariable req name val))
+
+(defn discard-request-body!
+  "discard request body"
+  [^NginxRequest req]
+  (.discardRequestBody  req))
 
 (def phrase-done Constants/PHRASE_DONE)
 
@@ -195,7 +203,7 @@
     (.addListener ch ch (proxy [WholeMessageAdapter] [max-message-size]
                           (onOpen [c] (if on-open (on-open c)))
                           (onWholeTextMessage [c msg] (if on-message (on-message c msg)))
-                          (onWholeBiniaryMessage [c msg rem?] (if on-message (on-message c msg)))
+                          (onWholeBiniaryMessage [c msg] (if on-message (on-message c msg)))
                           (onClose ;([c] (if on-close (on-close c "0")))
                                    ([c status reason] (if on-close (on-close c (str status ":" reason)))))
                           (onError [c status] (if on-error (on-error c (NginxClojureAsynSocket/errorCodeToString status)))))))
@@ -323,7 +331,7 @@ When a message comes the callback function will be invoked. e.g.
 
 (extend-type nginx.clojure.util.NginxPubSubTopic PubSubTopic
   (pub! [topic message]
-    (.pubish topic message))
+    (.publish topic message))
   (sub! [topic att callback]
     (let [pd (.subscribe topic att 
                (proxy [nginx.clojure.util.NginxPubSubListener] []

@@ -201,6 +201,7 @@ public class MethodDatabaseUtil {
 		return ce;
 	}
 	
+	@SuppressWarnings("rawtypes")
 	public static Analyzer buildAnalyzer(MethodDatabase db) {
 		 return new TypeAnalyzer(new TypeInterpreter(db));
 //		SimpleVerifier sv = new TypeInterpreter(db);//new SimpleVerifier();

@@ -383,8 +383,8 @@ public class MiniConstants {
 	public static int NGX_HTTP_CLOJURE_MEM_IDX_END = 255;
 	
 	//nginx clojure java runtime required the lowest version of nginx-clojure c module
-	public  static long NGINX_CLOJURE_RT_REQUIRED_LVER = 4004;
-	public  static long NGINX_CLOJURE_RT_VER = 4004;
+	public  static long NGINX_CLOJURE_RT_REQUIRED_LVER = 5002;
+	public  static long NGINX_CLOJURE_RT_VER = 5003;
 	
 	//ngx_core.h
 	public final static int  NGX_OK       =   0;
@@ -412,6 +412,10 @@ public class MiniConstants {
     public final static int NGX_HTTP_HEADER_FILTER_PHASE= 18;
     public final static int NGX_HTTP_BODY_FILTER_PHASE= 19;
     public final static int NGX_HTTP_EXIT_PROCESS_PHASE= 20;
+    
+    /*fake chain for header filter*/
+    public final static int NGX_HTTP_HEADER_FILTER = -1;
+    public final static int NGX_HTTP_HEADER_FILTER_IN_THREADPOOL = -2;
     
 	
 	//ngx_http_request.h
@@ -543,5 +547,7 @@ public class MiniConstants {
 	public static final int MODE_DEFAULT = 0;
 	public static final int MODE_THREAD = 1;
 	public static final int MODE_COROUTINE = 2;
+	
+	public static final String REQUEST_FORECE_PREFETCH_ALL_PROPERTIES = "fore-prefetch-all-properties";
 
 }

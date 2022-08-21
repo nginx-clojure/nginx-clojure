@@ -7,7 +7,7 @@
 
 #include <nginx.h>
 #include <ngx_http.h>
-#if (NGX_HAVE_SHA1)
+#if (NGX_HAVE_SHA1 || nginx_version >= 1011002)
 #include <ngx_sha1.h>
 #endif
 
@@ -41,12 +41,12 @@ typedef unsigned __int64 uint64_t;
 #define JVM_CP_SEP_S ":"
 #endif
 
-#define nginx_clojure_ver  4004 /*0.4.3*/
+#define nginx_clojure_ver  5003 /*0.5.3*/
 
 /*the least jar version required*/
-#define nginx_clojure_required_rt_lver 4004
+#define nginx_clojure_required_rt_lver 5002
 
-#define NGINX_CLOJURE_VER_NUM_STR "0.4.4"
+#define NGINX_CLOJURE_VER_NUM_STR "0.5.3"
 
 #define NGINX_CLOJURE_VER "nginx-clojure/" NGINX_CLOJURE_VER_NUM_STR
 
@@ -55,6 +55,10 @@ typedef unsigned __int64 uint64_t;
 #define NGX_HTTP_HEADER_FILTER_PHASE  18
 #define NGX_HTTP_BODY_FILTER_PHASE  19
 #define NGX_HTTP_EXIT_PROCESS_PHASE  20
+
+/*fake chain for header filter*/
+#define NGX_HTTP_HEADER_FILTER -1
+#define NGX_HTTP_HEADER_FILTER_IN_THREADPOOL -2
 
 typedef struct {
 	ngx_str_t name;
@@ -81,6 +85,7 @@ typedef struct {
 	unsigned enable_header_filter :1;
 	unsigned enable_body_filter :1;
 	unsigned enable_access_handler : 1;
+	unsigned enable_log_handler : 1;
 	ngx_str_t jvm_handler_type;
 	ngx_str_t jvm_init_handler_code;
 	ngx_int_t jvm_init_handler_id;
@@ -103,6 +108,7 @@ typedef struct {
 #define NGX_HTTP_CLOJURE_BEFORE_CONTENT_HANDLER 3
 #define NGX_HTTP_CLOJURE_BEFORE_NONE 4
 	unsigned always_read_body : 3;
+	unsigned enable_log_handler : 1;
 	ngx_flag_t auto_upgrade_ws;
 	ngx_flag_t handlers_lazy_init;
 	ngx_str_t content_handler_type;
@@ -125,11 +131,16 @@ typedef struct {
 	ngx_str_t access_handler_code;
 	ngx_int_t access_handler_id;
 	ngx_str_t access_handler_name;
+  ngx_str_t log_handler_type;
+  ngx_str_t log_handler_code;
+  ngx_int_t log_handler_id;
+  ngx_str_t log_handler_name;
 	ngx_array_t *content_handler_properties;
 	ngx_array_t *rewrite_handler_properties;
 	ngx_array_t *access_handler_properties;
 	ngx_array_t *header_filter_properties;
 	ngx_array_t *body_filter_properties;
+	ngx_array_t *log_handler_properties;
 	size_t write_page_size;
 } ngx_http_clojure_loc_conf_t;
 
@@ -165,6 +176,7 @@ typedef struct {
 #if (NGX_ZLIB)
 /*for premessage-deflate --websocket compression extension*/
 	unsigned premsg_deflate   : 1;
+	unsigned compressed       : 1;
 	unsigned in_no_ctx_takeover : 1;
 	unsigned out_no_ctx_takeover : 1;
 	unsigned part_written : 1;
@@ -195,6 +207,7 @@ typedef struct {
 	unsigned pending_body_filter : 1;
 	unsigned ignore_next_response : 1;
 	unsigned hijacked_or_async : 1;
+	unsigned set_reload_delay : 1;
 #define NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_READ 1
 #define NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_WRITE 2
 #define NGX_HTTP_CLOJURE_EVENT_HANDLER_FLAG_NOKEEPALIVE 4
@@ -219,11 +232,13 @@ typedef struct {
 		ctx->wait_for_header_filter = 0 ;\
 		ctx->pending_body_filter = 0 ; \
 		ctx->ignore_next_response = 0; \
+		ctx->set_reload_delay = 0; \
 		ctx->hijacked_or_async = 0; \
 		ctx->event_handler_flag = 0; \
 		ctx->wsctx = 0; \
 		ctx->listeners = 0; \
 		ctx->r = r;
+
 
 
 #define NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT 1
@@ -373,7 +388,7 @@ extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 #define NGX_HTTP_CLOJURE_HEADERSI_KEEP_ALIVE_IDX  80
 #define NGX_HTTP_CLOJURE_HEADERSI_KEEP_ALIVE_OFFSET offsetof(ngx_http_headers_in_t, keep_alive)
 
-#if (NGX_HTTP_PROXY || NGX_HTTP_REALIP || NGX_HTTP_GEO)
+#if (NGX_HTTP_X_FORWARDED_FOR)
 #define NGX_HTTP_CLOJURE_HEADERSI_X_FORWARDED_FOR_IDX  81
 #define NGX_HTTP_CLOJURE_HEADERSI_X_FORWARDED_FOR_OFFSET offsetof(ngx_http_headers_in_t, x_forwarded_for)
 #endif
@@ -575,6 +590,12 @@ ngx_int_t ngx_http_clojure_set_content_type_header(ngx_http_request_t *r, ngx_ta
 ngx_int_t ngx_http_clojure_set_content_len_header(ngx_http_request_t *r, ngx_table_elt_t *h, ngx_uint_t offset);
 
 void ngx_http_clojure_cleanup_handler(void *data);
+
+#define NGX_HTTP_CLOJURE_RELOAD_DELAY_MAX_TIME 30000 /*30 seconds*/
+
+void ngx_http_clojure_try_set_reload_delay_timer(ngx_http_clojure_module_ctx_t *ctx, char  *func_name);
+
+void ngx_http_clojure_try_unset_reload_delay_timer(ngx_http_clojure_module_ctx_t *ctx, char *func_name);
 
 extern ngx_module_t  ngx_http_clojure_module;
 

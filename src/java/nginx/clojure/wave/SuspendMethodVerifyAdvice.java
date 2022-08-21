@@ -9,13 +9,13 @@ public class SuspendMethodVerifyAdvice extends AdviceAdapter {
 	protected MethodDatabase db;
 	protected String owner;
 	protected String method;
-	private final Label start = new Label();
+	private Label start = new Label();
 	private final Label handler = new Label();
 
 	
 	public SuspendMethodVerifyAdvice(MethodDatabase db,String owner, MethodVisitor mv, int access,
 			String name, String desc) {
-		super(ASM4, mv, access, name, desc);
+		super(ASM7, mv, access, name, desc);
 		this.db = db;
 		this.owner = owner;
 		this.method = name + desc;
@@ -26,12 +26,23 @@ public class SuspendMethodVerifyAdvice extends AdviceAdapter {
 		mv.visitLabel(start);
 	};
 
+	@Override
+	public void visitMethodInsn(int opcode, String owner, String name,
+			String desc, boolean isInterface) {
+		super.visitMethodInsn(opcode, owner, name, desc, isInterface);
+		
+		if (method != null && method.startsWith("<init>") && opcode == INVOKESPECIAL) {
+			start = new Label();
+			mv.visitLabel(start);
+		}
+		
+	}
 	
 	@Override
 	protected void onMethodEnter() {
 		mv.visitLdcInsn(owner);
 		mv.visitLdcInsn(method);
-		mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodVerifier", "enter", "(Ljava/lang/String;Ljava/lang/String;)V");
+		mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodVerifier", "enter", "(Ljava/lang/String;Ljava/lang/String;)V", false);
 //		if (method.equals("invoke(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;")) {
 //			mv.visitVarInsn(ALOAD, 2);
 //			mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodVerifier", "downProxyInvoke", "(Ljava/lang/reflect/Method;)V");
@@ -45,7 +56,7 @@ public class SuspendMethodVerifyAdvice extends AdviceAdapter {
 //		}
 		mv.visitLdcInsn(owner);
 		mv.visitLdcInsn(method);
-		mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodVerifier", "leave", "(Ljava/lang/String;Ljava/lang/String;)V");
+		mv.visitMethodInsn(INVOKESTATIC, "nginx/clojure/wave/SuspendMethodVerifier", "leave", "(Ljava/lang/String;Ljava/lang/String;)V",false);
 	}
 	
 	@Override

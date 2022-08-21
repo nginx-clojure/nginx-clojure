@@ -8,4 +8,7 @@ public interface NginxFilterRequest extends NginxRequest {
 	
 	public Map<String, Object> responseHeaders();
 	
+	public long chunkChain();
+	
+	public boolean isLast();
 }

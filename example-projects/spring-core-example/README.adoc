@@ -1,0 +1,267 @@
+# Spring Core Example for Nginx-Clojure
+
+This example project is used to demo how to use spring dependency injection with Nginx-Clojure java rewrite handler.
+
+
+## Step 1. Add Nginx JVM Init Handler
+
+In this example we use Nginx JVM initialization handler to start the spring application.
+
+.nginx.conf
+[source,bash]
+....
+jvm_handler_type 'java';
+
+jvm_init_handler_name 'nginx.clojure.spring.core.example.NginxJvmInitHandler';
+....
+
+.NginxJvmInitHandler
+[source,java]
+....
+package nginx.clojure.spring.core.example;
+
+import java.io.IOException;
+import java.util.Map;
+
+import nginx.clojure.java.NginxJavaRingHandler;
+
+public class NginxJvmInitHandler implements NginxJavaRingHandler {
+
+	public NginxJvmInitHandler() {
+		SpringExampleApplication.main(new String[0]);
+	}
+
+	@Override
+	public Object[] invoke(Map<String, Object> request) throws IOException {
+		return null;
+	}
+
+}
+....
+
+The spring application java code need not be changed for Nginx-Clojure.
+
+.SpringExampleApplication
+[source,java]
+....
+package nginx.clojure.spring.core.example;
+
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
+public class SpringExampleApplication {
+
+	public SpringExampleApplication() {
+	}
+	
+	public static void main(String[] args) {
+		ApplicationContext context = new AnnotationConfigApplicationContext("nginx.clojure.spring.core.example");
+	}
+
+}
+
+....
+
+
+## Step 2. Add Spring Application Context Aware
+
+SpringApplicationContextAware is used to get spring application context gracefully without need to change existed code.
+
+.SpringApplicationContextAware
+[source,java]
+....
+package nginx.clojure.spring.core.example;
+
+import java.util.concurrent.CountDownLatch;
+
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+import org.springframework.stereotype.Component;
+
+@Component
+public class SpringApplicationContextAware implements ApplicationContextAware {
+
+	private static ApplicationContext applicationContext;
+	
+	private static CountDownLatch countDownLatch = new CountDownLatch(1);
+	
+	public static ApplicationContext getApplicationContext() {
+		try {
+			countDownLatch.await();
+		} catch (InterruptedException e) {
+			throw new RuntimeException("SpringApplicationContextAware countDownLatch interrupted error", e);
+		}
+		return applicationContext;
+	}
+	
+	public SpringApplicationContextAware() {
+	}
+
+	@Override
+	public void setApplicationContext(ApplicationContext ctx) throws BeansException {
+		applicationContext = ctx;
+		countDownLatch.countDown();
+	}
+
+}
+
+....
+
+## Step 3. Use Wrapper to Access Spring-styled Handlers
+
+.nginx.conf
+[source,bash]
+....
+set $proxy_target "";
+
+location /hello {
+    rewrite_handler_type java;
+    rewrite_handler_name 'nginx.clojure.spring.core.example.NginxSpringHandlerWrapper';
+    rewrite_handler_property 'spring.realHandler' 'myRewriteHandler';
+    rewrite_handler_property 'spring.prefetched.vars' 'remote_addr,remote_port';
+    proxy_pass http://$proxy_target;
+}
+....
+
+
+.NginxSpringHandlerWrapper
+[source,java]
+....
+package nginx.clojure.spring.core.example;
+
+import java.io.IOException;
+import java.util.Map;
+
+import nginx.clojure.Configurable;
+import nginx.clojure.java.NginxJavaRingHandler;
+
+public class NginxSpringHandlerWrapper implements NginxJavaRingHandler, Configurable {
+
+	private NginxJavaRingHandler realHandler;
+	
+	private String[] prefetchedVars;
+	
+	
+	public NginxSpringHandlerWrapper() {
+		
+	}
+
+	@Override
+	public void config(Map<String, String> properties) {
+		String name = properties.get("spring.realHandler");
+		realHandler = (NginxJavaRingHandler)SpringApplicationContextAware.getApplicationContext().getBean(name);
+		prefetchedVars = properties.get("spring.prefetched.vars").split(",");
+	}
+
+	@Override
+	public Object[] invoke(Map<String, Object> request) throws IOException {
+		return realHandler.invoke(request);
+	}
+	
+	@Override
+	public String[] variablesNeedPrefetch() {
+		return prefetchedVars;
+	}
+
+
+}
+
+....
+
+
+
+.NginxSpringRewriteHandler
+[source,java]
+....
+package nginx.clojure.spring.core.example;
+
+import java.io.IOException;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import nginx.clojure.MiniConstants;
+import nginx.clojure.java.ArrayMap;
+import nginx.clojure.java.Constants;
+import nginx.clojure.java.NginxJavaRequest;
+import nginx.clojure.java.NginxJavaRingHandler;
+
+
+@Service("myRewriteHandler")
+public class NginxSpringRewriteHandler implements NginxJavaRingHandler {
+
+	@Autowired
+	private ProxyTargetComputeService proxyTargetComputeService;
+	
+	public NginxSpringRewriteHandler() {
+		
+	}
+
+	@Override
+	public Object[] invoke(Map<String, Object> r) throws IOException {		
+		NginxJavaRequest req = (NginxJavaRequest)r;
+		String target = proxyTargetComputeService.computeTarget(req.getVariable("remote_addr"), req.getVariable("remote_port"));
+		req.setVariable("proxy_target", target);
+		return Constants.PHASE_DONE;
+	}
+
+}
+
+....
+
+
+.ProxyTargetComputeService
+[source,java]
+....
+package nginx.clojure.spring.core.example;
+
+import org.springframework.stereotype.Service;
+
+@Service("proxyTargetComputeService")
+public class ProxyTargetComputeService {
+ 	
+	public String computeTarget(String ip, String port) {
+		int m = (ip + ":" + port).hashCode() % 2;
+		return m == 0 ? "127.0.0.1:8081" : "127.0.0.1:8082"; 
+	}
+}
+....
+
+
+## How to Run
+
+[source,bash]
+....
+git clone https://github.com/nginx-clojure/nginx-clojure
+cd nginx-clojure/example-projects/spring-core-example
+
+## use mvn pakage to get spring-core-example-0.0.1-jar-with-dependencies.jar
+mvn package
+
+
+cd nginx-spring-work-dir
+mkdir logs temp
+wget https://sourceforge.net/projects/nginx-clojure/files/nginx-clojure-0.5.1.tar.gz
+tar -zxvf nginx-clojure-0.5.1.tar.gz nginx-clojure-0.5.1/nginx-linux-x64
+mv nginx-clojure-0.5.1/nginx-linux-x64 nginx
+./nginx
+....
+
+[source,bash]
+....
+curl -v http://localhost:8080/hello
+> GET /hello HTTP/1.1
+> Host: localhost:8080
+> User-Agent: curl/7.64.0
+> Accept: */*
+> 
+< HTTP/1.1 200 OK
+< Date: Mon, 25 Nov 2019 03:21:11 GMT
+< Content-Type: text/html
+< Content-Length: 20
+< Connection: keep-alive
+< Server: nginx-clojure/0.5.1
+Hello! 2
+....

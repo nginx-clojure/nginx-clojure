@@ -30,6 +30,7 @@ public class RewriteHandlerTestSet4NginxJavaRingHandler {
 			r.setVariable("myvar", "Hello");
 			r.setVariable("myName", "Xfeep");
 			System.out.println("SimpleRewriteHandler, myname" + r.getVariable("myName"));
+			System.out.println("request_id" +  r.getVariable("request_id"));
 			return Constants.PHASE_DONE;
 		}
 		
@@ -181,7 +182,7 @@ public class RewriteHandlerTestSet4NginxJavaRingHandler {
 
 			CloseableHttpClient httpclient = HttpClients.createDefault();
 //			HttpGet httpget = new HttpGet("http://cn.bing.com/");
-			HttpGet httpget = new HttpGet("http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt");
+			HttpGet httpget = new HttpGet("https://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt");
 			httpget.setConfig(RequestConfig.custom().setConnectTimeout(10000).setSocketTimeout(10000).build());
 			CloseableHttpResponse response = null;
 			try {

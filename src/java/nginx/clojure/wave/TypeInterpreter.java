@@ -48,6 +48,7 @@ public class TypeInterpreter extends SimpleVerifier {
     private final MethodDatabase db;
 
     public TypeInterpreter(MethodDatabase db) {
+    	super(ASM7, null, null, null, false);
         this.db = db;
     }
 
@@ -151,7 +152,8 @@ public class TypeInterpreter extends SimpleVerifier {
 //        return v;
 //    }
 
-    private static String makeTypeDescriptor(String className, int dimensions) {
+    @SuppressWarnings("unused")
+	private static String makeTypeDescriptor(String className, int dimensions) {
         int len = className.length();
         char[] tmp = new char[len + 2 + dimensions];
         for(int i=0 ; i<dimensions ; i++) {

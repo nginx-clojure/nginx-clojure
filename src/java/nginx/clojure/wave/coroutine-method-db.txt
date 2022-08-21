@@ -4,7 +4,9 @@ lazyclass:clojure/lang/IFn
 
 lazyclass:clojure/lang/AFn
   /applyToHelper.*|applyTo.*:just_mark
-  call()Ljava/lang/Object;:normal	
+  call()Ljava/lang/Object;:normal
+  run()V:normal	
+  /invokeStatic.*:family
 
 lazyclass:clojure/lang/RestFn
   /invoke.*:just_mark
@@ -209,9 +211,10 @@ fuzzyclass:nginx/clojure/java/GeneralSet(\d+)TestNginxJavaRingHandler\$MultipleC
 lazyclass:nginx/clojure/NginxHandler
 #mark from sub nginx/clojure/NginxSimpleHandler
   execute(JJ)I:just_mark
-
+   
 
 filter:clojure/asm
+filter:clojure/core$generate_class
 filter:com/sun/crypto/provider/
 #filter:java/lang
 filter:java/util/LinkedHashMap
@@ -231,5 +234,68 @@ filter:com/sun/tools/javac/
 
 retransform:java.io.BufferedInputStream
 
+lazyclass:sun/security/ssl/AppInputStream
+  read([BII)I:normal
+
+lazyclass:sun/security/ssl/AppOutputStream
+  write([BII)V:normal
+
+lazyclass:sun/security/ssl/ClientHandshaker
+  processMessage(BI)V:normal
+  sendChangeCipherAndFinish(Z)V:normal
+  serverHelloDone(Lsun/security/ssl/HandshakeMessage$ServerHelloDone;)V:normal
+
+lazyclass:sun/security/ssl/HandshakeOutStream
+  flush()V:normal
+
+lazyclass:sun/security/ssl/Handshaker
+  kickstart()V:normal
+  processLoop()V:normal
+  process_record(Lsun/security/ssl/InputRecord;Z)V:normal
+  sendChangeCipherSpec(Lsun/security/ssl/HandshakeMessage$Finished;Z)V:normal
+
+lazyclass:sun/security/ssl/InputRecord
+  read(Ljava/io/InputStream;Ljava/io/OutputStream;)V:normal
+  readFully(Ljava/io/InputStream;[BII)I:normal
+  readV3Record(Ljava/io/InputStream;Ljava/io/OutputStream;)V:normal
+
+lazyclass:sun/security/ssl/OutputRecord
+  write(Ljava/io/OutputStream;ZLjava/io/ByteArrayOutputStream;)V:normal
+  writeBuffer(Ljava/io/OutputStream;[BIII)V:normal
+
+lazyclass:sun/security/ssl/SSLSocketImpl
+  close()V:normal
+  closeInternal(Z)V:normal
+  connect(Ljava/net/SocketAddress;I)V:normal
+  kickstartHandshake()V:normal
+  performInitialHandshake()V:normal
+  readDataRecord(Lsun/security/ssl/InputRecord;)V:normal
+  readRecord(Lsun/security/ssl/InputRecord;Z)V:normal
+  sendAlert(BB)V:normal
+  startHandshake()V:normal
+  startHandshake(Z)V:normal
+  warning(B)V:normal
+  writeRecord(Lsun/security/ssl/OutputRecord;)V:normal
+  writeRecord(Lsun/security/ssl/OutputRecord;Z)V:normal
+  writeRecordInternal(Lsun/security/ssl/OutputRecord;Z)V:normal
+
+lazyclass:java/net/Socket
+#mark from sub javax/net/ssl/SSLSocket
+  close()V:just_mark
+#mark from sub javax/net/ssl/SSLSocket
+  connect(Ljava/net/SocketAddress;I)V:just_mark
+
+lazyclass:javax/net/ssl/SSLSocket
+#mark from sub sun/security/ssl/BaseSSLSocketImpl
+  startHandshake()V:just_mark
+  
+lazyclass:sun/security/ssl/BaseSSLSocketImpl
+#mark from sub sun/security/ssl/SSLSocketImpl
+  close()V:just_mark
+
+lazyclass:sun/security/ssl/Handshaker
+#mark from sub sun/security/ssl/ClientHandshaker
+  processMessage(BI)V:just_mark
+  
 
 

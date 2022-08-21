@@ -40,7 +40,8 @@ import org.junit.Test;
  */
 public class CoIteratorTest extends TestCase {
 
-    @Test
+    @SuppressWarnings("serial")
+	@Test
     public void testCoIterator() {
         Iterator<String> iter = new CoIterator<String>() {
             @Override

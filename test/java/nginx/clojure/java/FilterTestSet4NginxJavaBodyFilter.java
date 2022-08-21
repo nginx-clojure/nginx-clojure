@@ -12,6 +12,7 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -20,6 +21,7 @@ import nginx.clojure.Coroutine;
 import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxChainWrappedInputStream;
 import nginx.clojure.NginxClojureRT;
+import nginx.clojure.NginxRequest;
 import nginx.clojure.anno.Suspendable;
 
 public class FilterTestSet4NginxJavaBodyFilter {
@@ -60,7 +62,37 @@ public class FilterTestSet4NginxJavaBodyFilter {
 		}
 	}
 	
+	public static class WholeBodyValiator implements NginxJavaBodyFilter {
 
+		@Override
+		public Object[] doFilter(Map<String, Object> request, InputStream bodyChunk, boolean isLast) throws IOException {
+			@SuppressWarnings("unchecked")
+			List<byte[]> chunks = (List<byte[]>) request.get("chunks");
+			if (chunks == null) {
+				request.put("chunks", chunks = new ArrayList<>());
+			}
+			
+			byte[] chunk = new byte[bodyChunk.available()];
+			bodyChunk.read(chunk);
+			chunks.add(chunk);
+			
+			NginxClojureRT.log.info("do body filter size : %d, isLast %s", chunk.length, isLast);
+			String s = new String(chunk);
+			
+			if (chunk.length > 0) {
+				NginxClojureRT.log.info("s length is %d, tail is %s", s.length(), s.substring(s.length() - 10));
+			} else {
+				NginxClojureRT.log.info("s length is 0");
+			}
+			
+			if (!isLast) {
+				return null;
+			} 
+			
+			return new Object[] {200, null, chunks};
+		}
+		
+	}
 	
 	public static class StreamFacedUppercaseBodyFilter implements NginxJavaBodyFilter {
 
@@ -101,7 +133,7 @@ public class FilterTestSet4NginxJavaBodyFilter {
 			
 			String rt = sb.toString();
 			
-			NginxClojureRT.getLog().info("UppercaseBodyFilter.doFilter returns: %s, isLast=%s", rt, isLast);
+			NginxClojureRT.getLog().info("[%d] UppercaseBodyFilter.doFilter returns: %s, isLast=%s", ((NginxRequest)request).nativeRequest(), rt , isLast);
 			
 			if (isLast) {
 				return new Object[] {200, null, rt};

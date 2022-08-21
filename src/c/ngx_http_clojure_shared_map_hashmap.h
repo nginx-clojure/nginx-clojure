@@ -93,8 +93,11 @@ ngx_int_t ngx_http_clojure_shared_map_hashmap_put_entry_if_absent(ngx_http_cloju
 ngx_int_t ngx_http_clojure_shared_map_hashmap_remove_entry(ngx_http_clojure_shared_map_ctx_t *ctx, uint8_t ktype,
 		const u_char *key, size_t len, ngx_http_clojure_shared_map_val_handler val_handler, void *handler_data);
 
-ngx_int_t ngx_http_clojure_shared_map_hashmap_size(ngx_http_clojure_shared_map_ctx_t * sctx);
+ngx_int_t ngx_http_clojure_shared_map_hashmap_size(ngx_http_clojure_shared_map_ctx_t  *sctx);
 
-ngx_int_t ngx_http_clojure_shared_map_hashmap_clear(ngx_http_clojure_shared_map_ctx_t * sctx);
+ngx_int_t ngx_http_clojure_shared_map_hashmap_clear(ngx_http_clojure_shared_map_ctx_t  *sctx);
+
+ngx_int_t ngx_http_clojure_shared_map_hashmap_visit(ngx_http_clojure_shared_map_ctx_t  *sctx,
+    ngx_http_clojure_shared_map_visit_handler visit_handler, void * handler_data);
 
 #endif /* NGX_HTTP_CLOJURE_SHARED_MAP_HASHMAP_H_ */

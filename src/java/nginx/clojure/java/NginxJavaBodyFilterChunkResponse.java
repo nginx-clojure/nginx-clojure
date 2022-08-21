@@ -18,6 +18,6 @@ public class NginxJavaBodyFilterChunkResponse extends NginxJavaResponse {
 	
 	@Override
 	public boolean isLast() {
-		return response[0] != null;
+		return response != null && response[0] != null;
 	}
 }

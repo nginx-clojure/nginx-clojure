@@ -66,7 +66,7 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 	@Override
 	public NginxRequest makeRequest(long r, long c) {
 		if (r == 0) {
-			return new NginxJavaRequest(this, r, new Object[0]) {
+			return new NginxJavaRequest(-1, this, r, new Object[0]) {
 				@Override
 				public long nativeCount() {
 					return 0;
@@ -77,18 +77,18 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 		NginxJavaRequest req;
 		switch (phase) {
 		case NGX_HTTP_HEADER_FILTER_PHASE : 
-			req = new NginxJavaFilterRequest(this, r, c);
+			req = new NginxJavaFilterRequest(phase, this, r, c);
 			break;
 		case NGX_HTTP_BODY_FILTER_PHASE:
 			req = NginxJavaFilterRequest.cloneExisted(r, c);
 			if (req == null) {
-				req = new NginxJavaFilterRequest(this, r, c);
+				req = new NginxJavaFilterRequest(phase, this, r, c);
 			}
 			break;
 		default :
 			req = pooledRequests.poll();
 			if (req == null) {
-				req =  new NginxJavaRequest(this, r);
+				req =  new NginxJavaRequest(phase, this, r);
 			}else {
 				req.reset(r, this);
 			}
@@ -99,6 +99,7 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 	@Override
 	public NginxResponse process(NginxRequest req) throws IOException {
 		NginxJavaRequest r = (NginxJavaRequest)req;
+		long nr = r.nativeRequest();
 		try{
 			Object resp;
 			switch (req.phase()) {
@@ -108,7 +109,7 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 				break;
 			case NGX_HTTP_BODY_FILTER_PHASE:
 				NginxJavaFilterRequest breq = (NginxJavaFilterRequest)r;
-				NginxChainWrappedInputStream chunk = new NginxChainWrappedInputStream(r, breq.c);
+				NginxChainWrappedInputStream chunk = breq.body;
 				try {
 					Object[] chunkedResp = bodyFilter.doFilter(breq, chunk, chunk.isLast());
 					if (!breq.isHijacked()) {
@@ -133,7 +134,7 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 						((Closeable)body).close();
 					}
 				} catch (Throwable e) {
-					NginxClojureRT.log.error("can not close Closeable object such as FileInputStream!", e);
+					NginxClojureRT.log.error("%s:%s can not close Closeable object such as FileInputStream!",nr, r.nativeRequest() , e);
 				}
 			}
 		}
@@ -160,29 +161,31 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 
 	@Override
 	public NginxHttpServerChannel hijack(NginxRequest req, boolean ignoreFilter) {
+
+		if (req.isHijacked()) {
+			NginxHttpServerChannel channel = req.channel();
+			channel.setIgnoreFilter(ignoreFilter);
+			return channel;
+		}
+
 		if (log.isDebugEnabled()) {
 			log.debug("#%s: hijack at %s", req.nativeRequest(), req.uri());
 		}
-		
-		try {
-			if (req.isHijacked()) {
-				NginxHttpServerChannel channel =  req.channel();
-				channel.setIgnoreFilter(ignoreFilter);
-				return channel;
-			}
-			((NginxJavaRequest)req).hijacked = true;
-			//content phase we need increase r->count to make request not to be released in current event cycle.
-			if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD && 
-					(req.phase() == -1 || req.phase() == NGX_HTTP_HEADER_FILTER_PHASE
-					                   || req.phase() == NGX_HTTP_BODY_FILTER_PHASE)) {
-				NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest(), 1);
-			}
-			return ((NginxJavaRequest)req).channel = new NginxHttpServerChannel(req, ignoreFilter);
-		}finally{
-			if (log.isDebugEnabled()) {
-				log.debug("#%s: hijacked at %s, lns:%s", req.nativeRequest(), req.uri(), req.listeners() == null ? 0 : req.listeners().size());
-			}
+
+		((NginxJavaRequest) req).hijacked = true;
+		// content phase we need increase r->count to make request not to be
+		// released in current event cycle.
+		if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD && (req.phase() == -1
+				|| req.phase() == NGX_HTTP_HEADER_FILTER_PHASE || req.phase() == NGX_HTTP_BODY_FILTER_PHASE)) {
+			NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest(), 1);
 		}
+
+		if (log.isDebugEnabled()) {
+			log.debug("#%s: hijacked at %s, lns:%s", req.nativeRequest(), req.uri(),
+					req.listeners() == null ? 0 : req.listeners().size());
+		}
+
+		return ((NginxJavaRequest) req).channel = new NginxHttpServerChannel(req, ignoreFilter);
 	}
 
 
@@ -193,24 +196,24 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 			if (ringHandler instanceof Configurable) {
 				Configurable cr = (Configurable) ringHandler;
 				cr.config(properties);
-			}else {
-				NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!", 
+			} else {
+				NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!",
 						ringHandler.getClass());
 			}
-		}else if (headerFilter != null){
+		} else if (headerFilter != null) {
 			if (headerFilter instanceof Configurable) {
 				Configurable cr = (Configurable) headerFilter;
 				cr.config(properties);
-			}else {
-				NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!", 
+			} else {
+				NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!",
 						headerFilter.getClass());
 			}
-		}else {
+		} else {
 			if (bodyFilter instanceof Configurable) {
 				Configurable cr = (Configurable) bodyFilter;
 				cr.config(properties);
-			}else {
-				NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!", 
+			} else {
+				NginxClojureRT.log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!",
 						bodyFilter.getClass());
 			}
 		}
@@ -218,6 +221,49 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 	}
 
 	protected void returnToRequestPool(NginxJavaRequest r) {
+		NginxClojureRT.log.debug("returnToRequestPool %s, c %s, phase %s", r.r, r.nativeCount, r.phase);;
 		pooledRequests.add(r);
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxSimpleHandler#headersNeedPrefetch()
+	 */
+	@Override
+	public String[] headersNeedPrefetch() {
+		if (ringHandler != null) {
+			return ringHandler.headersNeedPrefetch();
+		} else if (headerFilter != null) {
+			return headerFilter.headersNeedPrefetch();
+		} else {
+			return bodyFilter.headersNeedPrefetch();
+		}
+	}
+
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxSimpleHandler#variablesNeedPrefetch()
+	 */
+	@Override
+	public String[] variablesNeedPrefetch() {
+		if (ringHandler != null) {
+			return ringHandler.variablesNeedPrefetch();
+		} else if (headerFilter != null) {
+			return headerFilter.variablesNeedPrefetch();
+		} else {
+			return bodyFilter.variablesNeedPrefetch();
+		}
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxSimpleHandler#responseHeadersNeedPrefetch()
+	 */
+	@Override
+	public String[] responseHeadersNeedPrefetch() {
+		if (ringHandler != null) {
+			return ringHandler.responseHeadersNeedPrefetch();
+		} else if (headerFilter != null) {
+			return headerFilter.responseHeadersNeedPrefetch();
+		} else {
+			return bodyFilter.responseHeadersNeedPrefetch();
+		}
 	}
 }

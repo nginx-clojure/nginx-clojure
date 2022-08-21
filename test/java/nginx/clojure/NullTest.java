@@ -48,5 +48,21 @@ public class NullTest  implements Runnable {
         Coroutine.yield();
         return string;
     }
+    
+    public void testfinal() {
+    	try {
+    		System.out.println("bad");
+    	} catch (Throwable e) {
+			// TODO: handle exception
+		}finally {
+    		System.out.println("good");
+    	}
+    }
+    
+    public static class NC extends NullTest {
+    	public void testfinal() {
+    		super.testfinal();
+    	}
+    }
 
 }

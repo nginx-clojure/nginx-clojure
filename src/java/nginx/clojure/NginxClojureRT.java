@@ -8,7 +8,6 @@ package nginx.clojure;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
-import java.lang.reflect.Field;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -124,13 +123,15 @@ public class NginxClojureRT extends MiniConstants {
 	
 	public native static void ngx_http_filter_finalize_request(long r, long rc);
 	
+	public native static long ngx_http_discard_request_body(long r);
+	
 	/**
 	 * 
 	 * @param r nginx http request
 	 * @param chain  -1 means continue next header filter  otherwise continue next body filter
 	 * @return
 	 */
-	public native static long ngx_http_filter_continue_next(long r, long chain);
+	public native static long ngx_http_filter_continue_next(long r, long chain, long oldChain);
 
 	/**
 	 * last_buf can be either of {@link MiniConstants#NGX_CLOJURE_BUF_LAST_OF_NONE} {@link MiniConstants#NGX_CLOJURE_BUF_LAST_OF_CHAIN}, {@link MiniConstants#NGX_CLOJURE_BUF_LAST_OF_RESPONSE}
@@ -194,7 +195,7 @@ public class NginxClojureRT extends MiniConstants {
 	/**
 	 * @deprecated
 	 */
-	public  static long ngx_http_cleanup_add(long r, final ChannelListener listener, Object data) {
+	public  static long ngx_http_cleanup_add(long r, final ChannelListener<Object> listener, Object data) {
 		return ngx_http_clojure_add_listener(r, new ChannelCloseAdapter<Object>() {
 			@Override
 			public void onClose(Object data) throws IOException {
@@ -203,12 +204,13 @@ public class NginxClojureRT extends MiniConstants {
 		}, data, 0);
 	}
 	
-	private native static long ngx_http_clojure_add_listener(long r, ChannelListener listener, Object data, int replace);
+	private native static long ngx_http_clojure_add_listener(long r, @SuppressWarnings("rawtypes") ChannelListener listener, Object data, int replace);
 	
-	public static void addListener(NginxRequest r, ChannelListener listener, Object data, int replace) {
+	public static void addListener(NginxRequest r, @SuppressWarnings("rawtypes") ChannelListener listener, Object data, int replace) {
 		addListener(r.nativeRequest(), listener, data, replace);
 	}
 	
+	@SuppressWarnings("rawtypes")
 	public static void addListener(long r, ChannelListener listener, Object data, int replace) {
 		if ( ngx_http_clojure_add_listener(r, listener, data, replace) != 0) {
 			throw new IllegalStateException("invalid request which is cleaned!");
@@ -296,7 +298,7 @@ public class NginxClojureRT extends MiniConstants {
 	public static final class WorkerResponseContext {
 		public final NginxResponse response;
 		public final NginxRequest request;
-		public final long chain;
+		public long chain;
 		
 		public WorkerResponseContext(NginxResponse resp, NginxRequest req) {
 			super();
@@ -310,7 +312,8 @@ public class NginxClojureRT extends MiniConstants {
 				}
 			}else {
 				if (resp.type() == NginxResponse.TYPE_FAKE_BODY_FILTER_TAG) {
-					chain = req.handler().buildOutputChain(resp);
+//					chain = req.handler().buildOutputChain(resp);
+					chain = 0;
 				}else {
 					chain = 0;
 				}
@@ -388,7 +391,8 @@ public class NginxClojureRT extends MiniConstants {
 				try {
 					Future<WorkerResponseContext> respFuture =  workers.take();
 					WorkerResponseContext ctx = respFuture.get();
-					if (ctx.response.type() == NginxResponse.TYPE_FAKE_ASYNC_TAG) {
+					if (ctx.response.type() == NginxResponse.TYPE_FAKE_ASYNC_TAG
+							|| ctx.request.phase() == NGX_HTTP_LOG_PHASE) {
 						continue;
 					}
 					long r = ctx.response.request().nativeRequest();
@@ -514,6 +518,7 @@ public class NginxClojureRT extends MiniConstants {
 		workerExecutorService = null;
 		eventDispather = null;
 		threadPoolOnlyForTestingUsage = null;
+		workers = null;
 	}
 	
 	public static synchronized ExecutorService initThreadPoolOnlyForTestingUsage() {
@@ -535,6 +540,13 @@ public class NginxClojureRT extends MiniConstants {
 		return new UnknownHeaderHolder(name, headersOffset);
 	}
 	
+	private static NginxHeaderHolder safeBuildKnownArrayHeaderHolder(String name, long offset, long headersOffset) {
+		if (offset >= 0) {
+			return new ArrayHeaderHolder(name, offset, headersOffset);
+		}
+		return new UnknownHeaderHolder(name, headersOffset);
+	}
+	
 	public static void initStringAddrMapsByNativeAddr(Map<String, Long> map, long addr) {
 			while (true)  {
 				String var = fetchNGXString(addr, DEFAULT_ENCODING);
@@ -550,13 +562,8 @@ public class NginxClojureRT extends MiniConstants {
 		getLog();
 		initUnsafe();
 		
-		//hack mysql jdbc driver to keep from creating connections by reflective invoking the constructor
-		try {
-			Class mysqljdbcUtilClz = Thread.currentThread().getContextClassLoader().loadClass("com.mysql.jdbc.Util");
-			Field  isJdbc4Field = mysqljdbcUtilClz.getDeclaredField("isJdbc4");
-			isJdbc4Field.setAccessible(true);
-			isJdbc4Field.set(null, false);
-		} catch (Throwable e) {
+		if (log.isDebugEnabled()) {
+			log.debug("jvm classpath:\n " + System.getProperty("java.class.path"));
 		}
 	    
 		NGINX_MAIN_THREAD = Thread.currentThread();
@@ -735,7 +742,7 @@ public class NginxClojureRT extends MiniConstants {
 		KNOWN_REQ_HEADERS.put("Via",  safeBuildKnownTableEltHeaderHolder("Via", NGX_HTTP_CLOJURE_HEADERSI_VIA_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 		KNOWN_REQ_HEADERS.put("Authorization", safeBuildKnownTableEltHeaderHolder("Authorization", NGX_HTTP_CLOJURE_HEADERSI_AUTHORIZATION_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 		KNOWN_REQ_HEADERS.put("Keep-Alive", safeBuildKnownTableEltHeaderHolder("Keep-Alive", NGX_HTTP_CLOJURE_HEADERSI_KEEP_ALIVE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
-		KNOWN_REQ_HEADERS.put("X-Forwarded-For", new ArrayHeaderHolder("X-Forwarded-For", NGX_HTTP_CLOJURE_HEADERSI_X_FORWARDED_FOR_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("X-Forwarded-For", safeBuildKnownArrayHeaderHolder("X-Forwarded-For", NGX_HTTP_CLOJURE_HEADERSI_X_FORWARDED_FOR_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 		KNOWN_REQ_HEADERS.put("X-Real-Ip", safeBuildKnownTableEltHeaderHolder("X-Real-Ip", NGX_HTTP_CLOJURE_HEADERSI_X_REAL_IP_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 		KNOWN_REQ_HEADERS.put("Accept", safeBuildKnownTableEltHeaderHolder("Accept", NGX_HTTP_CLOJURE_HEADERSI_ACCEPT_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 
@@ -745,7 +752,7 @@ public class NginxClojureRT extends MiniConstants {
 		KNOWN_REQ_HEADERS.put("Overwrite", safeBuildKnownTableEltHeaderHolder("Overwrite", NGX_HTTP_CLOJURE_HEADERSI_OVERWRITE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 		KNOWN_REQ_HEADERS.put("Date", safeBuildKnownTableEltHeaderHolder("Date", NGX_HTTP_CLOJURE_HEADERSI_DATE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 
-		KNOWN_REQ_HEADERS.put("Cookie", new ArrayHeaderHolder("Cookie", NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
+		KNOWN_REQ_HEADERS.put("Cookie", safeBuildKnownArrayHeaderHolder("Cookie", NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET, NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET));
 		
 		/*temp setting only for CORE_VARS initialization*/
 //		defaultByteBuffer = ByteBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE);
@@ -907,6 +914,7 @@ public class NginxClojureRT extends MiniConstants {
 		if (len <= 0){
 			return null;
 		}
+		
 		return fetchString(address + NGX_HTTP_CLOJURE_STR_DATA_OFFSET, len, encoding, bb, cb);
 	}
 	
@@ -984,6 +992,11 @@ public class NginxClojureRT extends MiniConstants {
 		if (size > bb.limit()) {
 			size = bb.limit();
 		}
+		
+		if (size == 7168) {
+			System.err.println("too long value??");
+		}
+		
 		ngx_http_clojure_mem_copy_to_obj(UNSAFE.getAddress(paddress), bb.array(), BYTE_ARRAY_OFFSET, size);
 		bb.limit(size);
 		return HackUtils.decode(bb, encoding, cb);
@@ -1097,7 +1110,7 @@ public class NginxClojureRT extends MiniConstants {
 		}
 	}
 
-	protected static int unsafeSetNginxVariable(long r, String name, String val) throws OutOfMemoryError {
+	public static int unsafeSetNginxVariable(long r, String name, String val) throws OutOfMemoryError {
 		long np = CORE_VARS.containsKey(name) ? CORE_VARS.get(name) : 0;
 		long pool = UNSAFE.getAddress(r + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
 		
@@ -1120,6 +1133,30 @@ public class NginxClojureRT extends MiniConstants {
 		return (int)ngx_http_clojure_mem_set_variable(r, np, strAddr, vlen);
 	}
 	
+	public static long discardRequestBody(final long r) {
+		if (r == 0) {
+			throw new RuntimeException("invalid request which address is 0!");
+		}
+		
+		if (Thread.currentThread() != NGINX_MAIN_THREAD) {
+			FutureTask<Long> task = new FutureTask<Long>(new Callable<Long>() {
+				@Override
+				public Long call() throws Exception {
+					return ngx_http_discard_request_body(r);
+				}
+			});
+			postPollTaskEvent(task);
+			try {
+				return task.get();
+			} catch (InterruptedException e) {
+				throw new RuntimeException("discardRequestBody  error", e);
+			} catch (ExecutionException e) {
+				throw new RuntimeException("discardRequestBody  error", e.getCause());
+			}
+		}else {
+			return ngx_http_discard_request_body(r);
+		}
+	}
 	
 	public static int eval(final int codeId, final long r, final long c) {
 		return HANDLERS.get(codeId).execute(r, c);
@@ -1371,7 +1408,7 @@ public class NginxClojureRT extends MiniConstants {
 				break;
 			default:
 				if (listener instanceof RawMessageListener) {
-					RawMessageListener rawListener = (RawMessageListener) listener;
+					RawMessageListener<Object> rawListener = (RawMessageListener<Object>) listener;
 					if ( (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGTEXT) != 0) {
 						rawListener.onTextMessage(data, status, (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGREMAIN) != 0, (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGFIRST) != 0);
 					}else if ( (type & NGX_HTTP_CLOJURE_CHANNEL_EVENT_MSGBIN) != 0) {
@@ -1402,13 +1439,17 @@ public class NginxClojureRT extends MiniConstants {
 			return NGX_HTTP_INTERNAL_SERVER_ERROR;
 		}
 		
+		ctx.request.applyDelayed();
+		
 		if (resp.type() == NginxResponse.TYPE_FAKE_PHASE_DONE) {
 			if (ctx.request.phase() == NGX_HTTP_HEADER_FILTER_PHASE) {
-				rc = ngx_http_filter_continue_next(r, -1);
+				rc = ngx_http_filter_continue_next(r, NGX_HTTP_HEADER_FILTER_IN_THREADPOOL, 0);
 				ngx_http_finalize_request(r, rc);
 				return NGX_OK;
-			}else if (ctx.request.phase() == NGX_HTTP_BODY_FILTER_PHASE) {
-				rc = ngx_http_filter_continue_next(r, ctx.chain);
+			} else if (ctx.request.phase() == NGX_HTTP_BODY_FILTER_PHASE) {
+				ctx.chain = req.handler().buildOutputChain(resp);
+				NginxFilterRequest fr = (NginxFilterRequest)req;
+				rc = ngx_http_filter_continue_next(r, ctx.chain, fr.isLast() ? 0 : fr.chunkChain());
 				if (resp.isLast()) {
 					ngx_http_finalize_request(r, rc);
 				}
@@ -1416,14 +1457,19 @@ public class NginxClojureRT extends MiniConstants {
 			}
 			ngx_http_clojure_mem_continue_current_phase(r, NGX_DECLINED);
 			return NGX_OK;
-		}else if (ctx.request.phase() == NGX_HTTP_BODY_FILTER_PHASE) {
-			rc = ngx_http_filter_continue_next(r, ctx.chain);
+		} else if (ctx.request.phase() == NGX_HTTP_BODY_FILTER_PHASE) {
+			ctx.chain = req.handler().buildOutputChain(resp);
+			NginxFilterRequest fr = (NginxFilterRequest)req;
+			rc = ngx_http_filter_continue_next(r, ctx.chain, fr.isLast() ? 0 : fr.chunkChain());
 			if (resp.isLast()) {
 				ngx_http_finalize_request(r, rc);
+			} else {
+				ngx_http_clojure_mem_inc_req_count(r, -1);
 			}
 			return NGX_OK;
 		}
 		
+		// the handler returns direct body and doesn't want to continue next phase.
 		long chain = ctx.chain;
 		int phase = req.phase();
 		long nr = req.nativeRequest();
@@ -1495,7 +1541,7 @@ public class NginxClojureRT extends MiniConstants {
 				return NGX_DECLINED;
 			}
 			//header filter
-			return  (int)ngx_http_filter_continue_next(r.nativeRequest(), -1);
+			return  (int)ngx_http_filter_continue_next(r.nativeRequest(), NGX_HTTP_HEADER_FILTER, 0);
 		}
 		
 		NginxHandler handler = r.handler();
@@ -1510,8 +1556,9 @@ public class NginxClojureRT extends MiniConstants {
 		if (phase == NGX_HTTP_HEADER_FILTER_PHASE) {
 			ngx_http_clear_header_and_reset_ctx_phase(nr, ~phase);
 		}else if (phase == NGX_HTTP_BODY_FILTER_PHASE) {
+			NginxFilterRequest fr = (NginxFilterRequest)r;
 			ngx_http_clear_header_and_reset_ctx_phase(nr, ~phase, false);
-			return (int)ngx_http_filter_continue_next(r.nativeRequest(), chain);
+			return (int)ngx_http_filter_continue_next(r.nativeRequest(), chain, fr.isLast() ? 0 : fr.chunkChain());
 		}
 		handler.prepareHeaders(r, status, resp.fetchHeaders());
 		long rc = ngx_http_send_header(r.nativeRequest());
@@ -1544,11 +1591,13 @@ public class NginxClojureRT extends MiniConstants {
 			return;
 		}
 		
+		req.applyDelayed();
+		
 		long rc;
 		int phase = req.phase();
 		if (resp.type() == NginxResponse.TYPE_FAKE_PHASE_DONE) {
 			if (phase == NGX_HTTP_HEADER_FILTER_PHASE) {
-				rc = ngx_http_filter_continue_next(r, -1);
+				rc = ngx_http_filter_continue_next(r, NGX_HTTP_HEADER_FILTER, 0);
 				ngx_http_finalize_request(r, rc);
 				return;
 			}
@@ -1589,10 +1638,10 @@ public class NginxClojureRT extends MiniConstants {
 			int rc = handleResponse(req, resp);
 			if (phase == -1 || phase == NGX_HTTP_HEADER_FILTER_PHASE) {
 				ngx_http_finalize_request(req.nativeRequest(), rc);
-			}else if (rc != MiniConstants.NGX_DONE){
+			} else if (rc != MiniConstants.NGX_DONE) {
 				ngx_http_clojure_mem_continue_current_phase(req.nativeRequest(), rc);
 			}
-		}else {
+		} else {
 			long r = req.nativeRequest();
 			WorkerResponseContext ctx = new WorkerResponseContext(resp, req);
 			savePostEventData(r, ctx);
@@ -1619,15 +1668,15 @@ public class NginxClojureRT extends MiniConstants {
 		}
 		id |= (tag << 56);
 		if (Thread.currentThread() == NGINX_MAIN_THREAD) {
-			int rt = (int)ngx_http_clojure_mem_broadcast_event(id, null, 0, 0);
+			int rt = (int) ngx_http_clojure_mem_broadcast_event(id, null, 0, 0);
 			if (rt == 0) {
 				return handlePostEvent(id, null, 0);
-			}else {
+			} else {
 				rt = handlePostEvent(id, null, 0);
 			}
 			return rt;
-		}else {
-			return (int)ngx_http_clojure_mem_broadcast_event(id, null, 0, 1);
+		} else {
+			return (int) ngx_http_clojure_mem_broadcast_event(id, null, 0, 1);
 		}
 	}
 	
@@ -1656,11 +1705,11 @@ public class NginxClojureRT extends MiniConstants {
 			int rt = (int)ngx_http_clojure_mem_broadcast_event(event, body, BYTE_ARRAY_OFFSET + offset, 0);
 			if (rt == 0) {
 				rt = (int)handlePostEvent(event, body, offset);
-			}else {
+			} else {
 				handlePostEvent(event, body, offset);
 			}
 			return rt;
-		}else {
+		} else {
 			return (int)ngx_http_clojure_mem_broadcast_event(event, body, BYTE_ARRAY_OFFSET + offset, 1);
 		}
 	}
@@ -1710,10 +1759,12 @@ public class NginxClojureRT extends MiniConstants {
 	public static final class BatchCallRunner implements Runnable {
 		Coroutine parent;
 		int[] counter;
+		@SuppressWarnings("rawtypes")
 		Callable handler;
 		int order;
 		Object[] results;
 
+		@SuppressWarnings("rawtypes")
 		public BatchCallRunner(Coroutine parent, int[] counter, Callable handler,
 				int order, Object[] results) {
 			super();
@@ -1728,7 +1779,7 @@ public class NginxClojureRT extends MiniConstants {
 		public void run() throws SuspendExecution {
 			try {
 				results[order] = handler.call();
-			}catch(Throwable e) {
+			} catch(Throwable e) {
 				log.error("error in sub coroutine", e);
 			}
 			
@@ -1738,7 +1789,7 @@ public class NginxClojureRT extends MiniConstants {
 		}
 	}
 	
-	public static final Object[] coBatchCall(Callable<Object> ...calls) {
+	public static final Object[] coBatchCall(@SuppressWarnings("unchecked") Callable<Object> ...calls) {
 
 		int c = calls.length;
 		int[] counter = new int[] {c};
@@ -1747,6 +1798,7 @@ public class NginxClojureRT extends MiniConstants {
 		
 		if (parent == null && (JavaAgent.db == null || !JavaAgent.db.isRunTool())) {
 			log.warn("we are not in coroutine enabled context, so we turn to use thread for only testing usage!");
+			@SuppressWarnings("rawtypes")
 			Future[] futures = new Future[c];
 			for (int i = 0; i < c ; i++) {
 				BatchCallRunner bcr = new BatchCallRunner(parent, counter, calls[i], i, results);
@@ -1755,7 +1807,7 @@ public class NginxClojureRT extends MiniConstants {
 				}
 				futures[i] = threadPoolOnlyForTestingUsage.submit(bcr);
 			}
-			for (Future f : futures) {
+			for (@SuppressWarnings("rawtypes") Future f : futures) {
 				try {
 					f.get();
 				} catch (Throwable e) {
@@ -1788,7 +1840,7 @@ public class NginxClojureRT extends MiniConstants {
 		ByteBuffer bb = threadLocalByteBuffers.get();
 		if (bb == null) {
 			threadLocalByteBuffers.set(bb = ByteBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE));
-		}else {
+		} else {
 			bb.clear();
 		}
 		return bb;
@@ -1803,7 +1855,7 @@ public class NginxClojureRT extends MiniConstants {
 		CharBuffer cb = threadLocalCharBuffers.get();
 		if (cb == null) {
 			threadLocalCharBuffers.set(cb = CharBuffer.allocate(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_SIZE));
-		}else {
+		} else {
 			cb.clear();
 		}
 		return cb;

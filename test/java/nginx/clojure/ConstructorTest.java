@@ -2,11 +2,16 @@ package nginx.clojure;
 
 import static org.junit.Assert.*;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
+import nginx.clojure.anno.Suspendable;
 
 public class ConstructorTest {
 
@@ -66,18 +71,73 @@ public class ConstructorTest {
 			System.out.println("b end");
 		}
 	}
+	
+	public static class SmRunnable implements Runnable {
+		ArrayList<Integer> result;
+		@Override
+		public void run() throws SuspendExecution {
+			A a = new A(3, result);
+			System.out.println(a);
+		}
+	}
 
 	@Test
 	public void testSimpleConstructor() {
 		
 		final ArrayList<Integer> result = new ArrayList<Integer>();
-		Coroutine co = new Coroutine(new Runnable() {
-			
-			@Override
-			public void run() throws SuspendExecution {
-				A a = new A(3, result);
+		SmRunnable smr = new SmRunnable();
+		smr.result = result;
+		Coroutine co = new Coroutine(smr);
+		co.resume();
+		assertEquals(0, result.size());
+		co.resume();
+		assertEquals(1, result.size());
+		assertEquals((Integer)0, result.get(0));
+		co.resume();
+		assertEquals(2, result.size());
+		assertEquals((Integer)1, result.get(1));
+		co.resume();
+		assertEquals(3, result.size());
+		assertEquals((Integer)2, result.get(2));
+		assertTrue(co.getCStack().empty());
+		assertTrue(co.getStack().allObjsAreNull());
+	}
+	
+	public static class SmReflectRunnable implements Runnable {
+		ArrayList<Integer> result;
+		@Override
+		public void run() throws SuspendExecution {
+			try {
+				Constructor<A> ctor = A.class.getConstructor(Integer.TYPE, ArrayList.class);
+				ctor.newInstance(new Object[] {3, result});
+			} catch (NoSuchMethodException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (SecurityException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (InstantiationException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (IllegalAccessException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (InvocationTargetException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
 			}
-		});
+		}
+	}
+	
+	@Test
+	public void testReflectConstructorInvoke() {
+		final ArrayList<Integer> result = new ArrayList<Integer>();
+		SmReflectRunnable smr = new SmReflectRunnable();
+		smr.result = result;
+		Coroutine co = new Coroutine(smr);
 		co.resume();
 		assertEquals(0, result.size());
 		co.resume();
@@ -289,4 +349,121 @@ public class ConstructorTest {
 		assertTrue(co.getStack().allObjsAreNull());
 	}
 
+	public static class CA extends A {
+		String name;
+		public CA(int n, String name, ArrayList<Integer> result) throws SuspendExecution {
+			super(n, result);
+			this.name = name;
+		}
+	}
+	
+	public static class SmSuperReflectRunnable implements Runnable {
+		ArrayList<Integer> result;
+		@Override
+		public void run() throws SuspendExecution {
+			try {
+				Constructor<CA> ctor = CA.class.getConstructor(Integer.TYPE, String.class, ArrayList.class);
+				ctor.newInstance(new Object[] {3, "CA001", result});
+			} catch (NoSuchMethodException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (SecurityException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (InstantiationException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (IllegalAccessException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			} catch (InvocationTargetException e) {
+				e.printStackTrace();
+				fail(e.getMessage());
+			}
+		}
+	}
+	
+	@Test
+	public void testReflectSuperConstructorInvoke() {
+		final ArrayList<Integer> result = new ArrayList<Integer>();
+		SmSuperReflectRunnable smr = new SmSuperReflectRunnable();
+		smr.result = result;
+		Coroutine co = new Coroutine(smr);
+		co.resume();
+		assertEquals(0, result.size());
+		co.resume();
+		assertEquals(1, result.size());
+		assertEquals((Integer)0, result.get(0));
+		co.resume();
+		assertEquals(2, result.size());
+		assertEquals((Integer)1, result.get(1));
+		co.resume();
+		assertEquals(3, result.size());
+		assertEquals((Integer)2, result.get(2));
+		assertTrue(co.getCStack().empty());
+		assertTrue(co.getStack().allObjsAreNull());
+	}
+	
+	public static class Cb1 {
+		public int k;
+		@Suspendable
+		public Cb1(int k, AtomicInteger ac) {
+			this.k = k;
+			System.out.println(k);
+			Coroutine.yield();
+			ac.incrementAndGet();
+		}
+	}
+	
+	public static class C1 {
+		String name;
+		
+		public Cb1 cb1;
+		
+		@Suspendable
+		public C1(AtomicInteger ac, String name) {
+			this.name = name;
+			Cb1 cb1 = new Cb1(20, ac);
+			this.cb1 = cb1;
+			System.out.println("name is " + name);
+			Coroutine.yield();
+			ac.addAndGet(3);
+		}
+	}
+	
+	public static class C2 extends C1 {
+		static String strField;
+		@Suspendable
+		public C2(AtomicInteger ac) {
+			super(ac, strField = "C2");
+			System.out.println("result is " + ac.intValue());
+		}
+	}
+	
+	@Test
+	public void testReflectSuperComplexInvoke() {
+		final AtomicInteger ac = new AtomicInteger(5);
+		final C2[] C2Ref = new C2[1];
+		Coroutine co = new Coroutine(new Runnable() {
+			
+			@Override
+			@Suspendable
+			public void run() {
+				C2 c2 = new C2(ac);
+				C2Ref[0] = c2;
+				System.out.println(c2.name + ", " + ac.intValue());
+			}
+		});
+		
+		co.resume();
+		assertEquals(5, ac.intValue());
+		co.resume();
+		assertEquals(6, ac.intValue());
+		co.resume();
+		assertEquals(9, ac.intValue());
+		assertEquals(20, C2Ref[0].cb1.k);
+	}
 } 

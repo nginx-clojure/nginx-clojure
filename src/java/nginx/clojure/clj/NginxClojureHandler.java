@@ -16,10 +16,13 @@ import static nginx.clojure.clj.Constants.STATUS;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import clojure.lang.IFn;
+import clojure.lang.IMeta;
+import clojure.lang.IPersistentMap;
 import clojure.lang.ISeq;
 import clojure.lang.Keyword;
 import clojure.lang.RT;
@@ -33,6 +36,7 @@ import nginx.clojure.NginxRequest;
 import nginx.clojure.NginxResponse;
 import nginx.clojure.NginxSimpleHandler;
 import nginx.clojure.java.ArrayMap;
+import nginx.clojure.java.DefinedPrefetch;
 
 public class NginxClojureHandler extends NginxSimpleHandler {
 
@@ -115,6 +119,7 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 		return super.defaultChainFlag(response);
 	}
 	
+	@SuppressWarnings("rawtypes")
 	@Override
 	public NginxResponse process(NginxRequest req) throws IOException {
 		LazyRequestMap r = (LazyRequestMap)req;
@@ -127,7 +132,7 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 				break;
 			case NGX_HTTP_BODY_FILTER_PHASE:
 				LazyFilterRequestMap breq = (LazyFilterRequestMap) r;
-				NginxChainWrappedInputStream chunk = new NginxChainWrappedInputStream(r, breq.c);
+				NginxChainWrappedInputStream chunk = breq.body;
 				try{
 					Map chunkedResp = bodyFilter.invoke(breq, chunk, chunk.isLast());
 					if (!breq.isHijacked()) {
@@ -157,6 +162,7 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 		}
 	}
 	
+	@SuppressWarnings("rawtypes")
 	public  NginxResponse toNginxResponse(NginxRequest req, Object resp) {
 		if (resp == null) {
 			return new NginxClojureResponse(req, NOT_FOUND_RESPONSE );
@@ -211,36 +217,99 @@ public class NginxClojureHandler extends NginxSimpleHandler {
 
 	@Override
 	public NginxHttpServerChannel hijack(NginxRequest req, boolean ignoreFilter) {
+
+		if (req.isHijacked()) {
+			NginxHttpServerChannel channel = req.channel();
+			channel.setIgnoreFilter(ignoreFilter);
+			return channel;
+		}
+
 		if (log.isDebugEnabled()) {
 			log.debug("#%s: hijack at %s", req.nativeRequest(), req.uri());
 		}
-		
-		try {
-			if (req.isHijacked()) {
-				NginxHttpServerChannel channel =  req.channel();
-				channel.setIgnoreFilter(ignoreFilter);
-				return channel;
-			}
-			
-			((LazyRequestMap)req).hijackTag[0] = 1;
-			if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD 
-					&& (req.phase() == -1 || req.phase() == NGX_HTTP_HEADER_FILTER_PHASE
-							              || req.phase() == NGX_HTTP_BODY_FILTER_PHASE)) {
-				NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest(), 1);
-			}
-			
-			return ((LazyRequestMap)req).channel = new NginxHttpServerChannel(req, ignoreFilter);
-		}finally {
-			if (log.isDebugEnabled()) {
-				log.debug("#%s: hijacked at %s, lns:%s", req.nativeRequest(), req.uri(), req.listeners() == null ? 0 : req.listeners().size());
-			}
+
+		LazyRequestMap cljReq = ((LazyRequestMap) req);
+		cljReq.hijackTag[0] = 1;
+		if (Thread.currentThread() == NginxClojureRT.NGINX_MAIN_THREAD && (req.phase() == -1
+				|| req.phase() == NGX_HTTP_HEADER_FILTER_PHASE || req.phase() == NGX_HTTP_BODY_FILTER_PHASE)) {
+			NginxClojureRT.ngx_http_clojure_mem_inc_req_count(req.nativeRequest(), 1);
 		}
-		
+
+		NginxHttpServerChannel channel = cljReq.channel = new NginxHttpServerChannel(req, ignoreFilter);
+
+		if (cljReq != cljReq.rawRequestMap) {
+			cljReq.rawRequestMap.channel = channel;
+		}
+
+		if (log.isDebugEnabled()) {
+			log.debug("#%s: hijacked at %s, lns:%s", req.nativeRequest(), req.uri(),
+					req.listeners() == null ? 0 : req.listeners().size());
+		}
+
+		return channel;
 
 	}
 
 	protected void returnToRequestPool(LazyRequestMap lazyRequestMap) {
 		pooledRequests.add(lazyRequestMap);
+	}
+	
+	private String[] getPrefetchMeta(IFn f, String key, String[] defaultVal) {
+		if (f instanceof IMeta) {
+			IMeta m = (IMeta) f;
+			IPersistentMap map = m.meta();
+			if (map == null) {
+				return defaultVal;
+			}
+			
+			@SuppressWarnings("unchecked")
+			List<String> val = (List<String>)map.valAt(key);
+			return val == null ? defaultVal : val.toArray(new String[val.size()]);
+		}
+		
+		return defaultVal;
+	}
+
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxSimpleHandler#headersNeedPrefetch()
+	 */
+	@Override
+	public String[] headersNeedPrefetch() {
+		if (ringHandler != null) {
+			return getPrefetchMeta(ringHandler, "headersNeedPrefetch", DefinedPrefetch.ALL_HEADERS);
+		} else if (headerFilter != null) {
+			return getPrefetchMeta(headerFilter, "headersNeedPrefetch", DefinedPrefetch.ALL_HEADERS);
+		} else {
+			return getPrefetchMeta(bodyFilter.bodyFilter, "headersNeedPrefetch", DefinedPrefetch.ALL_HEADERS);
+		}
+	}
+
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxSimpleHandler#variablesNeedPrefetch()
+	 */
+	@Override
+	public String[] variablesNeedPrefetch() {
+		if (ringHandler != null) {
+			return getPrefetchMeta(ringHandler, "variablesNeedPrefetch", DefinedPrefetch.NO_VARS);
+		} else if (headerFilter != null) {
+			return getPrefetchMeta(headerFilter, "variablesNeedPrefetch", DefinedPrefetch.NO_VARS);
+		} else {
+			return getPrefetchMeta(bodyFilter.bodyFilter, "variablesNeedPrefetch", DefinedPrefetch.NO_VARS);
+		}
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.NginxSimpleHandler#responseHeadersNeedPrefetch()
+	 */
+	@Override
+	public String[] responseHeadersNeedPrefetch() {
+		if (ringHandler != null) {
+			return getPrefetchMeta(ringHandler, "responseHeadersNeedPrefetch", DefinedPrefetch.NO_HEADERS);
+		} else if (headerFilter != null) {
+			return getPrefetchMeta(headerFilter, "responseHeadersNeedPrefetch", DefinedPrefetch.ALL_HEADERS);
+		} else {
+			return getPrefetchMeta(bodyFilter.bodyFilter, "responseHeadersNeedPrefetch", DefinedPrefetch.ALL_HEADERS);
+		}
 	}
 
 }

@@ -190,16 +190,18 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 
 	@Override
 	protected void connect(String host, int port) throws IOException {
-		//now java.net.socket has done safe close check so we can ignore it
-		//checkCreatedAndNotClosed();
+		// now java.net.socket has done safe close check so we can ignore it
+		// checkCreatedAndNotClosed();
 		if (log.isDebugEnabled()) {
-			log.debug("socket#%d: connecting to %s:%d", as.s , host, port);
+			log.debug("socket#%d: connecting to %s:%d", as.s, host, port);
 		}
+		
 		if (port > 0) {
 			as.connect(new StringBuilder(host).append(':').append(port).toString());
-		}else {
+		} else {
 			as.connect(host);
 		}
+		
 		if (!as.isConnected()) {
 			yieldFlag = YIELD_CONNECT;
 			if (log.isTraceEnabled()) {
@@ -207,17 +209,23 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 			}
 			if (status == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_RESOLVE) {
 				throw new NoRouteToHostException(as.buildError(status));
-			}else if (status == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_CONNECT) {
+			} else if (status == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_CONNECT) {
 				throw new PortUnreachableException(as.buildError(status));
-			}else if (status != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
+			} else if (status != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
 				throw new ConnectException(as.buildError(status));
 			}
+			
 			if (log.isDebugEnabled()) {
 				log.debug("socket#%d: yield on connect", as.s);
 			}
 			attachCoroutine();
 			Coroutine.yield();
-			if (status != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
+			
+			if (status == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_RESOLVE) {
+				throw new NoRouteToHostException(as.buildError(status));
+			} else if (status == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_CONNECT) {
+				throw new PortUnreachableException(as.buildError(status));
+			} else if (status != NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_OK) {
 				throw new ConnectException(as.buildError(status));
 			}
 		}
@@ -364,7 +372,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		status = sc;
 		NginxClojureSocketImpl ns = (NginxClojureSocketImpl)s.getHandler();
 		if (ns.yieldFlag == NginxClojureSocketImpl.YIELD_CONNECT){
-			log.debug("socket#%d: find suspend on YIELD_CONNECT, we'ill resume it", as.s);
+			log.debug("socket#%d: find suspend on YIELD_CONNECT, we'll resume it", as.s);
 			ns.yieldFlag = 0;
 			ns.coroutine.resume();
 		}
@@ -379,7 +387,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		status = sc;
 		NginxClojureSocketImpl ns = (NginxClojureSocketImpl)s.getHandler();
 		if (ns.yieldFlag == NginxClojureSocketImpl.YIELD_READ){
-			log.debug("socket#%d: find suspend on YIELD_READ, we'ill resume it", as.s);
+			log.debug("socket#%d: find suspend on YIELD_READ, we'll resume it", as.s);
 			ns.yieldFlag = 0;
 			ns.coroutine.resume();
 		}		
@@ -394,7 +402,7 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 		status = sc;
 		NginxClojureSocketImpl ns = (NginxClojureSocketImpl)s.getHandler();
 		if (ns.yieldFlag == NginxClojureSocketImpl.YIELD_WRITE){
-			log.debug("socket#%d: find suspend on YIELD_WRITE, we'ill resume it", as.s);
+			log.debug("socket#%d: find suspend on YIELD_WRITE, we'll resume it", as.s);
 			ns.yieldFlag = 0;
 			ns.coroutine.resume();
 		}

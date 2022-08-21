@@ -29,7 +29,7 @@ import nginx.clojure.asm.tree.analysis.Frame;
 import nginx.clojure.asm.tree.analysis.Value;
 import nginx.clojure.wave.MethodDatabase.ClassEntry;
 
-
+@SuppressWarnings({"rawtypes"})
 public class InstrumentConstructorMethod {
 
     private static final String CSTACK_NAME = Type.getInternalName(SuspendableConstructorUtilStack.class);
@@ -136,13 +136,13 @@ public class InstrumentConstructorMethod {
             tcb.accept(mv);
         }
 		
-		mv.visitMethodInsn(Opcodes.INVOKESTATIC, CSTACK_NAME, "getStack", "()L"+CSTACK_NAME+";");
+		mv.visitMethodInsn(Opcodes.INVOKESTATIC, CSTACK_NAME, "getStack", "()L"+CSTACK_NAME+";", false);
 		mv.visitVarInsn(Opcodes.ASTORE, lvarCStack);
 		
 		if (needWaveInvokedInitInsn) {
 			mv.visitLabel(invokedInitInsnStart);
 			mv.visitVarInsn(Opcodes.ALOAD, 0);
-			mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, invokedInitInsn.owner, "inch_" + getMD5(invokedInitInsn.desc), "()V");
+			mv.visitMethodInsn(invokedInitInsn.getOpcode(), invokedInitInsn.owner, "inch_" + getMD5(invokedInitInsn.desc), "()V", invokedInitInsn.itf);
 			mv.visitLabel(invokedInitInsnEnd);
 		}
 		
@@ -174,7 +174,7 @@ public class InstrumentConstructorMethod {
 		
 		mv.visitVarInsn(Opcodes.ALOAD,lvarCStack);
 		emitConst(mv, fi.numSlots);
-		mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "release", "(I)V");
+		mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "release", "(I)V", false);
 		
 		int maxStack = mn.maxStack;
 		for (int i = splitPos; i < numIns; i++) {
@@ -184,9 +184,9 @@ public class InstrumentConstructorMethod {
 				String name = misn.name;
 				if (name.charAt(0) == '<' && name.charAt(1) == 'i' && db != null && db.checkMethodSuspendType(misn.owner, ClassEntry.key(name, misn.desc), false, false) == MethodDatabase.SUSPEND_NORMAL) {
 					mv.visitInsn(Opcodes.ACONST_NULL);
-					mv.visitMethodInsn(misn.getOpcode(), misn.owner, name, InstrumentConstructorMethod.buildShrinkedInitMethodDesc(misn.desc));
+					mv.visitMethodInsn(misn.getOpcode(), misn.owner, name, InstrumentConstructorMethod.buildShrinkedInitMethodDesc(misn.desc), false);
 					mv.visitInsn(Opcodes.DUP);
-					mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, misn.owner, InstrumentConstructorMethod.buildInitHelpMethodName(misn.desc), "()V");
+					mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, misn.owner, InstrumentConstructorMethod.buildInitHelpMethodName(misn.desc), "()V", false);
 					maxStack = mn.maxStack + 1;
 					continue;
 				}
@@ -198,7 +198,7 @@ public class InstrumentConstructorMethod {
 			mv.visitLabel(invokedInitInsnCatchAll);
 			mv.visitVarInsn(Opcodes.ALOAD,lvarCStack);
 			emitConst(mv, fi.numSlots);
-			mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "release", "(I)V");
+			mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "release", "(I)V", false);
 			mv.visitInsn(Opcodes.ATHROW);
 		}
 
@@ -227,28 +227,16 @@ public class InstrumentConstructorMethod {
 		String[] exps = MethodDatabase.toStringArray(mn.exceptions);
 		MethodVisitor cmv = cv.makeOutMV(mn.access, "<init>", desc, null, exps);
 		cmv.visitCode();
+		
 		for (int i = 0; i < splitPos -1; i++) {
 			mn.instructions.get(i).accept(cmv);
 		}
 		
-		if (invokedInitInsn != null) {
-			if (db.checkMethodSuspendType(invokedInitInsn.owner, ClassEntry.key(invokedInitInsn.name, invokedInitInsn.desc), false, false) == MethodDatabase.SUSPEND_NORMAL) {
-				Type[] tps = Type.getArgumentTypes(invokedInitInsn.desc);
-				Type[] ntps = new Type[tps.length + 1];
-				System.arraycopy(tps, 0, ntps, 0, tps.length);
-				ntps[tps.length] = Type.getType(CheckInstrumentationVisitor.EXCEPTION_DESC);
-				cmv.visitInsn(Opcodes.ACONST_NULL);
-				cmv.visitMethodInsn(invokedInitInsn.getOpcode(), invokedInitInsn.owner,invokedInitInsn.name, Type.getMethodDescriptor(Type.VOID_TYPE, ntps));
-			}else {
-				invokedInitInsn.accept(cmv);
-			}
-		}
-		
-		cmv.visitMethodInsn(Opcodes.INVOKESTATIC, CSTACK_NAME, "getStack", "()L"+CSTACK_NAME+";");
+		cmv.visitMethodInsn(Opcodes.INVOKESTATIC, CSTACK_NAME, "getStack", "()L"+CSTACK_NAME+";", false);
 		cmv.visitVarInsn(Opcodes.ASTORE, lvarCStack);
 		cmv.visitVarInsn(Opcodes.ALOAD,lvarCStack);
 		emitConst(cmv, fi.numSlots);
-		cmv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "incRefsAndReserveSpace", "(I)V");
+		cmv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "incRefsAndReserveSpace", "(I)V", false);
 		        
 		for (int i = f.getStackSize(); i-->0 ;) {
 		    BasicValue v = (BasicValue) f.getStack(i);
@@ -273,6 +261,20 @@ public class InstrumentConstructorMethod {
 		        emitStoreValue(cmv, v, lvarCStack, slotIdx);
 		    }
 		}
+		
+		if (invokedInitInsn != null) {
+			if (db.checkMethodSuspendType(invokedInitInsn.owner, ClassEntry.key(invokedInitInsn.name, invokedInitInsn.desc), false, false) == MethodDatabase.SUSPEND_NORMAL) {
+				Type[] tps = Type.getArgumentTypes(invokedInitInsn.desc);
+				Type[] ntps = new Type[tps.length + 1];
+				System.arraycopy(tps, 0, ntps, 0, tps.length);
+				ntps[tps.length] = Type.getType(CheckInstrumentationVisitor.EXCEPTION_DESC);
+				cmv.visitInsn(Opcodes.ACONST_NULL);
+				cmv.visitMethodInsn(invokedInitInsn.getOpcode(), invokedInitInsn.owner,invokedInitInsn.name, Type.getMethodDescriptor(Type.VOID_TYPE, ntps), false);
+			}else {
+				invokedInitInsn.accept(cmv);
+			}
+		}
+		
         if(mn.localVariables != null) {
             for(LocalVariableNode var : mn.localVariables) {
             	if (invokedInitInsn != null) {
@@ -353,7 +355,7 @@ public class InstrumentConstructorMethod {
 
         mv.visitVarInsn(Opcodes.ALOAD, lvarStack);
         emitConst(mv, idx);
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC, CSTACK_NAME, "push", desc);
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, CSTACK_NAME, "push", desc, false);
     }
 
     private void emitRestoreValue(MethodVisitor mv, BasicValue v, int lvarStack, int idx) {
@@ -363,39 +365,39 @@ public class InstrumentConstructorMethod {
         switch(v.getType().getSort()) {
         case Type.OBJECT:
             String internalName = v.getType().getInternalName();
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "getObject", "(I)Ljava/lang/Object;");
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "getObject", "(I)Ljava/lang/Object;", false);
             if(!internalName.equals("java/lang/Object")) {  // don't cast to Object ;)
                 mv.visitTypeInsn(Opcodes.CHECKCAST, internalName);
             }
             break;
         case Type.ARRAY:
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "getObject", "(I)Ljava/lang/Object;");
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "getObject", "(I)Ljava/lang/Object;", false);
             mv.visitTypeInsn(Opcodes.CHECKCAST, v.getType().getDescriptor());
             break;
         case Type.BYTE:
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "getInt", "(I)I");
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "getInt", "(I)I", false);
             mv.visitInsn(Opcodes.I2B);
             break;
         case Type.SHORT:
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "getInt", "(I)I");
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "getInt", "(I)I", false);
             mv.visitInsn(Opcodes.I2S);
             break;
         case Type.CHAR:
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "getInt", "(I)I");
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "getInt", "(I)I", false);
             mv.visitInsn(Opcodes.I2C);
             break;
         case Type.BOOLEAN:
         case Type.INT:
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "getInt", "(I)I");
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "getInt", "(I)I", false);
             break;
         case Type.FLOAT:
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "getFloat", "(I)F");
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "getFloat", "(I)F", false);
             break;
         case Type.LONG:
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "getLong", "(I)J");
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "getLong", "(I)J", false);
             break;
         case Type.DOUBLE:
-            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "getDouble", "(I)D");
+            mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, CSTACK_NAME, "getDouble", "(I)D", false);
             break;
         default:
             throw new InternalError("Unexpected type: " + v.getType());

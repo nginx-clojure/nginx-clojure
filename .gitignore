@@ -27,3 +27,14 @@
 /.lein-failures
 /.lein-repl-history
 /nginx-tomcat7
+/patches/
+/.classpath
+/.cproject
+/.project
+/.settings/
+
+
+#intellij idea files
+.idea
+*.iml
+/nginx-tomcat9/

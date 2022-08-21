@@ -53,7 +53,7 @@ import org.junit.Test;
 @AlreadyInstrumented
 public class BlockingTest extends TestCase {
 
-    @Test
+	@Test
     public void testSuspend() throws IOException {
         final String className = BlockingTest.class.getName().replace('.', '/');
         final HashSet<String> msgs = new HashSet<String>();
@@ -69,7 +69,7 @@ public class BlockingTest extends TestCase {
         MethodDatabase db = new MethodDatabase(BlockingTest.class.getClassLoader());
         MethodDatabaseUtil.load(db, "nginx/clojure/wave/coroutine-method-db.txt");
         db.setAllowBlocking(true);
-        db.setLog(new TinyLogService() {
+        MethodDatabase.setLog(new TinyLogService() {
         	@Override
         	public void warn(String message, Object ...args) {
         		message = String.format(Locale.ENGLISH, message, args);

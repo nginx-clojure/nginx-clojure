@@ -107,11 +107,11 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler, Clo
 	}
 	
 	public boolean isClosed() {
-		return s == 0;
+		return s <= 0;
 	}
 	
 	public boolean isConnected() {
-		return connected;
+		return s > 0 && connected;
 	}
 	
 	public final void checkConnected() {
@@ -292,6 +292,7 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler, Clo
 		close(-s);
 	}
 
+	@SuppressWarnings({"unchecked"})
 	public <T> T getContext() {
 		return (T)context;
 	}

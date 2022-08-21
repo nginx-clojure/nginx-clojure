@@ -24,7 +24,7 @@ public class SimpleHandler4TestHttpClientGetMethod implements NginxJavaRingHandl
 	public Object[] invoke(Map<String, Object> request) {
 		CloseableHttpClient httpclient = HttpClients.createDefault();
 //		HttpGet httpget = new HttpGet("http://cn.bing.com/");
-		HttpGet httpget = new HttpGet("http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt");
+		HttpGet httpget = new HttpGet("https://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt");
 		CloseableHttpResponse response = null;
 		try {
 			response = httpclient.execute(httpget);

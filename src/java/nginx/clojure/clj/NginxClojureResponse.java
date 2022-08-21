@@ -16,6 +16,7 @@ import nginx.clojure.NginxRequest;
 import nginx.clojure.NginxSimpleResponse;
 import nginx.clojure.clj.Constants;
 
+@SuppressWarnings("rawtypes")
 public class NginxClojureResponse extends NginxSimpleResponse {
 
 	protected Map response;
@@ -58,8 +59,9 @@ public class NginxClojureResponse extends NginxSimpleResponse {
 
 
 
+	@SuppressWarnings("unchecked")
 	@Override
-	public Collection<Entry<?, ?>> fetchHeaders() {
+	public <K, V> Collection<Entry<K, V>> fetchHeaders() {
 		Map headers = ((Map)response.get(HEADERS));
 		return headers == null ? null : headers.entrySet();
 	}

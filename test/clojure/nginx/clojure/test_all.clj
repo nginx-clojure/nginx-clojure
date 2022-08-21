@@ -393,6 +393,8 @@
              (let [p (future (client/get (str "http://" *host* ":" *port* "/ringCompojure/sub") {:throw-exceptions false :socket-timeout 20000}))]
                (Thread/sleep 5000) ;;let sub succeed
                (client/get (str "http://" *host* ":" *port* "/ringCompojure/pub?good") {:throw-exceptions false :socket-timeout 10000})
+               (debug-println @p)
+               (debug-println "=================test-sub/pub (by long polling & broadcast)=============================")
                (is (= "good" (:body @p)))))
     (testing "sse-sub/sse-pub (by sever sent envets & broadcast)"
          (let [p (future (client/get (str "http://" *host* ":" *port* "/ringCompojure/sse-sub") {:throw-exceptions false :socket-timeout 20000}))]
@@ -400,7 +402,30 @@
            (client/get (str "http://" *host* ":" *port* "/ringCompojure/sse-pub?good!") {:throw-exceptions false :socket-timeout 10000})
            (client/get (str "http://" *host* ":" *port* "/ringCompojure/sse-pub?bad!") {:throw-exceptions false :socket-timeout 10000})
            (client/get (str "http://" *host* ":" *port* "/ringCompojure/sse-pub?finish!") {:throw-exceptions false :socket-timeout 10000})
+           (debug-println @p)
+           (debug-println "=================test-sse-sub/sse-pub (by sever sent envets & broadcast)=============================")
            (is (= "retry: 4500\r\ndata: good!\r\n\r\ndata: bad!\r\n\r\ndata: finish!\r\n\r\n" (:body @p)))))
+  )
+
+
+(deftest ^{:remote true} test-hijacksend
+  (testing "hijack chunk send"
+           (let [r (client/get (str "http://" *host* ":" *port* "/java/mchain") {:coerce :unexceptional, :decompress-body false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================hijack chunk send end =============================")
+             (is (= 200 (:status r)))
+             (is (= "first part.\r\nsecond part.\r\nthird part.\r\nlast part.\r\n" (r :body)))))
+    (testing "hijack utf8 chunk send"
+           ;clj-http will auto use Accept-Encoding	gzip, deflate
+           (let [r (client/get (str "http://" *host* ":" *port* "/java/utf8mchain"))
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================hijack utf8 chunk send end=============================")
+             (is (= 200 (:status r)))
+             (is (= "来1点中文，在utf8分隔下，中文字符会被截到不同的chain中" (r :body)))))
   )
 
 (def remote-socket-content 
@@ -411,7 +436,7 @@
 
 (def remote-http-content
   (delay 
-    (let [r1 (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt" {:socket-timeout 10000})
+    (let [r1 (client/get "https://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt" {:socket-timeout 10000})
          b1 (r1 :body)] b1)))
 
 (deftest ^{:async true :remote true} test-asyncsocket
@@ -533,7 +558,19 @@
              (is (= 200 (:status r)))
              (is (= (.length b) (.length b1)))
              (is (= b b1)))) 
-    ;http://localhost:8080/coroutineSocketAndCompojure/fetch-two-pages
+    ;http://localhost:8080/coroutineSocketAndCompojure/simple-clj-https-test
+     (testing "coroutine based socket--compojure & clj-http get"
+            (let [r (client/get (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/simple-clj-https-test") {:throw-exceptions false})
+                  h (:headers r)
+                  b (r :body)
+;                 r1 (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt")
+;                 b1 (r1 :body)
+                ]
+             (debug-println "=================coroutine based socket compojure & clj-http get =============================")
+             (is (= 200 (:status r)))
+             (is (= (.length b) (.length b1)))
+             (is (= b b1))))
+     ;http://localhost:8080/coroutineSocketAndCompojure/fetch-two-pages
      (testing "coroutine based socket--co-pvalues & compojure & clj-http "
             (let [r (client/get (str "http://" *host* ":" *port* "/coroutineSocketAndCompojure/fetch-two-pages") {:throw-exceptions false})
                   h (:headers r)
@@ -582,6 +619,19 @@
              (is (= "dropped!" (:body dr)))
              (is (= 500 (:status qad)))
              ))       
+    )
+  )
+
+(deftest ^{:remote true} test-coroutine-redis
+  (let [
+        b1 @remote-http-content]
+      (testing "coroutine based socket--redis large value example"
+           (let [r (client/get (str "http://" *host* ":" *port* "/redis") {:throw-exceptions false})
+                 h (:headers r)
+                 ]
+             (debug-println "=================coroutine based socket--redis large value example =============================")
+             (is (= 200 (:status r)))
+             (is (= "74499" (h "content-length")))))      
     )
   )
 
@@ -750,7 +800,8 @@
              (debug-println r)
              (debug-println "=================/javaaccess/basic1/small2.html=============================")
              (is (= 404 (:status r)))
-             (is  (= "162" (h  "content-length")) ))) 
+             ;; 146 nginx 1.18.0, 162 ngin 1.14.2
+             (is  (= "146" (h  "content-length")) )))
          
          (testing "access basic auth-fail with 401"
            (let [r (client/get (str "http://" *host* ":" *port* "/javaaccess/basic1/small2.html") {:coerce :unexceptional :follow-redirects false, :basic-auth ["xfeep" "xxxxx!"] :throw-exceptions false})
@@ -876,7 +927,7 @@
              (debug-println r)
              (debug-println "=================/javafilter/rc0=============================")
              (is (= 404 (:status r)))
-             (is (= "77269" (h "remote-content-length"))))
+             (is (= "77342" (h "remote-content-length"))))
            )  
       
       (testing "header filter with remote access & static file"
@@ -887,7 +938,7 @@
              (debug-println "=================/javafilter/rc1=============================")
              (is (= 200 (:status r)))
               ;;;content-type: text/html
-              (is (= "77269" (h "remote-content-length")))
+              (is (= "77342" (h "remote-content-length")))
              (is  (= "680" (h  "content-length")) )
              (is (= 680 (.length b))))
            )  
@@ -899,10 +950,52 @@
              (debug-println r)
              (debug-println "=================/javafilter/rc2=============================")
              (is (= 200 (:status r)))
-             (is (= "77269" (h "remote-content-length")))
+             (is (= "77342" (h "remote-content-length")))
               ;;;content-type: text/html
              (is (= "Hello, Java & Nginx!" b) ))
-           )        
+           )
+     ;;proxybufferonheaderfilter
+     
+  )
+
+(deftest ^{:remote true} test-proxy-pass-with-header-filter
+  (testing "proxy buffer on with header filter"
+           (let [r (client/get (str "http://" *host* ":" *port* "/proxybufferonheaderfilter") {:coerce :unexceptional, :decompress-body false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/proxybufferonheaderfilter =============================")
+             (is (= 200 (:status r)))
+             (is (= "first part.\r\nsecond part.\r\nthird part.\r\nlast part.\r\n" (r :body)))))
+  (testing "proxy buffer off with header filter"
+           (let [r (client/get (str "http://" *host* ":" *port* "/proxybufferoffheaderfilter") {:coerce :unexceptional, :decompress-body false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/proxybufferoffheaderfilter =============================")
+             (is (= 200 (:status r)))
+             (is (= "first part.\r\nsecond part.\r\nthird part.\r\nlast part.\r\n" (r :body)))))
+  )
+
+(deftest ^{:remote true} test-proxy-pass-with-body-filter
+  (testing "proxy buffer on with body filter"
+           (let [r (client/get (str "http://" *host* ":" *port* "/proxybufferonlargebodyfilter") {:coerce :unexceptional, :decompress-body false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/proxybufferonlargebodyfilter =============================")
+             (is (= 200 (:status r)))
+             (is (= 1024000 (.length (r :body))))
+             (is (= "123456789\n" (.substring (r :body) 1023990) ))))
+  (testing "proxy buffer off with body filter"
+           (let [r (client/get (str "http://" *host* ":" *port* "/proxybufferofflargebodyfilter") {:coerce :unexceptional, :decompress-body false})
+                 h (:headers r)
+                 b (r :body)]
+             (debug-println r)
+             (debug-println "=================/proxybufferofflargebodyfilter =============================")
+             (is (= 200 (:status r)))
+             (is (= 1024000 (.length (r :body))))
+             (is (= "123456789\n" (.substring (r :body) 1023990) ))))
   )
 
 (deftest ^{:remote true}  test-java-body-filter
@@ -915,7 +1008,7 @@
              (debug-println r)
              (debug-println "=================/javabodyfilter/small.html=============================")
              (is (= 200 (:status r)))
-             (is  (= "680" (h  "content-length")) )
+;             (is  (= "680" (h  "content-length")) )
              (is (= 680 (.length b)))
              )
 
@@ -1020,7 +1113,7 @@
              (debug-println r)
              (debug-println "=================/cljfilter/rc0=============================")
              (is (= 404 (:status r)))
-             (is (= "77268" (h "remote-content-length"))))
+             (is (= "77341" (h "remote-content-length"))))
            )  
       
       (testing "header filter with remote access & static file"
@@ -1031,7 +1124,7 @@
              (debug-println "=================/cljfilter/rc1=============================")
              (is (= 200 (:status r)))
               ;;;content-type: text/html
-              (is (= "77268" (h "remote-content-length")))
+              (is (= "77341" (h "remote-content-length")))
              (is  (= "680" (h  "content-length")) )
              (is (= 680 (.length b))))
            )  
@@ -1043,7 +1136,7 @@
              (debug-println r)
              (debug-println "=================/cljfilter/rc2=============================")
              (is (= 200 (:status r)))
-             (is (= "77268" (h "remote-content-length")))
+             (is (= "77341" (h "remote-content-length")))
               ;;;content-type: text/html
              (is (= "Hello, Java & Nginx!" b) ))
            )        
@@ -1059,7 +1152,7 @@
              (debug-println r)
              (debug-println "=================/cljbodyfilter/small.html=============================")
              (is (= 200 (:status r)))
-             (is  (= "680" (h  "content-length")) )
+;             (is  (= "680" (h  "content-length")) )
              (is (= 680 (.length b)))
              )
 
@@ -1174,7 +1267,8 @@
          (ws/send-msg ws-client msg)
          (Thread/sleep 1000)
          (let [content (:body (client/get "http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.2.x.txt"))]
-           (Thread/sleep 5000)
+           ;(println @result)
+           (Thread/sleep 8000)
            (ws/close ws-client)
            (is (= content @result)))))
 )

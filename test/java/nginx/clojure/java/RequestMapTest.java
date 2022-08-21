@@ -6,6 +6,7 @@ import java.lang.reflect.Field;
 
 import nginx.clojure.HackUtils;
 import nginx.clojure.MiniConstants;
+import nginx.clojure.NginxRequest;
 import nginx.clojure.clj.LazyRequestMap;
 
 import org.junit.After;
@@ -26,7 +27,7 @@ public class RequestMapTest {
 
 	@Test
 	public void testJavaRequest() throws Throwable  {
-		NginxJavaRequest kk = new NginxJavaRequest(null, 0);
+		NginxJavaRequest kk = new NginxJavaRequest(-1, null, 0);
 		assertNotNull(kk);
 		Field f = NginxJavaRequest.class.getDeclaredField("default_request_array");
 		long off = HackUtils.UNSAFE.staticFieldOffset(f);
@@ -35,7 +36,7 @@ public class RequestMapTest {
 		for (int i = 0; i < array.length; i += 2) {
 			array[i+1] = array[i].toString() + "--v";
 		}
-		NginxJavaRequest r = new NginxJavaRequest(null, 0, array);
+		NginxJavaRequest r = new NginxJavaRequest(-1, null, 0, array);
 		assertEquals(array.length/2, r.size());
 		for (int i = 0; i < array.length; i += 2) {
 			assertEquals(array[i]+"--v", r.get(array[i]));
@@ -50,7 +51,7 @@ public class RequestMapTest {
 	
 	@Test
 	public void testCljRequest() throws Throwable  {
-		LazyRequestMap kk = new LazyRequestMap(null, 0);
+		NginxRequest kk = new LazyRequestMap(null, 0);
 		assertNotNull(kk);
 		Field f = LazyRequestMap.class.getDeclaredField("default_request_array");
 		Field af = LazyRequestMap.class.getDeclaredField("array");
@@ -73,6 +74,8 @@ public class RequestMapTest {
 		r = (LazyRequestMap) r.without(nginx.clojure.clj.Constants.SCHEME);
 		assertEquals(array.length/2-1, r.count());
 		
+		
+		varray = (Object[]) HackUtils.UNSAFE.getObject(r, aoff);
 		for (int i = r.count() * 2; i < varray.length; i++) {
 			assertNull(varray[i]);
 		}

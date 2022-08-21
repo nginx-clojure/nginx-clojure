@@ -226,9 +226,15 @@ public class JavaHandlersTest {
 	
 	public static void main(String[] args) {
 		NginxEmbedServer server = NginxEmbedServer.getServer();
-		server.setWorkDir("test/work-dir");
+//		server.setWorkDir("test/work-dir");
+		System.out.println(System.getProperty("java.io.tmpdir"));
 		Map<String, String> opts = ArrayMap.create("port", "8084",
-				"http-user-defined", "shared_map mycounters hashmap?space=32k&entries=400;");
+				"http-user-defined", "shared_map mycounters hashmap?space=32k&entries=400;"
+				+ " map $http_upgrade $connection_upgrade { \n"
+			    + "   default upgrade;\n"
+			    + "   '' close;\n"
+			    + "}"
+				);
 		int port = server.start(SimpleRouting.class.getName(), opts);
 		System.out.println("return port :" + port);
 		try {
@@ -238,6 +244,7 @@ public class JavaHandlersTest {
 			e.printStackTrace();
 		}
 		server.stop();
+		opts.put("max-threads", "0");
 		port = server.start(SimpleRouting.class.getName(), opts);
 		System.out.println("return port :" + port);
 	}

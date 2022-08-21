@@ -37,7 +37,7 @@ public class TypeInterpreterTest {
 	}
     
 	
-	public Type getType(Class c) {
+	public Type getType(@SuppressWarnings("rawtypes") Class c) {
 		return Type.getType(c);
 	}
     

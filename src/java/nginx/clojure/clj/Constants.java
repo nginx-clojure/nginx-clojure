@@ -66,10 +66,13 @@ public class Constants extends MiniConstants {
 	
 	public static RequestVarFetcher REQUEST_METHOD_FETCHER;
 
+	@SuppressWarnings("rawtypes")
 	public static final Map ASYNC_TAG = new HashMap(0);
 	
+	@SuppressWarnings("rawtypes")
 	public static final Map PHRASE_DONE = new HashMap(0);
 	
+	@SuppressWarnings("rawtypes")
 	public static final Map PHASE_DONE = PHRASE_DONE;
 	
 	public static RequestVarFetcher HEADER_FETCHER;

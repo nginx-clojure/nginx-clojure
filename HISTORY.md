@@ -4,6 +4,66 @@ Downloads & Release History
 1. [Binaries of Releases](http://sourceforge.net/projects/nginx-clojure/files/)
 1. [Sources of Releases](https://github.com/nginx-clojure/nginx-clojure/releases)
 
+## 0.5.3 (2022-03-10)
+
+1. Bug Fix: #256 NginxClojureAsynSocket isClosed is not return correct result
+1. Binaries Distribution: Built with Nginx v1.20.2
+
+
+## 0.5.2 (2020-12-23)
+
+1. Bug Fix: #234 Try to fix no response when NGX_AGAIN return at next header filter
+1. Bug Fix: #233 Fix compiler warnings when there's no zlib found
+1. Enhancement: Delayed update to improve setVariable/set-ngx-var! performance at thread-pool mode
+1. Example Project: Add an example project for Jersey & Spring DI
+1. Example Project: Add example for integration with Spring framework
+1. Binaries Distribution: Built with Nginx v1.18.0
+
+
+## 0.5.1 (2019-11-23)
+
+1. Bug Fix: Connection hangs with header filter at thread-pool mode #209 #153
+1. Bug Fix: Body filter hangs when body size is larger than the value specified in proxy_buffers #219
+1. Bug Fix: Segment fault caused by request is marked as closed too late #222
+1. Code Style: Fix generic warnings in java code code-style #223 (Thanks to Michael @mgoblin)
+1. Bug Fix: NPE caused by damaged memory because unsafe modify response headers #198 
+1. Bug Fix: Wrong response for uncompressed message with PMCE enabled
+1. CI: both auto-triggered unit test and integration test use travis-ci
+
+## 0.5.0 (2019-10-26)
+
+1. New Feature: Java 9, 10, 11, 12 support. But Java 6 and Java 7 are deprecated now.
+1. New Feature: Log handler
+1. New Feature: HTTP V2 support (thanks to Nginx v1.14.2)
+1. Bug Fix: Memory leak with file handler #180
+1. Bug Fix: Zero buffer error when hijack_send empty string #181
+1. Bug Fix: Mysql driver issue about jdbc4 flag
+1. Bug Fix: ContainsKey of nginx shared map
+1. Bug Fix: NginxRequest.setVariable in a rewrite handler will hang
+1. Bug Fix: Segmentation fault on shutdown
+1. Bug Fix: Make clojure request map immutable for compojure
+1. Enhancement: API for discarding request body (request.discardRequestBody())
+1. Enhancement: Coroutine support for cascade constructor invoking
+1. Enhancement: Configurable headers/variables prefetch for more safety in multithreaded mode 
+1. Binaries Distribution: built with Nginx v1.14.2
+
+## 0.4.5 (2017-05-28)
+
+1. New Feature: Support to be compiled as Nginx dynamic module, thanks to [Andrew Hutchings](https://github.com/LinuxJedi)
+1. Bug Fix: Cannot add multiple Cookies in a response
+1. Bug Fix: Too many empty chunks are passed to Body filter & some body data lost
+1. Enhancement: [Nginx-Jersey] Support jersey application sub class
+1. Enhancement: Try to use enviroment variable JAVA_HOME to detect jvm when jvm_path is auto
+1. Enhancement: NginxSharedHashMap.keySet/values/entrySet for debug/test usage.
+1. Bug Fix: Can not use more than two shared maps.
+1. Bug Fix: NullPointerExecption will happen when multiple rewrite handlers are invoked for one request
+1. Bug Fix: Can't access ring request data in Sente handler. (content_handler_property fore-prefetch-all-properties true;)
+1. Enhancement: Compile against Nginx 1.11 & Nginx 1.12
+1. Bug Fix: Nginx reload will cause connection reset without response
+1. Bug Fix: Header filter can not change response status from upstream
+1. Bug Fix: body filters sometimes crash under thread pool mode
+1. Binaries Distribution:  built with the latest stable Nginx v1.12.0 & openssl v1.1.0e
+
 ## 0.4.4 (2016-03-04)
 
 1. New Feature: experimental nginx body filter by Java/Clojure/Groovy (issue #107)

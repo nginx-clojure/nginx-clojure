@@ -35,9 +35,11 @@ uint32_t murmur3_32(uint32_t seed, const u_char *data, uint32_t offset, uint32_t
 		case 3:
 			k1 ^= data[--i] << 16;
 			/* no break */
+			/*fallthrough*/
 		case 2:
 			k1 ^= data[--i] << 8;
 			/* no break */
+			/*fallthrough*/
 		case 1:
 			k1 ^= data[--i];
 			k1 *= 0xcc9e2d51;
@@ -45,6 +47,7 @@ uint32_t murmur3_32(uint32_t seed, const u_char *data, uint32_t offset, uint32_t
 			k1 *= 0x1b873593;
 			h1 ^= k1;
 			/* no break */
+			/*fallthrough*/
 	}
 
 	h1 ^= len;
@@ -189,6 +192,52 @@ static void ngx_http_clojure_shared_map_hashmap_invoke_value_handler_helper(ngx_
 		val_handler(NGX_CLOJURE_SHARED_MAP_JSTRING, entry->val, entry->vsize, handler_data);
 		return;
 	}
+}
+
+static ngx_int_t ngx_http_clojure_shared_map_hashmap_invoke_visit_handler_helper(ngx_http_clojure_hashmap_entry_t *entry,
+    ngx_http_clojure_shared_map_visit_handler visit_handler, void *handler_data) {
+  const void *key;
+  size_t ksize;
+  const void *val;
+  size_t vsize;
+
+  switch (entry->ktype) {
+  case NGX_CLOJURE_SHARED_MAP_JINT:
+    key =  &entry->key;
+    ksize = 4;
+    break;
+  case NGX_CLOJURE_SHARED_MAP_JLONG:
+    key = &entry->key;
+    ksize = 8;
+    break;
+  case NGX_CLOJURE_SHARED_MAP_JSTRING:
+  case NGX_CLOJURE_SHARED_MAP_JBYTEA:
+    key = entry->key;
+    ksize = entry->ksize;
+    break;
+  default:
+    return NGX_CLOJURE_SHARED_MAP_INVLAID_KEY_TYPE;
+  }
+
+  switch (entry->vtype) {
+  case NGX_CLOJURE_SHARED_MAP_JINT:
+    val =  &entry->val;
+    vsize = 4;
+    break;
+  case NGX_CLOJURE_SHARED_MAP_JLONG:
+    val = &entry->val;
+    vsize = 8;
+    break;
+  case NGX_CLOJURE_SHARED_MAP_JSTRING:
+  case NGX_CLOJURE_SHARED_MAP_JBYTEA:
+    val = entry->val;
+    vsize = entry->vsize;
+    break;
+  default:
+    return NGX_CLOJURE_SHARED_MAP_INVLAID_VALUE_TYPE;
+  }
+
+  return visit_handler(entry->ktype, key, ksize, entry->vtype, val, vsize, handler_data);
 }
 
 static ngx_int_t ngx_http_clojure_shared_map_hashmap_set_key_helper(ngx_slab_pool_t *shpool, ngx_http_clojure_hashmap_entry_t *entry,
@@ -498,26 +547,6 @@ ngx_int_t ngx_http_clojure_shared_map_hashmap_size(ngx_http_clojure_shared_map_c
 	 return ((ngx_http_clojure_shared_map_hashmap_ctx_t *)sctx->impl_ctx)->map->size;
 }
 
-
-void ngx_http_clojure_shared_map_for_each(ngx_http_clojure_shared_map_ctx_t *sctx,
-		ngx_int_t (*handler)(ngx_http_clojure_hashmap_entry_t *, void*), void *handler_data) {
-	ngx_http_clojure_shared_map_hashmap_ctx_t *ctx = sctx->impl_ctx;
-	ngx_http_clojure_hashmap_entry_t *entry;
-	uint32_t i;
-	ngx_shmtx_lock(&ctx->shpool->mutex);
-	for (i = 0; i < ctx->entry_table_size; i++) {
-		entry = ctx->map->table[i];
-		while (entry) {
-			if (handler(entry, handler_data)) {
-				goto DONE;
-			}
-			entry = entry->next;
-		}
-	}
-DONE:
-	ngx_shmtx_unlock(&ctx->shpool->mutex);
-}
-
 ngx_int_t ngx_http_clojure_shared_map_hashmap_clear(ngx_http_clojure_shared_map_ctx_t * sctx) {
 	ngx_http_clojure_shared_map_hashmap_ctx_t *ctx = sctx->impl_ctx;
 	u_char tmp_name[NGX_CLOJURE_SHARED_MAP_NAME_MAX_LEN+1];
@@ -570,4 +599,24 @@ ngx_int_t ngx_http_clojure_shared_map_hashmap_clear(ngx_http_clojure_shared_map_
 
 	ngx_shmtx_unlock(&ctx->shpool->mutex);
 	return NGX_OK;
+}
+
+ngx_int_t ngx_http_clojure_shared_map_hashmap_visit(ngx_http_clojure_shared_map_ctx_t  *sctx,
+    ngx_http_clojure_shared_map_visit_handler visit_handler, void * handler_data) {
+  ngx_http_clojure_shared_map_hashmap_ctx_t *ctx = sctx->impl_ctx;
+  ngx_http_clojure_hashmap_entry_t *entry;
+  uint32_t i;
+  ngx_shmtx_lock(&ctx->shpool->mutex);
+  for (i = 0; i < ctx->entry_table_size; i++) {
+    entry = ctx->map->table[i];
+    while (entry) {
+      if (ngx_http_clojure_shared_map_hashmap_invoke_visit_handler_helper(entry, visit_handler, handler_data)) {
+        goto DONE;
+      }
+      entry = entry->next;
+    }
+  }
+DONE:
+  ngx_shmtx_unlock(&ctx->shpool->mutex);
+  return NGX_OK;
 }

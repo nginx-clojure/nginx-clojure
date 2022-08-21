@@ -181,6 +181,10 @@ QUIT:
 					ngx_modules[i]->exit_process(cycle);
 				}
 			}
+
+			/*reset some global variables so that we can restart server in one JVM process*/
+			ngx_pagesize_shift = 0;
+
 			/*We need not exit the process and JVM will do it.*/
 			ngx_http_clojure_single_process_cycle_stop(cycle, cleaners, *ppcleaner);
 			if (nc_embed_err) {
@@ -232,7 +236,12 @@ static ngx_int_t ngx_http_clojure_embed_start(int argc, char *const *argv){
 
     ngx_pid = ngx_getpid();
 
+#if nginx_version < 1020000
     log = ngx_log_init(NULL);
+#else
+    log = ngx_log_init(NULL, NULL);
+#endif
+
     if (log == NULL) {
     	ngx_http_clojure_embed_return_error("ngx_log_init");
     }

@@ -35,6 +35,7 @@ public class ArrayHeaderHolder extends AbstractHeaderHolder {
 		super(name, offset, headersOffset);
 	}
 	
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public void push(long h, long pool, Object v) {
 		long haddr = h + offset;

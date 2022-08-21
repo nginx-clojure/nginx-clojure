@@ -8,7 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 
-public interface NginxJavaBodyFilter {
+public interface NginxJavaBodyFilter extends DefinedPrefetch {
 	
 	/**
 	 * For one request this method can be invoked multiple times and at the last time the argument 
@@ -26,5 +26,29 @@ public interface NginxJavaBodyFilter {
 	 * </ul>
 	 */
 	public Object[] doFilter(Map<String, Object> request, InputStream bodyChunk, boolean isLast)  throws IOException;
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.java.DefinedPrefetch#headersNeedPrefetch()
+	 */
+	@Override
+	default String[] headersNeedPrefetch() {
+		return NO_HEADERS;
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.java.DefinedPrefetch#variablesNeedPrefetch()
+	 */	
+	@Override
+	default String[] variablesNeedPrefetch() {
+		return NO_VARS;
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.java.DefinedPrefetch#responseHeadersNeedPrefetch()
+	 */
+	@Override
+	default String[] responseHeadersNeedPrefetch() {
+		return NO_HEADERS;
+	}
 
 }

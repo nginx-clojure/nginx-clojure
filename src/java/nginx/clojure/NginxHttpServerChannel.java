@@ -16,7 +16,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 
@@ -25,15 +24,15 @@ import nginx.clojure.net.NginxClojureAsynSocket;
 import sun.nio.ch.DirectBuffer;
 
 public class NginxHttpServerChannel implements Closeable {
-	
+
 	protected NginxRequest request;
 	protected boolean ignoreFilter;
 	protected volatile boolean closed;
 	protected Object context;
 	protected long asyncTimeout;
-	protected Object closeLock = new Object[0];
+	protected final Object closeLock = new Object[0];
 
-	private static ChannelListener<NginxHttpServerChannel> closeListener = new ChannelCloseAdapter<NginxHttpServerChannel>() {
+	private static final ChannelListener<NginxHttpServerChannel> closeListener = new ChannelCloseAdapter<NginxHttpServerChannel>() {
 		@Override
 		public void onClose(NginxHttpServerChannel sc) {
 			synchronized (sc.closeLock) {
@@ -44,20 +43,20 @@ public class NginxHttpServerChannel implements Closeable {
 			}
 		}
 	};
-	
+
 	public NginxHttpServerChannel(NginxRequest request, boolean ignoreFilter) {
 		this.request = request;
 		this.ignoreFilter = ignoreFilter;
 		request.addListener(this, closeListener);
 	}
-	
+
 	public <T> void addListener(T data, ChannelListener<T> listener) {
 		this.request.addListener(data, listener);
 	}
-	
+
 	/**
-	 * turn on event handler  
-	 * @throws IOException 
+	 * turn on event handler
+	 * @throws IOException
 	 */
 	public void turnOnEventHandler(boolean read, boolean write, boolean nokeepalive) throws IOException {
 		checkValid();
@@ -73,49 +72,42 @@ public class NginxHttpServerChannel implements Closeable {
 		}
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
 			final int fflag = flag;
-			NginxClojureRT.postPollTaskEvent(new Runnable() {
-				@Override
-				public void run() {
-					NginxClojureRT.ngx_http_hijack_turn_on_event_handler(request.nativeRequest(), fflag);
-				}
-			});
+			NginxClojureRT.postPollTaskEvent(() -> NginxClojureRT.ngx_http_hijack_turn_on_event_handler(request.nativeRequest(), fflag));
 		}else {
 			NginxClojureRT.ngx_http_hijack_turn_on_event_handler(request.nativeRequest(), flag);
 		}
 	}
-	
-	
+
+
 	protected int send(byte[] message, long off, int len, int flag) {
 		if (message == null) {
 			return (int)NginxClojureRT.ngx_http_hijack_send(request.nativeRequest(), null, 0, 0, flag);
 		}
 		return (int)NginxClojureRT.ngx_http_hijack_send(request.nativeRequest(), message, MiniConstants.BYTE_ARRAY_OFFSET + off, len, flag);
 	}
-	
+
 	protected int send(ByteBuffer message, int flag) {
 		if (message == null) {
 			return (int) NginxClojureRT.ngx_http_hijack_send(request.nativeRequest(), null, 0, 0, flag);
 		}
-		int rc = 0;
-		if (message.isDirect()) {
-			rc = (int) NginxClojureRT.ngx_http_hijack_send(request.nativeRequest(), null, 
-					((DirectBuffer) message).address() + message.position(), message.remaining(), flag);
-		} else {
-			rc = (int) NginxClojureRT.ngx_http_hijack_send(request.nativeRequest(), message.array(), 
-					MiniConstants.BYTE_ARRAY_OFFSET + message.arrayOffset()+message.position(), message.remaining(), flag);
-		}
+		int rc = (int) (message.isDirect() ?
+				NginxClojureRT.ngx_http_hijack_send(request.nativeRequest(), null,
+						((DirectBuffer) message).address() + message.position(), message.remaining(), flag) :
+				NginxClojureRT.ngx_http_hijack_send(request.nativeRequest(), message.array(),
+						MiniConstants.BYTE_ARRAY_OFFSET + message.arrayOffset()+message.position(), message.remaining(), flag));
+
 		if (rc == MiniConstants.NGX_OK) {
 			message.position(message.limit());
 		}
 		return rc;
 	}
-	
+
 	private final void checkValid() throws IOException {
 		if (closed) {
 			throw new IOException("Op on a closed NginxHttpServerChannel with request :" + request);
 		}
 	}
-	
+
 	/**
 	 * If message is null when flush is true it will do flush, when last is true it will close channel.
 	 */
@@ -146,7 +138,7 @@ public class NginxHttpServerChannel implements Closeable {
 		}
 		return flag;
 	}
-	
+
 	public void flush() throws IOException {
 		checkValid();
 		int flag = computeFlag(true, false);
@@ -156,7 +148,7 @@ public class NginxHttpServerChannel implements Closeable {
 			send(null, 0, 0, flag);
 		}
 	}
-	
+
 	public void send(String message, boolean flush, boolean last) throws IOException {
 		checkValid();
 		if (last) {
@@ -175,7 +167,7 @@ public class NginxHttpServerChannel implements Closeable {
 			send(bs, 0, bs == null ? 0 : bs.length, flag);
 		}
 	}
-	
+
 	public void send(ByteBuffer message, boolean flush, boolean last) throws IOException {
 		checkValid();
 		if (last) {
@@ -198,10 +190,10 @@ public class NginxHttpServerChannel implements Closeable {
 			send(message, flag);
 		}
 	}
-	
+
 	public long read(ByteBuffer buf) throws IOException {
 		long rc = 0;
-		
+
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
 			synchronized (closeLock) {
 				if (closed) {
@@ -227,11 +219,11 @@ public class NginxHttpServerChannel implements Closeable {
 						+ buf.arrayOffset() + buf.position(), buf.remaining());
 			}
 		}
-	
+
 		if (NginxClojureRT.log.isDebugEnabled()) {
 			NginxClojureRT.log.debug("NginxHttpServerChannel read rc=%d", rc);
 		}
-		
+
 		if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
 			return 0;
 		}else if (rc == 0) {
@@ -241,13 +233,13 @@ public class NginxHttpServerChannel implements Closeable {
 		}else {
 			buf.position(buf.position() + (int)rc);
 		}
-		
+
 		return rc;
 	}
-	
+
 	public long read(byte[] buf, long off, long size) throws IOException {
 		long rc;
-		
+
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
 			synchronized (closeLock) {
 				if (closed) {
@@ -261,7 +253,7 @@ public class NginxHttpServerChannel implements Closeable {
 			}
 			rc = NginxClojureRT.ngx_http_hijack_read(request.nativeRequest(), buf, MiniConstants.BYTE_ARRAY_OFFSET + off, size);
 		}
-		
+
 		if (NginxClojureRT.log.isDebugEnabled()) {
 			NginxClojureRT.log.debug("NginxHttpServerChannel read rc=%d", rc);
 		}
@@ -274,11 +266,11 @@ public class NginxHttpServerChannel implements Closeable {
 		}
 		return rc;
 	}
-	
+
 	protected long unsafeWrite(byte[] buf, long off, long size) {
 		return NginxClojureRT.ngx_http_hijack_write(request.nativeRequest(), buf, MiniConstants.BYTE_ARRAY_OFFSET + off, size);
 	}
-	
+
 	protected long unsafeWrite(ByteBuffer buf) {
 		long rc;
 		if (buf.isDirect()) {
@@ -288,27 +280,27 @@ public class NginxHttpServerChannel implements Closeable {
 			rc = NginxClojureRT.ngx_http_hijack_write(request.nativeRequest(), buf.array(),
 					MiniConstants.BYTE_ARRAY_OFFSET + buf.arrayOffset() + buf.position(), buf.remaining());
 		}
-		
+
 		if (rc > 0) {
 			buf.position(buf.position() + (int)rc);
 		}
 		return rc;
 	}
-	
+
 	public long write(byte[] buf, long off, int size) throws IOException {
 		checkValid();
 		long rc;
-		
+
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
 			rc = NginxClojureRT.postHijackWriteEvent(this, buf, off, size);
 		}else {
 			rc = unsafeWrite(buf, off, size);
 		}
-		
+
 		if (NginxClojureRT.log.isDebugEnabled()) {
 			NginxClojureRT.log.debug("NginxHttpServerChannel write rc=%d", rc);
 		}
-		
+
 		if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
 			return 0;
 		}else if (rc == 0) {
@@ -316,24 +308,24 @@ public class NginxHttpServerChannel implements Closeable {
 		}else if (rc < 0) {
 			throw new IOException(NginxClojureAsynSocket.errorCodeToString(rc));
 		}
-		
+
 		return (int)rc;
 	}
-	
+
 	public long write(ByteBuffer buf) throws IOException {
 		checkValid();
 		long rc;
-		
+
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
 			rc = NginxClojureRT.postHijackWriteEvent(this, buf, 0, buf.remaining());
 		}else {
 			rc = unsafeWrite(buf);
 		}
-		
+
 		if (NginxClojureRT.log.isDebugEnabled()) {
 			NginxClojureRT.log.debug("NginxHttpServerChannel write rc=%d", rc);
 		}
-		
+
 		if (rc == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_AGAIN) {
 			return 0;
 		}else if (rc == 0) {
@@ -343,11 +335,11 @@ public class NginxHttpServerChannel implements Closeable {
 		}
 		return rc;
 	}
-	
+
 	protected void sendHeader(int flag) {
 		NginxClojureRT.ngx_http_hijack_send_header(request.nativeRequest(), flag);
 	}
-	
+
 	protected int sendHeader(byte[] message, long off, int len, int flag) {
 		int rc = (int)NginxClojureRT.ngx_http_hijack_send_header(request.nativeRequest(), message, MiniConstants.BYTE_ARRAY_OFFSET + off, len, flag);
 		if (rc < 0) {
@@ -355,14 +347,14 @@ public class NginxHttpServerChannel implements Closeable {
 		}
 		return rc;
 	}
-	
+
 	protected int sendHeader(ByteBuffer message, int flag) {
 		int rc = 0;
 		if (message.isDirect()) {
-			rc = (int) NginxClojureRT.ngx_http_hijack_send_header(request.nativeRequest(), null, 
+			rc = (int) NginxClojureRT.ngx_http_hijack_send_header(request.nativeRequest(), null,
 					((DirectBuffer) message).address() + message.position(), message.remaining(), flag);
 		} else {
-			rc = (int) NginxClojureRT.ngx_http_hijack_send_header(request.nativeRequest(), message.array(), 
+			rc = (int) NginxClojureRT.ngx_http_hijack_send_header(request.nativeRequest(), message.array(),
 					MiniConstants.BYTE_ARRAY_OFFSET + message.arrayOffset()+message.position(), message.remaining(), flag);
 		}
 		if (rc == MiniConstants.NGX_OK) {
@@ -372,7 +364,7 @@ public class NginxHttpServerChannel implements Closeable {
 		}
 		return rc;
 	}
-	
+
 	public <K, V> void sendHeader(long status, Collection<Map.Entry<K, V>> headers, boolean flush, boolean last) throws IOException {
 		checkValid();
 		if (last) {
@@ -382,12 +374,11 @@ public class NginxHttpServerChannel implements Closeable {
 		request.handler().prepareHeaders(request, status, headers);
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
 			NginxClojureRT.postHijackSendHeaderEvent(this, flag);
-			return;
-		}else {
+		} else {
 			sendHeader(flag);
 		}
 	}
-	
+
 	public void sendHeader(byte[] buf, int pos, int len, boolean flush, boolean last) throws IOException {
 		checkValid();
 		if (last) {
@@ -396,31 +387,32 @@ public class NginxHttpServerChannel implements Closeable {
 		int flag = computeFlag(flush, last);
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
 			NginxClojureRT.postHijackSendHeaderEvent(this, buf, pos, len, flag);
-			return;
-		}else {
+		} else {
 			sendHeader(buf, pos, len, flag);
 		}
 	}
-	
-	
+
+
 	protected long sendResponseHelp(NginxResponse resp, long chain) {
 
 		NginxRequest req = resp.request();
 		if (req.isReleased()) {
 			if (resp.type()  >  0) {
-				log.error("#%d: request is release! and we alos meet an unhandled exception! %s",  req.nativeRequest(), resp.fetchBody());
+				log.error("#%d: request is release! and we also meet an unhandled exception! %s",  req.nativeRequest(), resp.fetchBody());
 			}else {
 				log.error("#%d: request is release! ", req.nativeRequest());
 			}
 			return MiniConstants.NGX_HTTP_INTERNAL_SERVER_ERROR;
 		}
+
+		req.applyDelayed();
 		
 		long rc = NGX_OK;
 		long r = req.nativeRequest();
-		
+
 		if (resp.type() == NginxResponse.TYPE_FAKE_PHASE_DONE) {
 			if (req.phase() == MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE) {
-				rc = NginxClojureRT.ngx_http_filter_continue_next(r, -1);
+				rc = NginxClojureRT.ngx_http_filter_continue_next(r, -1, 0);
 				NginxClojureRT.ngx_http_finalize_request(r, rc);
 				return NGX_OK;
 			}
@@ -431,7 +423,7 @@ public class NginxHttpServerChannel implements Closeable {
 			NginxClojureRT.ngx_http_clojure_mem_continue_current_phase(r, MiniConstants.NGX_DECLINED);
 			return NGX_OK;
 		}
-		
+
 		int phase = req.phase();
 		long nr = req.nativeRequest();
 		if (chain < 0) {
@@ -446,8 +438,7 @@ public class NginxHttpServerChannel implements Closeable {
 			}
 			req.handler().prepareHeaders(req, status, resp.fetchHeaders());
 			rc = NginxClojureRT.ngx_http_hijack_send_header(r, computeFlag(false, false));
-			if (rc == MiniConstants.NGX_ERROR || rc > NGX_OK) {
-			}else {
+			if (rc != MiniConstants.NGX_ERROR && rc <= NGX_OK) {
 				//close will be done by handleReturnCodeFromHandler, so we do not need pass close flag
 				rc = NginxClojureRT.ngx_http_hijack_send_chain(r, chain, computeFlag(true, false));
 				if (rc == NGX_OK && phase != -1) {
@@ -462,7 +453,7 @@ public class NginxHttpServerChannel implements Closeable {
 				}
 			}
 		}
-		
+
 		if (phase == -1 || phase == MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE) {
 			NginxClojureRT.ngx_http_finalize_request(r, rc);
 		}else if (rc != MiniConstants.NGX_DONE){
@@ -470,7 +461,7 @@ public class NginxHttpServerChannel implements Closeable {
 		}
 		return NGX_OK;
 	}
-	
+
 	public void sendResponse(Object resp) throws IOException {
 		checkValid();
 		NginxResponse response = request.handler().toNginxResponse(request, resp);
@@ -480,10 +471,10 @@ public class NginxHttpServerChannel implements Closeable {
 			sendResponseHelp(response, request.handler().buildOutputChain(response));
 		}
 	}
-	
+
 	public void sendBody(final Object body, boolean last) throws IOException {
 		checkValid();
-		
+
 		if (last) {
 			closed = true;
 		}
@@ -492,12 +483,12 @@ public class NginxHttpServerChannel implements Closeable {
 			public Object fetchBody() {
 				return body;
 			}
-			
+
 			@Override
 			public <K, V> Collection<Entry<K, V>> fetchHeaders() {
-				return Collections.EMPTY_LIST;
+				return Collections.emptyList();
 			}
-			
+
 			@Override
 			public int fetchStatus(int defaultStatus) {
 				return 200;
@@ -510,7 +501,7 @@ public class NginxHttpServerChannel implements Closeable {
 			NginxClojureRT.ngx_http_hijack_send_chain(request.nativeRequest(), chain, computeFlag(false, last));
 		}
 	}
-	
+
 	public void sendResponse(int status) throws IOException {
 		checkValid();
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
@@ -521,7 +512,7 @@ public class NginxHttpServerChannel implements Closeable {
 			NginxClojureRT.ngx_http_finalize_request(request.nativeRequest(), status);
 		}
 	}
-	
+
 	public void close() throws IOException {
 		int flag = computeFlag(false, true);
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
@@ -541,63 +532,53 @@ public class NginxHttpServerChannel implements Closeable {
 			send(null, 0, 0, flag);
 		}
 	}
-	
+
 	public void tagClose() {
 		closed = true;
 	}
-	
+
 	public boolean isIgnoreFilter() {
 		return ignoreFilter;
 	}
-	
+
 	public void setIgnoreFilter(boolean ignoreFilter) {
 		this.ignoreFilter = ignoreFilter;
 	}
-	
+
 	public NginxRequest request() {
 		return request;
 	}
-	
+
 	public boolean isClosed() {
 		return closed;
 	}
-	
+
 	public Object getContext() {
 		return context;
 	}
-	
+
 	public void setContext(Object context) {
 		this.context = context;
 	}
-	
+
 	public long getAsyncTimeout() {
 		return asyncTimeout;
 	}
-	
+
 	public void setAsyncTimeout(final long asyncTimeout) throws IOException {
 		checkValid();
 		this.asyncTimeout = asyncTimeout;
-		
+
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
-			NginxClojureRT.postPollTaskEvent(new Runnable() {
-				@Override
-				public void run() {
-					NginxClojureRT.ngx_http_hijack_set_async_timeout(request.nativeRequest(), asyncTimeout);
-				}
-			});
+			NginxClojureRT.postPollTaskEvent(() -> NginxClojureRT.ngx_http_hijack_set_async_timeout(request.nativeRequest(), asyncTimeout));
 		}else {
 			NginxClojureRT.ngx_http_hijack_set_async_timeout(request.nativeRequest(), asyncTimeout);
 		}
 	}
-	
+
 	public boolean webSocketUpgrade(final boolean sendErrorForNonWebSocket) {
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
-			FutureTask<Boolean> task = new FutureTask<Boolean>(new Callable<Boolean>() {
-				@Override
-				public Boolean call() throws Exception {
-					return NginxClojureRT.ngx_http_clojure_websocket_upgrade(request.nativeRequest(), sendErrorForNonWebSocket ? 1 : 0) == 0;
-				}
-			});
+			FutureTask<Boolean> task = new FutureTask<>(() -> NginxClojureRT.ngx_http_clojure_websocket_upgrade(request.nativeRequest(), sendErrorForNonWebSocket ? 1 : 0) == 0);
 			NginxClojureRT.postPollTaskEvent(task);
 			try {
 				return task.get();

@@ -216,7 +216,7 @@ public class JavaAgent {
         ClassWriter cw = new DBClassWriter(db, r);
         ClassVisitor cv = check ? new CheckClassAdapter(cw) : cw;
         ClassEntry ce = MethodDatabaseUtil.buildClassEntryFamily(db, r);
-        if(db.shouldIgnore(r.getClassName())) {
+        if(db.shouldIgnore(r.getClassName()) || ce == null) {
             return null;
         }
         db.trace("TRANSFORM: %s", r.getClassName());
@@ -340,6 +340,7 @@ public class JavaAgent {
 					}
 				};
 				
+				@SuppressWarnings("unused")
 				ClassEntry ce = MethodDatabaseUtil.buildClassEntryFamily(db, cr);
 //				if (className.startsWith("sun/launcher/")
 //						|| className.startsWith("clojure/asm")
@@ -375,7 +376,7 @@ public class JavaAgent {
 				}
 				db.debug("loading class %s", className);
 //				ClassVisitor cv = db.isVerbose() ?  new TraceClassVisitor(cw, new PrintWriter(System.out)) : cw;
-				ClassVisitor cv = new ClassVisitor(Opcodes.ASM4, cw) {
+				ClassVisitor cv = new ClassVisitor(Opcodes.ASM7, cw) {
 					@Override
 					public MethodVisitor visitMethod(int access, String name,
 							String desc, String signature, String[] exceptions) {

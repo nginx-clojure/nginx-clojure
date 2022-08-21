@@ -10,9 +10,7 @@ import java.util.Iterator;
 
 import nginx.clojure.NginxSimpleHandler.SimpleEntry;
 import nginx.clojure.java.JavaLazyHeaderMap;
-import clojure.lang.ASeq;
 import clojure.lang.ArityException;
-import clojure.lang.Counted;
 import clojure.lang.IFn;
 import clojure.lang.IMapEntry;
 import clojure.lang.IPersistentCollection;
@@ -21,8 +19,8 @@ import clojure.lang.ISeq;
 import clojure.lang.ITransientAssociative;
 import clojure.lang.ITransientCollection;
 import clojure.lang.ITransientMap;
+import clojure.lang.IteratorSeq;
 import clojure.lang.MapEntry;
-import clojure.lang.Obj;
 import clojure.lang.PersistentArrayMap;
 import clojure.lang.RT;
 import clojure.lang.Util;
@@ -35,8 +33,31 @@ public class LazyHeaderMap extends JavaLazyHeaderMap implements IPersistentMap, 
 		super(r, headersOut);
 	}
 	
+	@SuppressWarnings("rawtypes")
 	@Override
 	public Iterator iterator() {
+		
+		if (safeCache != null) {
+			Iterator<Entry<String, Object>> ci = safeCache.entrySet().iterator();
+			return new Iterator<MapEntry>() {
+				@Override
+				public boolean hasNext() {
+					return ci.hasNext();
+				}
+
+				@Override
+				public MapEntry next() {
+					Entry<String, Object> se = ci.next();
+					return new MapEntry(se.getKey(), se.getValue());
+				}
+
+				@Override
+				public void remove() {
+					throw new UnsupportedOperationException("remove not supported now!");
+				}
+			};
+		}
+		
 		return new Iterator<MapEntry>() {
 			int i = 0;
 			@Override
@@ -57,7 +78,8 @@ public class LazyHeaderMap extends JavaLazyHeaderMap implements IPersistentMap, 
 		};
 	}
 	
-	public MapEntry element(int i) {
+	private MapEntry element(int i) {
+		@SuppressWarnings("rawtypes")
 		SimpleEntry se = entry(i);
 		if (se.value != null && se.value.getClass().isArray()) {
 			se.value = RT.seq(se.value);
@@ -68,7 +90,7 @@ public class LazyHeaderMap extends JavaLazyHeaderMap implements IPersistentMap, 
 	@Override
 	public boolean containsKey(Object keyObj) {
 		String key = NginxClojureHandler.normalizeHeaderNameHelper(keyObj);
-		return super.containsKey(keyObj);
+		return super.containsKey(key);
 	}
 
 	@Override
@@ -97,44 +119,10 @@ public class LazyHeaderMap extends JavaLazyHeaderMap implements IPersistentMap, 
 	public boolean equiv(Object o) {
 		return o == this;
 	}
-
-	static class LazyHeaderSeq extends ASeq implements Counted{
-		
-		LazyHeaderMap h;
-		int i;
-		
-		public LazyHeaderSeq(LazyHeaderMap h, int i) {
-			this.h = h;
-			this.i = i;
-		}
-		
-		@Override
-		public Object first() {
-			return h.element(i);
-		}
-
-		@Override
-		public ISeq next() {
-			if (i < h.size -1) {
-				return new LazyHeaderSeq(h, i+1);
-			}
-			return null;
-		}
-
-		@Override
-		public Obj withMeta(IPersistentMap meta) {
-			throw new UnsupportedOperationException("withMeta not supported now!");
-		}
-		
-		@Override
-		public int count() {
-			return h.size - i;
-		}
-	}
 	
 	@Override
 	public ISeq seq() {
-		return new LazyHeaderSeq(this, 0);
+		return IteratorSeq.create(iterator());
 	}
 
 	@Override
@@ -349,5 +337,5 @@ public class LazyHeaderMap extends JavaLazyHeaderMap implements IPersistentMap, 
 	public LazyHeaderMap persistent() {
 		return this;
 	}
-
+	
 }

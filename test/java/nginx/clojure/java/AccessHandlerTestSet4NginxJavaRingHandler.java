@@ -48,6 +48,7 @@ public class AccessHandlerTestSet4NginxJavaRingHandler {
 	 */
 	public static class BasicAuthHandler implements NginxJavaRingHandler {
 
+		@SuppressWarnings("rawtypes")
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
 			String auth = (String) ((Map)request.get(HEADERS)).get("authorization");
@@ -69,6 +70,7 @@ public class AccessHandlerTestSet4NginxJavaRingHandler {
 		String user;
 		String password;
 		
+		@SuppressWarnings("rawtypes")
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
 			String auth = (String) ((Map)request.get(HEADERS)).get("authorization");
@@ -99,7 +101,7 @@ public class AccessHandlerTestSet4NginxJavaRingHandler {
 			CloseableHttpClient httpclient = HttpClients.createDefault();
 			RequestConfig requestConfig = RequestConfig.custom().setConnectionRequestTimeout(10000).setConnectTimeout(10000)
 					.setSocketTimeout(10000).build();
-			HttpGet httpget = new HttpGet("http://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt");
+			HttpGet httpget = new HttpGet("https://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt");
 			httpget.setConfig(requestConfig);
 			httpget.setHeader("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2062.94 Safari/537.36");
 			CloseableHttpResponse response = null;
@@ -112,7 +114,7 @@ public class AccessHandlerTestSet4NginxJavaRingHandler {
 				while ((c = in.read(buf)) > 0) {
 					total += c;
 				}
-				if (total != 77269) {
+				if (total != 77342) {
 					throw new RuntimeException("bad total bytes!");
 				}
 				return Constants.PHASE_DONE;
@@ -142,6 +144,7 @@ public class AccessHandlerTestSet4NginxJavaRingHandler {
 			ignoreFilter = Boolean.getBoolean(properties.get("ignoreFilter"));
 		}
 
+		@SuppressWarnings("rawtypes")
 		@Override
 		public Object[] invoke(Map<String, Object> request) throws IOException {
 			NginxJavaRequest r = (NginxJavaRequest)request;

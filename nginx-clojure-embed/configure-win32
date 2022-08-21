@@ -1,0 +1,150 @@
+#!/bin/sh
+
+# Copyright (C) Zhang,Yuexiang (xfeep)
+
+NGINX_SRC=c:/mingw/msys/1.0/home/myadmin/build-for-embed/nginx-current
+NGINX_CLOJURE_SRC=c:/mingw/msys/1.0/home/myadmin/build-for-embed/nginx-clojure
+NGINX_CLOJURE_EMBED_SRC=c:/mingw/msys/1.0/home/myadmin/build-for-embed/nginx-clojure/nginx-clojure-embed
+
+help(){
+  echo "[Usage]:" \
+	     "env NGINX_SRC=nginx-src-path ./configure"
+	echo "[example]: env NGINX_SRC=/home/who/share/tmp/nginx-release-1.8.0 ./configure"
+}
+
+if ! [ -f $NGINX_SRC/src/core/nginx.c ]; then
+	echo "[ERROR]:nginx source not found:\$NGINX_SRC=\"$NGINX_SRC\""
+	help
+	exit 1
+fi
+
+if ! [ -f $NGINX_CLOJURE_SRC/src/c/ngx_http_clojure_mem.c ]; then
+	echo "[ERROR]:nginx-clojure source not found:\$NGINX_CLOJURE_SRC=\"$NGINX_CLOJURE_SRC\""
+	help
+	exit 1
+fi
+
+
+
+##check jdk
+if ! type javac; then
+	echo "javac not found, please put it in your PATH"
+	exit 1
+fi
+
+if ! type java; then
+	echo "java not found, please put it in your PATH"
+	exit 1
+fi
+
+javac $NGINX_CLOJURE_SRC/src/java/nginx/clojure/DiscoverJvm.java
+
+if [ -z $JNI_INCS ]; then
+  JNI_INCS=`java -classpath $NGINX_CLOJURE_SRC/src/java nginx.clojure.DiscoverJvm getJniIncludes`;
+fi
+
+nginx_clojure_embed_ext=`java -classpath $NGINX_CLOJURE_SRC/src/java nginx.clojure.DiscoverJvm detectOSArchExt`
+nginx_clojure_embed_ext="-$nginx_clojure_embed_ext"
+rm $NGINX_CLOJURE_SRC/src/java/nginx/clojure/DiscoverJvm.class
+
+cd $NGINX_SRC
+if ! [ -f src/core/nginx.c.org ]; then
+	cp src/core/nginx.c src/core/nginx.c.org
+#	sed -e ':a' -e 'N' -e '$!ba' -e 's/static[ ]ngx_int_t ngx_save_argv/ngx_int_t ngx_save_argv/g' src/core/nginx.c > src/core/nginx.c-new
+#	sed -e ':a' -e 'N' -e '$!ba' -e 's/static[ ]ngx_int_t\s*\n*ngx_save_argv/ngx_int_t ngx_save_argv/g' src/core/nginx.c-new > src/core/nginx.c
+	sed -e ':a' -e 'N' -e '$!ba' -e 's/static[ ]ngx_int_t/ngx_int_t/g' src/core/nginx.c > src/core/nginx.c-new
+	mv src/core/nginx.c-new src/core/nginx.c
+fi
+
+set --   --prefix= \
+  --with-cc=cl \
+  --builddir=objs \
+  --sbin-path=nginx.exe \
+  --with-cc-opt=-DFD_SETSIZE=4096 \
+  --with-select_module \
+  --conf-path=conf/nginx.conf --pid-path=logs/nginx.pid \
+  --http-log-path=logs/access.log --error-log-path=logs/error.log \
+  --sbin-path=nginx --http-client-body-temp-path=temp/client_body_temp \
+  --http-proxy-temp-path=temp/proxy_temp \
+  --http-proxy-temp-path=temp/proxy_temp \
+  --without-http_ssi_module   \
+  --without-http_userid_module \
+  --without-http_geo_module   \
+  --without-http_split_clients_module \
+  --without-http_referer_module  \
+  --without-http_fastcgi_module  \
+  --without-http_uwsgi_module    \
+  --without-http_scgi_module     \
+  --without-http_memcached_module \
+  --without-http_empty_gif_module   \
+  --without-http_upstream_hash_module \
+  --without-http_upstream_ip_hash_module \
+  --without-http_upstream_least_conn_module \
+  --without-http_upstream_keepalive_module \
+  --without-http-cache       \
+  --without-mail_pop3_module   \
+  --without-mail_imap_module   \
+  --without-mail_smtp_module   \
+  --with-debug \
+  --with-pcre=../pcre-8.40 \
+  --with-zlib=../zlib-1.2.11 \
+  --with-openssl=../openssl-1.1.0e \
+  --with-http_v2_module \
+  --with-openssl-opt=enable-tlsext --with-http_ssl_module \
+  --add-module=${NGINX_CLOJURE_SRC}/src/c \
+  --add-module=${NGINX_CLOJURE_EMBED_SRC}/src/c \
+
+##  --with-sha1=C:/MinGW/msys/1.0/home/myadmin/nginx-current/objs/lib/openssl-1.0.1e/crypto/sha \
+##  --with-cc-opt="-I C:/MinGW/msys/1.0/home/myadmin/nginx-current/objs/lib/openssl-1.0.1e/openssl/include"
+##  --with-http_ssl_module  \
+##  --with-openssl=C:/MinGW/msys/1.0/home/myadmin/nginx-current/objs/lib/openssl-1.0.1e
+
+
+if [ -f "auto/configure" ]; then
+	. auto/configure
+else
+	. ./configure
+fi
+
+
+
+nginx_clojure_embed_shared_lib=nginx-clojure-embed${nginx_clojure_embed_ext}
+
+cat << END                                                    >> objs/Makefile
+
+
+$NGX_OBJS${ngx_dirsep}${nginx_clojure_embed_shared_lib}:	$ngx_deps$ngx_spacer
+	\$(LINK) ${ngx_long_start}${ngx_binout}$NGX_OBJS${ngx_dirsep}${nginx_clojure_embed_shared_lib}$ngx_long_cont$ngx_objs$ngx_libs$ngx_link
+	$ngx_rcc
+${ngx_long_end}
+
+embed: $NGX_OBJS${ngx_dirsep}${nginx_clojure_embed_shared_lib}
+	mkdir -p "$NGINX_CLOJURE_EMBED_SRC/res/slib"
+	cp $NGX_OBJS${ngx_dirsep}${nginx_clojure_embed_shared_lib} $NGINX_CLOJURE_EMBED_SRC/res/slib
+	if  type strip; then \
+		strip -x -S $NGINX_CLOJURE_EMBED_SRC/res/slib/${nginx_clojure_embed_shared_lib}; \
+	fi
+	cd $NGINX_CLOJURE_EMBED_SRC; \
+	echo "finish build nginx-clojure embed"
+END
+
+echo "creating $NGINX_CLOJURE_EMBED_SRC\Makefile"
+cd $NGINX_CLOJURE_EMBED_SRC
+cat << END                                                    > Makefile
+default:
+	cd $NGINX_SRC; \
+	\$(MAKE) -f objs/Makefile embed
+	cd $NGINX_CLOJURE_EMBED_SRC
+
+clean:
+	cd $NGINX_SRC; \
+	\$(MAKE) clean
+	cd $NGINX_CLOJURE_EMBED_SRC; \
+	rm $NGINX_CLOJURE_EMBED_SRC/res/slib/${nginx_clojure_embed_shared_lib} && \
+	rm Makefile
+END
+
+echo "done"
+echo "please try make to compile shared library of nginx-clojure-embed"
+echo "please modify $NGINX_SRC/auto/lib/sha1/makefile.msvc to add openssl sha headers"
+echo "CFLAGS = -nologo -O2 -Ob1 -Oi -Gs $(LIBC) $(CPU_OPT) -D L_ENDIAN -I C:/MinGW/msys/1.0/home/myadmin/nginx-current/objs/lib/openssl-1.0.1e/openssl/include -I C:/MinGW/msys/1.0/home/myadmin/nginx-current/objs/lib/openssl-1.0.1e/crypto"

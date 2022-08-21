@@ -322,7 +322,7 @@ public class Coroutine implements Runnable, Serializable {
     	return cstack; 
     }
     
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({ "unchecked", "rawtypes" })
     private boolean isInstrumented(Runnable proto) {
         try {
             Class clz = Class.forName("nginx.clojure.wave.AlreadyInstrumented");

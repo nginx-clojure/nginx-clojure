@@ -1,0 +1,11 @@
+
+for ncs in ngx_http_clojure_module ngx_http_clojure_mem ngx_http_clojure_socket ngx_http_clojure_shared_map ngx_http_clojure_shared_map_tinymap ngx_http_clojure_shared_map_hashmap;
+do
+gcc -c -fpic         -fvisibility=hidden         -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include" -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include/darwin"         -I "/Users/whomac/Dev/build-for-embed/nginx-clojure/nginx-clojure-embed/../src/c"          -DNGX_CLOJURE_BE_SILENT_WITHOUT_JVM -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include" -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include/darwin"  -pipe  -O -Wall -g   -I src/core -I src/event -I src/event/modules -I src/os/unix -I ../pcre-8.40 -I objs -I src/http -I src/http/modules -I src/http/v2 -I /Users/whomac/Dev/build-for-embed/nginx-clojure/nginx-clojure-embed/../src/c \
+		-o objs/addon/c/${ncs}.o \
+		/Users/whomac/Dev/build-for-embed/nginx-clojure/nginx-clojure-embed/../src/c/${ncs}.c
+done
+
+gcc -c -fpic         -fvisibility=hidden         -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include" -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include/darwin"         -I "/Users/whomac/Dev/build-for-embed/nginx-clojure/nginx-clojure-embed/../src/c"          -DNGX_CLOJURE_BE_SILENT_WITHOUT_JVM -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include" -I "/Library/Java/JavaVirtualMachines/jdk1.8.0_121.jdk/Contents/Home/include/darwin"  -pipe  -O -Wall  -g   -I src/core -I src/event -I src/event/modules -I src/os/unix -I ../pcre-8.40 -I objs -I src/http -I src/http/modules -I /Users/whomac/Dev/build-for-embed/nginx-clojure/nginx-clojure-embed/../src/c \
+		-o objs/addon/c/ngx_http_clojure_embed.o \
+		/Users/whomac/Dev/build-for-embed/nginx-clojure/nginx-clojure-embed/src/c/ngx_http_clojure_embed.c

@@ -8,6 +8,7 @@ import static nginx.clojure.MiniConstants.NGX_CLOJURE_BUF_FILE_FLAG;
 import static nginx.clojure.MiniConstants.NGX_CLOJURE_BUF_FLUSH_FLAG;
 import static nginx.clojure.MiniConstants.NGX_CLOJURE_BUF_LAST_FLAG;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
@@ -50,6 +51,9 @@ public class NginxChainWrappedInputStream extends InputStream {
 		}
 		
 		public RangeSeekableFileInputStream(int fd, String file, long pos, long len) throws IOException {
+			if (NginxClojureRT.getLog().isDebugEnabled()) {
+				NginxClojureRT.getLog().info("RangeSeekableFileInputStream fd : %d, file : %s, pos : %d, len %d", fd, file, pos, len);
+			}
 			this.file = HackUtils.buildShadowRandomAccessFile(fd);
 			this.file.seek(pos);
 			this.start = this.pos = pos;
@@ -213,12 +217,20 @@ public class NginxChainWrappedInputStream extends InputStream {
 			return 0;
 		}
 		
-		int c = streams[index].read(b, off, len);
+		int total = 0;
+		int c = 0;
 		
-		while (c <= 0 && ++index < streams.length) {
-			c = streams[index].read(b, off, len);
+		//now it is more eager than 0.5.0 and read more bytes as possible.
+		while (index < streams.length && total < len) {
+			c = streams[index].read(b, off + total, len - total);
+			if (c <= 0) {
+				index ++;
+			} else {
+				total += c;
+			}
 		}
-		return c;
+
+		return total;
 	}
 
 	public long nativeChain() {
@@ -293,5 +305,16 @@ public class NginxChainWrappedInputStream extends InputStream {
 		}
 		
 		return a > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int)a;
+	}
+	
+	public void prefetchNativeData() throws IOException {
+		for (int i = 0; i < streams.length; i++) {
+			InputStream in = streams[i];
+			if (in instanceof NativeInputStream) {
+				byte[] data = new byte[in.available()];
+				in.read(data);
+				streams[i] = new ByteArrayInputStream(data);
+			}
+		}
 	}
 }

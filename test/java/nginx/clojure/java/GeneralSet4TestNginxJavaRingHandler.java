@@ -47,6 +47,14 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 
 	public static class Hello implements NginxJavaRingHandler {
 
+		public Hello() {
+			Runtime.getRuntime().addShutdownHook(new Thread(){
+				public void run() {
+					NginxClojureRT.log.error("JVM shutdown hook invoked!");
+				}
+			});
+		}
+		
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
 			return new Object[] { 
@@ -60,12 +68,22 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 	
 	public static class MultipleChainHandler implements NginxJavaRingHandler {
 
+		@SuppressWarnings("unused")
+		private void sleep(int second) {
+			try {
+				Thread.sleep(second * 1000L);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
 		@Override
 		public Object[] invoke(Map<String, Object> request) throws IOException {
 			NginxJavaRequest r = (NginxJavaRequest)request;
-			NginxClojureRT.log.info("before hijack" + r.nativeCount());
+//			NginxClojureRT.log.info("before hijack" + r.nativeCount());
 			NginxHttpServerChannel channel = r.hijack(false);
-			NginxClojureRT.log.info("after hijack" + r.nativeCount());
+//			NginxClojureRT.log.info("after hijack" + r.nativeCount());
 			channel.sendHeader(200, null, true, false);
 			channel.send("first part.\r\n", true, false);
 			channel.send("second part.\r\n", true, false);
@@ -81,10 +99,10 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		@Override
 		public Object[] invoke(Map<String, Object> request) throws IOException {
 			NginxJavaRequest r = (NginxJavaRequest)request;
-			System.out.println("before hijack" + r.nativeCount());
+//			System.out.println("before hijack" + r.nativeCount());
 			NginxHttpServerChannel channel = r.hijack(false);
-			System.out.println("after hijack" + r.nativeCount());
-			channel.sendHeader(200, null, true, false);
+//			System.out.println("after hijack" + r.nativeCount());
+			channel.sendHeader(200, ArrayMap.create("Content-Type", "text/plain").entrySet(), true, false);
 			String s = "来1点中文，在utf8分隔下，中文字符会被截到不同的chain中";
 			byte[] all = s.getBytes(Charset.forName("utf8"));
 			int len = all.length;
@@ -99,7 +117,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 	
 	public static class Headers implements NginxJavaRingHandler {
 
-		@SuppressWarnings("rawtypes")
+		@SuppressWarnings({"rawtypes", "unchecked"})
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
 			Map requestHeaders = (Map) request.get(HEADERS);
@@ -107,6 +125,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 			Map headers = ArrayMap.create("content-type", "text/plain",
 					                      "my-header", requestHeaders == null ? null : requestHeaders.get("my-header"),
 					                      "etag","e29b7ffb8a5325de60aed2d46a9d150b",
+					                      "set-cookie", new String[] {"cookie1", "cookie2"},
 					                      "cache-control", new String[]{"no-store", "no-cache"});
 			Map bmap = new HashMap(request);
 			bmap.putAll(requestHeaders);
@@ -184,7 +203,8 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		public Object[] invoke(Map<String, Object> request) {
 			NginxJavaRequest r = ((NginxJavaRequest)request);
 			NginxHttpServerChannel channel = r.hijack(false);
-			PubSubListenerData pd = longPollPubSub.subscribe(channel, new NginxPubSubListener<NginxHttpServerChannel>() {
+			PubSubListenerData<NginxHttpServerChannel> pd = longPollPubSub.subscribe(channel, new NginxPubSubListener<NginxHttpServerChannel>() {
+				@SuppressWarnings("rawtypes")
 				@Override
 				public void onMessage(String msg, NginxHttpServerChannel ch) throws IOException {
 					ch.sendResponse(new Object[] { NGX_HTTP_OK,
@@ -202,7 +222,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
-			Sub.longPollPubSub.pubish(request.get(QUERY_STRING).toString());
+			Sub.longPollPubSub.publish(request.get(QUERY_STRING).toString());
 			return new Object[] { NGX_HTTP_OK, null, "OK" };
 		}
 		
@@ -216,7 +236,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		public Object[] invoke(Map<String, Object> request) throws IOException {
 			NginxJavaRequest r = (NginxJavaRequest) request;
 			NginxHttpServerChannel channel = r.hijack(true);
-			PubSubListenerData pd = ssePubSub.subscribe(channel, new NginxPubSubListener<NginxHttpServerChannel>() {
+			PubSubListenerData<NginxHttpServerChannel> pd = ssePubSub.subscribe(channel, new NginxPubSubListener<NginxHttpServerChannel>() {
 				@Override
 				public void onMessage(String message, NginxHttpServerChannel ch) throws IOException {
 					if ("shutdown!".equals(message)) {
@@ -230,6 +250,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 			});
 			channel.setContext(pd);
 			channel.addListener(channel, new ChannelCloseAdapter<NginxHttpServerChannel>() {
+				@SuppressWarnings("rawtypes")
 				@Override
 				public void onClose(NginxHttpServerChannel ch) {
 					ssePubSub.unsubscribe((PubSubListenerData) ch.getContext());
@@ -247,10 +268,20 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 
 		@Override
 		public Object[] invoke(Map<String, Object> request) {
-			SSESub.ssePubSub.pubish(request.get(QUERY_STRING).toString());
+			SSESub.ssePubSub.publish(request.get(QUERY_STRING).toString());
 			return new Object[] { NGX_HTTP_OK, null, "OK" };
 		}
 		
+	}
+	
+	public static class HijackHello implements NginxJavaRingHandler {
+		
+		@Override
+		public Object[] invoke(Map<String, Object> request) throws IOException {
+			NginxHttpServerChannel channel = ((NginxJavaRequest)request).hijack(false);
+			channel.sendResponse(new Object[] {NGX_HTTP_OK, null, "Hijack hello!"});
+			return null;
+		}
 	}
 	
 	
@@ -258,6 +289,7 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 	
 	public GeneralSet4TestNginxJavaRingHandler() {
 		routing.put("/hello", new Hello());
+		routing.put("/hijackhello", new HijackHello());
 		routing.put("/headers", new Headers());
 		routing.put("/sub", new Sub());
 		routing.put("/pub", new Pub());
@@ -266,6 +298,8 @@ public class GeneralSet4TestNginxJavaRingHandler implements NginxJavaRingHandler
 		routing.put("/file", new FileBytesHandler());
 		routing.put("/upload", new UploadHandler());
 		routing.put("/stream", new StreamingWriteHandler());
+		routing.put("/mchain", new MultipleChainHandler());
+		routing.put("/utf8mchain", new Utf8MultipleChainHandler());
 	}
 
 	@Override

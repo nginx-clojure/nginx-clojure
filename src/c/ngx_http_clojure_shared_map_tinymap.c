@@ -142,6 +142,51 @@ static void ngx_http_clojure_shared_map_tinymap_invoke_value_handler_helper(ngx_
 
 }
 
+static ngx_int_t ngx_http_clojure_shared_map_tinymap_invoke_visit_handler_helper(ngx_slab_pool_t *shpool,
+    ngx_http_clojure_tinymap_entry_t *entry, ngx_http_clojure_shared_map_visit_handler visit_handler, void *handler_data) {
+  const void *key;
+  size_t ksize;
+  const void *val;
+  size_t vsize;
+
+  switch (entry->ktype) {
+  case NGX_CLOJURE_SHARED_MAP_JINT:
+    key =  &entry->key;
+    ksize = 4;
+    break;
+  case NGX_CLOJURE_SHARED_MAP_JLONG:
+    key = &entry->key;
+    ksize = 8;
+    break;
+  case NGX_CLOJURE_SHARED_MAP_JSTRING:
+  case NGX_CLOJURE_SHARED_MAP_JBYTEA:
+    key = shpool->start + entry->key;
+    ksize = entry->ksize;
+    break;
+  default:
+    return NGX_CLOJURE_SHARED_MAP_INVLAID_KEY_TYPE;
+  }
+
+  switch (entry->vtype) {
+  case NGX_CLOJURE_SHARED_MAP_JINT:
+    val =  &entry->val;
+    vsize = 4;
+    break;
+  case NGX_CLOJURE_SHARED_MAP_JLONG:
+    val = &entry->val;
+    vsize = 8;
+    break;
+  case NGX_CLOJURE_SHARED_MAP_JSTRING:
+  case NGX_CLOJURE_SHARED_MAP_JBYTEA:
+    val = shpool->start + entry->val;
+    vsize = entry->vsize;
+    break;
+  default:
+    return NGX_CLOJURE_SHARED_MAP_INVLAID_VALUE_TYPE;
+  }
+
+  return visit_handler(entry->ktype, key, ksize, entry->vtype, val, vsize, handler_data);
+}
 
 static ngx_int_t ngx_http_clojure_shared_map_tinymap_set_key_helper(ngx_slab_pool_t *shpool, ngx_http_clojure_tinymap_entry_t *entry,
 		const void *key, size_t klen) {
@@ -498,4 +543,24 @@ ngx_int_t ngx_http_clojure_shared_map_tinymap_clear(ngx_http_clojure_shared_map_
 	ngx_shmtx_unlock(&ctx->shpool->mutex);
 	return NGX_OK;
 
+}
+
+ngx_int_t ngx_http_clojure_shared_map_tinymap_visit(ngx_http_clojure_shared_map_ctx_t  *sctx,
+    ngx_http_clojure_shared_map_visit_handler visit_handler, void * handler_data) {
+  ngx_http_clojure_shared_map_tinymap_ctx_t *ctx = sctx->impl_ctx;
+  ngx_http_clojure_tinymap_entry_t *entry;
+  uint32_t i;
+  ngx_shmtx_lock(&ctx->shpool->mutex);
+  for (i = 0; i < ctx->entry_table_size; i++) {
+    entry =  (void*)(ctx->map->table[i] + ctx->shpool->start);
+    while (entry != (void*)ctx->shpool->start) {
+      if (ngx_http_clojure_shared_map_tinymap_invoke_visit_handler_helper(ctx->shpool, entry, visit_handler, handler_data)) {
+        goto DONE;
+      }
+      entry =  (void*)(ctx->shpool->start + entry->next);
+    }
+  }
+DONE:
+  ngx_shmtx_unlock(&ctx->shpool->mutex);
+  return NGX_OK;
 }

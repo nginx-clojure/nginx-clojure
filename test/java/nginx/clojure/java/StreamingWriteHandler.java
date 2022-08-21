@@ -88,7 +88,7 @@ public class StreamingWriteHandler implements NginxJavaRingHandler {
 			MyStreamContext ctx = (MyStreamContext) ch.getContext();
 			do {
 				if (ctx.buffer.hasRemaining()) {
-					int oldPos = ctx.buffer.position();
+//					int oldPos = ctx.buffer.position();
 					c = (int)ch.write(ctx.buffer);
 					if (c == 0) {
 						break;

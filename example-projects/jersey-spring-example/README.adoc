@@ -1,0 +1,60 @@
+# Jersey & Spring Example for Nginx-Clojure
+
+This example project is used to demo how to use jersey, a JAX-RS Reference Implementation, 
+and spring dependency injection with Nginx-Clojure
+
+.
+
+## Run Unit Test
+
+[source,shell]
+....
+mvn test
+....
+
+
+
+## Run Application
+
+.Get the source
+[source,bash]
+....
+git clone https://github.com/nginx-clojure/nginx-clojure
+....
+
+.Package
+[source,bash]
+....
+cd nginx-clojure/example-projects/jersey-spring-example
+## use mvn pakage to get jersey-spring-example-0.0.1-jar-with-dependencies.jar
+mvn package
+....
+
+.Download Nginx-Clojure
+[source,bash]
+....
+cd nginx-work-dir
+mkdir logs temp
+wget https://sourceforge.net/projects/nginx-clojure/files/nginx-clojure-0.5.1.tar.gz
+tar -zxvf nginx-clojure-0.5.1.tar.gz nginx-clojure-0.5.1/nginx-linux-x64
+mv nginx-clojure-0.5.1/nginx-linux-x64 nginx
+....
+
+.Run Nginx-Clojure
+[source,bash]
+....
+./nginx
+....
+
+.Add a student
+[source,bash]
+....
+curl  -H "Content-Type: application/json" -X POST -d '{"name":"Tom", "grade":"A"}'    http://localhost:8080/api/students
+....
+
+
+.Find student by id
+[source,bash]
+....
+curl http://localhost:8080/api/students/1
+....

@@ -12,7 +12,7 @@ import java.util.Map;
  * @author Zhang,Yuexiang (xfeep)
  *
  */
-public interface NginxJavaRingHandler {
+public interface NginxJavaRingHandler extends DefinedPrefetch {
 
 	/**
 	 *  When an object implements this interface it will be called by nginx-clojure at a certain phase of nginx.
@@ -48,5 +48,30 @@ public interface NginxJavaRingHandler {
 	 * @return a object array  which has a different meaning for different handler type.
 	 */
 	public Object[] invoke(Map<String, Object> request) throws IOException;
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.java.DefinedPrefetch#headersNeedPrefetch()
+	 */
+	@Override
+	default String[] headersNeedPrefetch() {
+		return ALL_HEADERS;
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.java.DefinedPrefetch#variablesNeedPrefetch()
+	 */	
+	@Override
+	default String[] variablesNeedPrefetch() {
+		return NO_VARS;
+	}
+	
+	/* (non-Javadoc)
+	 * @see nginx.clojure.java.DefinedPrefetch#responseHeadersNeedPrefetch()
+	 */
+	@Override
+	default String[] responseHeadersNeedPrefetch() {
+		return NO_HEADERS;
+	}
+	
 	
 }

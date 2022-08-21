@@ -30,6 +30,7 @@ public class CompojureHandlerTest {
 	public void tearDown() throws Exception {
 	}
 
+	@SuppressWarnings("unlikely-arg-type")
 	@Test
 	public void testSimpleHandler1() {
 		RT.var("clojure.core", "require").invoke(Symbol.create("nginx.clojure.compojure-fns-for-test"));
@@ -39,6 +40,7 @@ public class CompojureHandlerTest {
 			final Map<String,Object> resp = new HashMap<String, Object>();
 			System.out.println("test at i=" + i);
 			Coroutine cr = new Coroutine(new Runnable() {
+				@SuppressWarnings({ "unchecked", "rawtypes" })
 				@Override
 				public void run() throws SuspendExecution {
 					resp.putAll((Map)fn.invoke());
@@ -57,6 +59,7 @@ public class CompojureHandlerTest {
 		}
 	}
 	
+	@SuppressWarnings("unlikely-arg-type")
 	@Test
 	public void testSimpleHandler11() {
 		System.out.println("do test testSimpleHandler11");
@@ -65,6 +68,7 @@ public class CompojureHandlerTest {
 		final IFn  fn = (IFn)RT.var("nginx.clojure.compojure-fns-for-test", "simple-handler").fn();
 		final Map<String,Object> resp = new HashMap<String, Object>();
 		Coroutine cr = new Coroutine(new Runnable() {
+			@SuppressWarnings({ "unchecked", "rawtypes" })
 			@Override
 			public void run() throws SuspendExecution {
 				resp.putAll((Map)fn.invoke());
@@ -81,6 +85,7 @@ public class CompojureHandlerTest {
 	
 	public static final class MyRunner implements Runnable {
 		Object request;
+		@SuppressWarnings("rawtypes")
 		Map response = new HashMap();
 		final IFn handler;
 		
@@ -127,7 +132,7 @@ public class CompojureHandlerTest {
 		assertTrue(cr.getStack().allObjsAreNull());
 	}
 
-	@Test
+//	@Test
 	public void testSimpleHandler3() {
 		RT.var("clojure.core", "require").invoke(Symbol.create("nginx.clojure.coroutine-socket-handlers-for-test"));
 //		System.out.println("rq cl :" + rq.getClass().getClassLoader());
@@ -164,7 +169,7 @@ public class CompojureHandlerTest {
 		assertTrue(cr.getStack().allObjsAreNull());
 	}
 	
-	@Test
+//	@Test
 	public void testSimpleHandler30() {
 
 		final MyRunner[] ref = new MyRunner[1];
@@ -172,12 +177,12 @@ public class CompojureHandlerTest {
 //		System.out.println("rq cl :" + rq.getClass().getClassLoader());
 		
 //		IFn  fn = (IFn)RT.var("nginx.clojure.coroutine-socket-handlers-for-test", "coroutine-socket-test-handler").fn();
-		String code = "(do " +
-             "(use \'[compojure.core])" + 
-             "(use \'[nginx.clojure.coroutine-socket-handlers-for-test])" + 
-             "(context \"/coroutineSocketAndCompojure\" [] coroutine-socket-test-handler)" +
+//		String code = "(do " +
+//             "(use \'[compojure.core])" + 
+//             "(use \'[nginx.clojure.coroutine-socket-handlers-for-test])" + 
+//             "(context \"/coroutineSocketAndCompojure\" [] coroutine-socket-test-handler)" +
 //             "coroutine-socket-test-handler" +
-           ")";
+//           ")";
 //		final IFn fn = (IFn)RT.var("clojure.core", "eval").invoke(RT.var("clojure.core","read-string").invoke(code));
 		
 		final IFn fn = new AFn() {
@@ -242,7 +247,7 @@ public class CompojureHandlerTest {
 	}
 	
 	
-	@Test
+//	@Test
 	public void testSimpleHandler31() {
 		RT.var("clojure.core", "require").invoke(Symbol.create("nginx.clojure.coroutine-socket-handlers-for-test"));
 //		System.out.println("rq cl :" + rq.getClass().getClassLoader());
@@ -280,7 +285,7 @@ public class CompojureHandlerTest {
 	}
 	
 	
-	@Test
+//	@Test
 	public void testSimpleHandler32() {
 		RT.var("clojure.core", "require").invoke(Symbol.create("nginx.clojure.coroutine-socket-handlers-for-test"));
 //		System.out.println("rq cl :" + rq.getClass().getClassLoader());

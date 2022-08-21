@@ -55,7 +55,8 @@ public class OmittedInstruction extends AbstractInsnNode {
     public void accept(MethodVisitor cv) {
     }
 
-    @Override
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+	@Override
     public AbstractInsnNode clone(Map labels) {
         return new OmittedInstruction(orgInsn.clone(labels));
     }

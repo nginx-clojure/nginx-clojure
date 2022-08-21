@@ -164,8 +164,9 @@ static u_char WS_CLOSE_NO_EXTENSION[] = { 0x03, 0xf2 };*/
 
 /*1011 indicates that a server is terminating the connection
  * because it encountered an unexpected condition that prevented it from fulfilling the request.*/
+#if (NGX_ZLIB)
 static u_char WS_CLOSE_UNEXPECTED_CONDITION[] = { 0x03, 0xf3 };
-
+#endif
 /*1012 indicates that the service will be restarted.
 static u_char WS_CLOSE_SERVICE_RESTART[] = { 0x03, 0xf4 };*/
 
@@ -174,8 +175,9 @@ static u_char WS_CLOSE_TRY_AGAIN_LATER[] = { 0x03, 0xf5 };*/
 
 /*1015 is a reserved value and MUST NOT be set as a status code in a Close control frame by an endpoint.
 static u_char WS_CLOSE_TLS_HANDSHAKE_FAILURE[] = { 0x03, 0xf7 };*/
-
+#if (NGX_ZLIB)
 static u_char WS_PMCE_TAIL_DATA[] = {0x00, 0x00, 0xff, 0xff};
+#endif
 
 ngx_int_t ngx_http_clojure_set_elt_header(ngx_http_request_t *r, ngx_table_elt_t *h, ngx_uint_t offset) {
     ngx_table_elt_t  **ph;
@@ -1516,7 +1518,10 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *me
 	ngx_http_clojure_module_ctx_t *ctx;
 	ngx_chain_t *in;
 	size_t page_size;
+
+#if (NGX_ZLIB)
 	int need_reset_deflate_ctx = 0;
+#endif
 
 	if (r->pool == NULL) {
 		if (message) { /*message can be NULL if send a close event without additional data*/
@@ -1534,6 +1539,13 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *me
 								"ngx_http_clojure_hijack_send 3:"
 								"can not send message because the request is closing");
 		return NGX_OK;
+	}
+
+	if (r->connection->log->log_level & NGX_LOG_DEBUG_HTTP) {
+	  ngx_str_t msg;
+	  msg.data = message;
+	  msg.len = len;
+	  ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "[%" PRIu64  "] hijack send : {%V}, len %d, flag : %d", (uintptr_t)r , &msg, len, flag);
 	}
 
 	page_size = ((ngx_http_clojure_loc_conf_t *)ngx_http_get_module_loc_conf(r, ngx_http_clojure_module))->write_page_size;
@@ -1557,14 +1569,16 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *me
 			}
 		}
 		if (!(flag & (NGX_CLOJURE_BUF_WEBSOCKET_CLOSE_FRAME | NGX_CLOJURE_BUF_WEBSOCKET_PONG_FRAME))) {
-			if (!ctx->wsctx->ffm) {
+			if (!wsctx->ffm) {
 				flag |= NGX_CLOJURE_BUF_WEBSOCKET_CONTINUE_FRAME;
-			}else {
+			} else {
+#if (NGX_ZLIB)
 				need_reset_deflate_ctx = 1;
-				ctx->wsctx->ffm = 0;
+#endif
+				wsctx->ffm = 0;
 			}
 			if (flag & NGX_CLOJURE_BUF_FLUSH_FLAG) {
-				ctx->wsctx->ffm = 1;
+				wsctx->ffm = 1;
 			}
 #if (NGX_ZLIB)
 			if (wsctx->premsg_deflate) {
@@ -1721,9 +1735,15 @@ static ngx_int_t  ngx_http_clojure_hijack_send(ngx_http_request_t *r, u_char *me
 			b->last += len;
 			if (flag & NGX_CLOJURE_BUF_LAST_FLAG) {
 				b->last_buf = 1;
+				if (ngx_buf_size(b) == 0) {
+				  b->temporary = 0;
+				}
 			}
 			if (flag & NGX_CLOJURE_BUF_FLUSH_FLAG) {
 				b->flush = 1;
+				if (ngx_buf_size(b) == 0) {
+				  b->temporary = 0;
+				}
 			}
 			goto TRY_SEND;
 		}
@@ -1871,6 +1891,14 @@ TOP_WHILE :
 					buf->pos += wsctx->left;
 				}
 				wsctx->opcode = buf->pos[0] & 0x0f;
+
+#if (NGX_ZLIB)
+				if (wsctx->premsg_deflate && wsctx->fin) {
+				  /*the last frame is FIN frame so we need update compressed flag*/
+				  wsctx->compressed = (buf->pos[0] & 0x40) >> 6;
+				}
+#endif
+
 				if (wsctx->fin || (buf->pos[0] & 0x0f) == NGX_HTTP_CLOJURE_WEBSOCKET_OPCODE_CLOSE) { /*last frame is FIN frame*/
 					wsctx->cont = 0;
 				}else {
@@ -1886,8 +1914,8 @@ TOP_WHILE :
 
 				if ( !(wsctx->opcode & 0x8) ) { /*is not control frame*/
 					wsctx->fin = (buf->pos[0] >> 7) & 1;
-				}else {
-					if (!(buf->pos[0] >> 7) & 1) { /*control frame must be FIN*/
+				} else {
+          if ((!(buf->pos[0] >> 7)) & 1) { /*control frame must be FIN*/
 						goto_close(WS_CLOSE_PROTOCOL_ERROR);
 					}
 
@@ -1913,6 +1941,7 @@ TOP_WHILE :
 				buf->pos += 2;
 				wsctx->pstate = NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_LEN;
 				/* no break */
+				/*fallthrough*/
 			case NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_LEN:
 				if (wsctx->opcode & 0x8) {
 					if (wsctx->len > 125) { /*control frame payload length < 126 */
@@ -1930,6 +1959,7 @@ TOP_WHILE :
 				}
 				wsctx->pstate = NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_MASK;
 				/* no break */
+				/*fallthrough*/
 			case NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_MASK:
 				if (wsctx->mask) {
 					check_buf_data_enough(buf, 4, TOP_WHILE);
@@ -1938,6 +1968,7 @@ TOP_WHILE :
 				}
 				wsctx->pstate = NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_DATA;
 				/* no break */
+				/*fallthrough*/
 			case NGX_HTTP_CLOJURE_WEBSOCKET_PARSE_DATA:
 
 				/*when buf->end == buf->last we need handle data at once because there's no free space to read more,
@@ -2050,7 +2081,7 @@ TOP_WHILE :
 					wsctx->len -= size;
 					pc = buf->pos;
 #if (NGX_ZLIB)
-					if (wsctx->premsg_deflate && !(wsctx->opcode & 0x8)) { /*PMCEs operate only on data messages.*/
+					if (wsctx->compressed && !(wsctx->opcode & 0x8)) { /*PMCEs operate only on data messages.*/
 						u_char deflate_buf[8192];
 						u_char *deflate_buf_pos;
 						int zrc = 0;
@@ -2253,7 +2284,7 @@ static void nji_ngx_http_clojure_hijack_write_handler(ngx_http_request_t *r) {
 	}
 }
 
-#if (NGX_HAVE_SHA1 && NGX_ZLIB)
+#if ((NGX_HAVE_SHA1 || nginx_version >= 1011002) && NGX_ZLIB)
 
 static void *ngx_http_clojure_websocket_alloc(void *opaque, u_int items, u_int size) {
 	ngx_http_clojure_module_ctx_t *ctx = (ngx_http_clojure_module_ctx_t *)opaque;
@@ -2268,10 +2299,10 @@ static void ngx_http_clojure_websocket_free(void *opaque, void *address) {
 
 ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
 	ngx_http_clojure_module_ctx_t *ctx;
-#if (NGX_HAVE_SHA1)
-    ngx_http_clojure_websocket_ctx_t *wsctx = NULL;
-	ngx_int_t rc = NGX_OK;
-	ngx_table_elt_t *key = NULL;
+#if (NGX_HAVE_SHA1 || nginx_version >= 1011002)
+  ngx_http_clojure_websocket_ctx_t *wsctx = NULL;
+  ngx_int_t rc = NGX_OK;
+  ngx_table_elt_t *key = NULL;
 	ngx_table_elt_t *accept;
 	ngx_table_elt_t *cver = NULL;
 	ngx_sha1_t   sha1_ctx;
@@ -2330,20 +2361,22 @@ ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
     wsctx = ctx->wsctx;
 
     if (wsctx == NULL) {
+#if (NGX_ZLIB)
     	ngx_table_elt_t *in_extensions = NULL;
     	ngx_table_elt_t *out_extensions = NULL;
     	int in_max_window_bits = 15;
     	int out_max_window_bits = 15;
     	/*TODO: negotiate in_max_window_bits & out_max_window_bits, e.g. "permessage-deflate;server_max_window_bits=11;client_max_window_bits=11"*/
     	char out_extensions_tmp_value[1024] = "permessage-deflate";
-
+#endif
     	wsctx = ngx_pcalloc(r->pool, sizeof(ngx_http_clojure_websocket_ctx_t));
-		wsctx->ffm = 1;
-		wsctx->fin = 1;
-  #if (NGX_ZLIB)
+		  wsctx->ffm = 1;
+		  wsctx->fin = 1;
+#if (NGX_ZLIB)
     	ngx_http_clojure_get_header(r->headers_in.headers, "Sec-WebSocket-Extensions", in_extensions);
     	if (in_extensions != NULL && ngx_strcasestrn(in_extensions->value.data, "permessage-deflate", 18-1)) {
     		wsctx->premsg_deflate = 1;
+    		wsctx->compressed = 0;
     		if (ngx_strcasestrn(in_extensions->value.data, "client_no_context_takeover", 26-1)) {
     			wsctx->out_no_ctx_takeover = 1;
     			sprintf(out_extensions_tmp_value+strlen(out_extensions_tmp_value), ";%s", "client_no_context_takeover");
@@ -2371,7 +2404,7 @@ ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
 				goto UPGRADE_DONE;
 			}
     	}
-  #endif
+#endif
 
     }
 
@@ -2786,7 +2819,7 @@ static jlong JNICALL jni_ngx_http_hijack_send(JNIEnv *env, jclass cls, jlong req
 
 	ngx_int_t rc = ngx_http_clojure_hijack_send((ngx_http_request_t *) (uintptr_t) req,
 			ngx_http_clojure_abs_off_addr(obj, offset), len, flag);
-	if (rc != NGX_OK) {
+	if (rc != NGX_OK && rc != NGX_DONE) {
 		ngx_http_finalize_request((ngx_http_request_t *)(uintptr_t)req, rc);
 	}
 	return rc;
@@ -2794,7 +2827,7 @@ static jlong JNICALL jni_ngx_http_hijack_send(JNIEnv *env, jclass cls, jlong req
 
 static jlong JNICALL jni_ngx_http_hijack_send_chain(JNIEnv *env, jclass cls, jlong req, jlong chain,  jint flag) {
 	ngx_int_t rc = ngx_http_clojure_hijack_send_chain((ngx_http_request_t *)(uintptr_t)req, (ngx_chain_t *)(uintptr_t)chain, flag);
-	if (rc != NGX_OK) {
+	if (rc != NGX_OK && rc != NGX_DONE) {
 		ngx_http_finalize_request((ngx_http_request_t *)(uintptr_t)req, rc);
 	}
 	return rc;
@@ -2813,11 +2846,8 @@ static void JNICALL jni_ngx_http_hijack_set_async_timeout(JNIEnv *env, jclass cl
 }
 
 void ngx_http_clojure_cleanup_handler(void *data) {
-  if (((ngx_http_clojure_module_ctx_t *)data)->hijacked_or_async
-      && (ngx_http_clojure_reload_delay_event.data = ((char *)ngx_http_clojure_reload_delay_event.data)-1) == 0) {
-    ngx_del_timer(&ngx_http_clojure_reload_delay_event);
-  }
-	nji_ngx_http_clojure_hijack_fire_channel_event(NGX_HTTP_CLOJURE_CHANNEL_EVENT_CLOSE, 0, data);
+  ngx_http_clojure_try_unset_reload_delay_timer((ngx_http_clojure_module_ctx_t *)data, "ngx_http_clojure_cleanup_handler");
+  nji_ngx_http_clojure_hijack_fire_channel_event(NGX_HTTP_CLOJURE_CHANNEL_EVENT_CLOSE, 0, data);
 }
 
 static ngx_int_t ngx_http_clojure_check_broken_connection(ngx_http_request_t *r, ngx_event_t *ev) {
@@ -3009,6 +3039,14 @@ static jlong JNICALL jni_ngx_http_clojure_add_listener(JNIEnv *env, jclass cls, 
 
 static void JNICALL jni_ngx_http_finalize_request (JNIEnv *env, jclass cls, jlong req , jlong rc) {
 	ngx_http_request_t *r = (ngx_http_request_t *)(uintptr_t)req;
+	ngx_http_clojure_module_ctx_t *ctx;
+	ngx_http_clojure_get_ctx(r, ctx);
+
+	if (!r || !ctx || !r->pool) {
+	  ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "nginx-clojure ctx is cleaned, r=%" PRIu64, (uintptr_t)r);
+	  return;
+	}
+
 	if (!r->header_sent) {
 		(void)ngx_http_clojure_prepare_server_header(r);
 	}
@@ -3032,28 +3070,81 @@ ngx_int_t ngx_http_clojure_filter_continue_next_body_filter(ngx_http_request_t *
 	return ngx_http_clojure_next_body_filter(r, in);
 }
 
-static jlong JNICALL jni_ngx_http_filter_continue_next(JNIEnv *env, jclass cls, jlong req , jlong chain) {
-	ngx_http_request_t *r = (ngx_http_request_t*)(uintptr_t)req;
-	ngx_http_clojure_module_ctx_t *ctx;
-	ngx_chain_t *in = (ngx_chain_t *)(uintptr_t)chain;
-	ngx_int_t rc ;
+static jlong JNICALL jni_ngx_http_filter_continue_next(JNIEnv *env, jclass cls, jlong req, jlong chain, jlong old_chain) {
+  ngx_http_request_t *r = (ngx_http_request_t*) (uintptr_t) req;
+  ngx_http_clojure_module_ctx_t *ctx;
+  ngx_chain_t *in = (ngx_chain_t *) (uintptr_t) chain;
+  ngx_chain_t *old_in = (ngx_chain_t*)(uintptr_t) old_chain;
+  ngx_int_t rc;
 
-	ngx_http_clojure_get_ctx(r, ctx);
+  ngx_http_clojure_get_ctx(r, ctx);
 
-  if ((ngx_http_clojure_reload_delay_event.data = ((char *)ngx_http_clojure_reload_delay_event.data)-1) == 0) {
-    ngx_del_timer(&ngx_http_clojure_reload_delay_event);
+  ngx_http_clojure_try_unset_reload_delay_timer(ctx, "jni_ngx_http_filter_continue_next");
+
+  ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                             "jni_ngx_http_filter_continue_next, chain=%" PRIu64 ", old_chain=%" PRIu64, chain, old_chain);
+
+  if (chain < 0) { /*header filter*/
+    rc = ngx_http_clojure_next_header_filter(r);
+
+    if (rc == NGX_ERROR || rc > NGX_OK || r->header_only) {
+      return rc;
+    }
+
+    ctx->wait_for_header_filter = 0;
+    if (ctx->pending_body_filter) {
+      rc = ngx_http_clojure_next_body_filter(r, ctx->pending);
+    }
+
+
+    if (r->upstream && (chain == NGX_HTTP_HEADER_FILTER_IN_THREADPOOL) && r->upstream->peer.connection) {
+      r->upstream->read_event_handler(r, r->upstream);
+      r->write_event_handler(r);
+    }
+
+    return rc;
+  } else {
+    int len = 0;
+    ngx_chain_t *ci = in;
+    int is_last = 0;
+    while (ci) {
+      if (ci->buf->last_buf) {
+        is_last = 1;
+      }
+      len += ngx_buf_size(ci->buf);
+      ci = ci->next;
+    }
+
+    ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                                 "jni_ngx_http_filter_continue_next, chain=%" PRIu64 ", size=%d, is_last=%d", chain, len, is_last);
+    rc = ngx_http_clojure_filter_continue_next_body_filter(r, in);
+
+    if (!is_last && old_in) {
+        /*Mark them as consumed*/
+        while (old_in) {
+          ngx_log_debug5(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "make consumed, r=%" PRIu64 ", size=%d flush=%d last=%d count=%d",
+              (uintptr_t)r, ngx_buf_size(old_in->buf), old_in->buf->flush, old_in->buf->last_in_chain, r->count);
+          old_in->buf->pos = old_in->buf->last;
+          old_in->buf->file_pos = old_in->buf->file_last;
+          old_in = old_in->next;
+        }
+
+        if (!ctx->wait_for_header_filter) {
+          if (r->upstream && r->count > 1 && r->upstream->peer.connection) {
+            ngx_chain_update_chains(r->pool, &r->upstream->free_bufs, &r->upstream->busy_bufs, &r->upstream->out_bufs, r->upstream->output.tag);
+            r->upstream->read_event_handler(r, r->upstream);
+            r->write_event_handler(r);
+          }
+        }
+    }
+
+    return rc;
   }
+}
 
-	if (chain < 0) { /*header filter*/
-		rc = ngx_http_clojure_next_header_filter( r);
-		ctx->wait_for_header_filter = 0;
-		if (ctx->pending_body_filter) {
-			rc = ngx_http_clojure_next_body_filter(r, ctx->pending);
-		}
-		return rc;
-	}else {
-		return ngx_http_clojure_filter_continue_next_body_filter(r, in);
-	}
+static jlong JNICALL jni_ngx_http_discard_request_body(JNIEnv *env, jclass cls, jlong req) {
+  ngx_http_request_t *r = (ngx_http_request_t*) (uintptr_t) req;
+  return ngx_http_discard_request_body(r);
 }
 
 static jlong JNICALL jni_ngx_http_clojure_mem_init_ngx_buf(JNIEnv *env, jclass cls, jlong buf, jobject obj, jlong offset, jlong len, jint last_buf) {
@@ -3452,6 +3543,8 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_headers_items(JNIEnv *env, jcl
 				h = (ngx_table_elt_t *)(uintptr_t)*pvalue;
 				h->key.data = (u_char*)"Content-Type";
 				h->key.len = sizeof("Content-Type") - 1;
+				h->value.data = hout->content_type.data;
+				h->value.len = hout->content_type.len;
 				return 1;
 			}
 			i--;
@@ -3652,15 +3745,17 @@ static jlong JNICALL jni_ngx_http_clojure_mem_inc_req_count(JNIEnv *env, jclass 
 	ngx_http_clojure_module_ctx_t *ctx;
 	int n = 0;
 	ngx_http_clojure_get_ctx(r, ctx);
-	if (r->pool) {
+	if (ctx && r->pool) {
 		jlong old = n = r->main->count;
 		n += (int)detal;
 		if (detal == 1) {
 			ctx->hijacked_or_async = 1;
 		}
 		r->main->count = n;
+		ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "jni_ngx_http_clojure_mem_inc_req_count, old : %d, new : %d", old, n);
 		return old;
 	}
+	ngx_log_error(NGX_LOG_ALERT, ngx_http_clojure_global_cycle->log, 0, "jni_ngx_http_clojure_mem_inc_req_count invoke on a released request!");
 	return -1;
 }
 
@@ -3673,9 +3768,7 @@ static void JNICALL jni_ngx_http_clojure_mem_continue_current_phase(JNIEnv *env,
 		return;
 	}
 
-  if ((ngx_http_clojure_reload_delay_event.data = ((char *)ngx_http_clojure_reload_delay_event.data)-1) == 0) {
-    ngx_del_timer(&ngx_http_clojure_reload_delay_event);
-  }
+	ngx_http_clojure_try_unset_reload_delay_timer(ctx, "jni_ngx_http_clojure_mem_continue_current_phase");
 
 	ngx_log_debug4(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
 	                   "[jni_ngx_http_clojure_mem_continue_current_phase] uri:%s count:%d brd:%d rc:%d", r->uri.data, r->count, r->buffered, rc);
@@ -4163,7 +4256,8 @@ int ngx_http_clojure_init_memory_util(ngx_core_conf_t  *ccf, ngx_http_core_srv_c
 			{"ngx_http_output_filter", "(JJ)J", jni_ngx_http_output_filter},
 			{"ngx_http_finalize_request", "(JJ)V", jni_ngx_http_finalize_request},
 			{"ngx_http_filter_finalize_request", "(JJ)V", jni_ngx_http_filter_finalize_request},
-			{"ngx_http_filter_continue_next", "(JJ)J",  jni_ngx_http_filter_continue_next},
+			{"ngx_http_filter_continue_next", "(JJJ)J",  jni_ngx_http_filter_continue_next},
+			{"ngx_http_discard_request_body", "(J)J", jni_ngx_http_discard_request_body},
 			{"ngx_http_clojure_mem_init_ngx_buf", "(JLjava/lang/Object;JJI)J", jni_ngx_http_clojure_mem_init_ngx_buf}, //jlong buf, jlong obj, jlong offset, jlong len, jint last_buf
 			{"ngx_http_clojure_mem_build_temp_chain", "(JJLjava/lang/Object;JJ)J", jni_ngx_http_clojure_mem_build_temp_chain},
 			{"ngx_http_clojure_mem_build_file_chain", "(JJLjava/lang/Object;JJZ)J", jni_ngx_http_clojure_mem_build_file_chain} ,
@@ -4294,7 +4388,7 @@ int ngx_http_clojure_init_memory_util(ngx_core_conf_t  *ccf, ngx_http_core_srv_c
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSI_AUTHORIZATION_IDX] =  NGX_HTTP_CLOJURE_HEADERSI_AUTHORIZATION_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSI_KEEP_ALIVE_IDX] =  NGX_HTTP_CLOJURE_HEADERSI_KEEP_ALIVE_OFFSET;
 
-	#if (NGX_HTTP_PROXY || NGX_HTTP_REALIP || NGX_HTTP_GEO)
+	#if (NGX_HTTP_X_FORWARDED_FOR)
 	MEM_INDEX[NGX_HTTP_CLOJURE_HEADERSI_X_FORWARDED_FOR_IDX] =  NGX_HTTP_CLOJURE_HEADERSI_X_FORWARDED_FOR_OFFSET;
 	#endif
 
@@ -4466,4 +4560,26 @@ int ngx_http_clojure_eval(int cid, ngx_http_request_t *r, ngx_chain_t *c) {
 	log_debug2(ngx_http_clojure_global_cycle->log, "ngx clojure eval request to jlong: %" PRIu64 ", rc: %d", (jlong)(uintptr_t)r, rc);
 	exception_handle(1, env, return 500);
 	return rc;
+}
+
+void ngx_http_clojure_try_set_reload_delay_timer(ngx_http_clojure_module_ctx_t *ctx, char  *func_name) {
+  if (!ctx->set_reload_delay) {
+    ctx->set_reload_delay = 1;
+    if (( ++((ngx_connection_t*)ngx_http_clojure_reload_delay_event.data)->requests == 1) ) {
+      ngx_log_debug3(NGX_LOG_DEBUG_EVENT, ngx_http_clojure_reload_delay_event.log,  0,  "%s nc event timer add: %d: %M", func_name, ngx_event_ident(ngx_http_clojure_reload_delay_event.data), ngx_http_clojure_reload_delay_event.timer.key);
+      ngx_add_timer(&ngx_http_clojure_reload_delay_event, NGX_HTTP_CLOJURE_RELOAD_DELAY_MAX_TIME);
+    }
+  }
+}
+
+void ngx_http_clojure_try_unset_reload_delay_timer(ngx_http_clojure_module_ctx_t *ctx, char *func_name) {
+  if (ctx->set_reload_delay) {
+    ctx->set_reload_delay = 0;
+    if (( --((ngx_connection_t*)ngx_http_clojure_reload_delay_event.data)->requests == 0) ) {
+          ngx_log_debug3(NGX_LOG_DEBUG_EVENT, ngx_http_clojure_reload_delay_event.log,  0,  "%s nc event timer del: %d: %M", func_name, ngx_event_ident(ngx_http_clojure_reload_delay_event.data), ngx_http_clojure_reload_delay_event.timer.key);
+          if (ngx_http_clojure_reload_delay_event.timer_set) { /*need skip timer who was deleted and expired*/
+            ngx_del_timer(&ngx_http_clojure_reload_delay_event);
+          }
+        }
+  }
 }
