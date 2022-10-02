@@ -73,10 +73,10 @@
                                   [org.clojure/tools.trace "0.7.10"]
                                   ]}
              :unittest {
-                    :jvm-opts ["-javaagent:target/nginx-clojure-0.5.3.jar=mb"
+                    :jvm-opts ["-javaagent:target/nginx-clojure-0.6.0.jar=mb"
                                "-Dfile.encoding=UTF-8"
                                "-Dnginx.clojure.wave.udfs=pure-clj.txt,compojure.txt,compojure-http-clj.txt,mysql-jdbc.txt,test-groovy.txt"
-                               "-Xbootclasspath/a:target/nginx-clojure-0.5.3.jar"]
+                               "-Xbootclasspath/a:target/nginx-clojure-0.6.0.jar"]
                     :junit-options {:fork "on"}
                     :java-source-paths ["test/java" "test/clojure"]
                     :test-paths ["src/test/clojure"]
