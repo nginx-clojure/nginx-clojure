@@ -102,7 +102,82 @@ User defined zones
           "location-user-defined", "" 
 ```
 
+Build Notes
+================
+
+## generate makefile
+
+```
+Administrator@who-8f29c72b513 ~/build-for-embed/nginx-clojure
+$ cd nginx-clojure-embed/
+
+$ export NGINX_SRC=c:/mingw/msys/1.0/home/administrator/build-for-embed/nginx-c
+urrent
+
+
+Administrator@who-8f29c72b513 ~/build-for-embed/nginx-clojure/nginx-clojure-embe
+d
+$ ./configure-win32
+javac is /c/Program Files/Java/jdk1.8.0_11/bin/javac
+java is /c/Program Files/Java/jdk1.8.0_11/bin/java
+checking for OS
+```
+
+## openssl 1.x
+
+modify auto/lib/openssl/makefile.msvc to
+
+```
+all:
+	cd $(OPENSSL)
+
+	perl Configure VC-WIN64A no-shared				\
+		--prefix="%cd%/openssl" 				\
+		--openssldir="%cd%/openssl/ssl" 			\
+		$(OPENSSL_OPT)
+
+	if exist ms\do_ms.bat (						\
+		ms\do_win64a						\
+		&& $(MAKE) -f ms\nt.mak					\
+		&& $(MAKE) -f ms\nt.mak install				\
+	) else (							\
+		$(MAKE)							\
+		&& $(MAKE) install_sw					\
+	)
+```
+
+## warning
+
+src\os\win32\nginx_win32_config.h
+
+
+line 32 : 
+
+```
+
+#ifdef _MSC_VER
+#pragma warning(disable:4201)
+#pragma warning(disable:4306)
+#pragma warning(disable:4244)
+#pragma warning(disable:4267)
+#pragma warning(disable:4334)
+#pragma warning(disable:4018)
+#pragma warning(disable:4133)
+#pragma warning(disable:4214)
+#endif
+
+```
+
+
+## do make
+
+```
+$ cd ../..
+$ nmake -f objs/Makefile NGX_WIN64=1 embed
+```
+
+
 License
 ================
 
-Copyright © 2013-2017 Zhang, Yuexiang (xfeep) and released under the BSD 3-Clause license.
+Copyright © 2013-2022 Zhang, Yuexiang (xfeep) and released under the BSD 3-Clause license.
