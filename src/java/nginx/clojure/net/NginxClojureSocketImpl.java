@@ -251,6 +251,9 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 				connect(addr.getHostName(), -1);
 				return;
 			}
+			if (log.isDebugEnabled()) {
+				log.debug("socket#%d: connect error:unresolved: %s", as.s, addr.getHostName());
+			}
 			throw new UnknownHostException(addr.getHostName());
 		}
 		this.port = addr.getPort();

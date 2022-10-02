@@ -285,6 +285,14 @@ typedef struct {
 #define NGX_HTTP_CLOJURE_TEL_LOWCASE_KEY_IDX 15
 #define NGX_HTTP_CLOJURE_TEL_LOWCASE_KEY_OFFSET offsetof(ngx_table_elt_t,lowcase_key)
 
+#if (nginx_version >= 1023000)
+#define NGX_HTTP_CLOJURE_TEL_NEXT_IDX 96
+#define NGX_HTTP_CLOJURE_TEL_NEXT_OFFSET offsetof(ngx_table_elt_t,next)
+#else
+#define NGX_HTTP_CLOJURE_TEL_NEXT_OFFSET -1
+#endif
+
+
 #define NGX_HTTP_CLOJURE_CHAINT_SIZE_IDX 16
 #define NGX_HTTP_CLOJURE_CHAINT_SIZE sizeof(ngx_chain_t)
 #define NGX_HTTP_CLOJURE_CHAIN_BUF_IDX  17
@@ -421,7 +429,13 @@ extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 #define NGX_HTTP_CLOJURE_HEADERSI_PASSWD_IDX  90
 #define NGX_HTTP_CLOJURE_HEADERSI_PASSWD_OFFSET offsetof(ngx_http_headers_in_t, passwd)
 #define NGX_HTTP_CLOJURE_HEADERSI_COOKIE_IDX  91
+
+#if (nginx_version < 1023000)
 #define NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET offsetof(ngx_http_headers_in_t, cookies)
+#else
+#define NGX_HTTP_CLOJURE_HEADERSI_COOKIE_OFFSET offsetof(ngx_http_headers_in_t, cookie)
+#endif
+
 #define NGX_HTTP_CLOJURE_HEADERSI_SERVER_IDX  92
 #define NGX_HTTP_CLOJURE_HEADERSI_SERVER_OFFSET offsetof(ngx_http_headers_in_t, server)
 #define NGX_HTTP_CLOJURE_HEADERSI_CONTENT_LENGTH_N_IDX  93
@@ -431,6 +445,7 @@ extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 #define NGX_HTTP_CLOJURE_HEADERSI_HEADERS_IDX  95
 #define NGX_HTTP_CLOJURE_HEADERSI_HEADERS_OFFSET offsetof(ngx_http_headers_in_t, headers)
 
+#define NGX_HTTP_CLOJURE_TEL_NEXT_IDX 96
 
 /*index for size of ngx_http_headers_out_t */
 #define NGX_HTTP_CLOJURE_HEADERSOT_SIZE_IDX 128
@@ -509,16 +524,31 @@ extern ngx_cycle_t *ngx_http_clojure_global_cycle;
 #define NGX_BUF_LAST_OF_CHAIN  1
 #define NGX_BUF_LAST_OF_RESPONSE 2
 
+#if (nginx_version >= 1023000)
 #define ngx_http_clojure_add_const_header(headers, hn, hv) \
-	do { \
-		ngx_table_elt_t *hxx = ngx_list_push(&headers); \
-		if (hxx == NULL) { \
-			return NGX_ERROR; \
-		} \
-		hxx->hash = 1; \
-		ngx_str_set(&hxx->key, hn); \
-		ngx_str_set(&hxx->value, hv);  \
-	} while(0)
+  do { \
+    ngx_table_elt_t *hxx = ngx_list_push(&headers); \
+    if (hxx == NULL) { \
+      return NGX_ERROR; \
+    } \
+    hxx->hash = 1; \
+    hxx->next = NULL; \
+    ngx_str_set(&hxx->key, hn); \
+    ngx_str_set(&hxx->value, hv);  \
+  } while(0)
+#else
+#define ngx_http_clojure_add_const_header(headers, hn, hv) \
+  do { \
+    ngx_table_elt_t *hxx = ngx_list_push(&headers); \
+    if (hxx == NULL) { \
+      return NGX_ERROR; \
+    } \
+    hxx->hash = 1; \
+    ngx_str_set(&hxx->key, hn); \
+    ngx_str_set(&hxx->value, hv);  \
+  } while(0)
+#endif
+
 
 
 #define ngx_http_clojure_get_header(headers, hn, /*out*/hr) \

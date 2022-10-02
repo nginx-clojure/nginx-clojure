@@ -9,6 +9,8 @@ import static nginx.clojure.MiniConstants.HEADERS_NAMES;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_HASH_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_KEY_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_NEXT_OFFSET;
+import static nginx.clojure.MiniConstants.NGINX_VER;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
 import static nginx.clojure.NginxClojureRT.fetchNGXString;
 import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_shadow_copy_ngx_str;
@@ -42,6 +44,11 @@ public class TableEltHeaderHolder extends AbstractHeaderHolder {
 			ngx_http_clojure_mem_shadow_copy_ngx_str(HEADERS_NAMES.get(name), p + NGX_HTTP_CLOJURE_TEL_KEY_OFFSET);
 		}
 		pushNGXString(p + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, pickString(v), DEFAULT_ENCODING, pool);
+		
+		if (NGINX_VER >= 1023000) {
+			UNSAFE.putAddress(p + NGX_HTTP_CLOJURE_TEL_NEXT_OFFSET, 0);
+		}
+		
 		UNSAFE.putAddress(h + offset, p);
 		
 	}
@@ -51,7 +58,7 @@ public class TableEltHeaderHolder extends AbstractHeaderHolder {
 		long p = UNSAFE.getAddress(h + offset);
 		if (p != 0) {
 			NginxClojureRT.pushNGXInt(p + NGX_HTTP_CLOJURE_TEL_HASH_OFFSET, 0);
-			UNSAFE.putAddress(h+offset, 0);
+			UNSAFE.putAddress(h + offset, 0);
 		}
 	}
 	@Override
@@ -60,7 +67,7 @@ public class TableEltHeaderHolder extends AbstractHeaderHolder {
 		if (p == 0) {
 			return null;
 		}
-		return fetchNGXString(p +NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET , DEFAULT_ENCODING);
+		return fetchNGXString(p + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET , DEFAULT_ENCODING);
 	}
 
 	@Override

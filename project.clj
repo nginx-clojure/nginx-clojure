@@ -1,4 +1,4 @@
-(defproject nginx-clojure/nginx-clojure "0.5.3"
+(defproject nginx-clojure/nginx-clojure "0.6.0"
   :description "Nginx module for clojure or groovy or java programming"
   :url "https://github.com/nginx-clojure/nginx-clojure"
   :license {:name "BSD 3-Clause license"
@@ -51,11 +51,14 @@
                                   [org.clojure/clojure "1.9.0"]
                                   [org.clojure/tools.reader "0.8.1"]]
                         }
-             :dev  {:dependencies [;only for test / compile usage
+             :dev  {
+                    :test-paths ["src/test/clojure", "src/test/java"]
+                    :dependencies [;only for test / compile usage
                                   [org.clojure/clojure "1.9.0"]
                                   [ring/ring-core "1.7.1"]
                                   [compojure "1.1.6"]
                                   [clj-http "0.7.8"]
+                                  [clj-http-lite "0.3.0"]
                                   [junit/junit "4.13.1"]
                                   [org.clojure/java.jdbc "0.3.3"]
                                   [mysql/mysql-connector-java "5.1.30"]
@@ -85,6 +88,7 @@
                                   [ring/ring-core "1.7.1"]
                                   [compojure "1.1.6"]
                                   [clj-http "0.7.8"]
+                                  [clj-http-lite "0.3.0"]
                                   [junit/junit "4.13.1"]
                                   [org.clojure/java.jdbc "0.3.3"]
                                   [org.codehaus.jackson/jackson-mapper-asl "1.9.13"]
@@ -113,6 +117,7 @@
                                               [ring/ring-core "1.7.1"]
                                               [compojure "1.1.6"]
                                               [clj-http "0.7.8"]
+                                              [clj-http-lite "0.3.0"]
                                               [junit/junit "4.13.1"]
                                               [org.clojure/java.jdbc "0.3.3"]
                                               [org.clojure/tools.nrepl "0.2.3"]

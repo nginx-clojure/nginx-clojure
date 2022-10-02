@@ -4,6 +4,7 @@
  */
 package nginx.clojure.clj;
 
+import static nginx.clojure.MiniConstants.NGINX_VER;
 import static nginx.clojure.MiniConstants.NGX_HTTP_BODY_FILTER_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_CACHE_CONTROL_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET;
@@ -23,8 +24,13 @@ public class NginxClojureHandlerFactory extends NginxHandlerFactory {
 		HEADER_FETCHER = new RequestHeadersFetcher();
 		REQUEST_METHOD_FETCHER = new RequestMethodFetcher();
 		KNOWN_RESP_HEADERS.putAll(MiniConstants.KNOWN_RESP_HEADERS);
-		KNOWN_RESP_HEADERS.put("Cache-Control", new SeqHeaderHolder("Cache-Control",
-				NGX_HTTP_CLOJURE_HEADERSO_CACHE_CONTROL_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
+		if (NGINX_VER >= 1023000) {
+			KNOWN_RESP_HEADERS.put("Cache-Control", new SeqEtlHeaderHolder("Cache-Control",
+					NGX_HTTP_CLOJURE_HEADERSO_CACHE_CONTROL_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
+		} else {
+			KNOWN_RESP_HEADERS.put("Cache-Control", new SeqHeaderHolder("Cache-Control",
+					NGX_HTTP_CLOJURE_HEADERSO_CACHE_CONTROL_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));	
+		}
 	}
 	
 	@Override

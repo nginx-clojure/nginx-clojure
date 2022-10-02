@@ -34,6 +34,8 @@ public class SeqHeaderHolder extends ArrayHeaderHolder {
 			throw new RuntimeException("invalid address for set header array value " + v);
 		}
 		
+		clear(h);
+		
 		ISeq seq = null;
 		if (v instanceof String) {
 			String val = (String) v;

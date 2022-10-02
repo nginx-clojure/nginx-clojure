@@ -13,7 +13,11 @@
         )
   (:require [compojure.route :as route]
             [clj-http.client :as client]
-            [clojure.java.jdbc :as jdbc])
+            ;[clj-http.conn-mgr :as cnmgr]
+            ;[clj-http.lite.client :as client]
+            [clojure.java.jdbc :as jdbc]
+            [clojure.data.json :as json]
+            )
   (:import [ring.middleware.session.memory.MemoryStore]
            [nginx.clojure.net SimpleHandler4TestHttpClientGetMethod]
            [nginx.clojure Coroutine]
@@ -97,6 +101,22 @@
          {:status 200, :headers {"content-type" "text/plain"}, :body (pr-str rows) })))
 
 (def coroutine-socket-test-handler (wrap-params coroutine-socket-test-handler))
+
+(defn json-response [body]
+  {:status 200, :headers {"content-type" "text/json"}, :body (json/write-str body)})
+  ;{:status 200, :headers {"content-type" "text/json"}, :body (body :data)})
+
+(defn handlerIssue263 [{:keys [uri] :as request}]
+  (cond
+    (= "/status" uri) (json-response {:service "running"})
+    (= "/test1" uri) (json-response {:data [(:body (client/get "http://127.0.0.1:8323/json"))]})
+    (= "/test6" uri) (json-response {:data (co-pvalues(:body (client/get "http://127.0.0.1:8323/json"))
+                                               (:body (client/get "http://127.0.0.1:8323/json"))
+                                               (:body (client/get "http://127.0.0.1:8323/json"))
+                                               (:body (client/get "http://127.0.0.1:8323/json"))
+                                               ;(:body (client/get "http://127.0.0.1:8323/json"))
+                                               (:body (client/get "http://127.0.0.1:8323/json")))})
+    ))
 
 (defn simple-handler [req]
   (coroutine-socket-test-handler {:uri "/simple2", :scheme :http, :request-method :get, :headers {}}))

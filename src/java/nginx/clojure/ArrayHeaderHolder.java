@@ -120,7 +120,7 @@ public class ArrayHeaderHolder extends AbstractHeaderHolder {
 		if (lp == 0) {
 			return null;
 		}
-		int c = fetchNGXInt(haddr+NGX_HTTP_CLOJURE_ARRAY_NELTS_OFFSET);
+		int c = fetchNGXInt(haddr + NGX_HTTP_CLOJURE_ARRAY_NELTS_OFFSET);
 		if (c == 0) {
 			return null;
 		}
@@ -130,7 +130,7 @@ public class ArrayHeaderHolder extends AbstractHeaderHolder {
 			if (tp == 0) {
 				return null;
 			}
-			return fetchNGXString(tp+NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
+			return fetchNGXString(tp + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
 		}
 		String[] vals = new String[c];
 		for (int i = 0; i < c; i++) {
@@ -138,7 +138,7 @@ public class ArrayHeaderHolder extends AbstractHeaderHolder {
 			if (tp == 0) {
 				return null;
 			}
-			vals[i] = fetchNGXString(tp+ NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
+			vals[i] = fetchNGXString(tp + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET, DEFAULT_ENCODING);
 			lp += NGX_HTTP_CLOJURE_PTR_SIZE;
 		}
 		return vals;
@@ -154,7 +154,7 @@ public class ArrayHeaderHolder extends AbstractHeaderHolder {
 		if (lp == 0) {
 			return false;
 		}
-		int c = fetchNGXInt(haddr+NGX_HTTP_CLOJURE_ARRAY_NELTS_OFFSET);
+		int c = fetchNGXInt(haddr + NGX_HTTP_CLOJURE_ARRAY_NELTS_OFFSET);
 		if (c == 0) {
 			return false;
 		}

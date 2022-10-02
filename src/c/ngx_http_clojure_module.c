@@ -516,7 +516,11 @@ static ngx_http_clojure_header_holder_t ngx_http_clojure_headers_out_holders[] =
 		{ngx_string("WWW-Authenticate"), ngx_http_clojure_set_elt_header, offsetof(ngx_http_headers_out_t, www_authenticate)},
 		{ngx_string("Expires"), ngx_http_clojure_set_elt_header, offsetof(ngx_http_headers_out_t, expires)},
 		{ngx_string("Etag"), ngx_http_clojure_set_elt_header, offsetof(ngx_http_headers_out_t, etag)},
+#if (nginx_version >= 1023000)
+		{ngx_string("Cache-Control"), ngx_http_clojure_set_elt_header, offsetof(ngx_http_headers_out_t, cache_control)},
+#else
 		{ngx_string("Cache-Control"), ngx_http_clojure_set_array_header, offsetof(ngx_http_headers_out_t, cache_control)},
+#endif
 		{ngx_string("Content-Type"), ngx_http_clojure_set_content_type_header, 0},
 		{ngx_string("Content-Length"), ngx_http_clojure_set_content_len_header, 0},
 		{ngx_null_string, NULL, 0},
@@ -825,13 +829,13 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_core_conf_t  *ccf, ngx_ht
 
     if (ngx_http_clojure_check_memory_util() != NGX_HTTP_CLOJURE_JVM_OK){
 		if (ngx_http_clojure_init_memory_util(ccf, cscf, mcf, log) != NGX_HTTP_CLOJURE_JVM_OK) {
-			ngx_log_error(NGX_LOG_ERR, log, 0, "can not initialize jvm memory util");
+			ngx_log_error(NGX_LOG_ERR, log, 0, "nginx-clojure:can not initialize jvm memory util");
 			return NGX_HTTP_CLOJURE_JVM_ERR_INIT_MEMIDX;
 		}
     }
 
     if (ngx_http_clojure_init_shared_map_util() != NGX_HTTP_CLOJURE_JVM_OK) {
-    	ngx_log_error(NGX_LOG_ERR, log, 0, "can not initialize jvm memory util");
+    	ngx_log_error(NGX_LOG_ERR, log, 0, "nginx-clojure:can not initialize shared map util");
     	return NGX_HTTP_CLOJURE_JVM_ERR_INIT_SHAREDMAP;
     }
 

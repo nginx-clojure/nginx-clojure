@@ -1,4 +1,4 @@
-(defproject nginx-clojure/nginx-jersey "0.1.8"
+(defproject nginx-clojure/nginx-jersey "0.2.0"
   :description "Intergrate Jersey into Nginx by Nignx-Clojure Module so that 
                 Nginx can Support Java standard RESTful Web Services (JAX-RS)"
   :url "https://github.com/nginx-clojure/nginx-clojure/nginx-jersey"
@@ -6,7 +6,7 @@
             :url "http://opensource.org/licenses/BSD-3-Clause"}
   :dependencies [
                  [javax.ws.rs/javax.ws.rs-api "2.0.1"]
-                 [nginx-clojure/nginx-clojure "0.5.3"]
+                 [nginx-clojure/nginx-clojure "0.6.0"]
                  ]
   :source-paths ["src/clojure"]
   :java-source-paths ["src/java"]

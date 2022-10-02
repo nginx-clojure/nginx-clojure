@@ -6,6 +6,8 @@ package nginx.clojure;
 
 
 
+import static nginx.clojure.MiniConstants.NGINX_VER;
+
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.net.Socket;
@@ -542,6 +544,9 @@ public class NginxClojureRT extends MiniConstants {
 	
 	private static NginxHeaderHolder safeBuildKnownArrayHeaderHolder(String name, long offset, long headersOffset) {
 		if (offset >= 0) {
+			if (NGINX_VER >= 1023000) {
+				return new EtlListHeaderHolder(name, offset, headersOffset);
+			}
 			return new ArrayHeaderHolder(name, offset, headersOffset);
 		}
 		return new UnknownHeaderHolder(name, headersOffset);
@@ -601,6 +606,7 @@ public class NginxClojureRT extends MiniConstants {
 		NGX_HTTP_CLOJURE_TEL_KEY_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_TEL_KEY_IDX];
 		NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_TEL_VALUE_IDX];
 		NGX_HTTP_CLOJURE_TEL_LOWCASE_KEY_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_TEL_LOWCASE_KEY_IDX];
+		NGX_HTTP_CLOJURE_TEL_NEXT_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_TEL_NEXT_IDX];
 		
 		NGX_HTTP_CLOJURE_REQT_SIZE = MEM_INDEX[NGX_HTTP_CLOJURE_REQT_SIZE_IDX];
 		NGX_HTTP_CLOJURE_REQ_METHOD_OFFSET = MEM_INDEX[NGX_HTTP_CLOJURE_REQ_METHOD_IDX];
@@ -785,7 +791,7 @@ public class NginxClojureRT extends MiniConstants {
 		KNOWN_RESP_HEADERS.put("WWW-Authenticate", safeBuildKnownTableEltHeaderHolder("WWW-Authenticate", NGX_HTTP_CLOJURE_HEADERSO_WWW_AUTHENTICATE_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
 		KNOWN_RESP_HEADERS.put("Expires", safeBuildKnownTableEltHeaderHolder("Expires", NGX_HTTP_CLOJURE_HEADERSO_EXPIRES_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
 		KNOWN_RESP_HEADERS.put("Etag", safeBuildKnownTableEltHeaderHolder("Etag", NGX_HTTP_CLOJURE_HEADERSO_ETAG_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
-		KNOWN_RESP_HEADERS.put("Cache-Control", new ArrayHeaderHolder("Cache-Control", NGX_HTTP_CLOJURE_HEADERSO_CACHE_CONTROL_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
+		KNOWN_RESP_HEADERS.put("Cache-Control", safeBuildKnownArrayHeaderHolder("Cache-Control", NGX_HTTP_CLOJURE_HEADERSO_CACHE_CONTROL_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET));
 		KNOWN_RESP_HEADERS.put("Content-Type", RESP_CONTENT_TYPE_HOLDER = new ResponseContentTypeHolder());
 		KNOWN_RESP_HEADERS.put("Content-Length", new OffsetHeaderHolder("Content-Length", NGX_HTTP_CLOJURE_HEADERSO_CONTENT_LENGTH_N_OFFSET, NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET) );
 		

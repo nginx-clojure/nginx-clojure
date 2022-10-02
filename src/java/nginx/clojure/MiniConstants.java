@@ -163,6 +163,12 @@ public class MiniConstants {
 	public static long NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET;
 	public static int NGX_HTTP_CLOJURE_TEL_LOWCASE_KEY_IDX = 15;
 	public static long NGX_HTTP_CLOJURE_TEL_LOWCASE_KEY_OFFSET;
+	
+	//#if (nginx_version >= 1023000)
+	public static int NGX_HTTP_CLOJURE_TEL_NEXT_IDX = 96;
+	public static long NGX_HTTP_CLOJURE_TEL_NEXT_OFFSET;
+	//#endif
+	
 
 	public static int  NGX_HTTP_CLOJURE_CHAINT_SIZE_IDX = 16;
 	public static long NGX_HTTP_CLOJURE_CHAINT_SIZE;

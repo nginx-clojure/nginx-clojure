@@ -102,7 +102,7 @@ public class UnknownHeaderHolder implements NginxHeaderHolder {
 		int c = (int)ngx_http_clojure_mem_get_header(h,  array, BYTE_ARRAY_OFFSET ,  nameLen,  valuesOffset,  kbb.capacity());
 		kbb.clear();
 		kbb.position(NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_LINE_SIZE);
-		LongBuffer lbb =kbb.order(ByteOrder.nativeOrder()).asLongBuffer();
+		LongBuffer lbb = kbb.order(ByteOrder.nativeOrder()).asLongBuffer();
 		
 		for (; c > 0; c--) {
 			pushNGXInt(lbb.get() + NGX_HTTP_CLOJURE_TEL_HASH_OFFSET, 0);

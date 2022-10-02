@@ -242,6 +242,9 @@ ngx_int_t ngx_http_clojure_prepare_server_header(ngx_http_request_t *r) {
 	        return NGX_ERROR;
 	    }
 	    h->hash = 1;
+#if (nginx_version >= 1023000)
+	    h->next = NULL;
+#endif
 	    r->headers_out.server = h;
 	    ngx_str_set(&h->key, "Server");
 	}
@@ -2348,6 +2351,9 @@ ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
 
 	accept = ngx_list_push(&r->headers_out.headers);
 	accept->hash = 1;
+#if (nginx_version >= 1023000)
+	accept->next = NULL;
+#endif
 	ngx_str_set(&accept->key, "Sec-WebSocket-Accept");
 	accept->value.len = 28;
 	accept->value.data = ngx_palloc(r->pool, 28);
@@ -2388,6 +2394,9 @@ ngx_int_t ngx_http_clojure_websocket_upgrade(ngx_http_request_t * r) {
     		/*TODO: negotiate in_max_window_bits & out_max_window_bits*/
     		out_extensions = ngx_list_push(&r->headers_out.headers);
     		out_extensions->hash = 1;
+#if (nginx_version >= 1023000)
+    		out_extensions->next = NULL;
+#endif
     		ngx_str_set(&out_extensions->key, "Sec-WebSocket-Extensions");
     		out_extensions->value.data = ngx_pcalloc(r->pool, strlen(out_extensions_tmp_value)+1);
     		out_extensions->value.len = strlen(out_extensions_tmp_value);
@@ -3545,6 +3554,9 @@ static jlong JNICALL jni_ngx_http_clojure_mem_get_headers_items(JNIEnv *env, jcl
 				h->key.len = sizeof("Content-Type") - 1;
 				h->value.data = hout->content_type.data;
 				h->value.len = hout->content_type.len;
+#if (nginx_version >= 1023000)
+				h->next = NULL;
+#endif
 				return 1;
 			}
 			i--;
@@ -4336,6 +4348,8 @@ int ngx_http_clojure_init_memory_util(ngx_core_conf_t  *ccf, ngx_http_core_srv_c
 	MEM_INDEX[NGX_HTTP_CLOJURE_TEL_KEY_IDX] = NGX_HTTP_CLOJURE_TEL_KEY_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_TEL_VALUE_IDX] = NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET;
 	MEM_INDEX[NGX_HTTP_CLOJURE_TEL_LOWCASE_KEY_IDX] = NGX_HTTP_CLOJURE_TEL_LOWCASE_KEY_OFFSET;
+
+	MEM_INDEX[NGX_HTTP_CLOJURE_TEL_NEXT_IDX] = NGX_HTTP_CLOJURE_TEL_NEXT_OFFSET;
 
 	MEM_INDEX[NGX_HTTP_CLOJURE_CHAINT_SIZE_IDX] = NGX_HTTP_CLOJURE_CHAINT_SIZE;
 	MEM_INDEX[NGX_HTTP_CLOJURE_CHAIN_BUF_IDX] = NGX_HTTP_CLOJURE_CHAIN_BUF_OFFSET;

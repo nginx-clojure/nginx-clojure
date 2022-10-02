@@ -8,10 +8,13 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-import sun.nio.ch.DirectBuffer;
 import nginx.clojure.HackUtils;
 import nginx.clojure.MiniConstants;
 import nginx.clojure.NginxClojureRT;
+import nginx.clojure.logger.LoggerService;
+import nginx.clojure.logger.TinyLogService;
+import nginx.clojure.logger.TinyLogService.MsgType;
+import sun.nio.ch.DirectBuffer;
 
 
 public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler, Closeable {
@@ -69,6 +72,7 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler, Clo
 	
 	protected String url;
 	
+	protected static LoggerService log;
 	
 	public NginxClojureAsynSocket() {
 		if (Thread.currentThread() != NginxClojureRT.NGINX_MAIN_THREAD) {
@@ -77,6 +81,10 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler, Clo
 		s = create(this);
 		if (s == 0) {
 			throw new OutOfMemoryError("no memory for create a native nginx clojure socket");
+		}
+		
+		if (log == null) {
+			log = new TinyLogService(TinyLogService.getSystemPropertyOrDefaultLevel("nginx.clojure.logger.socket.level", MsgType.info), System.err, System.err);
 		}
 	}
 	
@@ -116,6 +124,9 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler, Clo
 	
 	public final void checkConnected() {
 		if (s <= 0 || !connected) {
+			if (log.isDebugEnabled()) {
+				log.debug("async socket#%d: check connected=%s", s, connected);
+			}
 			throw new RuntimeException("socket has been closed or not connected!");
 		}
 	}
@@ -320,11 +331,17 @@ public class NginxClojureAsynSocket implements NginxClojureSocketRawHandler, Clo
 
 	@Override
 	public void onRead(long u, long sc) throws IOException {
+		if (!connected) {
+			onConnect(u, sc);
+		}
 		handler.onRead(this, sc);
 	}
 
 	@Override
 	public void onWrite(long u, long sc) throws IOException {
+		if (!connected) {
+			onConnect(u, sc);
+		}
 		handler.onWrite(this, sc);
 	}
 
