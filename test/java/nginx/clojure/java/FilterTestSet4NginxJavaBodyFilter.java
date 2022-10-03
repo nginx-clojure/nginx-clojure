@@ -62,6 +62,24 @@ public class FilterTestSet4NginxJavaBodyFilter {
 		}
 	}
 	
+	public static class StringFacedReverseBodyFilter extends StringFacedJavaBodyFilter {
+		@Override
+		protected Object[] doFilter(Map<String, Object> request, String body, boolean isLast) throws IOException {
+			StringBuilder whole = (StringBuilder) request.get("whole");
+			if (whole == null) {
+				request.put("whole", whole = new StringBuilder());
+			}
+			
+			whole.append(body);
+			
+			if (isLast) {
+				return new Object[] {200, null, whole.reverse().toString()};
+			} else {
+				return new Object[] {null, null, null};
+			}
+		}
+	}
+	
 	public static class WholeBodyValiator implements NginxJavaBodyFilter {
 
 		@Override

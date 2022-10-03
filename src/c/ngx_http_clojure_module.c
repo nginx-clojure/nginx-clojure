@@ -242,7 +242,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("handlers_lazy_init"),
-		NGX_HTTP_MAIN_CONF | NGX_HTTP_LOC_CONF | NGX_HTTP_SRV_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_conf_set_flag_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, handlers_lazy_init),
@@ -250,7 +250,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("auto_upgrade_ws"),
-		NGX_HTTP_MAIN_CONF | NGX_HTTP_LOC_CONF | NGX_HTTP_SRV_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_conf_set_flag_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, auto_upgrade_ws),
@@ -282,7 +282,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("content_handler_type"),
-		NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_conf_set_str_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, content_handler_type),
@@ -290,7 +290,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("content_handler_name"),
-		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_http_clojure_set_str_slot_and_enable_content_handler_tag,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, content_handler_name),
@@ -298,7 +298,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("content_handler_code"),
-		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_http_clojure_set_str_slot_and_enable_content_handler_tag,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, content_handler_code),
@@ -306,7 +306,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("rewrite_handler_type"),
-		 NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_conf_set_str_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, rewrite_handler_type),
@@ -314,7 +314,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("rewrite_handler_name"),
-		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_http_clojure_set_str_slot_and_enable_rewrite_handler_tag,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, rewrite_handler_name),
@@ -322,7 +322,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("rewrite_handler_code"),
-		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_http_clojure_set_str_slot_and_enable_rewrite_handler_tag,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, rewrite_handler_code),
@@ -331,7 +331,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 
     {
 		ngx_string("access_handler_type"),
-		 NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_conf_set_str_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, access_handler_type),
@@ -339,7 +339,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("access_handler_name"),
-		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_http_clojure_set_str_slot_and_enable_access_handler_tag,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, access_handler_name),
@@ -347,7 +347,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("access_handler_code"),
-		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_http_clojure_set_str_slot_and_enable_access_handler_tag,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, access_handler_code),
@@ -356,7 +356,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 
     {
 		ngx_string("header_filter_type"),
-		 NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_conf_set_str_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, header_filter_type),
@@ -364,7 +364,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("header_filter_name"),
-		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_http_clojure_set_str_slot_and_enable_header_filter_tag,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, header_filter_name),
@@ -372,7 +372,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("header_filter_code"),
-		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_http_clojure_set_str_slot_and_enable_header_filter_tag,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, header_filter_code),
@@ -381,7 +381,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 
     {
 		ngx_string("body_filter_type"),
-		 NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_conf_set_str_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, body_filter_type),
@@ -389,7 +389,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("body_filter_name"),
-		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_http_clojure_set_str_slot_and_enable_body_filter_tag,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t,  body_filter_name),
@@ -397,7 +397,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("body_filter_code"),
-		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
 		ngx_http_clojure_set_str_slot_and_enable_body_filter_tag,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, body_filter_code),
@@ -406,7 +406,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 
     {
     ngx_string("log_handler_type"),
-     NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+    NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
     ngx_conf_set_str_slot,
     NGX_HTTP_LOC_CONF_OFFSET,
     offsetof(ngx_http_clojure_loc_conf_t, log_handler_type),
@@ -414,7 +414,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
     ngx_string("log_handler_name"),
-    NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+    NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
     ngx_http_clojure_set_str_slot_and_enable_log_handler_tag,
     NGX_HTTP_LOC_CONF_OFFSET,
     offsetof(ngx_http_clojure_loc_conf_t, log_handler_name),
@@ -422,7 +422,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
     ngx_string("log_handler_code"),
-    NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+    NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
     ngx_http_clojure_set_str_slot_and_enable_log_handler_tag,
     NGX_HTTP_LOC_CONF_OFFSET,
     offsetof(ngx_http_clojure_loc_conf_t, log_handler_code),
@@ -431,7 +431,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 
     {
 		ngx_string("content_handler_property"),
-		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE2,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE2,
 		ngx_conf_set_keyval_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, content_handler_properties),
@@ -439,7 +439,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("rewrite_handler_property"),
-		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE2,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE2,
 		ngx_conf_set_keyval_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, rewrite_handler_properties),
@@ -447,7 +447,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("access_handler_property"),
-		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE2,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE2,
 		ngx_conf_set_keyval_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, access_handler_properties),
@@ -455,7 +455,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("header_filter_property"),
-		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE2,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE2,
 		ngx_conf_set_keyval_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, header_filter_properties),
@@ -463,7 +463,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
 		ngx_string("body_filter_property"),
-		NGX_HTTP_LOC_CONF | NGX_CONF_TAKE2,
+		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE2,
 		ngx_conf_set_keyval_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_clojure_loc_conf_t, body_filter_properties),
@@ -471,7 +471,7 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
     {
     ngx_string("log_handler_property"),
-    NGX_HTTP_LOC_CONF | NGX_CONF_TAKE2,
+    NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE2,
     ngx_conf_set_keyval_slot,
     NGX_HTTP_LOC_CONF_OFFSET,
     offsetof(ngx_http_clojure_loc_conf_t, log_handler_properties),
