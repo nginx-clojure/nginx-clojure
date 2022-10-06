@@ -48,7 +48,7 @@ public class TypeInterpreter extends SimpleVerifier {
     private final MethodDatabase db;
 
     public TypeInterpreter(MethodDatabase db) {
-    	super(ASM7, null, null, null, false);
+    	super(ASM9, null, null, null, false);
         this.db = db;
     }
 

@@ -376,7 +376,7 @@ public class JavaAgent {
 				}
 				db.debug("loading class %s", className);
 //				ClassVisitor cv = db.isVerbose() ?  new TraceClassVisitor(cw, new PrintWriter(System.out)) : cw;
-				ClassVisitor cv = new ClassVisitor(Opcodes.ASM7, cw) {
+				ClassVisitor cv = new ClassVisitor(Opcodes.ASM9, cw) {
 					@Override
 					public MethodVisitor visitMethod(int access, String name,
 							String desc, String signature, String[] exceptions) {

@@ -276,10 +276,15 @@ public class NginxClojureRT extends MiniConstants {
 	
 	static {
 		//be friendly to lein ring testing
-		getLog();
-		initUnsafe();
-		appEventListenerManager = new AppEventListenerManager();
-		processId = ManagementFactory.getRuntimeMXBean().getName().split("@")[0];
+		try {
+			getLog();
+			initUnsafe();
+			appEventListenerManager = new AppEventListenerManager();
+			processId = ManagementFactory.getRuntimeMXBean().getName().split("@")[0];
+		} catch (Throwable e) {
+			//to be friendly to nginx jni error log
+			e.printStackTrace();
+		}
 	}
 	
 	public static AppEventListenerManager getAppEventListenerManager() {

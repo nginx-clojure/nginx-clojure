@@ -125,7 +125,7 @@ Documents
 
 License
 =================
-Copyright © 2013-2020 Zhang, Yuexiang (xfeep) and released under the BSD 3-Clause license.
+Copyright © 2013-2022 Zhang, Yuexiang (xfeep) and released under the BSD 3-Clause license.
 
 This program uses:
 * Re-rooted ASM bytecode engineering library which is distributed under the BSD 3-Clause license

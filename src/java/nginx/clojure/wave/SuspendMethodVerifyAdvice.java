@@ -15,7 +15,7 @@ public class SuspendMethodVerifyAdvice extends AdviceAdapter {
 	
 	public SuspendMethodVerifyAdvice(MethodDatabase db,String owner, MethodVisitor mv, int access,
 			String name, String desc) {
-		super(ASM7, mv, access, name, desc);
+		super(ASM9, mv, access, name, desc);
 		this.db = db;
 		this.owner = owner;
 		this.method = name + desc;

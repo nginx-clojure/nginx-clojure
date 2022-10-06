@@ -15,7 +15,7 @@ public class SuspendMethodTracerAdvice extends AdviceAdapter {
 	
 	public SuspendMethodTracerAdvice(MethodDatabase db,String owner, MethodVisitor mv, int access,
 			String name, String desc) {
-		super(ASM7, mv, access, name, desc);
+		super(ASM9, mv, access, name, desc);
 		this.db = db;
 		this.owner = owner;
 		this.method = name + desc;
