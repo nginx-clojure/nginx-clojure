@@ -110,13 +110,13 @@ public final class TraceSignatureVisitor extends SignatureVisitor {
    * @param accessFlags for class type signatures, the access flags of the class.
    */
   public TraceSignatureVisitor(final int accessFlags) {
-    super(/* latest api = */ Opcodes.ASM7);
+    super(/* latest api = */ Opcodes.ASM9);
     this.isInterface = (accessFlags & Opcodes.ACC_INTERFACE) != 0;
     this.declaration = new StringBuilder();
   }
 
   private TraceSignatureVisitor(final StringBuilder stringBuilder) {
-    super(/* latest api = */ Opcodes.ASM7);
+    super(/* latest api = */ Opcodes.ASM9);
     this.isInterface = false;
     this.declaration = stringBuilder;
   }

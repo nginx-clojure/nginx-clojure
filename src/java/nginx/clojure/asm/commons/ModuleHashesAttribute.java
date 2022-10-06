@@ -104,7 +104,7 @@ public final class ModuleHashesAttribute extends Attribute {
       currentOffset += 2;
       byte[] hash = new byte[hashLength];
       for (int j = 0; j < hashLength; ++j) {
-        hash[j] = (byte) (classReader.readByte(currentOffset) & 0xFF);
+        hash[j] = (byte) classReader.readByte(currentOffset);
         currentOffset += 1;
       }
       hashList.add(hash);

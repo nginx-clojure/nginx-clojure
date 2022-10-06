@@ -62,7 +62,7 @@ public class BasicInterpreter extends Interpreter<BasicValue> implements Opcodes
    * version.
    */
   public BasicInterpreter() {
-    super(/* latest api = */ ASM7);
+    super(/* latest api = */ ASM9);
     if (getClass() != BasicInterpreter.class) {
       throw new IllegalStateException();
     }
@@ -71,9 +71,8 @@ public class BasicInterpreter extends Interpreter<BasicValue> implements Opcodes
   /**
    * Constructs a new {@link BasicInterpreter}.
    *
-   * @param api the ASM API version supported by this interpreter. Must be one of {@link
-   *     nginx.clojure.asm.Opcodes#ASM4}, {@link nginx.clojure.asm.Opcodes#ASM5}, {@link
-   *     nginx.clojure.asm.Opcodes#ASM6} or {@link nginx.clojure.asm.Opcodes#ASM7}.
+   * @param api the ASM API version supported by this interpreter. Must be one of the {@code
+   *     ASM}<i>x</i> values in {@link Opcodes}.
    */
   protected BasicInterpreter(final int api) {
     super(api);

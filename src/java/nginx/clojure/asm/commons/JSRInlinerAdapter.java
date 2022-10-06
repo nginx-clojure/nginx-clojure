@@ -89,7 +89,8 @@ public class JSRInlinerAdapter extends MethodNode implements Opcodes {
    * @param name the method's name.
    * @param descriptor the method's descriptor.
    * @param signature the method's signature. May be {@literal null}.
-   * @param exceptions the internal names of the method's exception classes. May be {@literal null}.
+   * @param exceptions the internal names of the method's exception classes (see {@link
+   *     nginx.clojure.asm.Type#getInternalName()}). May be {@literal null}.
    * @throws IllegalStateException if a subclass calls this constructor.
    */
   public JSRInlinerAdapter(
@@ -100,7 +101,7 @@ public class JSRInlinerAdapter extends MethodNode implements Opcodes {
       final String signature,
       final String[] exceptions) {
     this(
-        /* latest api = */ Opcodes.ASM7,
+        /* latest api = */ Opcodes.ASM9,
         methodVisitor,
         access,
         name,
@@ -115,8 +116,8 @@ public class JSRInlinerAdapter extends MethodNode implements Opcodes {
   /**
    * Constructs a new {@link JSRInlinerAdapter}.
    *
-   * @param api the ASM API version implemented by this visitor. Must be one of {@link
-   *     Opcodes#ASM4}, {@link Opcodes#ASM5}, {@link Opcodes#ASM6} or {@link Opcodes#ASM7}.
+   * @param api the ASM API version implemented by this visitor. Must be one of the {@code
+   *     ASM}<i>x</i> values in {@link Opcodes}.
    * @param methodVisitor the method visitor to send the resulting inlined method code to, or <code>
    *     null</code>.
    * @param access the method's access flags (see {@link Opcodes}). This parameter also indicates if
@@ -124,7 +125,8 @@ public class JSRInlinerAdapter extends MethodNode implements Opcodes {
    * @param name the method's name.
    * @param descriptor the method's descriptor.
    * @param signature the method's signature. May be {@literal null}.
-   * @param exceptions the internal names of the method's exception classes. May be {@literal null}.
+   * @param exceptions the internal names of the method's exception classes (see {@link
+   *     nginx.clojure.asm.Type#getInternalName()}). May be {@literal null}.
    */
   protected JSRInlinerAdapter(
       final int api,

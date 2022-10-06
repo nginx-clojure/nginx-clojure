@@ -37,6 +37,7 @@ import nginx.clojure.asm.FieldVisitor;
 import nginx.clojure.asm.MethodVisitor;
 import nginx.clojure.asm.ModuleVisitor;
 import nginx.clojure.asm.Opcodes;
+import nginx.clojure.asm.RecordComponentVisitor;
 import nginx.clojure.asm.TypePath;
 
 /**
@@ -70,20 +71,19 @@ public class ClassRemapper extends ClassVisitor {
    * Constructs a new {@link ClassRemapper}. <i>Subclasses must not use this constructor</i>.
    * Instead, they must use the {@link #ClassRemapper(int,ClassVisitor,Remapper)} version.
    *
-   * @param classVisitor the class visitor this remapper must deleted to.
+   * @param classVisitor the class visitor this remapper must delegate to.
    * @param remapper the remapper to use to remap the types in the visited class.
    */
   public ClassRemapper(final ClassVisitor classVisitor, final Remapper remapper) {
-    this(/* latest api = */ Opcodes.ASM7, classVisitor, remapper);
+    this(/* latest api = */ Opcodes.ASM9, classVisitor, remapper);
   }
 
   /**
    * Constructs a new {@link ClassRemapper}.
    *
-   * @param api the ASM API version supported by this remapper. Must be one of {@link
-   *     nginx.clojure.asm.Opcodes#ASM4}, {@link nginx.clojure.asm.Opcodes#ASM5}, {@link
-   *     nginx.clojure.asm.Opcodes#ASM6} or {@link nginx.clojure.asm.Opcodes#ASM7}.
-   * @param classVisitor the class visitor this remapper must deleted to.
+   * @param api the ASM API version supported by this remapper. Must be one of the {@code
+   *     ASM}<i>x</i> values in {@link Opcodes}.
+   * @param classVisitor the class visitor this remapper must delegate to.
    * @param remapper the remapper to use to remap the types in the visited class.
    */
   protected ClassRemapper(final int api, final ClassVisitor classVisitor, final Remapper remapper) {
@@ -119,7 +119,9 @@ public class ClassRemapper extends ClassVisitor {
   public AnnotationVisitor visitAnnotation(final String descriptor, final boolean visible) {
     AnnotationVisitor annotationVisitor =
         super.visitAnnotation(remapper.mapDesc(descriptor), visible);
-    return annotationVisitor == null ? null : createAnnotationRemapper(annotationVisitor);
+    return annotationVisitor == null
+        ? null
+        : createAnnotationRemapper(descriptor, annotationVisitor);
   }
 
   @Override
@@ -127,7 +129,9 @@ public class ClassRemapper extends ClassVisitor {
       final int typeRef, final TypePath typePath, final String descriptor, final boolean visible) {
     AnnotationVisitor annotationVisitor =
         super.visitTypeAnnotation(typeRef, typePath, remapper.mapDesc(descriptor), visible);
-    return annotationVisitor == null ? null : createAnnotationRemapper(annotationVisitor);
+    return annotationVisitor == null
+        ? null
+        : createAnnotationRemapper(descriptor, annotationVisitor);
   }
 
   @Override
@@ -140,6 +144,19 @@ public class ClassRemapper extends ClassVisitor {
       }
     }
     super.visitAttribute(attribute);
+  }
+
+  @Override
+  public RecordComponentVisitor visitRecordComponent(
+      final String name, final String descriptor, final String signature) {
+    RecordComponentVisitor recordComponentVisitor =
+        super.visitRecordComponent(
+            remapper.mapRecordComponentName(className, name, descriptor),
+            remapper.mapDesc(descriptor),
+            remapper.mapSignature(signature, true));
+    return recordComponentVisitor == null
+        ? null
+        : createRecordComponentRemapper(recordComponentVisitor);
   }
 
   @Override
@@ -205,10 +222,9 @@ public class ClassRemapper extends ClassVisitor {
     super.visitNestMember(remapper.mapType(nestMember));
   }
 
-  @SuppressWarnings("deprecation")
   @Override
-  public void visitPermittedSubtypeExperimental(final String permittedSubtype) {
-    super.visitPermittedSubtypeExperimental(remapper.mapType(permittedSubtype));
+  public void visitPermittedSubclass(final String permittedSubclass) {
+    super.visitPermittedSubclass(remapper.mapType(permittedSubclass));
   }
 
   /**
@@ -239,9 +255,25 @@ public class ClassRemapper extends ClassVisitor {
    *
    * @param annotationVisitor the AnnotationVisitor the remapper must delegate to.
    * @return the newly created remapper.
+   * @deprecated use {@link #createAnnotationRemapper(String, AnnotationVisitor)} instead.
    */
+  @Deprecated
   protected AnnotationVisitor createAnnotationRemapper(final AnnotationVisitor annotationVisitor) {
-    return new AnnotationRemapper(api, annotationVisitor, remapper);
+    return new AnnotationRemapper(api, /* descriptor = */ null, annotationVisitor, remapper);
+  }
+
+  /**
+   * Constructs a new remapper for annotations. The default implementation of this method returns a
+   * new {@link AnnotationRemapper}.
+   *
+   * @param descriptor the descriptor of the visited annotation.
+   * @param annotationVisitor the AnnotationVisitor the remapper must delegate to.
+   * @return the newly created remapper.
+   */
+  protected AnnotationVisitor createAnnotationRemapper(
+      final String descriptor, final AnnotationVisitor annotationVisitor) {
+    return new AnnotationRemapper(api, descriptor, annotationVisitor, remapper)
+        .orDeprecatedValue(createAnnotationRemapper(annotationVisitor));
   }
 
   /**
@@ -253,5 +285,17 @@ public class ClassRemapper extends ClassVisitor {
    */
   protected ModuleVisitor createModuleRemapper(final ModuleVisitor moduleVisitor) {
     return new ModuleRemapper(api, moduleVisitor, remapper);
+  }
+
+  /**
+   * Constructs a new remapper for record components. The default implementation of this method
+   * returns a new {@link RecordComponentRemapper}.
+   *
+   * @param recordComponentVisitor the RecordComponentVisitor the remapper must delegate to.
+   * @return the newly created remapper.
+   */
+  protected RecordComponentVisitor createRecordComponentRemapper(
+      final RecordComponentVisitor recordComponentVisitor) {
+    return new RecordComponentRemapper(api, recordComponentVisitor, remapper);
   }
 }

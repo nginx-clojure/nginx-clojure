@@ -50,20 +50,19 @@ public class SignatureRemapper extends SignatureVisitor {
    * Constructs a new {@link SignatureRemapper}. <i>Subclasses must not use this constructor</i>.
    * Instead, they must use the {@link #SignatureRemapper(int,SignatureVisitor,Remapper)} version.
    *
-   * @param signatureVisitor the signature visitor this remapper must deleted to.
+   * @param signatureVisitor the signature visitor this remapper must delegate to.
    * @param remapper the remapper to use to remap the types in the visited signature.
    */
   public SignatureRemapper(final SignatureVisitor signatureVisitor, final Remapper remapper) {
-    this(/* latest api = */ Opcodes.ASM7, signatureVisitor, remapper);
+    this(/* latest api = */ Opcodes.ASM9, signatureVisitor, remapper);
   }
 
   /**
    * Constructs a new {@link SignatureRemapper}.
    *
-   * @param api the ASM API version supported by this remapper. Must be one of {@link
-   *     nginx.clojure.asm.Opcodes#ASM4}, {@link nginx.clojure.asm.Opcodes#ASM5} or {@link
-   *     nginx.clojure.asm.Opcodes#ASM6}.
-   * @param signatureVisitor the signature visitor this remapper must deleted to.
+   * @param api the ASM API version supported by this remapper. Must be one of the {@code
+   *     ASM}<i>x</i> values in {@link Opcodes}.
+   * @param signatureVisitor the signature visitor this remapper must delegate to.
    * @param remapper the remapper to use to remap the types in the visited signature.
    */
   protected SignatureRemapper(

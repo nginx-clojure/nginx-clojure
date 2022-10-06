@@ -41,7 +41,7 @@ public class FieldInsnNode extends AbstractInsnNode {
 
   /**
    * The internal name of the field's owner class (see {@link
-   * nginx.clojure.asm.Type#getInternalName}).
+   * nginx.clojure.asm.Type#getInternalName()}).
    */
   public String owner;
 
@@ -57,7 +57,7 @@ public class FieldInsnNode extends AbstractInsnNode {
    * @param opcode the opcode of the type instruction to be constructed. This opcode must be
    *     GETSTATIC, PUTSTATIC, GETFIELD or PUTFIELD.
    * @param owner the internal name of the field's owner class (see {@link
-   *     nginx.clojure.asm.Type#getInternalName}).
+   *     nginx.clojure.asm.Type#getInternalName()}).
    * @param name the field's name.
    * @param descriptor the field's descriptor (see {@link nginx.clojure.asm.Type}).
    */

@@ -62,7 +62,7 @@ public final class TraceMethodVisitor extends MethodVisitor {
    * @param printer the printer to convert the visited method into text.
    */
   public TraceMethodVisitor(final MethodVisitor methodVisitor, final Printer printer) {
-    super(/* latest api = */ Opcodes.ASM7, methodVisitor);
+    super(/* latest api = */ Opcodes.ASM9, methodVisitor);
     this.p = printer;
   }
 
@@ -143,9 +143,9 @@ public final class TraceMethodVisitor extends MethodVisitor {
   }
 
   @Override
-  public void visitVarInsn(final int opcode, final int var) {
-    p.visitVarInsn(opcode, var);
-    super.visitVarInsn(opcode, var);
+  public void visitVarInsn(final int opcode, final int varIndex) {
+    p.visitVarInsn(opcode, varIndex);
+    super.visitVarInsn(opcode, varIndex);
   }
 
   @Override
@@ -216,9 +216,9 @@ public final class TraceMethodVisitor extends MethodVisitor {
   }
 
   @Override
-  public void visitIincInsn(final int var, final int increment) {
-    p.visitIincInsn(var, increment);
-    super.visitIincInsn(var, increment);
+  public void visitIincInsn(final int varIndex, final int increment) {
+    p.visitIincInsn(varIndex, increment);
+    super.visitIincInsn(varIndex, increment);
   }
 
   @Override

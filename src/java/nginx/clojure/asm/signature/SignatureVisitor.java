@@ -6,13 +6,13 @@
 // modification, are permitted provided that the following conditions
 // are met:
 // 1. Redistributions of source code must retain the above copyright
-//    notice, this list of conditions and the following disclaimer.
+// notice, this list of conditions and the following disclaimer.
 // 2. Redistributions in binary form must reproduce the above copyright
-//    notice, this list of conditions and the following disclaimer in the
-//    documentation and/or other materials provided with the distribution.
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
 // 3. Neither the name of the copyright holders nor the names of its
-//    contributors may be used to endorse or promote products derived from
-//    this software without specific prior written permission.
+// contributors may be used to endorse or promote products derived from
+// this software without specific prior written permission.
 //
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 // AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -60,24 +60,25 @@ public abstract class SignatureVisitor {
   public static final char INSTANCEOF = '=';
 
   /**
-   * The ASM API version implemented by this visitor. The value of this field must be one of {@link
-   * Opcodes#ASM4}, {@link Opcodes#ASM5}, {@link Opcodes#ASM6} or {@link Opcodes#ASM7}.
+   * The ASM API version implemented by this visitor. The value of this field must be one of the
+   * {@code ASM}<i>x</i> values in {@link Opcodes}.
    */
   protected final int api;
 
   /**
    * Constructs a new {@link SignatureVisitor}.
    *
-   * @param api the ASM API version implemented by this visitor. Must be one of {@link
-   *     Opcodes#ASM4}, {@link Opcodes#ASM5}, {@link Opcodes#ASM6} or {@link Opcodes#ASM7}.
+   * @param api the ASM API version implemented by this visitor. Must be one of the {@code
+   *     ASM}<i>x</i> values in {@link Opcodes}.
    */
-  @SuppressWarnings("deprecation")
-  public SignatureVisitor(final int api) {
-    if (api != Opcodes.ASM7
+  protected SignatureVisitor(final int api) {
+    if (api != Opcodes.ASM9
+        && api != Opcodes.ASM8
+        && api != Opcodes.ASM7
         && api != Opcodes.ASM6
         && api != Opcodes.ASM5
         && api != Opcodes.ASM4
-        && api != Opcodes.ASM8_EXPERIMENTAL) {
+        && api != Opcodes.ASM10_EXPERIMENTAL) {
       throw new IllegalArgumentException("Unsupported api " + api);
     }
     this.api = api;
@@ -179,7 +180,8 @@ public abstract class SignatureVisitor {
   /**
    * Starts the visit of a signature corresponding to a class or interface type.
    *
-   * @param name the internal name of the class or interface.
+   * @param name the internal name of the class or interface (see {@link
+   *     nginx.clojure.asm.Type#getInternalName()}).
    */
   public void visitClassType(final String name) {}
 

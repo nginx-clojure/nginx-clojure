@@ -40,11 +40,13 @@ import nginx.clojure.asm.AnnotationVisitor;
 import nginx.clojure.asm.Attribute;
 import nginx.clojure.asm.ClassReader;
 import nginx.clojure.asm.ClassVisitor;
+import nginx.clojure.asm.ClassWriter;
 import nginx.clojure.asm.FieldVisitor;
 import nginx.clojure.asm.Label;
 import nginx.clojure.asm.MethodVisitor;
 import nginx.clojure.asm.ModuleVisitor;
 import nginx.clojure.asm.Opcodes;
+import nginx.clojure.asm.RecordComponentVisitor;
 import nginx.clojure.asm.Type;
 import nginx.clojure.asm.TypePath;
 import nginx.clojure.asm.TypeReference;
@@ -161,7 +163,7 @@ public class CheckClassAdapter extends ClassVisitor {
    * @param classVisitor the class visitor to which this adapter must delegate calls.
    */
   public CheckClassAdapter(final ClassVisitor classVisitor) {
-    this(classVisitor, true);
+    this(classVisitor, /* checkDataFlow = */ true);
   }
 
   /**
@@ -169,12 +171,11 @@ public class CheckClassAdapter extends ClassVisitor {
    * Instead, they must use the {@link #CheckClassAdapter(int, ClassVisitor, boolean)} version.
    *
    * @param classVisitor the class visitor to which this adapter must delegate calls.
-   * @param checkDataFlow whether to perform basic data flow checks. This option requires valid
-   *     maxLocals and maxStack values.
+   * @param checkDataFlow whether to perform basic data flow checks.
    * @throws IllegalStateException If a subclass calls this constructor.
    */
   public CheckClassAdapter(final ClassVisitor classVisitor, final boolean checkDataFlow) {
-    this(/* latest api = */ Opcodes.ASM7, classVisitor, checkDataFlow);
+    this(/* latest api = */ Opcodes.ASM9, classVisitor, checkDataFlow);
     if (getClass() != CheckClassAdapter.class) {
       throw new IllegalStateException();
     }
@@ -183,12 +184,11 @@ public class CheckClassAdapter extends ClassVisitor {
   /**
    * Constructs a new {@link CheckClassAdapter}.
    *
-   * @param api the ASM API version implemented by this visitor. Must be one of {@link
-   *     Opcodes#ASM4}, {@link Opcodes#ASM5}, {@link Opcodes#ASM6} or {@link Opcodes#ASM7}.
+   * @param api the ASM API version implemented by this visitor. Must be one of the {@code
+   *     ASM}<i>x</i> values in {@link Opcodes}.
    * @param classVisitor the class visitor to which this adapter must delegate calls.
    * @param checkDataFlow {@literal true} to perform basic data flow checks, or {@literal false} to
-   *     not perform any data flow check (see {@link CheckMethodAdapter}). This option requires
-   *     valid maxLocals and maxStack values.
+   *     not perform any data flow check (see {@link CheckMethodAdapter}).
    */
   protected CheckClassAdapter(
       final int api, final ClassVisitor classVisitor, final boolean checkDataFlow) {
@@ -225,6 +225,7 @@ public class CheckClassAdapter extends ClassVisitor {
             | Opcodes.ACC_ANNOTATION
             | Opcodes.ACC_ENUM
             | Opcodes.ACC_DEPRECATED
+            | Opcodes.ACC_RECORD
             | Opcodes.ACC_MODULE);
     if (name == null) {
       throw new IllegalArgumentException("Illegal class name (null)");
@@ -320,12 +321,11 @@ public class CheckClassAdapter extends ClassVisitor {
     super.visitNestMember(nestMember);
   }
 
-  @SuppressWarnings("deprecation")
   @Override
-  public void visitPermittedSubtypeExperimental(final String permittedSubtype) {
+  public void visitPermittedSubclass(final String permittedSubclass) {
     checkState();
-    CheckMethodAdapter.checkInternalName(version, permittedSubtype, "permittedSubtype");
-    super.visitPermittedSubtypeExperimental(permittedSubtype);
+    CheckMethodAdapter.checkInternalName(version, permittedSubclass, "permittedSubclass");
+    super.visitPermittedSubclass(permittedSubclass);
   }
 
   @Override
@@ -377,6 +377,19 @@ public class CheckClassAdapter extends ClassVisitor {
   }
 
   @Override
+  public RecordComponentVisitor visitRecordComponent(
+      final String name, final String descriptor, final String signature) {
+    checkState();
+    CheckMethodAdapter.checkUnqualifiedName(version, name, "record component name");
+    CheckMethodAdapter.checkDescriptor(version, descriptor, /* canBeVoid = */ false);
+    if (signature != null) {
+      checkFieldSignature(signature);
+    }
+    return new CheckRecordComponentAdapter(
+        api, super.visitRecordComponent(name, descriptor, signature));
+  }
+
+  @Override
   public FieldVisitor visitField(
       final int access,
       final String name,
@@ -395,6 +408,7 @@ public class CheckClassAdapter extends ClassVisitor {
             | Opcodes.ACC_TRANSIENT
             | Opcodes.ACC_SYNTHETIC
             | Opcodes.ACC_ENUM
+            | Opcodes.ACC_MANDATED
             | Opcodes.ACC_DEPRECATED);
     CheckMethodAdapter.checkUnqualifiedName(version, name, "field name");
     CheckMethodAdapter.checkDescriptor(version, descriptor, /* canBeVoid = */ false);
@@ -415,7 +429,8 @@ public class CheckClassAdapter extends ClassVisitor {
       final String signature,
       final String[] exceptions) {
     checkState();
-    checkAccess(
+    checkMethodAccess(
+        version,
         access,
         Opcodes.ACC_PUBLIC
             | Opcodes.ACC_PRIVATE
@@ -429,6 +444,7 @@ public class CheckClassAdapter extends ClassVisitor {
             | Opcodes.ACC_ABSTRACT
             | Opcodes.ACC_STRICT
             | Opcodes.ACC_SYNTHETIC
+            | Opcodes.ACC_MANDATED
             | Opcodes.ACC_DEPRECATED);
     if (!"<init>".equals(name) && !"<clinit>".equals(name)) {
       CheckMethodAdapter.checkMethodIdentifier(version, name, "method name");
@@ -444,21 +460,18 @@ public class CheckClassAdapter extends ClassVisitor {
       }
     }
     CheckMethodAdapter checkMethodAdapter;
+    MethodVisitor methodVisitor =
+        super.visitMethod(access, name, descriptor, signature, exceptions);
     if (checkDataFlow) {
+      if (cv instanceof ClassWriter) {
+        methodVisitor =
+            new CheckMethodAdapter.MethodWriterWrapper(
+                api, version, (ClassWriter) cv, methodVisitor);
+      }
       checkMethodAdapter =
-          new CheckMethodAdapter(
-              api,
-              access,
-              name,
-              descriptor,
-              super.visitMethod(access, name, descriptor, signature, exceptions),
-              labelInsnIndices);
+          new CheckMethodAdapter(api, access, name, descriptor, methodVisitor, labelInsnIndices);
     } else {
-      checkMethodAdapter =
-          new CheckMethodAdapter(
-              api,
-              super.visitMethod(access, name, descriptor, signature, exceptions),
-              labelInsnIndices);
+      checkMethodAdapter = new CheckMethodAdapter(api, methodVisitor, labelInsnIndices);
     }
     checkMethodAdapter.version = version;
     return checkMethodAdapter;
@@ -536,6 +549,23 @@ public class CheckClassAdapter extends ClassVisitor {
     }
     if (Integer.bitCount(access & (Opcodes.ACC_FINAL | Opcodes.ACC_ABSTRACT)) > 1) {
       throw new IllegalArgumentException("final and abstract are mutually exclusive: " + access);
+    }
+  }
+
+  /**
+   * Checks that the given access flags do not contain invalid flags for a method. This method also
+   * checks that mutually incompatible flags are not set simultaneously.
+   *
+   * @param version the class version.
+   * @param access the method access flags to be checked.
+   * @param possibleAccess the valid access flags.
+   */
+  private static void checkMethodAccess(
+      final int version, final int access, final int possibleAccess) {
+    checkAccess(access, possibleAccess);
+    if ((version & 0xFFFF) < Opcodes.V17
+        && Integer.bitCount(access & (Opcodes.ACC_STRICT | Opcodes.ACC_ABSTRACT)) > 1) {
+      throw new IllegalArgumentException("strictfp and abstract are mutually exclusive: " + access);
     }
   }
 
@@ -927,9 +957,9 @@ public class CheckClassAdapter extends ClassVisitor {
         mask = 0xFF0000FF;
         break;
       default:
-        throw new AssertionError();
+        break;
     }
-    if ((typeRef & ~mask) != 0) {
+    if (mask == 0 || (typeRef & ~mask) != 0) {
       throw new IllegalArgumentException(
           "Invalid type reference 0x" + Integer.toHexString(typeRef));
     }
@@ -980,9 +1010,10 @@ public class CheckClassAdapter extends ClassVisitor {
 
     ClassReader classReader;
     if (args[0].endsWith(".class")) {
-      InputStream inputStream =
-          new FileInputStream(args[0]); // NOPMD(AvoidFileStream): can't fix for 1.5 compatibility
-      classReader = new ClassReader(inputStream);
+      // Can't fix PMD warning for 1.5 compatibility.
+      try (InputStream inputStream = new FileInputStream(args[0])) { // NOPMD(AvoidFileStream)
+        classReader = new ClassReader(inputStream);
+      }
     } else {
       classReader = new ClassReader(args[0]);
     }
@@ -1011,7 +1042,6 @@ public class CheckClassAdapter extends ClassVisitor {
    * @param printResults whether to print the results of the bytecode verification.
    * @param printWriter where the results (or the stack trace in case of error) must be printed.
    */
-  @SuppressWarnings("deprecation")
   public static void verify(
       final ClassReader classReader,
       final ClassLoader loader,
@@ -1019,7 +1049,7 @@ public class CheckClassAdapter extends ClassVisitor {
       final PrintWriter printWriter) {
     ClassNode classNode = new ClassNode();
     classReader.accept(
-        new CheckClassAdapter(Opcodes.ASM8_EXPERIMENTAL, classNode, false) {},
+        new CheckClassAdapter(/*latest*/ Opcodes.ASM10_EXPERIMENTAL, classNode, false) {},
         ClassReader.SKIP_DEBUG);
 
     Type syperType = classNode.superName == null ? null : Type.getObjectType(classNode.superName);
@@ -1098,7 +1128,11 @@ public class CheckClassAdapter extends ClassVisitor {
       if (name.charAt(endIndex - 1) == ';') {
         endIndex--;
       }
-      return name.substring(lastSlashIndex + 1, endIndex);
+      int lastBracketIndex = name.lastIndexOf('[');
+      if (lastBracketIndex == -1) {
+        return name.substring(lastSlashIndex + 1, endIndex);
+      }
+      return name.substring(0, lastBracketIndex + 1) + name.substring(lastSlashIndex + 1, endIndex);
     }
   }
 }

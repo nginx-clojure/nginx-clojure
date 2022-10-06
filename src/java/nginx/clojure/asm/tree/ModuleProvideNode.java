@@ -38,10 +38,13 @@ import nginx.clojure.asm.ModuleVisitor;
  */
 public class ModuleProvideNode {
 
-  /** The internal name of the service. */
+  /** The internal name of the service (see {@link nginx.clojure.asm.Type#getInternalName()}). */
   public String service;
 
-  /** The internal names of the implementations of the service (there is at least one provider). */
+  /**
+   * The internal names of the implementations of the service (there is at least one provider). See
+   * {@link nginx.clojure.asm.Type#getInternalName()}.
+   */
   public List<String> providers;
 
   /**
@@ -49,7 +52,7 @@ public class ModuleProvideNode {
    *
    * @param service the internal name of the service.
    * @param providers the internal names of the implementations of the service (there is at least
-   *     one provider).
+   *     one provider). See {@link nginx.clojure.asm.Type#getInternalName()}.
    */
   public ModuleProvideNode(final String service, final List<String> providers) {
     this.service = service;

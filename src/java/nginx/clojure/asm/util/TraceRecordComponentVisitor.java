@@ -28,66 +28,69 @@
 package nginx.clojure.asm.util;
 
 import nginx.clojure.asm.AnnotationVisitor;
+import nginx.clojure.asm.Attribute;
 import nginx.clojure.asm.Opcodes;
+import nginx.clojure.asm.RecordComponentVisitor;
+import nginx.clojure.asm.TypePath;
 
 /**
- * An {@link AnnotationVisitor} that prints the annotations it visits with a {@link Printer}.
+ * A {@link RecordComponentVisitor} that prints the record components it visits with a {@link
+ * Printer}.
  *
- * @author Eric Bruneton
+ * @author Remi Forax
  */
-public final class TraceAnnotationVisitor extends AnnotationVisitor {
+public final class TraceRecordComponentVisitor extends RecordComponentVisitor {
 
-  /** The printer to convert the visited annotation into text. */
-  private final Printer printer;
+  /** The printer to convert the visited record component into text. */
+  public final Printer printer;
 
   /**
-   * Constructs a new {@link TraceAnnotationVisitor}.
+   * Constructs a new {@link TraceRecordComponentVisitor}.
    *
-   * @param printer the printer to convert the visited annotation into text.
+   * @param printer the printer to convert the visited record component into text.
    */
-  public TraceAnnotationVisitor(final Printer printer) {
+  public TraceRecordComponentVisitor(final Printer printer) {
     this(null, printer);
   }
 
   /**
-   * Constructs a new {@link TraceAnnotationVisitor}.
+   * Constructs a new {@link TraceRecordComponentVisitor}.
    *
-   * @param annotationVisitor the annotation visitor to which to delegate calls. May be {@literal
-   *     null}.
-   * @param printer the printer to convert the visited annotation into text.
+   * @param recordComponentVisitor the record component visitor to which to delegate calls. May be
+   *     {@literal null}.
+   * @param printer the printer to convert the visited record component into text.
    */
-  public TraceAnnotationVisitor(final AnnotationVisitor annotationVisitor, final Printer printer) {
-    super(/* latest api = */ Opcodes.ASM9, annotationVisitor);
+  public TraceRecordComponentVisitor(
+      final RecordComponentVisitor recordComponentVisitor, final Printer printer) {
+    super(/* latest api ='*/ Opcodes.ASM9, recordComponentVisitor);
     this.printer = printer;
   }
 
   @Override
-  public void visit(final String name, final Object value) {
-    printer.visit(name, value);
-    super.visit(name, value);
+  public AnnotationVisitor visitAnnotation(final String descriptor, final boolean visible) {
+    Printer annotationPrinter = printer.visitRecordComponentAnnotation(descriptor, visible);
+    return new TraceAnnotationVisitor(
+        super.visitAnnotation(descriptor, visible), annotationPrinter);
   }
 
   @Override
-  public void visitEnum(final String name, final String descriptor, final String value) {
-    printer.visitEnum(name, descriptor, value);
-    super.visitEnum(name, descriptor, value);
+  public AnnotationVisitor visitTypeAnnotation(
+      final int typeRef, final TypePath typePath, final String descriptor, final boolean visible) {
+    Printer annotationPrinter =
+        printer.visitRecordComponentTypeAnnotation(typeRef, typePath, descriptor, visible);
+    return new TraceAnnotationVisitor(
+        super.visitTypeAnnotation(typeRef, typePath, descriptor, visible), annotationPrinter);
   }
 
   @Override
-  public AnnotationVisitor visitAnnotation(final String name, final String descriptor) {
-    Printer annotationPrinter = printer.visitAnnotation(name, descriptor);
-    return new TraceAnnotationVisitor(super.visitAnnotation(name, descriptor), annotationPrinter);
-  }
-
-  @Override
-  public AnnotationVisitor visitArray(final String name) {
-    Printer arrayPrinter = printer.visitArray(name);
-    return new TraceAnnotationVisitor(super.visitArray(name), arrayPrinter);
+  public void visitAttribute(final Attribute attribute) {
+    printer.visitRecordComponentAttribute(attribute);
+    super.visitAttribute(attribute);
   }
 
   @Override
   public void visitEnd() {
-    printer.visitAnnotationEnd();
+    printer.visitRecordComponentEnd();
     super.visitEnd();
   }
 }

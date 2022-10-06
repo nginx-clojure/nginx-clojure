@@ -52,7 +52,7 @@ public class SourceInterpreter extends Interpreter<SourceValue> implements Opcod
    * version.
    */
   public SourceInterpreter() {
-    super(/* latest api = */ ASM7);
+    super(/* latest api = */ ASM9);
     if (getClass() != SourceInterpreter.class) {
       throw new IllegalStateException();
     }
@@ -61,9 +61,8 @@ public class SourceInterpreter extends Interpreter<SourceValue> implements Opcod
   /**
    * Constructs a new {@link SourceInterpreter}.
    *
-   * @param api the ASM API version supported by this interpreter. Must be one of {@link
-   *     nginx.clojure.asm.Opcodes#ASM4}, {@link nginx.clojure.asm.Opcodes#ASM5}, {@link
-   *     nginx.clojure.asm.Opcodes#ASM6} or {@link nginx.clojure.asm.Opcodes#ASM7}.
+   * @param api the ASM API version supported by this interpreter. Must be one of the {@code
+   *     ASM}<i>x</i> values in {@link Opcodes}.
    */
   protected SourceInterpreter(final int api) {
     super(api);

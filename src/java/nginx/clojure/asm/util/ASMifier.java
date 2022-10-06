@@ -54,7 +54,7 @@ public class ASMifier extends Printer {
   /** The help message shown when command line arguments are incorrect. */
   private static final String USAGE =
       "Prints the ASM code to generate the given class.\n"
-          + "Usage: ASMifier [-debug] <fully qualified class name or class file name>";
+          + "Usage: ASMifier [-nodebug] <fully qualified class name or class file name>";
 
   /** A pseudo access flag used to distinguish class access flags. */
   private static final int ACCESS_CLASS = 0x40000;
@@ -105,6 +105,12 @@ public class ASMifier extends Printer {
     classVersions.put(Opcodes.V12, "V12");
     classVersions.put(Opcodes.V13, "V13");
     classVersions.put(Opcodes.V14, "V14");
+    classVersions.put(Opcodes.V15, "V15");
+    classVersions.put(Opcodes.V16, "V16");
+    classVersions.put(Opcodes.V17, "V17");
+    classVersions.put(Opcodes.V18, "V18");
+    classVersions.put(Opcodes.V19, "V19");
+    classVersions.put(Opcodes.V20, "V20");
     CLASS_VERSIONS = Collections.unmodifiableMap(classVersions);
   }
 
@@ -124,7 +130,7 @@ public class ASMifier extends Printer {
    * @throws IllegalStateException If a subclass calls this constructor.
    */
   public ASMifier() {
-    this(/* latest api = */ Opcodes.ASM7, "classWriter", 0);
+    this(/* latest api = */ Opcodes.ASM9, "classWriter", 0);
     if (getClass() != ASMifier.class) {
       throw new IllegalStateException();
     }
@@ -133,8 +139,8 @@ public class ASMifier extends Printer {
   /**
    * Constructs a new {@link ASMifier}.
    *
-   * @param api the ASM API version implemented by this class. Must be one of {@link Opcodes#ASM4},
-   *     {@link Opcodes#ASM5}, {@link Opcodes#ASM6} or {@link Opcodes#ASM7}.
+   * @param api the ASM API version implemented by this class. Must be one of the {@code
+   *     ASM}<i>x</i> values in {@link Opcodes}.
    * @param visitorVariableName the name of the visitor variable in the produced code.
    * @param annotationVisitorId identifier of the annotation visitor variable in the produced code.
    */
@@ -148,7 +154,7 @@ public class ASMifier extends Printer {
   /**
    * Prints the ASM source code to generate the given class to the standard output.
    *
-   * <p>Usage: ASMifier [-debug] &lt;binary class name or class file name&gt;
+   * <p>Usage: ASMifier [-nodebug] &lt;binary class name or class file name&gt;
    *
    * @param args the command line arguments.
    * @throws IOException if the class cannot be found, or if an IOException occurs.
@@ -160,7 +166,7 @@ public class ASMifier extends Printer {
   /**
    * Prints the ASM source code to generate the given class to the given output.
    *
-   * <p>Usage: ASMifier [-debug] &lt;binary class name or class file name&gt;
+   * <p>Usage: ASMifier [-nodebug] &lt;binary class name or class file name&gt;
    *
    * @param args the command line arguments.
    * @param output where to print the result.
@@ -206,12 +212,14 @@ public class ASMifier extends Printer {
     text.add("import nginx.clojure.asm.Label;\n");
     text.add("import nginx.clojure.asm.MethodVisitor;\n");
     text.add("import nginx.clojure.asm.Opcodes;\n");
+    text.add("import nginx.clojure.asm.RecordComponentVisitor;\n");
     text.add("import nginx.clojure.asm.Type;\n");
     text.add("import nginx.clojure.asm.TypePath;\n");
     text.add("public class " + simpleName + "Dump implements Opcodes {\n\n");
     text.add("public static byte[] dump () throws Exception {\n\n");
     text.add("ClassWriter classWriter = new ClassWriter(0);\n");
     text.add("FieldVisitor fieldVisitor;\n");
+    text.add("RecordComponentVisitor recordComponentVisitor;\n");
     text.add("MethodVisitor methodVisitor;\n");
     text.add("AnnotationVisitor annotationVisitor0;\n\n");
 
@@ -260,6 +268,7 @@ public class ASMifier extends Printer {
   @Override
   public Printer visitModule(final String name, final int flags, final String version) {
     stringBuilder.setLength(0);
+    stringBuilder.append("{\n");
     stringBuilder.append("ModuleVisitor moduleVisitor = classWriter.visitModule(");
     appendConstant(name);
     stringBuilder.append(", ");
@@ -322,10 +331,10 @@ public class ASMifier extends Printer {
   }
 
   @Override
-  public void visitPermittedSubtypeExperimental(final String visitPermittedSubtype) {
+  public void visitPermittedSubclass(final String permittedSubclass) {
     stringBuilder.setLength(0);
-    stringBuilder.append("classWriter.visitPermittedSubtypeExperimental(");
-    appendConstant(visitPermittedSubtype);
+    stringBuilder.append("classWriter.visitPermittedSubclass(");
+    appendConstant(permittedSubclass);
     stringBuilder.append(END_PARAMETERS);
     text.add(stringBuilder.toString());
   }
@@ -344,6 +353,25 @@ public class ASMifier extends Printer {
     appendAccessFlags(access | ACCESS_INNER);
     stringBuilder.append(END_PARAMETERS);
     text.add(stringBuilder.toString());
+  }
+
+  @Override
+  public ASMifier visitRecordComponent(
+      final String name, final String descriptor, final String signature) {
+    stringBuilder.setLength(0);
+    stringBuilder.append("{\n");
+    stringBuilder.append("recordComponentVisitor = classWriter.visitRecordComponent(");
+    appendConstant(name);
+    stringBuilder.append(", ");
+    appendConstant(descriptor);
+    stringBuilder.append(", ");
+    appendConstant(signature);
+    stringBuilder.append(");\n");
+    text.add(stringBuilder.toString());
+    ASMifier asmifier = createASMifier("recordComponentVisitor", 0);
+    text.add(asmifier.getText());
+    text.add("}\n");
+    return asmifier;
   }
 
   @Override
@@ -584,6 +612,31 @@ public class ASMifier extends Printer {
   }
 
   // -----------------------------------------------------------------------------------------------
+  // Record components
+  // -----------------------------------------------------------------------------------------------
+
+  @Override
+  public ASMifier visitRecordComponentAnnotation(final String descriptor, final boolean visible) {
+    return visitAnnotation(descriptor, visible);
+  }
+
+  @Override
+  public ASMifier visitRecordComponentTypeAnnotation(
+      final int typeRef, final TypePath typePath, final String descriptor, final boolean visible) {
+    return visitTypeAnnotation(typeRef, typePath, descriptor, visible);
+  }
+
+  @Override
+  public void visitRecordComponentAttribute(final Attribute attribute) {
+    visitAttribute(attribute);
+  }
+
+  @Override
+  public void visitRecordComponentEnd() {
+    visitMemberEnd();
+  }
+
+  // -----------------------------------------------------------------------------------------------
   // Fields
   // -----------------------------------------------------------------------------------------------
 
@@ -605,9 +658,7 @@ public class ASMifier extends Printer {
 
   @Override
   public void visitFieldEnd() {
-    stringBuilder.setLength(0);
-    stringBuilder.append(name).append(VISIT_END);
-    text.add(stringBuilder.toString());
+    visitMemberEnd();
   }
 
   // -----------------------------------------------------------------------------------------------
@@ -774,14 +825,14 @@ public class ASMifier extends Printer {
   }
 
   @Override
-  public void visitVarInsn(final int opcode, final int var) {
+  public void visitVarInsn(final int opcode, final int varIndex) {
     stringBuilder.setLength(0);
     stringBuilder
         .append(name)
         .append(".visitVarInsn(")
         .append(OPCODES[opcode])
         .append(", ")
-        .append(var)
+        .append(varIndex)
         .append(");\n");
     text.add(stringBuilder.toString());
   }
@@ -887,12 +938,12 @@ public class ASMifier extends Printer {
   }
 
   @Override
-  public void visitIincInsn(final int var, final int increment) {
+  public void visitIincInsn(final int varIndex, final int increment) {
     stringBuilder.setLength(0);
     stringBuilder
         .append(name)
         .append(".visitIincInsn(")
-        .append(var)
+        .append(varIndex)
         .append(", ")
         .append(increment)
         .append(");\n");
@@ -1080,9 +1131,7 @@ public class ASMifier extends Printer {
 
   @Override
   public void visitMethodEnd() {
-    stringBuilder.setLength(0);
-    stringBuilder.append(name).append(VISIT_END);
-    text.add(stringBuilder.toString());
+    visitMemberEnd();
   }
 
   // -----------------------------------------------------------------------------------------------
@@ -1154,9 +1203,9 @@ public class ASMifier extends Printer {
         .append("{\n")
         .append(ANNOTATION_VISITOR0)
         .append(name)
-        .append(".")
+        .append('.')
         .append(method)
-        .append("(")
+        .append('(')
         .append(typeRef);
     if (typePath == null) {
       stringBuilder.append(", null, ");
@@ -1189,6 +1238,13 @@ public class ASMifier extends Printer {
       stringBuilder.append(name).append(".visitAttribute(attribute);\n");
       stringBuilder.append("}\n");
     }
+    text.add(stringBuilder.toString());
+  }
+
+  /** Visits the end of a field, record component or method. */
+  private void visitMemberEnd() {
+    stringBuilder.setLength(0);
+    stringBuilder.append(name).append(VISIT_END);
     text.add(stringBuilder.toString());
   }
 
@@ -1232,11 +1288,7 @@ public class ASMifier extends Printer {
       if (!isEmpty) {
         stringBuilder.append(" | ");
       }
-      if ((accessFlags & ACCESS_MODULE) == 0) {
-        stringBuilder.append("ACC_FINAL");
-      } else {
-        stringBuilder.append("ACC_TRANSITIVE");
-      }
+      stringBuilder.append("ACC_FINAL");
       isEmpty = false;
     }
     if ((accessFlags & Opcodes.ACC_STATIC) != 0) {
@@ -1352,6 +1404,13 @@ public class ASMifier extends Printer {
       stringBuilder.append("ACC_DEPRECATED");
       isEmpty = false;
     }
+    if ((accessFlags & Opcodes.ACC_RECORD) != 0) {
+      if (!isEmpty) {
+        stringBuilder.append(" | ");
+      }
+      stringBuilder.append("ACC_RECORD");
+      isEmpty = false;
+    }
     if ((accessFlags & (Opcodes.ACC_MANDATED | Opcodes.ACC_MODULE)) != 0) {
       if (!isEmpty) {
         stringBuilder.append(" | ");
@@ -1391,7 +1450,7 @@ public class ASMifier extends Printer {
       stringBuilder.append(handle.getOwner()).append(COMMA);
       stringBuilder.append(handle.getName()).append(COMMA);
       stringBuilder.append(handle.getDesc()).append("\", ");
-      stringBuilder.append(handle.isInterface()).append(")");
+      stringBuilder.append(handle.isInterface()).append(')');
     } else if (value instanceof ConstantDynamic) {
       stringBuilder.append("new ConstantDynamic(\"");
       ConstantDynamic constantDynamic = (ConstantDynamic) value;

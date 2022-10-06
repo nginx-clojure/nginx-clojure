@@ -29,6 +29,7 @@ package nginx.clojure.asm.tree.analysis;
 
 import java.util.List;
 
+import nginx.clojure.asm.Opcodes;
 import nginx.clojure.asm.Type;
 import nginx.clojure.asm.tree.AbstractInsnNode;
 import nginx.clojure.asm.tree.FieldInsnNode;
@@ -48,7 +49,7 @@ public class BasicVerifier extends BasicInterpreter {
    * use this constructor</i>. Instead, they must use the {@link #BasicVerifier(int)} version.
    */
   public BasicVerifier() {
-    super(/* latest api = */ ASM7);
+    super(/* latest api = */ ASM9);
     if (getClass() != BasicVerifier.class) {
       throw new IllegalStateException();
     }
@@ -57,9 +58,8 @@ public class BasicVerifier extends BasicInterpreter {
   /**
    * Constructs a new {@link BasicVerifier}.
    *
-   * @param api the ASM API version supported by this interpreter. Must be one of {@link
-   *     nginx.clojure.asm.Opcodes#ASM4}, {@link nginx.clojure.asm.Opcodes#ASM5}, {@link
-   *     nginx.clojure.asm.Opcodes#ASM6} or {@link nginx.clojure.asm.Opcodes#ASM7}.
+   * @param api the ASM API version supported by this interpreter. Must be one of the {@code
+   *     ASM}<i>x</i> values in {@link Opcodes}.
    */
   protected BasicVerifier(final int api) {
     super(api);

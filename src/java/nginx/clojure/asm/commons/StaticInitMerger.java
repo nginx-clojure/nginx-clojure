@@ -61,14 +61,14 @@ public class StaticInitMerger extends ClassVisitor {
    *     null.
    */
   public StaticInitMerger(final String prefix, final ClassVisitor classVisitor) {
-    this(/* latest api = */ Opcodes.ASM7, prefix, classVisitor);
+    this(/* latest api = */ Opcodes.ASM9, prefix, classVisitor);
   }
 
   /**
    * Constructs a new {@link StaticInitMerger}.
    *
-   * @param api the ASM API version implemented by this visitor. Must be one of {@link
-   *     Opcodes#ASM4}, {@link Opcodes#ASM5} or {@link Opcodes#ASM6}.
+   * @param api the ASM API version implemented by this visitor. Must be one of the {@code
+   *     ASM}<i>x</i> values in {@link Opcodes}.
    * @param prefix the prefix to use to rename the existing &lt;clinit&gt; methods.
    * @param classVisitor the class visitor to which this visitor must delegate method calls. May be
    *     null.

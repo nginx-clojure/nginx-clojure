@@ -29,41 +29,44 @@
 package nginx.clojure.asm.commons;
 
 import nginx.clojure.asm.AnnotationVisitor;
-import nginx.clojure.asm.FieldVisitor;
 import nginx.clojure.asm.Opcodes;
+import nginx.clojure.asm.RecordComponentVisitor;
 import nginx.clojure.asm.TypePath;
 
 /**
- * A {@link FieldVisitor} that remaps types with a {@link Remapper}.
+ * A {@link RecordComponentVisitor} that remaps types with a {@link Remapper}.
  *
- * @author Eugene Kuleshov
+ * @author Remi Forax
  */
-public class FieldRemapper extends FieldVisitor {
+public class RecordComponentRemapper extends RecordComponentVisitor {
 
   /** The remapper used to remap the types in the visited field. */
   protected final Remapper remapper;
 
   /**
-   * Constructs a new {@link FieldRemapper}. <i>Subclasses must not use this constructor</i>.
-   * Instead, they must use the {@link #FieldRemapper(int,FieldVisitor,Remapper)} version.
+   * Constructs a new {@link RecordComponentRemapper}. <i>Subclasses must not use this
+   * constructor</i>. Instead, they must use the {@link
+   * #RecordComponentRemapper(int,RecordComponentVisitor,Remapper)} version.
    *
-   * @param fieldVisitor the field visitor this remapper must delegate to.
-   * @param remapper the remapper to use to remap the types in the visited field.
+   * @param recordComponentVisitor the record component visitor this remapper must delegate to.
+   * @param remapper the remapper to use to remap the types in the visited record component.
    */
-  public FieldRemapper(final FieldVisitor fieldVisitor, final Remapper remapper) {
-    this(/* latest api = */ Opcodes.ASM9, fieldVisitor, remapper);
+  public RecordComponentRemapper(
+      final RecordComponentVisitor recordComponentVisitor, final Remapper remapper) {
+    this(/* latest api = */ Opcodes.ASM9, recordComponentVisitor, remapper);
   }
 
   /**
-   * Constructs a new {@link FieldRemapper}.
+   * Constructs a new {@link RecordComponentRemapper}.
    *
-   * @param api the ASM API version supported by this remapper. Must be one of the {@code
-   *     ASM}<i>x</i> values in {@link Opcodes}.
-   * @param fieldVisitor the field visitor this remapper must delegate to.
-   * @param remapper the remapper to use to remap the types in the visited field.
+   * @param api the ASM API version supported by this remapper. Must be one of {@link
+   *     nginx.clojure.asm.Opcodes#ASM8} or {@link nginx.clojure.asm.Opcodes#ASM9}.
+   * @param recordComponentVisitor the record component visitor this remapper must delegate to.
+   * @param remapper the remapper to use to remap the types in the visited record component.
    */
-  protected FieldRemapper(final int api, final FieldVisitor fieldVisitor, final Remapper remapper) {
-    super(api, fieldVisitor);
+  protected RecordComponentRemapper(
+      final int api, final RecordComponentVisitor recordComponentVisitor, final Remapper remapper) {
+    super(api, recordComponentVisitor);
     this.remapper = remapper;
   }
 
@@ -103,7 +106,7 @@ public class FieldRemapper extends FieldVisitor {
    * Constructs a new remapper for annotations. The default implementation of this method returns a
    * new {@link AnnotationRemapper}.
    *
-   * @param descriptor the descriptor of the visited annotation.
+   * @param descriptor the descriptor sof the visited annotation.
    * @param annotationVisitor the AnnotationVisitor the remapper must delegate to.
    * @return the newly created remapper.
    */
