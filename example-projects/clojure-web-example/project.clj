@@ -15,11 +15,11 @@
   :aot [clojure-web-example.handler]
   :uberjar-name "clojure-web-example-default.jar"
   :profiles {
-             :provided {:dependencies [[nginx-clojure "0.5.3"]]}
+             :provided {:dependencies [[nginx-clojure "0.6.0"]]}
              :dev {:dependencies [[javax.servlet/servlet-api "2.5"]
                                   [ring-mock "0.1.5"]]}
              :embed {:dependencies 
-                       [[nginx-clojure/nginx-clojure-embed "0.5.3"]]
+                       [[nginx-clojure/nginx-clojure-embed "0.6.0"]]
                      :aot [clojure-web-example.embed-server]
                      :main  clojure-web-example.embed-server
                      :uberjar-name "clojure-web-example-embed.jar"
