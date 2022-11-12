@@ -4,11 +4,13 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.util.Map;
 
 import nginx.clojure.java.ArrayMap;
 import nginx.clojure.java.Constants;
 import nginx.clojure.java.NginxJavaRingHandler;
+import nginx.clojure.wave.SuspendMethodTracer;
 
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -20,11 +22,13 @@ public class SimpleHandler4TestHttpClientGetMethod implements NginxJavaRingHandl
 	public SimpleHandler4TestHttpClientGetMethod() {
 	}
 	
+	
 	@Override
 	public Object[] invoke(Map<String, Object> request) {
 		CloseableHttpClient httpclient = HttpClients.createDefault();
 //		HttpGet httpget = new HttpGet("http://cn.bing.com/");
-		HttpGet httpget = new HttpGet("https://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt");
+		String url = "https://www.apache.org/dist/httpcomponents/httpclient/RELEASE_NOTES-4.3.x.txt";
+		HttpGet httpget = new HttpGet(url);
 		CloseableHttpResponse response = null;
 		try {
 			response = httpclient.execute(httpget);
@@ -54,5 +58,17 @@ public class SimpleHandler4TestHttpClientGetMethod implements NginxJavaRingHandl
 			}
 		}
 	}
-
+	
+	public static void main(String[] args) {
+		SimpleHandler4TestHttpClientGetMethod s = new SimpleHandler4TestHttpClientGetMethod();
+		Object[] rt = s.invoke(null);
+		System.out.println(rt[0]);
+		try {
+			SuspendMethodTracer.dump();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+//		System.out.println(new String(((ByteArrayInputStream)rt[2]).readAllBytes()));
+	}
 }

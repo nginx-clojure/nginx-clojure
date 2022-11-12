@@ -259,3 +259,26 @@ lazyclass:org/apache/http/pool/PoolEntry
 #mark from sub org/apache/http/impl/conn/CPoolEntry
   close()V:just_mark
 
+lazyclass:sun/net/www/protocol/http/HttpURLConnection
+  followRedirect()Z:normal
+  followRedirect0(Ljava/lang/String;ILjava/net/URL;)Z:normal
+  getInputStream0()Ljava/io/InputStream;:normal
+  plainConnect0()V:normal
+
+lazyclass:sun/net/www/protocol/https/HttpsClient
+  <init>(Ljavax/net/ssl/SSLSocketFactory;Ljava/net/URL;Ljava/net/Proxy;I)V:normal
+  New(Ljavax/net/ssl/SSLSocketFactory;Ljava/net/URL;Ljavax/net/ssl/HostnameVerifier;Ljava/net/Proxy;ZILsun/net/www/protocol/http/HttpURLConnection;)Lsun/net/www/http/HttpClient;:normal
+
+lazyclass:sun/net/www/protocol/https/HttpsURLConnectionImpl
+  getInputStream()Ljava/io/InputStream;:normal
+
+lazyclass:sun/security/ssl/BaseSSLSocketImpl
+  connect(Ljava/net/SocketAddress;)V:normal
+
+lazyclass:java/net/Socket
+#mark from sub javax/net/ssl/SSLSocket
+  connect(Ljava/net/SocketAddress;)V:just_mark
+
+lazyclass:java/net/URLConnection
+#mark from sub java/net/HttpURLConnection
+  getInputStream()Ljava/io/InputStream;:just_mark
