@@ -111,7 +111,7 @@ jobs:
         - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-coroutine.conf -s stop
     - stage: jdk19 native coroutine test       
       script:
-        - apt-get install openjdk-19-jdk -y
+        - sudo apt-get install openjdk-19-jdk -y
         - java -version
         - cd /home/who/git/nginx-clojure/
         - lein  with-profile nativeCoroutine jar
