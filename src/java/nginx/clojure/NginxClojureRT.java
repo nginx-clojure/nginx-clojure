@@ -451,8 +451,11 @@ public class NginxClojureRT extends MiniConstants {
 							"worker won't be blocked when access services provide by the same nginx instance");
 					n = Runtime.getRuntime().availableProcessors() * 2;
 				}
-			}else {
+			} else {
 				log.info("java agent configured so we turn on coroutine support!");
+				if (JavaAgent.db.isEnableNativeCoroutine()) {
+					Coroutine.prepareNative();
+				}
 				if (n > 0) {
 					log.warn("found jvm_workers = %d, and not = 0 we just ignored!", n);
 				}

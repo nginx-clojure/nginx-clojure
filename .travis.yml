@@ -109,6 +109,22 @@ jobs:
         - lein with-profile cljremotetest test :all
         - cd /home/who/git/nginx-clojure/test/nginx-working-dir
         - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-coroutine.conf -s stop
+    - stage: jdk19 native coroutine test       
+      script:
+        - apt-get install openjdk-19-jdk -y
+        - java -version
+        - cd /home/who/git/nginx-clojure/
+        - lein  with-profile nativeCoroutine jar
+        - cd /home/who/git/nginx-clojure/test/nginx-working-dir
+        - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-coroutine-jdk19.conf &
+        - sleep 30
+        - tail -f logs/error.log &
+        - curl -v http://localhost:8080/clojure
+        - killall tail
+        - cd /home/who/git/nginx-clojure/  
+        - lein with-profile cljremotetest test :all
+        - cd /home/who/git/nginx-clojure/test/nginx-working-dir
+        - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-coroutine-jdk19.conf -s stop
   
 after_failure:
   - echo "******************************** Test Failed (Start of Nginx error.log)*****************"

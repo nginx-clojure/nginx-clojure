@@ -70,6 +70,7 @@ import java.lang.instrument.Instrumentation;
 import java.security.ProtectionDomain;
 import java.util.regex.Pattern;
 
+import nginx.clojure.Coroutine;
 import nginx.clojure.Stack;
 import nginx.clojure.asm.ClassReader;
 import nginx.clojure.asm.ClassVisitor;
@@ -98,7 +99,7 @@ public class JavaAgent {
 	
     public static void premain(String agentArguments, Instrumentation instrumentation) {
     	ClassFileTransformer cft = buildClassFileTransformer(agentArguments);
-    	if (cft != null) {
+    	if (cft != null && !db.isEnableNativeCoroutine()) {
     		instrumentation.addTransformer(cft, true);
     		for (String c : db.getRetransformedClasses()) {
     			try {
@@ -148,6 +149,9 @@ public class JavaAgent {
                     	break;
                     case 'p' :
                     	db.setDump(true);
+                    	break;
+                    case 'N' :
+                    	db.setEnableNativeCoroutine(true);
                     	break;
                     case 'n':
                     	TinyLogService.createDefaultTinyLogService().info("nginx clojure will do nothing about class waving!");

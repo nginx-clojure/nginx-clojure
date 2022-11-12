@@ -74,6 +74,12 @@ public final class Stack implements Serializable {
     
     
     Stack(Coroutine co, int stackSize) {
+    	
+    	if (Coroutine.isUseNative()) {
+    		this.co = co;
+    		return;
+    	}
+    	
         if(stackSize <= 0) {
             throw new IllegalArgumentException("stackSize");
         }
@@ -542,12 +548,18 @@ public final class Stack implements Serializable {
     }
     
     protected void release() {
+    	
+    	if (Coroutine.isUseNative()) {
+    		return;
+    	}
+    	
     	methodTOS = -1;
     	if (verifyInfo != null) {
     		verifyInfo.tracerStacks.clear();
     		fillNull(verifyInfo.methodIdxInfos, 0, verifyInfo.methodIdxInfos.length);
     	}
-    	fillNull(dataObject, 0, dataObject.length);
+
+        fillNull(dataObject, 0, dataObject.length);
     }
     
     public static void fillNull(Object[] array, int s, int len) {

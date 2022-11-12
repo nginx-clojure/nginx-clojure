@@ -121,6 +121,7 @@ public class MethodDatabase implements LoggerService {
     private boolean hookDumpWaveCfg = false;
     private boolean doNothing = false;
     private boolean runTool = false;
+    private boolean enableNativeCoroutine = false;
     private Pattern traceClassPattern = null;
     private Pattern traceClassMethodPattern = null;
     
@@ -184,8 +185,18 @@ public class MethodDatabase implements LoggerService {
     public void setAllowOutofCoroutine(boolean allowOutofCoroutine) {
 		this.allowOutofCoroutine = allowOutofCoroutine;
 	}
+    
+    
 
-    public ConcurrentHashMap<String, ClassEntry> getClasses() {
+    public boolean isEnableNativeCoroutine() {
+		return enableNativeCoroutine;
+	}
+
+	public void setEnableNativeCoroutine(boolean enableNativeCoroutine) {
+		this.enableNativeCoroutine = enableNativeCoroutine;
+	}
+
+	public ConcurrentHashMap<String, ClassEntry> getClasses() {
 		return classes;
 	}
     

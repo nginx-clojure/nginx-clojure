@@ -32,6 +32,8 @@ package nginx.clojure;
 import java.io.IOException;
 import java.io.Serializable;
 
+import nginx.clojure.NativeCoroutineBuilder.NativeCoroutine;
+
 
 /**
  * <p>A Coroutine is used to run a CoroutineProto.</p>
@@ -52,6 +54,12 @@ public class Coroutine implements Runnable, Serializable {
 			: Integer.parseInt(System.getProperty("nginx.clojure.coroutine.defaultStackSize"));
     
     private static final long serialVersionUID = 2783452871536981L;
+    
+    private static boolean useNative = false;
+    
+    private static NativeCoroutineBuilder nativeCoroutineBuilder;
+    
+    private NativeCoroutine nativeCoroutine;
     
     public enum State {
         /** The Coroutine has not yet been executed */
@@ -79,6 +87,10 @@ public class Coroutine implements Runnable, Serializable {
     private Object locals;
     private Object inheritableLocals;
     
+    public static boolean isUseNative() {
+    	return useNative;
+    }
+    
     /**
      * Suspend the currently running Coroutine on the calling thread.
      * 
@@ -86,7 +98,11 @@ public class Coroutine implements Runnable, Serializable {
      * @throws java.lang.IllegalStateException If not called from a Coroutine
      */
     public static void yield() throws SuspendExecution, IllegalStateException {
-        throw new Error("Calling function not instrumented");
+    	if (useNative) {
+    		nativeCoroutineBuilder.yield();
+    	} else {
+    		throw new Error("Calling function not instrumented");
+    	}
     }
     
     /**
@@ -121,29 +137,40 @@ public class Coroutine implements Runnable, Serializable {
      */
     public Coroutine(Runnable proto, int stackSize) {
         this.proto = proto;
-        this.stack = new Stack(this, stackSize);
-        this.cstack = new SuspendableConstructorUtilStack(stackSize/8);
         this.state = State.NEW;
         Thread thread = Thread.currentThread();
         Object currentLocals = HackUtils.getThreadLocals(Thread.currentThread());
         this.locals = HackUtils.cloneThreadLocalMap(currentLocals);
-        try {
-            HackUtils.setThreadLocals(thread, this.locals);
-            Stack.setStack(this.stack);
-            SuspendableConstructorUtilStack.setStack(this.cstack);
-        }finally {
-        	HackUtils.setThreadLocals(thread, currentLocals);
-        }
         
-        Object inheritableLocals = HackUtils.getInheritableThreadLocals(Thread.currentThread());
-        if (inheritableLocals != null) {
-        	this.inheritableLocals = HackUtils.createInheritedMap(inheritableLocals);
+        if (useNative) {
+        	this.nativeCoroutine = nativeCoroutineBuilder.build(proto);
+        	this.stack = new Stack(this, 0);;
+        	try {
+                HackUtils.setThreadLocals(thread, this.locals);
+                Stack.setStack(this.stack);
+            } finally {
+            	HackUtils.setThreadLocals(thread, currentLocals);
+            }
+        	
+        	this.cstack = null;
+        } else {
+            this.stack = new Stack(this, stackSize);
+            this.cstack = new SuspendableConstructorUtilStack(stackSize/8);
+            try {
+                HackUtils.setThreadLocals(thread, this.locals);
+                Stack.setStack(this.stack);
+                SuspendableConstructorUtilStack.setStack(this.cstack);
+            } finally {
+            	HackUtils.setThreadLocals(thread, currentLocals);
+            }
+            
+            Object inheritableLocals = HackUtils.getInheritableThreadLocals(Thread.currentThread());
+            if (inheritableLocals != null) {
+            	this.inheritableLocals = HackUtils.createInheritedMap(inheritableLocals);
+            }
+            
+            assert isInstrumented(proto) : "Not instrumented";
         }
-        
-        if(proto == null) {
-            throw new NullPointerException("proto");
-        }
-        assert isInstrumented(proto) : "Not instrumented";
     }
     
     public void reset() {
@@ -153,8 +180,13 @@ public class Coroutine implements Runnable, Serializable {
         this.locals = HackUtils.cloneThreadLocalMap(currentLocals);
         try {
             HackUtils.setThreadLocals(thread, this.locals);
-            Stack.setStack(this.stack);
-            SuspendableConstructorUtilStack.setStack(this.cstack);
+            if (useNative) {
+            	this.nativeCoroutine = nativeCoroutineBuilder.build(proto);
+            	Stack.setStack(this.stack);
+            } else {
+                Stack.setStack(this.stack);
+                SuspendableConstructorUtilStack.setStack(this.cstack);
+            }
         }finally {
         	HackUtils.setThreadLocals(thread, currentLocals);
         }
@@ -204,7 +236,12 @@ public class Coroutine implements Runnable, Serializable {
         return state;
     }
     
-    
+    /**
+	 * @param state the state to set
+	 */
+	protected void setState(State state) {
+		this.state = state;
+	}
     
     /**
      * Runs the Coroutine until it is finished or suspended. This method must only
@@ -241,14 +278,20 @@ public class Coroutine implements Runnable, Serializable {
             state = State.RUNNING;
 //            Stack.setStack(stack);
 //            SuspendableConstructorUtilStack.setStack(cstack);
-            
-            try {
+            if (useNative) {
+            	nativeCoroutine.resume();
+            	if (state == State.SUSPENDED) {
+            		result = State.SUSPENDED;
+            	}
+            } else {
+                try {
             		proto.run();
-            } catch (SuspendExecution ex) {
-                assert ex == SuspendExecution.instance;
-                result = State.SUSPENDED;
-                //stack.dump();
-                stack.resumeStack();
+	            } catch (SuspendExecution ex) {
+	                assert ex == SuspendExecution.instance;
+	                result = State.SUSPENDED;
+	                //stack.dump();
+	                stack.resumeStack();
+	            }            	
             }
         } finally {
         	if (result == State.FINISHED) {
@@ -332,5 +375,15 @@ public class Coroutine implements Runnable, Serializable {
         } catch (Throwable ex) {
             return true;    // it's just a check - make sure we don't fail if something goes wrong
         }
+    }
+    
+    public static void prepareNative() {
+    	useNative = true;
+    	try {
+			nativeCoroutineBuilder = (NativeCoroutineBuilder) Thread.currentThread().getContextClassLoader()
+					.loadClass("nginx.clojure.NativeCoroutineBuilderImp").newInstance();
+		} catch (Throwable e) {
+			throw new IllegalStateException("can not load nginx.clojure.NativeCoroutineBuilderImp", e);
+		}
     }
 }

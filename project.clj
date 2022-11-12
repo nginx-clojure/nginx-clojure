@@ -72,7 +72,60 @@
                                   [javax.xml.bind/jaxb-api "2.3.1"]
                                   [org.clojure/tools.trace "0.7.10"]
                                   ]}
-             :unittest {
+             :nativeCoroutine {
+                                  :source-paths ["src/clojure"]
+																  :target-path "target/"
+																  :global-vars {*warn-on-reflection* true
+																                *assert* false}
+																  :java-source-paths ["src/java", "src/nativeCoroutine"]
+                                  :dependencies [;only for test / compile usage
+		                                  [org.clojure/clojure "1.9.0"]
+		                                  [ring/ring-core "1.7.1"]
+		                                  [compojure "1.1.6"]
+		                                  [clj-http "0.7.8"]
+		                                  [clj-http-lite "0.3.0"]
+		                                  [junit/junit "4.13.1"]
+		                                  [org.clojure/java.jdbc "0.3.3"]
+		                                  [mysql/mysql-connector-java "5.1.30"]
+		                                  [redis.clients/jedis "3.1.0"]
+		                                  ;for test file upload with ring-core which need it
+		                                  [javax.servlet/servlet-api "2.5"]
+		                                  [org.clojure/data.json "0.2.5"]
+		                                  [org.codehaus.jackson/jackson-mapper-asl "1.9.13"]
+		                                  [org.codehaus.groovy/groovy "2.5.8"]
+		                                  [stylefruits/gniazdo "1.1.2"]
+		                                  [javax.xml.bind/jaxb-api "2.3.1"]
+		                                  [org.clojure/tools.trace "0.7.10"]
+		                                  ]
+                               }
+             :jdk17unittest {
+                    :jvm-opts ["-javaagent:target/nginx-clojure-0.6.0.jar=mb"
+                               "-Dfile.encoding=UTF-8"
+                               "-Dnginx.clojure.wave.udfs=pure-clj.txt,compojure.txt,compojure-http-clj.txt,mysql-jdbc.txt,test-groovy.txt"
+                               "--add-opens=java.base/java.lang=ALL-UNNAMED" "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED" "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED" 
+                               "-Xbootclasspath/a:target/nginx-clojure-0.6.0.jar"]
+                    :junit-options {:fork "on"}
+                    :java-source-paths ["test/java" "test/clojure"]
+                    :test-paths ["src/test/clojure"]
+                    :source-paths ["test/clojure" "test/java" "test/nginx-working-dir/coroutine-udfs"]
+                    :junit ["test/java"]
+                    :compile-path "target/testclasses"
+                    :dependencies [
+                                  [org.clojure/clojure "1.9.0"]
+                                  [ring/ring-core "1.7.1"]
+                                  [compojure "1.1.6"]
+                                  [clj-http "0.7.8"]
+                                  [clj-http-lite "0.3.0"]
+                                  [junit/junit "4.13.1"]
+                                  [org.clojure/java.jdbc "0.3.3"]
+                                  [org.codehaus.jackson/jackson-mapper-asl "1.9.13"]
+                                  [javax.xml.bind/jaxb-api "2.3.1"]
+                                  ;[mysql/mysql-connector-java "5.1.30"]
+                                  [redis.clients/jedis "3.1.0"]
+                                  [org.clojure/tools.trace "0.7.10"]
+                                  ]
+                        }
+              :unittest {
                     :jvm-opts ["-javaagent:target/nginx-clojure-0.6.0.jar=mb"
                                "-Dfile.encoding=UTF-8"
                                "-Dnginx.clojure.wave.udfs=pure-clj.txt,compojure.txt,compojure-http-clj.txt,mysql-jdbc.txt,test-groovy.txt"
