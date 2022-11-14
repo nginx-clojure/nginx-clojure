@@ -30,7 +30,12 @@ public class NativeCoroutineBuilderImp implements NativeCoroutineBuilder {
 
 	public boolean yield() {
 		Coroutine.getActiveCoroutine().setState(State.SUSPENDED);
-		return Continuation.yield(scope);
+		try {
+			return Continuation.yield(scope);
+		} catch (RuntimeException e) {
+			Coroutine.getActiveCoroutine().setState(State.FINISHED);
+			throw e;
+		}
 	}
 	
 }

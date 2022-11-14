@@ -219,7 +219,14 @@ public class NginxClojureSocketImpl extends SocketImpl implements NginxClojureSo
 				log.debug("socket#%d: yield on connect", as.s);
 			}
 			attachCoroutine();
-			Coroutine.yield();
+			
+			try {
+				Coroutine.yield();
+			} catch (IllegalStateException e) {
+				as.close(); // high level caller maybe has not initialized socket so it has no chance to close the socket.
+				throw e;
+			}
+			
 			
 			if (status == NginxClojureAsynSocket.NGX_HTTP_CLOJURE_SOCKET_ERR_RESOLVE) {
 				throw new NoRouteToHostException(as.buildError(status));

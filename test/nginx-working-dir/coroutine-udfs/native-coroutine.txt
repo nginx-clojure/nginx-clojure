@@ -1,0 +1,10 @@
+
+## Tell nginx-clojure to remove synchronized code
+## To fix IllegalStateException (viz. java.lang.IllegalStateException: Pinned: MONITOR)
+
+package:com/mysql/jdbc
+
+lazyclass:clojure/lang/LazySeq
+
+
+

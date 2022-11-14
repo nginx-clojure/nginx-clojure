@@ -78,6 +78,7 @@
 																  :global-vars {*warn-on-reflection* true
 																                *assert* false}
 																  :java-source-paths ["src/java", "src/nativeCoroutine"]
+                                  :test-paths ["src/test/clojure", "src/test/java"]
                                   :dependencies [;only for test / compile usage
 		                                  [org.clojure/clojure "1.9.0"]
 		                                  [ring/ring-core "1.7.1"]
@@ -184,5 +185,45 @@
                                               [redis.clients/jedis "3.1.0"]
                                               [org.clojure/tools.trace "0.7.10"]
                                               ]
-                                    }             
+                                    }
+
+             :jdk19cljremotetest {
+                                     :jvm-opts ["--enable-preview" 
+                                                     "--add-opens=java.base/jdk.internal.vm=ALL-UNNAMED"
+                                                     "--add-opens=java.base/java.lang=ALL-UNNAMED"
+                                                     "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED"
+                                                     "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"]
+                                     :java-source-paths ["test/java" "test/clojure"]
+                                     :test-paths ["src/test/clojure"]
+                                     :source-paths ["test/clojure" "test/java" "test/nginx-working-dir/coroutine-udfs"]
+                                     :compile-path "target/testclasses"
+                                     :test-selectors {:default (fn [m] (and (:remote m) (not (:async m)) (not (:jdbc m))))
+                                                      :async :async
+                                                      :jdbc :jdbc
+                                                      :no-async (fn [m] (and (:remote m) (not (:async m))))
+                                                      :access-handler :access-handler
+                                                      :rewrite-handler :rewrite-handler
+                                                      :websocket :websocket
+                                                      :keepalive :keepalive
+                                                      :all :remote}
+                                     :dependencies [
+                                                   [org.clojure/clojure "1.9.0"]
+                                                   [ring/ring-core "1.7.1"]
+                                                   [compojure "1.1.6"]
+                                                   [clj-http "0.7.8"]
+                                                   [clj-http-lite "0.3.0"]
+                                                   [junit/junit "4.13.1"]
+                                                   [org.clojure/java.jdbc "0.3.3"]
+                                                   [org.clojure/tools.nrepl "0.2.3"]
+                                                   ;for test file upload with ring-core which need it
+                                                   [javax.servlet/servlet-api "2.5"]
+                                                   [org.codehaus.jackson/jackson-mapper-asl "1.9.13"]
+                                                   [org.clojure/data.json "0.2.5"]
+                                                   [stylefruits/gniazdo "1.1.2"]
+                                                   [javax.xml.bind/jaxb-api "2.3.1"]
+                                                   ;[mysql/mysql-connector-java "5.1.30"]
+                                                   [redis.clients/jedis "3.1.0"]
+                                                   [org.clojure/tools.trace "0.7.10"]
+                                                   ]
+                                         }             
              })

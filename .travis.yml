@@ -117,7 +117,7 @@ jobs:
         - export PATH=$JAVA_HOME/bin:$PATH
         - java -version
         - cd /home/who/git/nginx-clojure/
-        - lein  with-profile nativeCoroutine jar
+        - lein  with-profile nativeCoroutine jar && lein with-profile unittest junit compile
         - cd /home/who/git/nginx-clojure/test/nginx-working-dir
         - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-coroutine-jdk19.conf &
         - sleep 30
@@ -125,7 +125,7 @@ jobs:
         - curl -v http://localhost:8080/clojure
         - killall tail
         - cd /home/who/git/nginx-clojure/  
-        - lein with-profile cljremotetest test :all
+        - lein with-profile jdk19cljremotetest test :all
         - cd /home/who/git/nginx-clojure/test/nginx-working-dir
         - ./nginx -c /home/who/git/nginx-clojure/test/nginx-working-dir/conf/nginx-coroutine-jdk19.conf -s stop
   

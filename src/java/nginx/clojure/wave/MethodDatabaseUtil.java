@@ -53,12 +53,12 @@ public class MethodDatabaseUtil {
 					if (ce == null) {
 						ce = buildClassEntryFamily(db, clz);
 						if (ce == null) {
-							db.warn("file %s line %d : not found class: %s", resource , lc,  clz);
+							db.warn("file %s line %d : not found class: %s", resource, lc, clz);
 							ce = null;
 							continue;
 						}
 					}
-				}else if (l.startsWith("lazyclass:")) {
+				} else if (l.startsWith("lazyclass:")) {
 					clz = l.substring("lazyclass:".length());
 					ce = null;
 					flce = null;
@@ -66,43 +66,52 @@ public class MethodDatabaseUtil {
 					if (lce == null) {
 						db.getLazyClasses().put(clz, lce = new LazyClassEntry(resource));
 					}
-				}else if (l.startsWith("fuzzyclass:")) {
+				} else if (l.startsWith("fuzzyclass:")) {
 					clz = l.substring("fuzzyclass:".length());
 					ce = null;
 					lce = null;
 					flce = new FuzzyLazyClassEntry(Pattern.compile(clz), resource);
 					db.getFuzzlyLazyClasses().add(flce);
-				}else if (l.startsWith("retransform:")) {
+				} else if (l.startsWith("retransform:")) {
 					db.getRetransformedClasses().add(l.substring("retransform:".length()).trim());
 					ce = null;
 					lce = null;
 					flce = null;
-				}else if (l.startsWith("filter:")) {
+				} else if (l.startsWith("filter:")) {
 					db.getFilters().add(l.substring("filter:".length()).trim());
 					ce = null;
 					lce = null;
 					flce = null;
-				}else if (l.length() == 0 || (ce == null && lce == null && flce == null) || l.charAt(0) == '#'){
+				} else if (l.startsWith("package:")) {
+					String pkg = l.substring("package:".length()).trim();
+					db.getPackages().add(pkg);
+					if (pkg.length() < db.getPackageMinLen()) {
+						db.setPackageMinLen(pkg.length());
+					}
+					ce = null;
+					lce = null;
+					flce = null;
+				} else if (l.length() == 0 || (ce == null && lce == null && flce == null) || l.charAt(0) == '#') {
 					continue;
-				}else {
+				} else {
 					String[] ma = l.split(":");
 					String m = ma[0];
 					Integer st = MethodDatabase.SUSPEND_NORMAL;
 					if (ma.length > 1) {
 						if (MethodDatabase.SUSPEND_NORMAL_STR.equals(ma[1])) {
 							st = MethodDatabase.SUSPEND_NORMAL;
-						}else if (MethodDatabase.SUSPEND_NONE_STR.equals(ma[1])) {
+						} else if (MethodDatabase.SUSPEND_NONE_STR.equals(ma[1])) {
 							st = MethodDatabase.SUSPEND_NONE;
-						}else if (MethodDatabase.SUSPEND_JUST_MARK_STR.equals(ma[1])) {
+						} else if (MethodDatabase.SUSPEND_JUST_MARK_STR.equals(ma[1])) {
 							st = MethodDatabase.SUSPEND_JUST_MARK;
-						}else if (MethodDatabase.SUSPEND_BLOCKING_STR.equals(ma[1])) {
+						} else if (MethodDatabase.SUSPEND_BLOCKING_STR.equals(ma[1])) {
 							st = MethodDatabase.SUSPEND_BLOCKING;
-						}else if (MethodDatabase.SUSPEND_FAMILY_STR.equals(ma[1])) {
+						} else if (MethodDatabase.SUSPEND_FAMILY_STR.equals(ma[1])) {
 							st = MethodDatabase.SUSPEND_FAMILY;
-						}else if (MethodDatabase.SUSPEND_SKIP_STR.equals(ma[1])) {
+						} else if (MethodDatabase.SUSPEND_SKIP_STR.equals(ma[1])) {
 							st = MethodDatabase.SUSPEND_SKIP;
-						}else {
-							db.warn("file %s line %d : unknown suspend type: %s , we just set to 'normal'", resource , lc, ma[1]);
+						} else {
+							db.warn("file %s line %d : unknown suspend type: %s , we just set to 'normal'", resource, lc, ma[1]);
 							st = MethodDatabase.SUSPEND_NORMAL;
 						}
 					}
@@ -111,19 +120,19 @@ public class MethodDatabaseUtil {
 						Integer ost = methods.get(m);
 						if (ost == null || st.intValue() > ost.intValue()) {
 							methods.put(m, st);
-						}else {
+						} else {
 							st = ost;
 						}
 						if (db.meetTraceTargetClassMethod(clz, m)) {
 							db.info("meet traced method %s.%s, suspend type = %s", clz, m, MethodDatabase.SUSPEND_TYPE_STRS[st]);
 						}
 						continue;
-					}else if (flce != null) {
+					} else if (flce != null) {
 						Map<String, Integer> methods = flce.getMethods();
 						Integer ost = methods.get(m);
 						if (ost == null || st.intValue() > ost.intValue()) {
 							methods.put(m, st);
-						}else {
+						} else {
 							st = ost;
 						}
 						if (db.meetTraceTargetClassMethod(clz, m)) {
@@ -141,16 +150,16 @@ public class MethodDatabaseUtil {
 							}
 						}
 						if (!matched) {
-							db.warn("file %s line %d : none of methods matched regex: %s ,ignored", resource , lc, m);
+							db.warn("file %s line %d : none of methods matched regex: %s ,ignored", resource, lc, m);
 						}
-					}else if (ce.getMethods().get(m) == null) {
-						db.warn("file %s line %d : unknown method: %s ,ignored", resource , lc, m);
+					} else if (ce.getMethods().get(m) == null) {
+						db.warn("file %s line %d : unknown method: %s ,ignored", resource, lc, m);
 						continue;
-					}else {
+					} else {
 						Integer ost = ce.getMethods().get(m);
 						if (ost == null || st.intValue() > ost.intValue()) {
 							ce.set(m, st);
-						}else {
+						} else {
 							st = ost;
 						}
 						if (db.meetTraceTargetClassMethod(clz, m)) {

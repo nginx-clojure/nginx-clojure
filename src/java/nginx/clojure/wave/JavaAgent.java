@@ -99,14 +99,16 @@ public class JavaAgent {
 	
     public static void premain(String agentArguments, Instrumentation instrumentation) {
     	ClassFileTransformer cft = buildClassFileTransformer(agentArguments);
-    	if (cft != null && !db.isEnableNativeCoroutine()) {
+    	if (cft != null) {
     		instrumentation.addTransformer(cft, true);
-    		for (String c : db.getRetransformedClasses()) {
-    			try {
-					instrumentation.retransformClasses(db.getClassLoader().loadClass(c));
-				} catch (Throwable e) {
-					db.warn("retransformClasses error:" + c, e);
-				} 
+    		if (!db.isEnableNativeCoroutine()) {
+        		for (String c : db.getRetransformedClasses()) {
+        			try {
+    					instrumentation.retransformClasses(db.getClassLoader().loadClass(c));
+    				} catch (Throwable e) {
+    					db.warn("retransformClasses error:" + c, e);
+    				} 
+        		}
     		}
     	}
     }
@@ -181,12 +183,15 @@ public class JavaAgent {
         }
         
         //load system configurations for method database
-        try {
-        	db.info("load system coroutine wave file %s", "nginx/clojure/wave/coroutine-method-db.txt");
-			MethodDatabaseUtil.load(db, "nginx/clojure/wave/coroutine-method-db.txt");
-		} catch (IOException e) {
-			db.error("can not load nginx/clojure/wave/coroutine-method-db.txt", e);
-		}
+        if (!db.isEnableNativeCoroutine()) {
+            try {
+            	db.info("load system coroutine wave file %s", "nginx/clojure/wave/coroutine-method-db.txt");
+    			MethodDatabaseUtil.load(db, "nginx/clojure/wave/coroutine-method-db.txt");
+    		} catch (IOException e) {
+    			db.error("can not load nginx/clojure/wave/coroutine-method-db.txt", e);
+    		}
+        }
+
         String udfs = System.getProperty(NGINX_CLOJURE_WAVE_UDFS);
 		if (udfs != null) {
 			for (String udf : udfs.split(",|;")) {
@@ -215,18 +220,30 @@ public class JavaAgent {
     
     }
 
-    static byte[] instrumentClass(MethodDatabase db, byte[] data, boolean check) {
-        ClassReader r = new ClassReader(data);
-        ClassWriter cw = new DBClassWriter(db, r);
-        ClassVisitor cv = check ? new CheckClassAdapter(cw) : cw;
-        ClassEntry ce = MethodDatabaseUtil.buildClassEntryFamily(db, r);
-        if(db.shouldIgnore(r.getClassName()) || ce == null) {
-            return null;
-        }
-        db.trace("TRANSFORM: %s", r.getClassName());
-        InstrumentClass ic = new InstrumentClass(r.getClassName(), ce, cv, db, false);
-        r.accept(ic, ClassReader.SKIP_FRAMES);
-        return cw.toByteArray();
+    static byte[] instrumentClass(MethodDatabase db, String className, byte[] data, boolean check) {
+    	
+    	if (!db.isEnableNativeCoroutine() || (db.isEnableNativeCoroutine() && db.inClassesOrPackages(className))) {
+            ClassReader r = new ClassReader(data);
+            ClassWriter cw = db.isEnableNativeCoroutine() ? new ClassWriter(r, 0) : new DBClassWriter(db, r);
+            ClassVisitor cv = check ? new CheckClassAdapter(cw) : cw;
+            ClassEntry ce = MethodDatabaseUtil.buildClassEntryFamily(db, r);
+            
+            if(db.shouldIgnore(r.getClassName()) || ce == null) {
+                return null;
+            }
+            db.trace("TRANSFORM: %s", r.getClassName());
+            
+            if (db.isEnableNativeCoroutine()) {
+            	RemoveMonitorVisitor rv = new RemoveMonitorVisitor(Opcodes.ASM9, cv);
+            	r.accept(rv, ClassReader.SKIP_FRAMES);
+            } else {
+            	InstrumentClass ic = new InstrumentClass(r.getClassName(), ce, cv, db, false);
+                r.accept(ic, ClassReader.SKIP_FRAMES);
+            }
+            
+            return cw.toByteArray();
+    	}
+    	return null;
     }
     
 	public static void dumpClass(byte[] classfileBuffer, File df, MethodDatabase db)  {
@@ -257,22 +274,29 @@ public class JavaAgent {
         	if (className.startsWith("java/util/LinkedHashMap")) {
         		return null;
         	}
-        	if (db.meetTraceTargetClass(className)) {
+        	
+        	boolean meetTraceClass = db.meetTraceTargetClass(className);
+        	
+        	if (meetTraceClass) {
         		db.info("meet traced class %s", className);
         	}
 			
             try {
-                byte[] bs = instrumentClass(db, classfileBuffer, check);
-                if (db.isDump() && bs != null && bs.length != classfileBuffer.length) {
-                	File wavedFile = new File(new File(db.getDumpDir() + "/waved"), className + ".class");
-                	wavedFile.getParentFile().mkdirs();
-                	dumpClass(bs, wavedFile, db);
-                }
-            	if (db.meetTraceTargetClass(className)) {
+            	
+            	if (meetTraceClass) {
             		File orgFile = new File(new File(db.getDumpDir() + "/org"), className + ".class");
             		orgFile.getParentFile().mkdirs();
             		dumpClass(classfileBuffer, orgFile, db);
             	}
+            	
+                byte[] bs = instrumentClass(db, className, classfileBuffer, check);
+                
+                if (meetTraceClass && bs != null || db.isDump() && bs != null && bs.length != classfileBuffer.length) {
+                	File wavedFile = new File(new File(db.getDumpDir() + "/waved"), className + ".class");
+                	wavedFile.getParentFile().mkdirs();
+                	dumpClass(bs, wavedFile, db);
+                }
+            	
                 return bs;
             } catch(Throwable ex) {
             	if (db.isDump()){

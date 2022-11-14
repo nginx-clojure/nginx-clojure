@@ -34,9 +34,11 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
@@ -102,6 +104,9 @@ public class MethodDatabase implements LoggerService {
     
     private final ConcurrentHashMap<String, LazyClassEntry> lazyClasses;
     
+    private final Set<String> packages;
+    private int packageMinLen = 0;
+    
     private final ArrayList<FuzzyLazyClassEntry> fuzzlyLazyClasses;
     
     private final ArrayList<String> retransformedClasses = new ArrayList<String>();
@@ -125,6 +130,7 @@ public class MethodDatabase implements LoggerService {
     private Pattern traceClassPattern = null;
     private Pattern traceClassMethodPattern = null;
     
+    
     private String dumpDir;
     
     public MethodDatabase(ClassLoader classloader) {
@@ -139,11 +145,19 @@ public class MethodDatabase implements LoggerService {
         fuzzlyLazyClasses = new ArrayList<MethodDatabase.FuzzyLazyClassEntry>();
         workList = new ArrayList<File>();
         filters = new ArrayList<String>();
+        packages = new HashSet<String>();
         getLog();
     }
     
     public ArrayList<String> getRetransformedClasses() {
 		return retransformedClasses;
+	}
+    
+    /**
+	 * @return the packages
+	 */
+	public Set<String> getPackages() {
+		return packages;
 	}
 
     public boolean isAllowMonitors() {
@@ -690,6 +704,26 @@ public class MethodDatabase implements LoggerService {
     	return false;
     }
     
+    public boolean inClassesOrPackages(String clz) {
+    	boolean inClasses =  classes.containsKey(clz) || lazyClasses.containsKey(clz);
+    	if (inClasses) {
+    		return true;
+    	} else {
+    		do {
+    			int p = clz.lastIndexOf('/');
+    			if (p < 0) {
+    				return false;
+    			}
+    			clz = clz.substring(0, p);
+    			if (packages.contains(clz)) {
+    				return true;
+    			}
+    		} while (clz.length() > getPackageMinLen());
+    		
+    		return false;
+    	}
+    }
+    
     public boolean meetTraceTargetClass(String clz) {
     	return traceClassPattern != null && traceClassPattern.matcher(clz).find();
     }
@@ -721,7 +755,21 @@ public class MethodDatabase implements LoggerService {
 //    private static final ClassEntry CLASS_NOT_FOUND = new ClassEntry("<class not found>", new String[0], false);
 
     
-    public static final class LazyClassEntry {
+    /**
+	 * @return the packageMinLen
+	 */
+	public int getPackageMinLen() {
+		return packageMinLen;
+	}
+
+	/**
+	 * @param packageMinLen the packageMinLen to set
+	 */
+	public void setPackageMinLen(int packageMinLen) {
+		this.packageMinLen = packageMinLen;
+	}
+
+	public static final class LazyClassEntry {
     	private final LinkedHashMap<String, Integer> methods = new LinkedHashMap<String, Integer>();
     	private final String resource;
     	public LazyClassEntry(String resource) {
