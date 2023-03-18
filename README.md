@@ -14,7 +14,7 @@
 Core Features
 =================
 
-The latest release is v0.5.3, more detail changes about it can be found from [Release History](//nginx-clojure.github.io/downloads.html).
+The latest release is v0.6.0, more detail changes about it can be found from [Release History](//nginx-clojure.github.io/downloads.html).
 
 1. Compatible with [Ring](https://github.com/ring-clojure/ring/blob/master/SPEC) and obviously supports those Ring based frameworks, such as Compojure etc.
 1. Http Services by  using Clojure / Java / Groovy to write simple handlers for http services.
@@ -23,7 +23,8 @@ The latest release is v0.5.3, more detail changes about it can be found from [Re
 1. Nginx Body Filter by Clojure / Java / Groovy
 1. Nginx Log Handler by Clojure / Java / Groovy
 1. HTTP V2 support in both standard edition and embedded edition which are compiled against Nginx 1.18.0+
-1. Support Java 9, 10, 11, 12
+1. Support Java 9, 10, 11, 12, 19
+1. Support to use jdk19 built-in coroutine viz. Continuation
 1. Pub/Sub Among Nginx Worker Processes
 1. Shared Map based on shared memory & Shared Map based Ring session store
 1. Support Sente, see [this PR](https://github.com/ptaoussanis/sente/pull/160)
@@ -40,7 +41,7 @@ With this feature  one java main thread can handle thousands of connections.
 1. Long Polling & Server Sent Events
 1. Run initialization clojure code when nginx worker starting
 1. Support user defined http request method
-1. Compatible with the Nginx lastest most stable version 1.20.2. (Nginx 1.18.x, 1.14.x, 1.12.x, 1.8.x, 1.6.x, 1.4.x is also ok, older version is not tested and maybe works.)
+1. Compatible with the Nginx lastest most mainline version 1.23.3. (Nginx 1.22.X, 1.20.X, 1.18.x, 1.14.x, 1.12.x, 1.8.x, 1.6.x, 1.4.x is also ok, older version is not tested and maybe works.)
 1. One of  benifits of [Nginx](http://nginx.org/) is worker processes are automatically restarted by a master process if they crash
 1. Utilize lazy headers and direct memory operation between [Nginx](http://nginx.org/) and JVM to fast handle dynamic contents from Clojure or Java code.
 1. Utilize [Nginx](http://nginx.org/) zero copy file sending mechanism to fast handle static contents controlled by Clojure or Java code.
@@ -60,19 +61,19 @@ Nginx-Clojure has already been published to https://clojars.org/ whose maven rep
 </repository>
 ``` 
 
-After adding clojars repository, you can reference nginx-clojure 0.5.3 , e.g.
+After adding clojars repository, you can reference nginx-clojure 0.6.0 , e.g.
 
  Leiningen (clojure, no need to add clojars repository which is a default repository for Leiningen) 
 -----------------
  
 ```clojure
-[nginx-clojure "0.5.3"]
+[nginx-clojure "0.6.0"]
 ```
 Gradle (groovy/java)
 -----------------
  
 ```
-compile "nginx-clojure:nginx-clojure:0.5.3"
+compile "nginx-clojure:nginx-clojure:0.6.0"
 ```
 Maven
 -----------------
@@ -81,7 +82,7 @@ Maven
 <dependency>
   <groupId>nginx-clojure</groupId>
   <artifactId>nginx-clojure</artifactId>
-  <version>0.5.3</version>
+  <version>0.6.0</version>
 </dependency>
 ```
 
@@ -125,7 +126,7 @@ Documents
 
 License
 =================
-Copyright © 2013-2022 Zhang, Yuexiang (xfeep) and released under the BSD 3-Clause license.
+Copyright © 2013-2023 Zhang, Yuexiang (xfeep) and released under the BSD 3-Clause license.
 
 This program uses:
 * Re-rooted ASM bytecode engineering library which is distributed under the BSD 3-Clause license

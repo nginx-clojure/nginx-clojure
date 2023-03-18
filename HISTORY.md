@@ -4,6 +4,14 @@ Downloads & Release History
 1. [Binaries of Releases](http://sourceforge.net/projects/nginx-clojure/files/)
 1. [Sources of Releases](https://github.com/nginx-clojure/nginx-clojure/releases)
 
+## 0.6.0 (2023-03-18)
+
+1. New Feature: #270 All handlers can be used at http & server context
+1. New Feature: #272 Support Nginx 1.23.X where some internals have been changed
+1. New Feature: #250 Support to use jdk19 built-in coroutine viz. Continuation
+1. Binaries Distribution: Built with Nginx v1.23.3
+1. Documents: Add build notes for nginx-clojure-embed
+
 ## 0.5.3 (2022-03-10)
 
 1. Bug Fix: #256 NginxClojureAsynSocket isClosed is not return correct result
