@@ -105,25 +105,25 @@ User defined zones
 Build Notes
 ================
 
-## generate makefile
+## build win64 dll
+
+### generate makefile
 
 ```
 Administrator@who-8f29c72b513 ~/build-for-embed/nginx-clojure
 $ cd nginx-clojure-embed/
 
-$ export NGINX_SRC=c:/mingw/msys/1.0/home/administrator/build-for-embed/nginx-c
-urrent
+$ export NGINX_SRC=c:/mingw/msys/1.0/home/administrator/build-for-embed/nginx-current
 
 
-Administrator@who-8f29c72b513 ~/build-for-embed/nginx-clojure/nginx-clojure-embe
-d
+Administrator@who-8f29c72b513 ~/build-for-embed/nginx-clojure/nginx-clojure-embed
 $ ./configure-win32
 javac is /c/Program Files/Java/jdk1.8.0_11/bin/javac
 java is /c/Program Files/Java/jdk1.8.0_11/bin/java
 checking for OS
 ```
 
-## openssl 1.x
+### openssl 1.x
 
 modify auto/lib/openssl/makefile.msvc to
 
@@ -146,7 +146,7 @@ all:
 	)
 ```
 
-## warning
+### avoid warning
 
 src\os\win32\nginx_win32_config.h
 
@@ -168,8 +168,18 @@ line 32 :
 
 ```
 
+## modify make file
 
-## do make
+build-for-embed\nginx-current\objs\Makefile
+
+line 1561:
+remove `rc` line
+
+```
+rc -foobjs/nginx.res $(CORE_INCS) src/os/win32/nginx.rc
+```
+
+### do make
 
 ```
 $ cd ../..
