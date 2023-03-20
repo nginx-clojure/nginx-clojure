@@ -105,7 +105,7 @@ Documents
     - [Nginx Body Filter](http://nginx-clojure.github.io/configuration.html#user-content-28-nginx-body-filter)
     - [Nginx Log Handler](http://nginx-clojure.github.io/configuration.html#user-content-29-nginx-log-handler)
 - Advanced Topic
-    - [Embedding Nginx-Clojure into A standard App](http://nginx-clojure.github.io/embed.html)
+    - [Embedding Nginx-Clojure into a standard App](http://nginx-clojure.github.io/embed.html)
     - [Server Channel for Long Polling & Server Sent Events](http://nginx-clojure.github.io/more.html#user-content-34-server-channel-for-long-polling--server-sent-events-sse)
     - [Pub/Sub Among Nginx Worker Processes](http://nginx-clojure.github.io/subpub.html)
     - [Shared Map & Session Store](http://nginx-clojure.github.io/sharedmap.html)
@@ -113,7 +113,7 @@ Documents
     - [About Logging](http://nginx-clojure.github.io/more.html#user-content-37--about-logging)
     - [Sever Side WebSocket](http://nginx-clojure.github.io/more.html#user-content-38--sever-side-websocket)
     - [Java standard RESTful web services with Jersey](http://nginx-clojure.github.io/more.html#user-content-39--java-standard-restful-web-services-with-jersey)
-    - [Embeding Tomcat](http://nginx-clojure.github.io/more.html#user-content-310-embeding-tomcat)
+    - [Embedding Tomcat](http://nginx-clojure.github.io/more.html#user-content-310-embeding-tomcat)
     - [Use Spring Framework with Nginx-Clojure Java Handlers](https://github.com/nginx-clojure/nginx-clojure/tree/master/example-projects/spring-core-example)
     - [Example Project about Jersey & Spring with Nginx-Clojure](https://github.com/nginx-clojure/nginx-clojure/tree/master/example-projects/jersey-spring-example)
     - [More about Nginx Worker Process](http://nginx-clojure.github.io/more.html#user-content-311-more-about-nginx-worker-process)
@@ -130,4 +130,4 @@ Copyright © 2013-2023 Zhang, Yuexiang (xfeep) and released under the BSD 3-Clau
 
 This program uses:
 * Re-rooted ASM bytecode engineering library which is distributed under the BSD 3-Clause license
-* Modified Continuations Library Written by Matthias Mann  is distributed under the BSD 3-Clause license
+* Modified Continuations Library written by Matthias Mann  is distributed under the BSD 3-Clause license
