@@ -224,7 +224,7 @@ public class JavaAgent {
     	
     	if (!db.isEnableNativeCoroutine() || (db.isEnableNativeCoroutine() && db.inClassesOrPackages(className))) {
             ClassReader r = new ClassReader(data);
-            ClassWriter cw = db.isEnableNativeCoroutine() ? new ClassWriter(r, 0) : new DBClassWriter(db, r);
+            ClassWriter cw = new DBClassWriter(db, r);
             ClassVisitor cv = check ? new CheckClassAdapter(cw) : cw;
             ClassEntry ce = MethodDatabaseUtil.buildClassEntryFamily(db, r);
             
