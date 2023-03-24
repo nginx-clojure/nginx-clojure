@@ -7,6 +7,7 @@ package nginx.clojure.wave;
 import nginx.clojure.asm.ClassVisitor;
 import nginx.clojure.asm.MethodVisitor;
 import nginx.clojure.asm.Opcodes;
+import nginx.clojure.asm.commons.JSRInlinerAdapter;
 
 /**
  * @author Zhang,Yuexiang (xfeep)
@@ -30,7 +31,9 @@ public class RemoveMonitorVisitor extends ClassVisitor {
 		if ((access & Opcodes.ACC_SYNCHRONIZED) == Opcodes.ACC_SYNCHRONIZED) {
 			access &= ~Opcodes.ACC_SYNCHRONIZED;
 		}
-		return new RemoveMonitorMethodVisitor(Opcodes.ASM9, super.visitMethod(access, name, descriptor, signature, exceptions));
+		RemoveMonitorMethodVisitor rm = new RemoveMonitorMethodVisitor(Opcodes.ASM9, super.visitMethod(access, name, descriptor, signature, exceptions));
+		JSRInlinerAdapter jia = new JSRInlinerAdapter(rm, access, name, descriptor, signature, exceptions);
+		return jia;
 	}
 	
 }
