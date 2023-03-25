@@ -296,7 +296,7 @@ public class NginxSharedHashMap<K, V> implements ConcurrentMap<K, V>{
 	public long atomicAddLong(K key, long delta) {
 		int ktype = buildType(key);
 		ByteBuffer kb = buildKeyBuffer(ktype, key);
-		return (int)natomicAddNumber(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), NGX_CLOJURE_SHARED_MAP_JLONG, delta);
+		return natomicAddNumber(ctx, ktype, kb.array(), MiniConstants.BYTE_ARRAY_OFFSET, kb.remaining(), NGX_CLOJURE_SHARED_MAP_JLONG, delta);
 	}
 	
 	public long getLong(Object key) {
