@@ -31,8 +31,21 @@ public class NginxClojureSocketFactory implements SocketImplFactory {
 				Class<?> socketImpClz = Thread.currentThread().getContextClassLoader().loadClass("java.net.SocksSocketImpl");
 				@SuppressWarnings("unchecked")
 				Constructor<SocketImpl> socketConstructor = (Constructor<SocketImpl>) socketImpClz.getDeclaredConstructor();
-				socketConstructor.setAccessible(true);
+				socketConstructor.setAccessible(true); 
 				return socketConstructor.newInstance();
+			} catch (NoSuchMethodException e) { // for jdk13+
+				Class<?> socketImpClz;
+				try {
+					socketImpClz = Thread.currentThread().getContextClassLoader().loadClass("sun.nio.ch.NioSocketImpl");
+					@SuppressWarnings("unchecked")
+					Constructor<SocketImpl> socketConstructor = (Constructor<SocketImpl>) socketImpClz.getDeclaredConstructor(Boolean.TYPE);
+					socketConstructor.setAccessible(true);
+					return socketConstructor.newInstance(false);
+				} catch (InvocationTargetException ex) {
+					throw new RuntimeException(ex.getCause());
+				} catch (Throwable ex) {
+					throw new RuntimeException(ex);
+				}
 			} catch (InvocationTargetException e) {
 				throw new RuntimeException(e.getCause());
 			} catch (Throwable e) {
