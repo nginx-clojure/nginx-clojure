@@ -390,7 +390,7 @@ public class MiniConstants {
 	
 	//nginx clojure java runtime required the lowest version of nginx-clojure c module
 	public  static long NGINX_CLOJURE_RT_REQUIRED_LVER = 5002;
-	public  static long NGINX_CLOJURE_RT_VER = 6000;
+	public  static long NGINX_CLOJURE_RT_VER = 6001;
 	
 	//ngx_core.h
 	public final static int  NGX_OK       =   0;
