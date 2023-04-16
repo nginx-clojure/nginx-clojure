@@ -875,29 +875,38 @@ public class NginxClojureRT extends MiniConstants {
 		String type = fetchNGXString(typeNStr, DEFAULT_ENCODING);
 		String name = fetchNGXString(nameNStr, DEFAULT_ENCODING);
 		String code = fetchNGXString(codeNStr,  DEFAULT_ENCODING);
-		
 		NginxHandler handler = NginxHandlerFactory.fetchHandler(phase, type, name, code);
 		HANDLERS.add(handler);
-		if (pros != 0) {
-			Map<String, String> properties = new ArrayMap<String, String>();
-			int size = fetchNGXInt(pros + NGX_HTTP_CLOJURE_ARRAY_NELTS_OFFSET);
-			long ele = UNSAFE.getAddress(pros + NGX_HTTP_CLOJURE_ARRAY_ELTS_OFFSET);
-			for (int i = 0; i < size; i++) {
-				long kv = ele + i * NGX_HTTP_CLOJURE_KEYVALT_SIZE;
-				properties.put(fetchNGXString(kv + NGX_HTTP_CLOJURE_KEYVALT_KEY_OFFSET, DEFAULT_ENCODING),
-						fetchNGXString(kv + NGX_HTTP_CLOJURE_KEYVALT_VALUE_OFFSET, DEFAULT_ENCODING));
+		Runnable runnable = new Runnable() {
+			public void run() {
+				if (pros != 0) {
+					Map<String, String> properties = new ArrayMap<String, String>();
+					int size = fetchNGXInt(pros + NGX_HTTP_CLOJURE_ARRAY_NELTS_OFFSET);
+					long ele = UNSAFE.getAddress(pros + NGX_HTTP_CLOJURE_ARRAY_ELTS_OFFSET);
+					for (int i = 0; i < size; i++) {
+						long kv = ele + i * NGX_HTTP_CLOJURE_KEYVALT_SIZE;
+						properties.put(fetchNGXString(kv + NGX_HTTP_CLOJURE_KEYVALT_KEY_OFFSET, DEFAULT_ENCODING),
+								fetchNGXString(kv + NGX_HTTP_CLOJURE_KEYVALT_VALUE_OFFSET, DEFAULT_ENCODING));
+					}
+					for (Entry<String, String> en : properties.entrySet()) {
+						en.setValue(evalSimpleExp(en.getValue(), properties));
+					}
+					if (handler instanceof Configurable) {
+						Configurable cr = (Configurable) handler;
+						cr.config(properties);
+					}else {
+						log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!", 
+								handler.getClass());
+					}
+				}				
 			}
-			for (Entry<String, String> en : properties.entrySet()) {
-				en.setValue(evalSimpleExp(en.getValue(), properties));
-			}
-			if (handler instanceof Configurable) {
-				Configurable cr = (Configurable) handler;
-				cr.config(properties);
-			}else {
-				log.warn("%s is not an instance of nginx.clojure.Configurable, so properties will be ignored!", 
-						handler.getClass());
-			}
+		};
+		if (coroutineEnabled) {
+			new Coroutine(runnable).resume();
+		} else {
+			runnable.run();
 		}
+		
 		return HANDLERS.size() - 1;
 	}
 	
