@@ -41,12 +41,12 @@ typedef unsigned __int64 uint64_t;
 #define JVM_CP_SEP_S ":"
 #endif
 
-#define nginx_clojure_ver  6000 /*0.6.0*/
+#define nginx_clojure_ver  6001 /*0.6.0*/
 
 /*the least jar version required*/
 #define nginx_clojure_required_rt_lver 5002
 
-#define NGINX_CLOJURE_VER_NUM_STR "0.6.0"
+#define NGINX_CLOJURE_VER_NUM_STR "0.6.1"
 
 #define NGINX_CLOJURE_VER "nginx-clojure/" NGINX_CLOJURE_VER_NUM_STR
 
@@ -90,9 +90,11 @@ typedef struct {
 	ngx_str_t jvm_init_handler_code;
 	ngx_int_t jvm_init_handler_id;
 	ngx_str_t jvm_init_handler_name;
+	ngx_array_t *jvm_init_handler_properties;
 	ngx_str_t jvm_exit_handler_code;
 	ngx_int_t jvm_exit_handler_id;
 	ngx_str_t jvm_exit_handler_name;
+	ngx_array_t *jvm_exit_handler_properties;
 	ngx_hash_t headers_out_holder_hash;
 } ngx_http_clojure_main_conf_t;
 

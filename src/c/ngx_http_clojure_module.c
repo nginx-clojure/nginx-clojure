@@ -225,6 +225,14 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 		NULL
     },
     {
+    ngx_string("jvm_init_handler_property"),
+    NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE2,
+    ngx_conf_set_keyval_slot,
+    NGX_HTTP_MAIN_CONF_OFFSET,
+    offsetof(ngx_http_clojure_main_conf_t, jvm_init_handler_properties),
+    NULL
+    },
+    {
 		ngx_string("jvm_exit_handler_name"),
 		NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
 		ngx_http_clojure_set_str_slot_and_enable_exit_handler_tag,
@@ -239,6 +247,14 @@ static ngx_command_t ngx_http_clojure_commands[] = {
 		NGX_HTTP_MAIN_CONF_OFFSET,
 		offsetof(ngx_http_clojure_main_conf_t, jvm_exit_handler_code),
 		NULL
+    },
+    {
+    ngx_string("jvm_exit_handler_property"),
+    NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE2,
+    ngx_conf_set_keyval_slot,
+    NGX_HTTP_MAIN_CONF_OFFSET,
+    offsetof(ngx_http_clojure_main_conf_t, jvm_exit_handler_properties),
+    NULL
     },
     {
 		ngx_string("handlers_lazy_init"),
@@ -1298,13 +1314,13 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 
 	if (mcf->enable_init_handler
 			&& ngx_http_clojure_init_clojure_script(NGX_HTTP_INIT_PROCESS_PHASE, "init-process", &mcf->jvm_handler_type, &mcf->jvm_init_handler_name,
-					&mcf->jvm_init_handler_code, NULL, &mcf->jvm_init_handler_id, cycle->log) != NGX_HTTP_CLOJURE_JVM_OK) {
+					&mcf->jvm_init_handler_code, mcf->jvm_init_handler_properties, &mcf->jvm_init_handler_id, cycle->log) != NGX_HTTP_CLOJURE_JVM_OK) {
 		return NGX_ERROR;
 	}
 
 	if (mcf->enable_exit_handler
 				&& ngx_http_clojure_init_clojure_script(NGX_HTTP_EXIT_PROCESS_PHASE, "exit-process", &mcf->jvm_handler_type, &mcf->jvm_exit_handler_name,
-						&mcf->jvm_exit_handler_code, NULL, &mcf->jvm_exit_handler_id, cycle->log) != NGX_HTTP_CLOJURE_JVM_OK)  {
+						&mcf->jvm_exit_handler_code, mcf->jvm_exit_handler_properties, &mcf->jvm_exit_handler_id, cycle->log) != NGX_HTTP_CLOJURE_JVM_OK)  {
 		return NGX_ERROR;
 	}
 
