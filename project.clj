@@ -100,11 +100,11 @@
 		                                  ]
                                }
              :jdk17unittest {
-                    :jvm-opts ["-javaagent:target/nginx-clojure-0.6.0.jar=mb"
+                    :jvm-opts ["-javaagent:target/nginx-clojure-0.6.1.jar=mb"
                                "-Dfile.encoding=UTF-8"
                                "-Dnginx.clojure.wave.udfs=pure-clj.txt,compojure.txt,compojure-http-clj.txt,mysql-jdbc.txt,test-groovy.txt"
                                "--add-opens=java.base/java.lang=ALL-UNNAMED" "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED" "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED" 
-                               "-Xbootclasspath/a:target/nginx-clojure-0.6.0.jar"]
+                               "-Xbootclasspath/a:target/nginx-clojure-0.6.1.jar"]
                     :junit-options {:fork "on"}
                     :java-source-paths ["test/java" "test/clojure"]
                     :test-paths ["src/test/clojure"]
@@ -127,10 +127,10 @@
                                   ]
                         }
               :unittest {
-                    :jvm-opts ["-javaagent:target/nginx-clojure-0.6.0.jar=mb"
+                    :jvm-opts ["-javaagent:target/nginx-clojure-0.6.1.jar=mb"
                                "-Dfile.encoding=UTF-8"
                                "-Dnginx.clojure.wave.udfs=pure-clj.txt,compojure.txt,compojure-http-clj.txt,mysql-jdbc.txt,test-groovy.txt"
-                               "-Xbootclasspath/a:target/nginx-clojure-0.6.0.jar"]
+                               "-Xbootclasspath/a:target/nginx-clojure-0.6.1.jar"]
                     :junit-options {:fork "on"}
                     :java-source-paths ["test/java" "test/clojure"]
                     :test-paths ["src/test/clojure"]
