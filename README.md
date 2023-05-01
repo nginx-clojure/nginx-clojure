@@ -23,7 +23,7 @@ The latest release is v0.6.0, more detail changes about it can be found from [Re
 1. Nginx Body Filter by Clojure / Java / Groovy
 1. Nginx Log Handler by Clojure / Java / Groovy
 1. HTTP V2 support in both standard edition and embedded edition which are compiled against Nginx 1.18.0+
-1. Support Java 9, 10, 11, 12, 19
+1. Support Java 8, 9, 10, 11, 12, 19
 1. Support to use jdk19 built-in coroutine viz. Continuation
 1. Pub/Sub Among Nginx Worker Processes
 1. Shared Map based on shared memory & Shared Map based Ring session store
