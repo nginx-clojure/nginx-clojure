@@ -59,7 +59,7 @@ before_script:
   - mysql -uroot -e 'create database nctest; grant all on nctest.* to "nginxclojure"@"%" identified by "111111"; flush privileges;'
  # - tar zxf local-caches/pcre-$PCRE_VER.tar.gz
  # - tar zxf local-caches/nginx-$NGINX_VER.tar.gz
-  - cd ${NGX_SRC} && ./configure --with-http_v2_module --with-select_module  --with-http_ssl_module  --with-http_auth_request_module  --with-debug --add-module=${NC_PJ_HOME}/src/c  --with-http_stub_status_module  --prefix= --sbin-path=nginx --conf-path=conf/nginx.conf --error-log-path=logs/error.log --http-log-path=logs/access.log --pid-path=logs/nginx.pid --lock-path=logs/nginx.lock --http-client-body-temp-path=temp/client_temp --http-proxy-temp-path=temp/proxy_temp --http-fastcgi-temp-path=temp/fastcgi_temp --http-uwsgi-temp-path=temp/uwsgi_temp --http-scgi-temp-path=temp/scgi_temp
+  - cd ${NGX_SRC} && auto/configure --with-http_v2_module --with-select_module  --with-http_ssl_module  --with-http_auth_request_module  --with-debug --add-module=${NC_PJ_HOME}/src/c  --with-http_stub_status_module  --prefix= --sbin-path=nginx --conf-path=conf/nginx.conf --error-log-path=logs/error.log --http-log-path=logs/access.log --pid-path=logs/nginx.pid --lock-path=logs/nginx.lock --http-client-body-temp-path=temp/client_temp --http-proxy-temp-path=temp/proxy_temp --http-fastcgi-temp-path=temp/fastcgi_temp --http-uwsgi-temp-path=temp/uwsgi_temp --http-scgi-temp-path=temp/scgi_temp
   - make
   - cp objs/nginx ${NC_PJ_HOME}/test/nginx-working-dir
   - cd /home/who/git/nginx-clojure/test/nginx-working-dir
