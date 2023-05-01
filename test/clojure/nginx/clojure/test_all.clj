@@ -663,6 +663,25 @@
              (debug-println "=================javarewritesimple=============================")
              (is (= 200 (:status r)))
              (is (= "Hello,Xfeep!" (:body r)))))
+    (testing "javarewriteheaders"
+           (let [r (client/get (str "http://" *host* ":" *port* "/javarewriteheaders") {:follow-redirects false})
+                 h (:headers r)
+                 b (-> r :body (json/read-str))]
+             (debug-println r)
+             (debug-println "=================javarewriteheaders=============================")
+             (is (= 200 (:status r)))
+             (is (= "Good!" (b "jwt-token")))
+             (is (= "gzip" (b "Accept-Encoding")))))
+     (testing "/cljrewrite/headers"
+           (let [r (client/get (str "http://" *host* ":" *port* "/cljrewrite/headers") {:follow-redirects false})
+                 h (:headers r)
+                 b (-> r :body (json/read-str))]
+             (debug-println r)
+             (debug-println "=================/cljrewrite/headers=============================")
+             (is (= 200 (:status r)))
+             (is (= "Good!" (b "jwt-token")))
+             (is (= nil (b "User-Agent")))
+             (is (= "gzip" (b "Accept-Encoding")))))    
       (testing "rewrite proxy pass"
            (let [r (client/get (str "http://" *host* ":" *port* "/uptest") {:follow-redirects false})
                  h (:headers r)

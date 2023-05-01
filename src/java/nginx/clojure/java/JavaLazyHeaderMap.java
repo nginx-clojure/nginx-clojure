@@ -261,7 +261,7 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 
 	@Override
 	public Object put(String key, Object value) {
-		if ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0) {
+//		if ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0) {
 			
 			if (safeCache != null) {
 				updatedHeaders.add(key);
@@ -269,13 +269,16 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 			}
 			
 			return unsafePut(key, value);
-		}else {
-			throw new UnsupportedOperationException("put request header  not supported now!");
-		}
+//		}else {
+//			throw new UnsupportedOperationException("put request header  not supported now!");
+//		}
 	}
 
 	protected Object unsafePut(String key, Object value) {
-		NginxHeaderHolder holder = KNOWN_RESP_HEADERS.get(key);
+		NginxHeaderHolder holder = ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0 ?
+				KNOWN_RESP_HEADERS : KNOWN_REQ_HEADERS)
+				.get(key);
+		
 		if (holder == null) {
 			holder = new UnknownHeaderHolder(key,
 					(NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0 ? NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET
@@ -291,9 +294,9 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 
 	@Override
 	public Object remove(Object key) {
-		if ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) == 0) {
-			throw new UnsupportedOperationException("remove request header  not supported now!");
-		}
+//		if ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) == 0) {
+//			throw new UnsupportedOperationException("remove request header  not supported now!");
+//		}
 		if (key == null) {
 			return null;
 		}
@@ -308,7 +311,10 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 	}
 
 	protected Object unsafeRemove(Object key) {
-		NginxHeaderHolder holder = KNOWN_RESP_HEADERS.get(key);
+		NginxHeaderHolder holder = ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0 ?
+				KNOWN_RESP_HEADERS : KNOWN_REQ_HEADERS)
+				.get(key);
+		
 		if (holder == null) {
 			holder = new UnknownHeaderHolder((String)key,
 					(NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0 ? NGX_HTTP_CLOJURE_HEADERSO_HEADERS_OFFSET

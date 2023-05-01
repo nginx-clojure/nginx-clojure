@@ -143,12 +143,12 @@ public class LazyHeaderMap extends JavaLazyHeaderMap implements IPersistentMap, 
 
 	@Override
 	public LazyHeaderMap assoc(Object key, Object val) {
-		if ( (flag & NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT) ==  0 ) {
-			throw new UnsupportedOperationException("assoc not supported for read-only request map!");
-		}else {
+//		if ( (flag & NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT) ==  0 ) {
+//			throw new UnsupportedOperationException("assoc not supported for read-only request map!");
+//		}else {
 			put(NginxClojureHandler.normalizeHeaderNameHelper(key), val);
 			return this;
-		}
+//		}
 	}
 
 	@Override
@@ -158,12 +158,12 @@ public class LazyHeaderMap extends JavaLazyHeaderMap implements IPersistentMap, 
 
 	@Override
 	public LazyHeaderMap without(Object key) {
-		if ( (flag & NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT) ==  0 ) {
-			throw new UnsupportedOperationException("without not supported for read-only request map!");
-		}else {
+//		if ( (flag & NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT) ==  0 ) {
+//			throw new UnsupportedOperationException("without not supported for read-only request map!");
+//		}else {
 			remove(NginxClojureHandler.normalizeHeaderNameHelper(key));
 			return this;
-		}
+//		}
 	}
 	
 

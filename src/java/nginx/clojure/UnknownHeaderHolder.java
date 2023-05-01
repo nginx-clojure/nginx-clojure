@@ -11,6 +11,7 @@ import static nginx.clojure.MiniConstants.NGINX_CLOJURE_CORE_CLIENT_HEADER_MAX_L
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_HASH_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_KEY_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_STR_LEN_OFFSET;
 import static nginx.clojure.NginxClojureRT.fetchNGXString;
 import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_get_header;
 import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_shadow_copy_ngx_str;
@@ -105,7 +106,9 @@ public class UnknownHeaderHolder implements NginxHeaderHolder {
 		LongBuffer lbb = kbb.order(ByteOrder.nativeOrder()).asLongBuffer();
 		
 		for (; c > 0; c--) {
-			pushNGXInt(lbb.get() + NGX_HTTP_CLOJURE_TEL_HASH_OFFSET, 0);
+			long p = lbb.get();
+			pushNGXInt(p + NGX_HTTP_CLOJURE_TEL_HASH_OFFSET, 0);
+			pushNGXInt(p + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET + NGX_HTTP_CLOJURE_STR_LEN_OFFSET, 0);
 		}
 	}
 

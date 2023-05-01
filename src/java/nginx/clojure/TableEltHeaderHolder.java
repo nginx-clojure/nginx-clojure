@@ -10,6 +10,7 @@ import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_HASH_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_KEY_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET;
 import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_TEL_NEXT_OFFSET;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_STR_LEN_OFFSET;
 import static nginx.clojure.MiniConstants.NGINX_VER;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
 import static nginx.clojure.NginxClojureRT.fetchNGXString;
@@ -58,6 +59,7 @@ public class TableEltHeaderHolder extends AbstractHeaderHolder {
 		long p = UNSAFE.getAddress(h + offset);
 		if (p != 0) {
 			NginxClojureRT.pushNGXInt(p + NGX_HTTP_CLOJURE_TEL_HASH_OFFSET, 0);
+			NginxClojureRT.pushNGXInt(p + NGX_HTTP_CLOJURE_TEL_VALUE_OFFSET + NGX_HTTP_CLOJURE_STR_LEN_OFFSET, 0);
 			UNSAFE.putAddress(h + offset, 0);
 		}
 	}

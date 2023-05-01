@@ -18,3 +18,14 @@
     (set-ngx-var! req "limit_rate" "200k")
     (set-ngx-var! req "limit_rate" "10k"))
   phrase-done)
+
+(defn headers-more [req]
+  (let [headers (:headers req)]
+    (dissoc! headers "OK")
+    (dissoc! headers "User-Agent")
+    ;(assoc!  headers "User-Agent" "")
+    (dissoc!  headers "Accept-Encoding")
+    (assoc!  headers "Accept-Encoding" "gzip")
+    (assoc!  headers "jwt-token"  "Good!")
+    phrase-done))
+

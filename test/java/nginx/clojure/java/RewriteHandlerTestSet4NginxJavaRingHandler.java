@@ -1,5 +1,7 @@
 package nginx.clojure.java;
 
+import static nginx.clojure.MiniConstants.HEADERS;
+
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -31,6 +33,17 @@ public class RewriteHandlerTestSet4NginxJavaRingHandler {
 			r.setVariable("myName", "Xfeep");
 			System.out.println("SimpleRewriteHandler, myname" + r.getVariable("myName"));
 			System.out.println("request_id" +  r.getVariable("request_id"));
+			return Constants.PHASE_DONE;
+		}
+		
+	}
+	
+	public static class HeadersRewriteHandler implements NginxJavaRingHandler {
+		@Override
+		public Object[] invoke(Map<String, Object> request) throws IOException {
+			Map<String, String> requestHeaders = (Map<String, String>) request.get(HEADERS);
+			requestHeaders.put("jwt-token", "Good!");
+			requestHeaders.put("accept-encoding",  "gzip");
 			return Constants.PHASE_DONE;
 		}
 		
