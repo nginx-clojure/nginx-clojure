@@ -42,8 +42,10 @@ public class RewriteHandlerTestSet4NginxJavaRingHandler {
 		@Override
 		public Object[] invoke(Map<String, Object> request) throws IOException {
 			Map<String, String> requestHeaders = (Map<String, String>) request.get(HEADERS);
+			requestHeaders.remove("User-Agent");
 			requestHeaders.put("jwt-token", "Good!");
-			requestHeaders.put("accept-encoding",  "gzip");
+			requestHeaders.remove("Accept-Encoding");
+			requestHeaders.put("Accept-Encoding",  "gzip");
 			return Constants.PHASE_DONE;
 		}
 		

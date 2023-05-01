@@ -8,7 +8,7 @@
 
 (def ^:dynamic *host* "localhost")
 (def ^:dynamic *port* "8080")
-(def ^:dynamic *debug* false)
+(def ^:dynamic *debug* true)
 
 (def ^:dynamic *http-get* client/get)
 
@@ -671,7 +671,8 @@
              (debug-println "=================javarewriteheaders=============================")
              (is (= 200 (:status r)))
              (is (= "Good!" (b "jwt-token")))
-             (is (= "gzip" (b "Accept-Encoding")))))
+             (is (= nil (b "User-Agent")))
+             (is (or (= "gzip" (b "Accept-Encoding")) (= "gzip" (b "accept-encoding"))))))
      (testing "/cljrewrite/headers"
            (let [r (client/get (str "http://" *host* ":" *port* "/cljrewrite/headers") {:follow-redirects false})
                  h (:headers r)
@@ -681,7 +682,7 @@
              (is (= 200 (:status r)))
              (is (= "Good!" (b "jwt-token")))
              (is (= nil (b "User-Agent")))
-             (is (= "gzip" (b "Accept-Encoding")))))    
+             (is (or (= "gzip" (b "Accept-Encoding")) (= "gzip" (b "accept-encoding"))))))
       (testing "rewrite proxy pass"
            (let [r (client/get (str "http://" *host* ":" *port* "/uptest") {:follow-redirects false})
                  h (:headers r)

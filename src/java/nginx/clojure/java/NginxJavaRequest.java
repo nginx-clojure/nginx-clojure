@@ -580,5 +580,13 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 				NginxClojureRT.unsafeSetNginxVariable(r, var, prefetchedVariables.get(var));
 			}
 		}
+		
+		if (phase == MiniConstants.NGX_HTTP_REWRITE_PHASE) {
+			Object headers = array[(index(HEADERS) << 1) + 1];
+			if (headers instanceof JavaLazyHeaderMap) {
+				((JavaLazyHeaderMap)headers).applyDelayed();
+			}
+		}
+		
 	}
 }

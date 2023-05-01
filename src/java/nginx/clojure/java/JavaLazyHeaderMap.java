@@ -77,9 +77,9 @@ public class JavaLazyHeaderMap implements Map<String, Object>, Iterable  {
 		
 		this.size = safeCache.size();
 		
-		if ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0) {
+//		if ((NGX_HTTP_CLOJURE_GET_HEADER_FLAG_HEADERS_OUT & flag) != 0) {
 			updatedHeaders = new LinkedHashSet<>();
-		}
+//		}
 	}
 	
 	@Override

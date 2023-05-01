@@ -67,6 +67,7 @@ import nginx.clojure.RequestVarFetcher;
 import nginx.clojure.Stack;
 import nginx.clojure.UnknownHeaderHolder;
 import nginx.clojure.java.DefinedPrefetch;
+import nginx.clojure.java.JavaLazyHeaderMap;
 import nginx.clojure.java.NginxJavaRequest;
 import nginx.clojure.java.RequestRawMessageAdapter;
 import nginx.clojure.java.RequestRawMessageAdapter.RequestOrderedRunnable;
@@ -702,6 +703,13 @@ public   class LazyRequestMap extends AFn implements NginxRequest, IPersistentMa
 		if (updatedVariables != null) {
 			for (String var : updatedVariables) {
 				NginxClojureRT.unsafeSetNginxVariable(r, var, prefetchedVariables.get(var));
+			}
+		}
+		
+		if (phase == MiniConstants.NGX_HTTP_REWRITE_PHASE) {
+			Object headers = array[index(HEADERS) + 1];
+			if (headers instanceof JavaLazyHeaderMap) {
+				((JavaLazyHeaderMap)headers).applyDelayed();
 			}
 		}
 	}
