@@ -1278,8 +1278,10 @@ static ngx_int_t ngx_http_clojure_init_upstreams_load_balancer_helper(ngx_http_u
   ngx_http_clojure_srv_conf_t *scf;
   ngx_uint_t s;
   for (s = 0; s < umcf->upstreams.nelts; s++) {
-    scf = uscf[s]->srv_conf[ngx_http_clojure_module.ctx_index];
-    ngx_http_clojure_init_handler_script(scf, NGX_HTTP_LOAD_BALANCE_PHASE, load_balancer);
+    if (uscf[s]->srv_conf != NULL) {
+      scf = uscf[s]->srv_conf[ngx_http_clojure_module.ctx_index];
+      ngx_http_clojure_init_handler_script(scf, NGX_HTTP_LOAD_BALANCE_PHASE, load_balancer);
+    }
   }
   return NGX_OK;
 }
@@ -1402,7 +1404,7 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 		return NGX_ERROR;
 	}
 
-	if (ngx_http_clojure_init_upstreams_load_balancer_helper(umcf) != NGX_OK) {
+	if (mcf->enable_load_balancer && ngx_http_clojure_init_upstreams_load_balancer_helper(umcf) != NGX_OK) {
 	  return NGX_ERROR;
 	}
 
