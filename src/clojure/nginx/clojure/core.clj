@@ -339,3 +339,15 @@ When a message comes the callback function will be invoked. e.g.
                    (callback message att))))]
       (fn [] (.unsubscribe topic pd))))
   (destory! [topic] (.destory topic)))
+
+(defn balancer-result 
+  "Build a balancer result for a load balancer.
+   `idx-or-url can be an index of the upstream servers list or the url string.
+   e.g. (balancer-result 3) , (balancer-result \"192.168.3.5:8071\")
+  "
+  [idx-or-url]
+  (cond
+      (instance? String idx-or-url) {:status 200, :body idx-or-url}
+      (instance? Integer idx-or-url) {:status 200, :body idx-or-url}
+      :else
+      {:status 500}))
