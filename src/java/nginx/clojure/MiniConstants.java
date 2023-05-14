@@ -413,11 +413,14 @@ public class MiniConstants {
     public final static int NGX_HTTP_CONTENT_PHASE = 9;
     public final static int NGX_HTTP_LOG_PHASE = 10;
     
+    //fake phase for load balance handler
+    public final static int NGX_HTTP_LOAD_BALANCE_PHASE = 16;
+    
     //fake phase for filter
-    public final static int NGX_HTTP_INIT_PROCESS_PHASE= 17;
-    public final static int NGX_HTTP_HEADER_FILTER_PHASE= 18;
-    public final static int NGX_HTTP_BODY_FILTER_PHASE= 19;
-    public final static int NGX_HTTP_EXIT_PROCESS_PHASE= 20;
+    public final static int NGX_HTTP_INIT_PROCESS_PHASE = 17;
+    public final static int NGX_HTTP_HEADER_FILTER_PHASE = 18;
+    public final static int NGX_HTTP_BODY_FILTER_PHASE = 19;
+    public final static int NGX_HTTP_EXIT_PROCESS_PHASE = 20;
     
     /*fake chain for header filter*/
     public final static int NGX_HTTP_HEADER_FILTER = -1;

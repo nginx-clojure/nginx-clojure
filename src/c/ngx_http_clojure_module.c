@@ -42,13 +42,27 @@ static char* ngx_http_clojure_set_str_slot_and_enable_access_handler_tag(ngx_con
 
 static char* ngx_http_clojure_set_str_slot_and_enable_log_handler_tag(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) ;
 
+static char* ngx_http_clojure_set_str_slot_and_enable_load_balancer_tag(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+
+static ngx_int_t ngx_http_clojure_upstream_init_load_balancer(ngx_conf_t *cf, ngx_http_upstream_srv_conf_t *us);
+
+static ngx_int_t ngx_http_clojure_upstream_init_load_balancer_peer(ngx_http_request_t *r, ngx_http_upstream_srv_conf_t *us);
+
+static ngx_int_t ngx_http_clojure_upstream_get_load_balancer_peer(ngx_peer_connection_t *pc, void *data);
+
+static void ngx_http_clojure_upstream_free_load_balancer_peer(ngx_peer_connection_t *pc, void *data, ngx_uint_t state);
+
 static char* ngx_http_clojure_set_always_read_body(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 static void* ngx_http_clojure_create_loc_conf(ngx_conf_t *cf);
 
+static void* ngx_http_clojure_create_srv_conf(ngx_conf_t *cf);
+
 static void * ngx_http_clojure_create_main_conf(ngx_conf_t *cf);
 
 static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child);
+
+static char* ngx_http_clojure_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child);
 
 static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle);
 
@@ -81,6 +95,8 @@ static ngx_int_t ngx_http_clojure_init_jvm_and_mem(ngx_core_conf_t  *ccf, ngx_ht
 static ngx_int_t ngx_http_clojure_init_locations_handlers_helper(ngx_http_core_loc_conf_t *clcf);
 
 static ngx_int_t ngx_http_clojure_init_locations_handlers_in_tree(ngx_http_location_tree_node_t *lt) ;
+
+static ngx_int_t ngx_http_clojure_init_upstreams_load_balancer_helper(ngx_http_upstream_main_conf_t *umcf);
 
 static ngx_int_t ngx_http_clojure_init_socket(ngx_http_clojure_main_conf_t  *mcf, ngx_log_t *log);
 
@@ -446,6 +462,31 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     },
 
     {
+    ngx_string("load_balancer_type"),
+    NGX_HTTP_UPS_CONF | NGX_CONF_TAKE1,
+    ngx_conf_set_str_slot,
+    NGX_HTTP_SRV_CONF_OFFSET,
+    offsetof(ngx_http_clojure_srv_conf_t, load_balancer_type),
+    NULL
+    },
+    {
+    ngx_string("load_balancer_name"),
+    NGX_HTTP_UPS_CONF | NGX_CONF_TAKE1,
+    ngx_http_clojure_set_str_slot_and_enable_load_balancer_tag,
+    NGX_HTTP_SRV_CONF_OFFSET,
+    offsetof(ngx_http_clojure_srv_conf_t, load_balancer_name),
+    NULL
+    },
+    {
+    ngx_string("load_balancer_code"),
+    NGX_HTTP_UPS_CONF | NGX_CONF_TAKE1,
+    ngx_http_clojure_set_str_slot_and_enable_load_balancer_tag,
+    NGX_HTTP_SRV_CONF_OFFSET,
+    offsetof(ngx_http_clojure_srv_conf_t, load_balancer_code),
+    NULL
+    },
+
+    {
 		ngx_string("content_handler_property"),
 		NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE2,
 		ngx_conf_set_keyval_slot,
@@ -491,6 +532,14 @@ static ngx_command_t ngx_http_clojure_commands[] = {
     ngx_conf_set_keyval_slot,
     NGX_HTTP_LOC_CONF_OFFSET,
     offsetof(ngx_http_clojure_loc_conf_t, log_handler_properties),
+    NULL
+    },
+    {
+    ngx_string("load_balancer_property"),
+    NGX_HTTP_UPS_CONF | NGX_CONF_TAKE2,
+    ngx_conf_set_keyval_slot,
+    NGX_HTTP_SRV_CONF_OFFSET,
+    offsetof(ngx_http_clojure_srv_conf_t, load_balancer_properties),
     NULL
     },
     {
@@ -549,8 +598,8 @@ static ngx_http_module_t  ngx_http_clojure_module_ctx = {
     ngx_http_clojure_create_main_conf,  /* create main configuration */
     NULL,                          /* init main configuration */
 
-    NULL,                          /* create server configuration */
-    NULL,                          /* merge server configuration */
+    ngx_http_clojure_create_srv_conf,                          /* create server configuration */
+    ngx_http_clojure_merge_srv_conf,                          /* merge server configuration */
 
     ngx_http_clojure_create_loc_conf,  /* create location configuration */
     ngx_http_clojure_merge_loc_conf /* merge location configuration */
@@ -650,6 +699,18 @@ static void * ngx_http_clojure_create_loc_conf(ngx_conf_t *cf) {
 	conf->write_page_size = NGX_CONF_UNSET_SIZE;
 	return conf;
 }
+
+static void * ngx_http_clojure_create_srv_conf(ngx_conf_t *cf) {
+  ngx_http_clojure_srv_conf_t *conf;
+  conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_clojure_srv_conf_t));
+  if (conf == NULL){
+    return NGX_CONF_ERROR;
+  }
+  conf->load_balancer_id = -1;
+  return conf;
+}
+
+
 
 static ngx_int_t ngx_http_clojure_init_clojure_script(ngx_int_t phase, char *type, ngx_str_t *handler_type, ngx_str_t *handler, ngx_str_t *code, ngx_array_t *pros,ngx_int_t *pcid , ngx_log_t *log) {
     if (*pcid < 0 && (code->len > 0 || handler->len > 0)) {
@@ -952,6 +1013,10 @@ static char* ngx_http_clojure_merge_loc_conf(ngx_conf_t *cf, void *parent, void 
 	return NGX_CONF_OK;
 }
 
+static char* ngx_http_clojure_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child) {
+  return NGX_CONF_OK;
+}
+
 static ngx_int_t ngx_http_clojure_module_init(ngx_cycle_t *cycle) {
 
 	ngx_core_conf_t  *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
@@ -1208,6 +1273,17 @@ static ngx_int_t ngx_http_clojure_init_locations_handlers(ngx_http_core_main_con
 	return NGX_OK;
 }
 
+static ngx_int_t ngx_http_clojure_init_upstreams_load_balancer_helper(ngx_http_upstream_main_conf_t *umcf) {
+  ngx_http_upstream_srv_conf_t **uscf = umcf->upstreams.elts;
+  ngx_http_clojure_srv_conf_t *scf;
+  ngx_uint_t s;
+  for (s = 0; s < umcf->upstreams.nelts; s++) {
+    scf = uscf[s]->srv_conf[ngx_http_clojure_module.ctx_index];
+    ngx_http_clojure_init_handler_script(scf, NGX_HTTP_LOAD_BALANCE_PHASE, load_balancer);
+  }
+  return NGX_OK;
+}
+
 static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 	ngx_http_conf_ctx_t *ctx = (ngx_http_conf_ctx_t *)ngx_get_conf(cycle->conf_ctx, ngx_http_module);
 	ngx_int_t rc = 0;
@@ -1215,6 +1291,7 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 	ngx_http_core_main_conf_t *cmcf;
 	ngx_http_core_srv_conf_t *cscf;
 	ngx_http_clojure_main_conf_t *mcf;
+	ngx_http_upstream_main_conf_t *umcf;
 	ngx_core_conf_t  *ccf = (ngx_core_conf_t *) ngx_get_conf(cycle->conf_ctx, ngx_core_module);
 	ngx_int_t jvm_num = 0;
 
@@ -1225,6 +1302,7 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 	cmcf = ctx->main_conf[ngx_http_core_module.ctx_index];
 	cscf = ctx->srv_conf[ngx_http_core_module.ctx_index];
 	mcf = ctx->main_conf[ngx_http_clojure_module.ctx_index];
+	umcf = ctx->main_conf[ngx_http_upstream_module.ctx_index];
 
 	/*Fix issue #64 about proxy cache manger process
 	 * We won't initialize jvm unless the current process is worker process or single process*/
@@ -1322,6 +1400,10 @@ static ngx_int_t ngx_http_clojure_process_init(ngx_cycle_t *cycle) {
 				&& ngx_http_clojure_init_clojure_script(NGX_HTTP_EXIT_PROCESS_PHASE, "exit-process", &mcf->jvm_handler_type, &mcf->jvm_exit_handler_name,
 						&mcf->jvm_exit_handler_code, mcf->jvm_exit_handler_properties, &mcf->jvm_exit_handler_id, cycle->log) != NGX_HTTP_CLOJURE_JVM_OK)  {
 		return NGX_ERROR;
+	}
+
+	if (ngx_http_clojure_init_upstreams_load_balancer_helper(umcf) != NGX_OK) {
+	  return NGX_ERROR;
 	}
 
 	if (ngx_http_clojure_init_locations_handlers(cmcf) != NGX_OK) {
@@ -1699,7 +1781,7 @@ static ngx_int_t ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 
 	if ((mcf->enable_access_handler | mcf->enable_body_filter | mcf->enable_content_handler
 			| mcf->enable_header_filter | mcf->enable_init_handler | mcf->enable_rewrite_handler
-			| mcf->enable_log_handler) == 0) {
+			| mcf->enable_log_handler | mcf->enable_load_balancer) == 0) {
 		mcf->jvm_disable_all = 1;
 		return NGX_OK;
 	}
@@ -1707,10 +1789,16 @@ static ngx_int_t ngx_http_clojure_postconfiguration(ngx_conf_t *cf) {
 	if (mcf->jvm_path.len == NGX_CONF_UNSET_SIZE) {
 		mcf->jvm_disable_all = 1;
 #if defined(NGX_CLOJURE_BE_SILENT_WITHOUT_JVM)
+		if ((mcf->enable_access_handler | mcf->enable_body_filter | mcf->enable_content_handler
+		      | mcf->enable_header_filter | mcf->enable_init_handler | mcf->enable_rewrite_handler
+		      | mcf->enable_log_handler | mcf->enable_load_balancer) != 0) {
+		  ngx_log_error(NGX_LOG_ERR, cf->log, 0, "nginx-clojure handlers are used but no jvm_path configured!");
+		  return NGX_ERROR;
+		}
 		return NGX_OK;
 #else
 		ngx_log_error(NGX_LOG_ERR, cf->log, 0, "no jvm_path configured!");
-		return NGX_ERROR ;
+		return NGX_ERROR;
 #endif
 	}
 
@@ -2404,6 +2492,174 @@ static char* ngx_http_clojure_set_str_slot_and_enable_log_handler_tag(ngx_conf_t
   ngx_http_clojure_loc_conf_t *lcf = conf;
   ngx_http_clojure_main_conf_t *mcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_clojure_module);
   mcf->enable_log_handler = lcf->enable_log_handler =  1;
+  return ngx_conf_set_str_slot(cf, cmd, conf);
+}
+
+static ngx_int_t ngx_http_clojure_upstream_init_load_balancer(ngx_conf_t *cf, ngx_http_upstream_srv_conf_t *us) {
+  ngx_log_debug0(NGX_LOG_DEBUG_HTTP, cf->log, 0, "init clojure balancer conn");
+
+  if (ngx_http_upstream_init_round_robin(cf, us) != NGX_OK) {
+    return NGX_ERROR;
+  }
+
+  us->peer.init = ngx_http_clojure_upstream_init_load_balancer_peer;
+
+  return NGX_OK;
+}
+
+static ngx_int_t ngx_http_clojure_upstream_init_load_balancer_peer(ngx_http_request_t *r, ngx_http_upstream_srv_conf_t *us) {
+  ngx_http_clojure_upstream_load_balancer_peer_data_t *pd;
+  ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "init clojure balancer peer");
+
+  pd = ngx_palloc(r->pool, sizeof(ngx_http_clojure_upstream_load_balancer_peer_data_t));
+  if (pd == NULL) {
+    return NGX_ERROR;
+  }
+
+  pd->peer_pos_or_len = -1;
+  pd->peer_url = NULL;
+
+  r->upstream->peer.data = &pd->rrp;
+
+  if (ngx_http_upstream_init_round_robin_peer(r, us) != NGX_OK) {
+    return NGX_ERROR;
+  }
+
+  r->upstream->peer.get = ngx_http_clojure_upstream_get_load_balancer_peer;
+  r->upstream->peer.free = ngx_http_clojure_upstream_free_load_balancer_peer;
+  pd->conf = ngx_http_conf_upstream_srv_conf(us, ngx_http_clojure_module);
+  pd->r = r;
+
+  return NGX_OK;
+}
+
+static ngx_int_t ngx_http_clojure_upstream_get_load_balancer_peer(ngx_peer_connection_t *pc, void *data) {
+  ngx_int_t rc;
+  uintptr_t pi[2];
+  ngx_http_clojure_module_ctx_t *ctx;
+  ngx_http_clojure_upstream_load_balancer_peer_data_t *pd = data;
+  ngx_http_request_t *r = pd->r;
+//  ngx_http_clojure_loc_conf_t *lcf = ngx_http_get_module_loc_conf(r, ngx_http_clojure_module);
+  ngx_http_clojure_srv_conf_t *scf = pd->conf;
+  ngx_http_upstream_rr_peer_data_t *rrp = &pd->rrp;
+
+  ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0, "get clojure balancer peer, try: %ui", pc->tries);
+
+  ngx_http_clojure_get_ctx(r, ctx);
+  ngx_http_clojure_init_handler_script(scf, NGX_HTTP_LOAD_BALANCE_PHASE, load_balancer);
+
+  if (!scf->enable_load_balancer || (scf->load_balancer_code.len == 0 && scf->load_balancer_name.len == 0)) {
+    return ngx_http_upstream_get_round_robin_peer(pc, data);
+  }
+
+  pi[0] = (uintptr_t)&pd->peer_pos_or_len;
+  pi[1] = (uintptr_t)&pd->peer_url;
+
+  if (ctx == NULL) {
+    ctx = ngx_palloc(r->pool, sizeof(ngx_http_clojure_module_ctx_t));
+    if (ctx == NULL) {
+      ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "OutOfMemory of create ngx_http_clojure_module_ctx_t");
+      return NGX_ERROR;
+    }
+
+    ngx_http_clojure_init_ctx(ctx, NGX_HTTP_LOAD_BALANCE_PHASE, r);
+    ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
+#if (NGX_DEBUG)
+    rc = ngx_http_clojure_eval(scf->load_balancer_id, r, pi);
+    ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0, "ngx clojure balancer (null ctx) request: %" PRIu64 ", rc: %d", (jlong)(uintptr_t)r, rc);
+#else
+    rc = ngx_http_clojure_eval(lcf->log_handler_id, r, pi);
+#endif
+  } else {
+    ctx->hijacked_or_async = 0;
+    ctx->phase = NGX_HTTP_LOAD_BALANCE_PHASE;
+#if (NGX_DEBUG)
+    rc = ngx_http_clojure_eval(scf->load_balancer_id, r, pi);
+    ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0, "ngx clojure balancer (else) request: %" PRIu64 ", rc: %d", (jlong)(uintptr_t)r, rc);
+#else
+    rc = ngx_http_clojure_eval(lcf->log_handler_id, r, pi);
+#endif
+  }
+
+  if (rc != NGX_OK) {
+    /* return ngx_http_upstream_get_round_robin_peer(pc, data); */
+    ngx_log_error(NGX_LOG_ERR, r->connection->log , 0, "%s %" PRIu64 ", rc: %d in ngx clojure balancer \"%V\"", "eval error: ", (jlong)(uintptr_t)r, rc, &scf->load_balancer_name);
+    return NGX_ERROR;
+  }
+
+  if (pd->peer_url != NULL) {
+    ngx_url_t *url = ngx_pcalloc(r->pool, sizeof(ngx_url_t));
+    if (url == NULL){
+        return NGX_ERROR;
+    }
+
+    url->url.data = pd->peer_url;
+    url->url.len = (size_t)pd->peer_pos_or_len;
+
+    if (ngx_parse_url(r->pool, url) != NGX_OK ) {
+      if (url->err) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log , 0, "%s in resolver \"%V\"",  url->err, &url->url);
+      }
+      return NGX_ERROR;
+    }
+
+    if (url->addrs && url->addrs[0].sockaddr) {
+        pc->sockaddr = url->addrs[0].sockaddr;
+        pc->socklen = url->addrs[0].socklen;
+        pc->name = &url->addrs[0].name;
+        return NGX_OK;
+    }
+  } else if (pd->peer_pos_or_len > 0 && pd->peer_pos_or_len < rrp->peers->number) {
+    ngx_http_upstream_rr_peer_t *peer;
+    ngx_uint_t i;
+
+    for (peer = rrp->peers->peer, i = 0; peer; peer = peer->next, i++) {
+      if (pd->peer_pos_or_len == i) {
+        pc->sockaddr = peer->sockaddr;
+        pc->socklen = peer->socklen;
+        pc->name = &peer->name;
+        rrp->current = peer;
+        return NGX_OK;
+      }
+    }
+  }
+
+  return NGX_ERROR;
+}
+
+static void ngx_http_clojure_upstream_free_load_balancer_peer(ngx_peer_connection_t *pc, void *data, ngx_uint_t state) {
+  ngx_http_clojure_upstream_load_balancer_peer_data_t *pd = data;
+
+  if (pd->peer_url != NULL) {
+    if (pc->tries) {
+      pc->tries--;
+    }
+    return;
+  }
+
+  ngx_http_upstream_free_round_robin_peer(pc, data, state);
+}
+
+static char* ngx_http_clojure_set_str_slot_and_enable_load_balancer_tag(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
+  ngx_http_clojure_srv_conf_t *lcf = conf;
+  ngx_http_clojure_main_conf_t *mcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_clojure_module);
+  ngx_http_upstream_srv_conf_t *uscf = ngx_http_conf_get_module_srv_conf(cf, ngx_http_upstream_module);
+  mcf->enable_load_balancer = lcf->enable_load_balancer =  1;
+
+  if (uscf->peer.init_upstream) {
+      ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
+                         "load balancing method redefined");
+  }
+
+  uscf->peer.init_upstream = ngx_http_clojure_upstream_init_load_balancer;
+
+  uscf->flags = NGX_HTTP_UPSTREAM_CREATE
+                |NGX_HTTP_UPSTREAM_WEIGHT
+                |NGX_HTTP_UPSTREAM_MAX_CONNS
+                |NGX_HTTP_UPSTREAM_MAX_FAILS
+                |NGX_HTTP_UPSTREAM_FAIL_TIMEOUT
+                |NGX_HTTP_UPSTREAM_DOWN;
+
   return ngx_conf_set_str_slot(cf, cmd, conf);
 }
 

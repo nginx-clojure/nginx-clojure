@@ -7,6 +7,8 @@ package nginx.clojure;
 
 
 import static nginx.clojure.MiniConstants.NGINX_VER;
+import static nginx.clojure.MiniConstants.NGX_HTTP_CLOJURE_REQ_POOL_OFFSET;
+import static nginx.clojure.NginxClojureRT.UNSAFE;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
@@ -1550,6 +1552,38 @@ public class NginxClojureRT extends MiniConstants {
 		return rc;
 	}
 	
+	public static int handleLoadBalancerResponse(NginxRequest req, long c, NginxResponse resp) {
+		if (resp == null) {
+			return NGX_HTTP_NOT_FOUND;
+		}
+		
+		int status = resp.fetchStatus(NGX_ERROR);
+		if (status != NGX_HTTP_OK) {
+			return status;
+		}
+		
+		Object body = resp.fetchBody();
+		if (body == null) {
+			return NGX_HTTP_NOT_FOUND;
+		}
+		
+		long idxOrLenAddr = UNSAFE.getAddress(c);
+		long urlAddr = UNSAFE.getAddress(c + NGX_HTTP_CLOJURE_UINT_SIZE);
+		long pool = UNSAFE.getAddress(req.nativeRequest() + NGX_HTTP_CLOJURE_REQ_POOL_OFFSET);
+		if (body instanceof String) {
+			String url = (String)body;
+			pushNGXInt(idxOrLenAddr, url.length());
+			pushString(urlAddr, url, DEFAULT_ENCODING, pool);
+		} else if (body instanceof Integer) {
+			pushNGXInt(idxOrLenAddr, (Integer)body);
+		} else {
+			log.error("bad load balancer result type :" + body.getClass() + ", should be integer or string");
+			return NGX_ERROR;
+		}
+		
+		return NGX_OK;
+	}
+	
 	public static int handleResponse(NginxRequest r, final NginxResponse resp) {
 		if (Thread.currentThread() != NGINX_MAIN_THREAD) {
 			throw new RuntimeException("handleResponse can not be called out of nginx clojure main thread!");
@@ -1559,6 +1593,7 @@ public class NginxClojureRT extends MiniConstants {
 			return NGX_HTTP_NOT_FOUND;
 		}
 		int phase = r.phase();
+		
 		if (resp.type() == NginxResponse.TYPE_FAKE_PHASE_DONE) {
 			if (phase == NGX_HTTP_REWRITE_PHASE || phase == NGX_HTTP_ACCESS_PHASE) {
 				return NGX_DECLINED;

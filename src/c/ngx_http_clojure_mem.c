@@ -4565,7 +4565,7 @@ int ngx_http_clojure_register_script(ngx_int_t phase, ngx_str_t *handler_type,
 	return NGX_HTTP_CLOJURE_JVM_OK;
 }
 
-int ngx_http_clojure_eval(int cid, ngx_http_request_t *r, ngx_chain_t *c) {
+int ngx_http_clojure_eval(int cid, ngx_http_request_t *r, void *c) {
 	JNIEnv *env = jvm_env;
 	int rc;
 /*	log_debug1(ngx_http_clojure_global_cycle->log, "ngx clojure eval request: %ul", (uintptr_t)r);*/

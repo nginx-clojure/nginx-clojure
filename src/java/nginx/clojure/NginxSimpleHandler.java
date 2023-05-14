@@ -16,6 +16,7 @@ import static nginx.clojure.MiniConstants.NGX_HTTP_CONTENT_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_INTERNAL_SERVER_ERROR;
 import static nginx.clojure.MiniConstants.NGX_HTTP_LOG_PHASE;
+import static nginx.clojure.MiniConstants.NGX_HTTP_LOAD_BALANCE_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NO_CONTENT;
 import static nginx.clojure.MiniConstants.NGX_HTTP_OK;
 import static nginx.clojure.MiniConstants.NGX_HTTP_SWITCHING_PROTOCOLS;
@@ -24,6 +25,7 @@ import static nginx.clojure.MiniConstants.RESP_CONTENT_TYPE_HOLDER;
 import static nginx.clojure.NginxClojureRT.UNSAFE;
 import static nginx.clojure.NginxClojureRT.coroutineEnabled;
 import static nginx.clojure.NginxClojureRT.handleResponse;
+import static nginx.clojure.NginxClojureRT.handleLoadBalancerResponse;
 import static nginx.clojure.NginxClojureRT.log;
 import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_build_file_chain;
 import static nginx.clojure.NginxClojureRT.ngx_http_clojure_mem_build_temp_chain;
@@ -102,6 +104,11 @@ public abstract class NginxSimpleHandler implements NginxHandler, Configurable {
 		final NginxRequest req = makeRequest(r, c);
 		final int phase = req.phase();
 		boolean isWebSocket = req.isWebSocket();
+		
+		if (phase == NGX_HTTP_LOAD_BALANCE_PHASE) {
+			NginxResponse resp = handleRequest(req);
+			return handleLoadBalancerResponse(req, c,  resp);
+		}
 		
 		if (forcePrefetchAllProperties) {
 			//for safe access with another thread

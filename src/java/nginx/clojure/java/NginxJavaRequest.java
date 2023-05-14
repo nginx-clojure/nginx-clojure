@@ -352,6 +352,14 @@ public class NginxJavaRequest implements NginxRequest, Map<String, Object> {
 	public void clear() {
 		this.array = new Object[0];
 	}
+	
+	public Object[] balancerResult(int index) {
+		return new Object[] {200, null, index};
+	}
+	
+	public Object[] balancerResult(String url) {
+		return new Object[] {200, null, url};
+	}
 
 	private class KeySet extends AbstractSet<String> {
 

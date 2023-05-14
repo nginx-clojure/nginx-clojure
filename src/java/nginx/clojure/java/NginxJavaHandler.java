@@ -7,6 +7,7 @@ package nginx.clojure.java;
 import static nginx.clojure.MiniConstants.BODY;
 import static nginx.clojure.MiniConstants.NGX_HTTP_BODY_FILTER_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_HEADER_FILTER_PHASE;
+import static nginx.clojure.MiniConstants.NGX_HTTP_LOAD_BALANCE_PHASE;
 import static nginx.clojure.MiniConstants.NGX_HTTP_NOT_FOUND;
 import static nginx.clojure.NginxClojureRT.log;
 import static nginx.clojure.java.Constants.ASYNC_TAG;
@@ -166,6 +167,10 @@ public class NginxJavaHandler extends NginxSimpleHandler {
 			NginxHttpServerChannel channel = req.channel();
 			channel.setIgnoreFilter(ignoreFilter);
 			return channel;
+		}
+		
+		if (req.phase() == NGX_HTTP_LOAD_BALANCE_PHASE) {
+			throw new IllegalAccessError("load balancer request doesn't support hijack!");
 		}
 
 		if (log.isDebugEnabled()) {

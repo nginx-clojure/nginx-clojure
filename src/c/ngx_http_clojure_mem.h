@@ -41,7 +41,7 @@ typedef unsigned __int64 uint64_t;
 #define JVM_CP_SEP_S ":"
 #endif
 
-#define nginx_clojure_ver  6001 /*0.6.0*/
+#define nginx_clojure_ver  6001 /*0.6.1*/
 
 /*the least jar version required*/
 #define nginx_clojure_required_rt_lver 5002
@@ -49,6 +49,9 @@ typedef unsigned __int64 uint64_t;
 #define NGINX_CLOJURE_VER_NUM_STR "0.6.1"
 
 #define NGINX_CLOJURE_VER "nginx-clojure/" NGINX_CLOJURE_VER_NUM_STR
+
+/*fake phase for load balance handler*/
+#define NGX_HTTP_LOAD_BALANCE_PHASE  16
 
 /*fake phase for filter*/
 #define NGX_HTTP_INIT_PROCESS_PHASE  17
@@ -86,6 +89,7 @@ typedef struct {
 	unsigned enable_body_filter :1;
 	unsigned enable_access_handler : 1;
 	unsigned enable_log_handler : 1;
+	unsigned enable_load_balancer : 1;
 	ngx_str_t jvm_handler_type;
 	ngx_str_t jvm_init_handler_code;
 	ngx_int_t jvm_init_handler_id;
@@ -145,6 +149,27 @@ typedef struct {
 	ngx_array_t *log_handler_properties;
 	size_t write_page_size;
 } ngx_http_clojure_loc_conf_t;
+
+
+typedef struct {
+  unsigned enable_load_balancer :1;
+  ngx_str_t load_balancer_type;
+  ngx_str_t load_balancer_code;
+  ngx_int_t load_balancer_id;
+  ngx_str_t load_balancer_name;
+  ngx_array_t *load_balancer_properties;
+} ngx_http_clojure_srv_conf_t;
+
+typedef struct {
+    /* the round robin data must be first */
+    ngx_http_upstream_rr_peer_data_t  rrp;
+    ngx_http_clojure_srv_conf_t  *conf;
+    ngx_http_request_t *r;
+    ngx_int_t peer_pos_or_len;
+    u_char *peer_url;
+    /* ngx_uint_t  tries; */
+    /* ngx_event_get_peer_pt  get_rr_peer; */
+} ngx_http_clojure_upstream_load_balancer_peer_data_t;
 
 typedef struct ngx_http_clojure_listener_node_s {
 	void *listener;
@@ -606,7 +631,7 @@ int ngx_http_clojure_destroy_memory_util(ngx_log_t *log);
 int ngx_http_clojure_register_script(ngx_int_t phase, ngx_str_t *handler_type,
 		ngx_str_t *handler, ngx_str_t *code, ngx_array_t *pros, ngx_int_t *pcid);
 
-int ngx_http_clojure_eval(int cid, ngx_http_request_t *r, ngx_chain_t *c);
+int ngx_http_clojure_eval(int cid, ngx_http_request_t *r, void *c);
 
 ngx_int_t ngx_http_clojure_hijack_send_header(ngx_http_request_t *r, ngx_int_t flag);
 
