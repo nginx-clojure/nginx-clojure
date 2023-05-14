@@ -2516,7 +2516,7 @@ static ngx_int_t ngx_http_clojure_upstream_init_load_balancer_peer(ngx_http_requ
     return NGX_ERROR;
   }
 
-  pd->peer_pos_or_len = -1;
+  pd->peer_pos_or_len = NGX_CONF_UNSET_UINT;
   pd->peer_url = NULL;
 
   r->upstream->peer.data = &pd->rrp;

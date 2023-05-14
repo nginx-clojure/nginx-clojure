@@ -165,7 +165,7 @@ typedef struct {
     ngx_http_upstream_rr_peer_data_t  rrp;
     ngx_http_clojure_srv_conf_t  *conf;
     ngx_http_request_t *r;
-    ngx_int_t peer_pos_or_len;
+    ngx_uint_t peer_pos_or_len;
     u_char *peer_url;
     /* ngx_uint_t  tries; */
     /* ngx_event_get_peer_pt  get_rr_peer; */
