@@ -380,8 +380,7 @@ public class Coroutine implements Runnable, Serializable {
     public static void prepareNative() {
     	useNative = true;
     	try {
-			nativeCoroutineBuilder = (NativeCoroutineBuilder) Thread.currentThread().getContextClassLoader()
-					.loadClass("nginx.clojure.NativeCoroutineBuilderImp").newInstance();
+			nativeCoroutineBuilder = (NativeCoroutineBuilder) Coroutine.class.forName("nginx.clojure.NativeCoroutineBuilderImp").newInstance();
 		} catch (Throwable e) {
 			throw new IllegalStateException("can not load nginx.clojure.NativeCoroutineBuilderImp", e);
 		}
