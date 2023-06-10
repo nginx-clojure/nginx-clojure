@@ -679,7 +679,7 @@ static ngx_chain_t * ngx_http_clojure_get_and_copy_bufs(size_t page_size, ngx_po
 
 /*copy from ngx_http_request.c*/
 static void
-ngx_http_close_request(ngx_http_request_t *r, ngx_int_t rc)
+ngx_http_close_requestv2(ngx_http_request_t *r, ngx_int_t rc)
 {
     ngx_connection_t  *c;
 
@@ -755,7 +755,7 @@ static void ngx_http_clojure_hijack_writer(ngx_http_request_t *r) {
 			ngx_add_timer(wev, clcf->send_timeout);
 
 			if (ngx_handle_write_event(wev, clcf->send_lowat) != NGX_OK) {
-				ngx_http_close_request(r, 0);
+				ngx_http_close_requestv2(r, 0);
 			}
 
 			return;
@@ -767,7 +767,7 @@ static void ngx_http_clojure_hijack_writer(ngx_http_request_t *r) {
 		ngx_log_debug0(NGX_LOG_DEBUG_HTTP, wev->log, 0, "clojure module hijack writer delayed");
 
 		if (ngx_handle_write_event(wev, clcf->send_lowat) != NGX_OK) {
-			ngx_http_close_request(r, 0);
+			ngx_http_close_requestv2(r, 0);
 		}
 
 		return;
@@ -794,7 +794,7 @@ static void ngx_http_clojure_hijack_writer(ngx_http_request_t *r) {
 		}
 
 		if (ngx_handle_write_event(wev, clcf->send_lowat) != NGX_OK) {
-			ngx_http_close_request(r, 0);
+			ngx_http_close_requestv2(r, 0);
 		}
 
 		if (ctx->wsctx) {
