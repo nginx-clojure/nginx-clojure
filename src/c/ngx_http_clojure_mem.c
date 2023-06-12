@@ -677,6 +677,7 @@ static ngx_chain_t * ngx_http_clojure_get_and_copy_bufs(size_t page_size, ngx_po
 	return cl;
 }
 
+#if defined(nginx_version) && (nginx_version < 1025000)
 /*copy from ngx_http_request.c*/
 static void
 ngx_http_close_request(ngx_http_request_t *r, ngx_int_t rc)
@@ -709,6 +710,7 @@ ngx_http_close_request(ngx_http_request_t *r, ngx_int_t rc)
     ngx_http_free_request(r, rc);
     ngx_http_close_connection(c);
 }
+#endif
 
 static void ngx_http_clojure_hijack_async_timeout_handler(ngx_http_request_t *r) {
 	ngx_connection_t *c = r->connection;
