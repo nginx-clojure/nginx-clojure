@@ -1646,7 +1646,6 @@ static ngx_int_t ngx_http_clojure_check_access_jvm_cp(ngx_http_clojure_main_conf
 		ngx_uid_t ouid = geteuid();
 		ngx_gid_t ogid = getegid();
 		char *username = ccf->username;
-		struct passwd *pw;
 
 		/*TODO: remove this check when we merge -Djava.class.path with jvm_classpath.*/
 		if (!mcf->jvm_cp) {
