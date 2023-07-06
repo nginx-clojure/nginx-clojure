@@ -1671,7 +1671,7 @@ static ngx_int_t ngx_http_clojure_check_access_jvm_cp(ngx_http_clojure_main_conf
 			}
 			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "geteuid now %ud:%ud", geteuid(), getegid());
 		}
-		
+
 		for (i = 0; i < mcf->jvm_cp->nelts; i++) {
 			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "checking %V, nginx user with id : %ud ", &elts[i], ouid);
 			if (ngx_http_clojure_faccessat((char *)elts[i].data, log) != 0) {
