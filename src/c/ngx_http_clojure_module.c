@@ -1670,23 +1670,20 @@ static ngx_int_t ngx_http_clojure_check_access_jvm_cp(ngx_http_clojure_main_conf
 				return NGX_ERROR;
 			}
 			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "geteuid now %ud:%ud", geteuid(), getegid());
-		}else if (ccf->user == (uid_t) NGX_CONF_UNSET_UINT) {
-			pw = getpwuid (ouid);
-			username = pw->pw_name;
 		}
-
+		
 		for (i = 0; i < mcf->jvm_cp->nelts; i++) {
-			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "checking %V, nginx user:%s", &elts[i], username);
+			ngx_log_debug2(NGX_LOG_DEBUG_CORE, log, 0, "checking %V, nginx user with id : %ud ", &elts[i], ouid);
 			if (ngx_http_clojure_faccessat((char *)elts[i].data, log) != 0) {
 				err = ngx_errno;
-				ngx_log_error(NGX_LOG_EMERG, log, err, "check access jvm classpath file \"%V\" failed by os user \"%s\"", &elts[i], username);
+				ngx_log_error(NGX_LOG_EMERG, log, err, "check access jvm classpath file \"%V\" failed by os user with id  \"%ud\"", &elts[i], ouid);
 				rc = NGX_ERROR;
 
 				if (err == EACCES) {
 					ngx_log_error(NGX_LOG_EMERG, log, 0,
-							"it is caused by os user \"%s\" has no direct access permission, "
+							"it is caused by os user with id \"%ud\" has no direct access permission, "
 									"or search permission (viz. x-permission for a directory) is denied "
-									"for one of the directories in the path prefix of pathname", username);
+									"for one of the directories in the path prefix of pathname", ouid);
 				}
 				break;
 			}
