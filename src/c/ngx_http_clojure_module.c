@@ -2562,20 +2562,16 @@ static ngx_int_t ngx_http_clojure_upstream_get_load_balancer_peer(ngx_peer_conne
 
     ngx_http_clojure_init_ctx(ctx, NGX_HTTP_LOAD_BALANCE_PHASE, r);
     ngx_http_set_ctx(r, ctx, ngx_http_clojure_module);
-#if (NGX_DEBUG)
     rc = ngx_http_clojure_eval(scf->load_balancer_id, r, pi);
+#if (NGX_DEBUG)
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0, "ngx clojure balancer (null ctx) request: %" PRIu64 ", rc: %d", (jlong)(uintptr_t)r, rc);
-#else
-    rc = ngx_http_clojure_eval(lcf->log_handler_id, r, pi);
 #endif
   } else {
     ctx->hijacked_or_async = 0;
     ctx->phase = NGX_HTTP_LOAD_BALANCE_PHASE;
-#if (NGX_DEBUG)
     rc = ngx_http_clojure_eval(scf->load_balancer_id, r, pi);
+#if (NGX_DEBUG)
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, ngx_http_clojure_global_cycle->log, 0, "ngx clojure balancer (else) request: %" PRIu64 ", rc: %d", (jlong)(uintptr_t)r, rc);
-#else
-    rc = ngx_http_clojure_eval(lcf->log_handler_id, r, pi);
 #endif
   }
 
