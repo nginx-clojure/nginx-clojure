@@ -3115,19 +3115,25 @@ static jlong JNICALL jni_ngx_http_filter_continue_next(JNIEnv *env, jclass cls, 
 
     return rc;
   } else {
+#if (NGX_DEBUG)
     int len = 0;
+#endif
     ngx_chain_t *ci = in;
     int is_last = 0;
     while (ci) {
       if (ci->buf->last_buf) {
         is_last = 1;
       }
+#if (NGX_DEBUG)
       len += ngx_buf_size(ci->buf);
+#endif
       ci = ci->next;
     }
 
+#if (NGX_DEBUG)
     ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                                  "jni_ngx_http_filter_continue_next, chain=%" PRIu64 ", size=%d, is_last=%d", chain, len, is_last);
+#endif
     rc = ngx_http_clojure_filter_continue_next_body_filter(r, in);
 
     if (!is_last && old_in) {
